@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// Zapier pings with GET before sending POST — return 200
+export async function GET() {
+  return NextResponse.json({ ok: true })
+}
+
 // ─── Simple secret key auth ───────────────────────────────────────────────────
 
 function verifySecret(request: NextRequest): boolean {
