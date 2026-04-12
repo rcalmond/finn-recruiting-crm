@@ -17,7 +17,7 @@ function verifySecret(request: NextRequest): boolean {
 
 // Subject format: "Ben Cross (University of Rochester) Sent You a Message"
 function parseSRSubject(subject: string): { coachName: string; schoolName: string } | null {
-  const match = subject.match(/^(.+?)\s+\((.+?)\)\s+Sent You a Message/i)
+  const match = subject.match(/^(.+?)\s+\((.+?)\)\s+Sent (?:You|Finn) a Message/i)
   if (!match) return null
   return { coachName: match[1].trim(), schoolName: match[2].trim() }
 }
