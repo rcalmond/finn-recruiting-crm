@@ -35,16 +35,19 @@ export function useSchools() {
       .from('schools')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
+    if (!error) setSchools(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s))
     return error
   }, [supabase])
 
   const insertSchool = useCallback(async (school: Omit<School, 'id' | 'created_at' | 'updated_at'>) => {
-    const { error } = await supabase.from('schools').insert(school)
+    const { data, error } = await supabase.from('schools').insert(school).select().single()
+    if (!error && data) setSchools(prev => [...prev, data as School].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name)))
     return error
   }, [supabase])
 
   const deleteSchool = useCallback(async (id: string) => {
     const { error } = await supabase.from('schools').delete().eq('id', id)
+    if (!error) setSchools(prev => prev.filter(s => s.id !== id))
     return error
   }, [supabase])
 
@@ -79,17 +82,20 @@ export function useContactLog(schoolId?: string) {
   }, [fetchEntries, supabase, schoolId])
 
   const insertContact = useCallback(async (entry: Omit<ContactLogEntry, 'id' | 'created_at' | 'school'>) => {
-    const { error } = await supabase.from('contact_log').insert(entry)
+    const { data, error } = await supabase.from('contact_log').insert(entry).select('*, school:schools(id, name, short_name)').single()
+    if (!error && data) setEntries(prev => [data as ContactLogEntry, ...prev])
     return error
   }, [supabase])
 
   const insertContacts = useCallback(async (entries: Omit<ContactLogEntry, 'id' | 'created_at' | 'school'>[]) => {
-    const { error } = await supabase.from('contact_log').insert(entries)
+    const { data, error } = await supabase.from('contact_log').insert(entries).select('*, school:schools(id, name, short_name)')
+    if (!error && data) setEntries(prev => [...(data as ContactLogEntry[]), ...prev])
     return error
   }, [supabase])
 
   const deleteEntry = useCallback(async (id: string) => {
     const { error } = await supabase.from('contact_log').delete().eq('id', id)
+    if (!error) setEntries(prev => prev.filter(e => e.id !== id))
     return error
   }, [supabase])
 
