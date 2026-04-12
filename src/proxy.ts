@@ -37,7 +37,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (user && isAuthRoute) {
+  const isUpdatePassword = request.nextUrl.pathname === '/auth/update-password'
+
+  if (user && isAuthRoute && !isUpdatePassword) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
