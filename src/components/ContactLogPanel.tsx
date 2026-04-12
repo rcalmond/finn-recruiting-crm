@@ -111,7 +111,7 @@ function ContactEntryRow({ entry, schoolName, onDelete }: { entry: ContactLogEnt
           <span style={{ padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: dirBg, color: dirColor }}>{entry.direction}</span>
           {entry.coach_name && <span style={{ fontSize: 12, color: '#64748b' }}>{entry.coach_name}</span>}
         </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', shrink: 0 }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
           <span style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(entry.date)}</span>
           <button onClick={() => setExpanded(!expanded)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>{expanded ? '▲' : '▼'}</button>
           <button onClick={onDelete} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>×</button>
