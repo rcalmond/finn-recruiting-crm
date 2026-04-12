@@ -22,8 +22,14 @@ export default function DashboardClient({ user }: { user: User }) {
   const { schools, loading, updateSchool, insertSchool, deleteSchool } = useSchools()
   const { entries: contactLog } = useContactLog()
   const [tab, setTab] = useState<Tab>('dashboard')
+  const [pipelineFilters, setPipelineFilters] = useState<Record<string, unknown>>({})
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null)
   const [addingSchool, setAddingSchool] = useState(false)
+
+  function handleNavigate(dest: 'pipeline' | 'actions', filters?: Record<string, unknown>) {
+    setPipelineFilters(filters ?? {})
+    setTab(dest)
+  }
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -110,13 +116,14 @@ export default function DashboardClient({ user }: { user: User }) {
         {loading && <div style={{ textAlign: 'center', padding: 60, color: '#94a3b8' }}>Loading…</div>}
 
         {!loading && tab === 'dashboard' && (
-          <DashboardView schools={schools} contactLog={contactLog} />
+          <DashboardView schools={schools} contactLog={contactLog} onNavigate={handleNavigate} onSelectSchool={setSelectedSchool} />
         )}
         {!loading && tab === 'pipeline' && (
           <PipelineTable
             schools={schools}
             onSelectSchool={setSelectedSchool}
             onUpdateSchool={updateSchool}
+            initialFilters={pipelineFilters as never}
           />
         )}
         {!loading && tab === 'actions' && (

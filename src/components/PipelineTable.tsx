@@ -23,10 +23,11 @@ interface Props {
   schools: School[]
   onSelectSchool: (s: School) => void
   onUpdateSchool: (id: string, updates: Partial<School>) => Promise<unknown>
+  initialFilters?: Partial<PipelineFilters>
 }
 
-export default function PipelineTable({ schools, onSelectSchool, onUpdateSchool }: Props) {
-  const [filters, setFilters] = useState<PipelineFilters>(DEFAULT_FILTERS)
+export default function PipelineTable({ schools, onSelectSchool, onUpdateSchool, initialFilters }: Props) {
+  const [filters, setFilters] = useState<PipelineFilters>({ ...DEFAULT_FILTERS, ...initialFilters })
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'category', dir: 'asc' })
   const today = todayStr()
 
@@ -36,12 +37,14 @@ export default function PipelineTable({ schools, onSelectSchool, onUpdateSchool 
     if (filters.division && s.division !== filters.division) return false
     if (filters.admit && s.admit_likelihood !== filters.admit) return false
     if (filters.owner && s.next_action_owner !== filters.owner) return false
+    if (filters.stale && !(s.last_contact && daysBetween(s.last_contact) > 60)) return false
+    if (filters.overdue && !(s.next_action_due && s.next_action_due < today)) return false
     if (filters.search) {
       const q = filters.search.toLowerCase()
       if (!s.name.toLowerCase().includes(q) && !(s.short_name ?? '').toLowerCase().includes(q)) return false
     }
     return true
-  }), [schools, filters])
+  }), [schools, filters, today])
 
   const sorted = useMemo(() => {
     const dir = sort.dir === 'asc' ? 1 : -1
@@ -64,6 +67,7 @@ export default function PipelineTable({ schools, onSelectSchool, onUpdateSchool 
   }
 
   const hasFilters = Object.values(filters).some(Boolean)
+  const specialLabel = filters.stale ? 'Stale schools (60+ days no contact)' : filters.overdue ? 'Schools with overdue actions' : null
 
   return (
     <div>
@@ -84,6 +88,11 @@ export default function PipelineTable({ schools, onSelectSchool, onUpdateSchool 
           <button onClick={() => setFilters(DEFAULT_FILTERS)} style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Clear</button>
         )}
       </div>
+      {specialLabel && (
+        <div style={{ marginBottom: 8, padding: '6px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 12, color: '#1d4ed8', fontWeight: 600, display: 'inline-block' }}>
+          {specialLabel}
+        </div>
+      )}
       <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>{sorted.length} of {schools.length} schools</div>
 
       {/* Table */}

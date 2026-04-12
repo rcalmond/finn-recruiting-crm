@@ -6,12 +6,18 @@ import { ADMIT_COLORS, CATEGORY_COLORS, STATUS_COLORS, daysBetween, todayStr } f
 const STATUSES = ['Not Contacted', 'Intro Sent', 'Ongoing Conversation', 'Visit Scheduled', 'Offer', 'Inactive'] as const
 const ADMIT_LEVELS = ['Likely', 'Target', 'Reach', 'Far Reach'] as const
 
-function StatCard({ label, value, sub, color }: { label: string; value: number; sub?: string; color?: string }) {
+function StatCard({ label, value, sub, color, onClick }: { label: string; value: number; sub?: string; color?: string; onClick?: () => void }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 20px', flex: '1 1 140px', minWidth: 140 }}>
+    <div
+      onClick={onClick}
+      style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 20px', flex: '1 1 140px', minWidth: 140, cursor: onClick ? 'pointer' : 'default', transition: 'box-shadow 0.15s' }}
+      onMouseEnter={e => { if (onClick) e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)' }}
+      onMouseLeave={e => { if (onClick) e.currentTarget.style.boxShadow = 'none' }}
+    >
       <div style={{ fontSize: 28, fontWeight: 700, color: color || '#0f172a', letterSpacing: '-0.02em' }}>{value}</div>
       <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginTop: 2 }}>{label}</div>
       {sub && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{sub}</div>}
+      {onClick && <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>Click to view →</div>}
     </div>
   )
 }
@@ -29,7 +35,14 @@ function MiniBar({ label, count, total, color }: { label: string; count: number;
   )
 }
 
-export default function DashboardView({ schools, contactLog }: { schools: School[]; contactLog: ContactLogEntry[] }) {
+interface DashboardViewProps {
+  schools: School[]
+  contactLog: ContactLogEntry[]
+  onNavigate: (tab: 'pipeline' | 'actions', filters?: Record<string, unknown>) => void
+  onSelectSchool: (s: School) => void
+}
+
+export default function DashboardView({ schools, contactLog, onNavigate, onSelectSchool }: DashboardViewProps) {
   const active = schools.filter(s => s.status !== 'Inactive' && s.category !== 'Nope')
   const nope = schools.filter(s => s.category === 'Nope')
   const today = todayStr()
@@ -56,10 +69,10 @@ export default function DashboardView({ schools, contactLog }: { schools: School
     <div>
       {/* Top stats */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
-        <StatCard label="Active Schools" value={active.length} sub={`+ ${nope.length} parked`} />
-        <StatCard label="Ongoing Conversations" value={ongoing.length} color="#2563eb" />
-        <StatCard label="Overdue Actions" value={overdue.length} color={overdue.length > 0 ? '#dc2626' : '#10b981'} />
-        <StatCard label="Stale (60+ days)" value={stale.length} color={stale.length > 5 ? '#f59e0b' : '#10b981'} sub="No contact" />
+        <StatCard label="Active Schools" value={active.length} sub={`+ ${nope.length} parked`} onClick={() => onNavigate('pipeline')} />
+        <StatCard label="Ongoing Conversations" value={ongoing.length} color="#2563eb" onClick={() => onNavigate('pipeline', { status: 'Ongoing Conversation' })} />
+        <StatCard label="Overdue Actions" value={overdue.length} color={overdue.length > 0 ? '#dc2626' : '#10b981'} onClick={() => onNavigate('actions')} />
+        <StatCard label="Stale (60+ days)" value={stale.length} color={stale.length > 5 ? '#f59e0b' : '#10b981'} sub="No contact" onClick={() => onNavigate('pipeline', { stale: true })} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
@@ -127,7 +140,7 @@ export default function DashboardView({ schools, contactLog }: { schools: School
             {stale
               .sort((a, b) => (a.last_contact || '') < (b.last_contact || '') ? -1 : 1)
               .map(s => (
-                <span key={s.id} style={{ padding: '3px 8px', borderRadius: 4, background: '#fef3c7', fontSize: 11, fontWeight: 600, color: '#92400e' }}>
+                <span key={s.id} onClick={() => onSelectSchool(s)} style={{ padding: '3px 8px', borderRadius: 4, background: '#fef3c7', fontSize: 11, fontWeight: 600, color: '#92400e', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted' }}>
                   {s.short_name || s.name} ({daysBetween(s.last_contact!)}d)
                 </span>
               ))}

@@ -60,4 +60,6 @@ export interface PipelineFilters {
   admit: AdmitLikelihood | ''
   owner: ActionOwner | ''
   search: string
+  stale?: boolean
+  overdue?: boolean
 }
