@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 
-// ─── Mailgun webhook verification ────────────────────────────────────────────
+// ─── Simple secret key auth ───────────────────────────────────────────────────
 
-function verifyMailgun(timestamp: string, token: string, signature: string): boolean {
-  const signingKey = process.env.MAILGUN_WEBHOOK_SIGNING_KEY
-  if (!signingKey) return false
-  const hash = crypto
-    .createHmac('sha256', signingKey)
-    .update(timestamp + token)
-    .digest('hex')
-  return hash === signature
+function verifySecret(request: NextRequest): boolean {
+  const key = request.nextUrl.searchParams.get('key')
+  return key === process.env.INBOUND_SECRET
 }
 
 // ─── SR email parsing ─────────────────────────────────────────────────────────
@@ -38,7 +32,6 @@ function extractBody(text: string): string {
 // ─── School matching ──────────────────────────────────────────────────────────
 
 async function findSchool(supabase: ReturnType<typeof createClient>, schoolName: string) {
-  // 1. Exact match (case-insensitive)
   const { data: exact } = await supabase
     .from('schools')
     .select('id, name')
@@ -46,7 +39,6 @@ async function findSchool(supabase: ReturnType<typeof createClient>, schoolName:
     .limit(1)
   if (exact && exact.length > 0) return exact[0]
 
-  // 2. Partial match — try each significant word
   const words = schoolName.split(' ').filter(w => w.length > 4)
   for (const word of words) {
     const { data } = await supabase
@@ -63,21 +55,16 @@ async function findSchool(supabase: ReturnType<typeof createClient>, schoolName:
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  const formData = await request.formData()
-
-  const timestamp = formData.get('timestamp') as string
-  const token     = formData.get('token') as string
-  const signature = formData.get('signature') as string
-
-  if (!verifyMailgun(timestamp, token, signature)) {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+  if (!verifySecret(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const subject   = (formData.get('subject') as string) || ''
-  const bodyPlain = (formData.get('body-plain') as string) || ''
-  const dateStr   = (formData.get('Date') as string) || (formData.get('date') as string) || ''
+  const body = await request.json() as { subject?: string; body_plain?: string; date?: string }
 
-  // Only process SR coach notification emails
+  const subject   = body.subject   || ''
+  const bodyPlain = body.body_plain || ''
+  const dateStr   = body.date      || ''
+
   const parsed = parseSRSubject(subject)
   if (!parsed) {
     return NextResponse.json({ ok: true, skipped: 'not an SR coach notification' })
@@ -87,9 +74,8 @@ export async function POST(request: NextRequest) {
   const summary = extractBody(bodyPlain)
   const date = dateStr
     ? new Date(dateStr).toISOString().split('T')[0]
-    : new Date(parseInt(timestamp) * 1000).toISOString().split('T')[0]
+    : new Date().toISOString().split('T')[0]
 
-  // Use service role key — no user session in webhook context
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
