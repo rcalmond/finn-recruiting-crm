@@ -64,6 +64,12 @@ export default function DashboardClient({ user }: { user: User }) {
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <span style={{ fontSize: 12, color: '#94a3b8' }}>{user.email}</span>
             <button
+              onClick={() => router.push('/auth/update-password')}
+              style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', color: '#64748b', fontFamily: 'inherit' }}
+            >
+              Change password
+            </button>
+            <button
               onClick={handleSignOut}
               style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', color: '#64748b', fontFamily: 'inherit' }}
             >
