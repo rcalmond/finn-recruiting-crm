@@ -26,21 +26,21 @@ const EMAIL_TEMPLATES: EmailTemplate[] = [
       subject: `Class of 2027 Left Wingback — Interested in ${school.short_name || school.name}`,
       body: `Coach ${coachLastName(school)},
 
-My name is Finn Almond and I'm a Class of 2027 left wingback from Lafayette, CO. I play for Albion SC Colorado in the MLS NEXT Academy (U19) and attend Alexander Dawson School.
+My name is Finn Almond and I'm a Class of 2027 left wingback from Lafayette, CO. I play for Albion SC Boulder County in the MLS NEXT Academy (U19) and attend Alexander Dawson School.
 
-I'm reaching out because I'm very interested in ${school.name} — both the ${school.division === 'D1' ? `competitiveness of the ${school.conference || ''} program` : `quality of the program`} and the engineering program. I'm pursuing mechanical/aerospace engineering and your school stands out for the combination of strong academics and competitive soccer.
+I'm reaching out because I'm very interested in ${school.name} — both the ${school.division === 'D1' ? `competitiveness of the ${school.conference || ''} program` : `quality of the program`} and the academic opportunities, particularly in engineering. I'm pursuing mechanical/aerospace engineering and your school stands out for the combination of strong academics and competitive soccer.
 
 A bit about me:
-• Position: Left Wingback (transitioned from striker — strong attacking background)
-• Left-footed, comfortable with right
-• 5'11" / 165 lbs
-• GPA: 3.57 UW / 3.78 W — AP Calc AB, AP Chem, AP US History, Physics
-• SAT: 1340 (Math 690)
-• 2025 HS Season: 29 goals, 14 assists in 16 games (as striker/CAM); 2nd Team All-State
-• Current Albion SC season: Playing left wingback in MLS NEXT
+• Position: Left Wingback — strong attacking background as a striker/CAM
+• Left-footed, comfortable with right | 5'11" / 165 lbs
+• NCAA ID: 2405288624
+• GPA: 3.57 UW / 3.78 W | AP Calc AB, AP Chem, AP US History, Mandarin | National Honor Society
+• SAT: 1340 (Math 690, EBRW 650)
+• 2024 HS Season (Junior): 29 goals, 14 assists in 16 games — 2nd Team All-State, 1st Team All-Conference, Team MVP
+• 2025–26 Club Season: 13 games at left wingback, Albion SC Boulder County MLS NEXT Academy U19
 
-Here is my wingback highlight reel: [WINGBACK REEL LINK]
-Here is my striker highlight reel (showing attacking versatility): https://www.youtube.com/watch?v=PFdDT5YVHQc&t=2s
+Highlight Reel: https://www.youtube.com/watch?v=Va_Z09OYcs0
+Full-Game Film: https://youtu.be/Zzp-YMma_8g
 
 I'd love to learn more about your program and what you look for in recruits. Would you be open to a conversation?
 
@@ -54,31 +54,32 @@ Sports Recruits: https://my.sportsrecruits.com/athlete/finn_almond`,
   {
     id: 'wingback_update',
     name: 'Wingback Reel Update',
-    description: "Share the new wingback highlight reel with a coach you've already contacted.",
+    description: "Share an updated highlight reel with a coach you've already contacted.",
     generate: (school) => ({
       subject: `Updated Highlight Reel — Finn Almond, 2027 Left Wingback`,
       body: `Coach ${coachLastName(school)},
 
-I hope you're doing well. I wanted to share an update and my new highlight reel showcasing my play at left wingback this season with Albion SC in MLS NEXT.
+I hope you're doing well. I wanted to share an update and my latest highlight reel showcasing my play at left wingback this season with Albion SC Boulder County in MLS NEXT.
 
-Since we last connected, I've made a full transition to left wingback — a position that leverages my attacking background (1v1 ability, left-footed delivery, and final-third combination play) while adding the defensive side of the game. This reel highlights overlapping runs, set piece delivery, 1v1 defending, transition play, and pressing.
+This reel highlights overlapping runs, set piece delivery, 1v1 defending, transition play, and pressing — reflecting my development as a two-way wingback built on a strong attacking background.
 
-Wingback Highlight Reel: [WINGBACK REEL LINK]
-Striker Reel (for context on attacking versatility): https://www.youtube.com/watch?v=PFdDT5YVHQc&t=2s
+Highlight Reel: https://www.youtube.com/watch?v=Va_Z09OYcs0
+Full-Game Film: https://youtu.be/Zzp-YMma_8g
 
-Quick update on me:
-• Playing left wingback for Albion SC MLS NEXT Academy (U19)
-• Just competed at MLS NEXT Cup Qualifiers in Scottsdale, AZ (April 2026)
-• GPA: 3.57 UW / 3.78 W — currently taking AP Calc AB, AP Chem, AP US History
-• SAT: 1340 (Math 690)
+Quick update:
+• 2025–26 Club: 13 games at left wingback, Albion SC Boulder County MLS NEXT Academy U19
+• Most recent event: MLS NEXT Cup Qualifiers, Scottsdale, AZ (April 2026)
+• 2024 HS Season: 29 goals, 14 assists in 16 games — 2nd Team All-State, Team MVP
+• GPA: 3.57 UW / 3.78 W | SAT: 1340 (Math 690) | National Honor Society
 • Strong interest in mechanical/aerospace engineering at ${school.short_name || school.name}
 
-I'd love to continue the conversation about your program. Are there any upcoming ID camps or opportunities to visit campus?
+I'd love to continue the conversation. Are there any upcoming ID camps or opportunities to connect?
 
 Thank you,
 Finn Almond
 finnalmond08@gmail.com
-(720) 687-8982`,
+(720) 687-8982
+NCAA ID: 2405288624`,
     }),
   },
   {
@@ -91,22 +92,24 @@ finnalmond08@gmail.com
 
 Thank you for taking the time at [EVENT NAME]. I really enjoyed [learning about your program / the camp / competing in front of your staff].
 
-As a reminder, I'm Finn Almond — a Class of 2027 left wingback playing for Albion SC Colorado in MLS NEXT. I wore #[NUMBER] and played [WHICH GAMES/HALVES].
+As a reminder, I'm Finn Almond — a Class of 2027 left wingback playing for Albion SC Boulder County in MLS NEXT. I wore #[NUMBER] and played [WHICH GAMES/HALVES].
 
 A few things I wanted to highlight from the event:
-• [SPECIFIC MOMENT — e.g., "I felt good about my overlapping run and cross that led to the goal in the second half"]
+• [SPECIFIC MOMENT — e.g., "I felt good about my overlapping run and cross in the second half"]
 • [ANOTHER SPECIFIC MOMENT]
 
-I'm continuing to develop as a two-way wingback and I'm very interested in ${school.name} for both the soccer program and engineering.
+I'm continuing to develop as a two-way wingback and ${school.name} is a top choice for both the soccer program and engineering opportunities.
 
-Wingback Highlight Reel: [WINGBACK REEL LINK]
+Highlight Reel: https://www.youtube.com/watch?v=Va_Z09OYcs0
+Full-Game Film: https://youtu.be/Zzp-YMma_8g
 
 I'd love to keep the conversation going. Would it be possible to schedule a call or visit?
 
 Thank you,
 Finn Almond
 finnalmond08@gmail.com
-(720) 687-8982`,
+(720) 687-8982
+NCAA ID: 2405288624`,
     }),
   },
   {
@@ -117,11 +120,18 @@ finnalmond08@gmail.com
       subject: `Unofficial Visit Request — Finn Almond, 2027 Left Wingback`,
       body: `Coach ${coachLastName(school)},
 
-I hope your season preparation is going well. I'm writing to see if I could schedule an unofficial visit to ${school.short_name || school.name} this [summer/fall]. I'm very interested in your program and would love the chance to see campus, meet the coaching staff, and get a feel for the team culture.
+I hope your season is going well. I'm writing to see if I could schedule an unofficial visit to ${school.short_name || school.name} this [summer/fall]. I'm very interested in your program and would love the chance to see campus, meet the coaching staff, and get a feel for the team culture.
 
-I'm a Class of 2027 left wingback from Albion SC Colorado (MLS NEXT Academy). I'm pursuing mechanical/aerospace engineering and ${school.name} is high on my list for the combination of competitive soccer and strong engineering.
+I'm a Class of 2027 left wingback from Albion SC Boulder County (MLS NEXT Academy). I'm pursuing mechanical/aerospace engineering and ${school.name} is high on my list for the combination of competitive soccer and strong academics.
 
-I'm flexible on dates — would any time in [MONTH RANGE] work for a visit?
+A quick snapshot:
+• GPA: 3.57 UW / 3.78 W | SAT: 1340 | National Honor Society
+• 2024 HS Season: 29 goals, 14 assists — 2nd Team All-State, Team MVP
+• NCAA ID: 2405288624
+
+Highlight Reel: https://www.youtube.com/watch?v=Va_Z09OYcs0
+
+I'm flexible on dates — would any time in [MONTH RANGE] work?
 
 Thank you for your time,
 Finn Almond
@@ -132,7 +142,7 @@ finnalmond08@gmail.com
   {
     id: 'academic_update',
     name: 'Academic / Season Update',
-    description: "Send an academic update (grades, test scores) or season results update.",
+    description: "Send an academic or season results update to a coach.",
     generate: (school) => ({
       subject: `Academic & Season Update — Finn Almond, 2027 Left Wingback`,
       body: `Coach ${coachLastName(school)},
@@ -140,22 +150,27 @@ finnalmond08@gmail.com
 I wanted to send a quick update on my academics and season.
 
 Academic Update:
-• GPA: 3.57 UW / 3.78 W (Cumulative)
-• Junior year coursework: AP Calculus AB, AP Chemistry, AP US History, Mandarin IV
-• SAT: 1340 (Math 690) — [planning to retake in DATE if applicable]
-• Strong interest in mechanical/aerospace engineering
+• GPA: 3.57 UW / 3.78 W (Cumulative) | National Honor Society
+• Current coursework: AP Calculus AB, AP Chemistry, AP US History, Mandarin
+• SAT: 1340 (Math 690, EBRW 650) — [planning to retake in DATE if applicable]
+• AP Human Geography: scored 4
+• Pursuing mechanical/aerospace engineering
 
 Season Update:
-• Playing left wingback for Albion SC Colorado MLS NEXT Academy (U19)
-• [RECENT RESULTS — e.g., "Went 2-1-0 at MLS NEXT Cup Qualifiers in Scottsdale"]
-• [NOTABLE PERFORMANCE — e.g., "Recorded 2 assists and was named to showcase team"]
+• 2025–26 Club: 13 games at left wingback, Albion SC Boulder County MLS NEXT Academy U19
+• Most recent: MLS NEXT Cup Qualifiers, Scottsdale, AZ (April 2026)
+• 2024 HS Season: 29 goals, 14 assists in 16 games — 2nd Team All-State, 1st Team All-Conference, Team MVP
 
-${school.name} remains a top choice for me. I'd love to stay in touch and hear about any upcoming opportunities to connect.
+${school.name} remains a top choice for me. I'd love to stay in touch and hear about upcoming opportunities to connect.
+
+Highlight Reel: https://www.youtube.com/watch?v=Va_Z09OYcs0
+Full-Game Film: https://youtu.be/Zzp-YMma_8g
 
 Thank you,
 Finn Almond
 finnalmond08@gmail.com
-(720) 687-8982`,
+(720) 687-8982
+NCAA ID: 2405288624`,
     }),
   },
 ]
