@@ -36,22 +36,23 @@ function extractBody(text: string): string {
 
 // ─── School matching ──────────────────────────────────────────────────────────
 
-async function findSchool(supabase: ReturnType<typeof createClient>, schoolName: string) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function findSchool(supabase: any, schoolName: string): Promise<{ id: string; name: string } | null> {
   const { data: exact } = await supabase
     .from('schools')
     .select('id, name')
     .ilike('name', schoolName)
     .limit(1)
-  if (exact && exact.length > 0) return exact[0]
+  if (exact && (exact as { id: string; name: string }[]).length > 0) return (exact as { id: string; name: string }[])[0]
 
-  const words = schoolName.split(' ').filter(w => w.length > 4)
+  const words = schoolName.split(' ').filter((w: string) => w.length > 4)
   for (const word of words) {
     const { data } = await supabase
       .from('schools')
       .select('id, name')
       .ilike('name', `%${word}%`)
       .limit(1)
-    if (data && data.length > 0) return data[0]
+    if (data && (data as { id: string; name: string }[]).length > 0) return (data as { id: string; name: string }[])[0]
   }
 
   return null
