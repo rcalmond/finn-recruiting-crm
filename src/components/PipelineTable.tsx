@@ -12,6 +12,13 @@ const OWNERS: ActionOwner[] = ['Finn', 'Randy']
 
 const DEFAULT_FILTERS: PipelineFilters = { status: '', category: '', division: '', admit: '', owner: '', search: '' }
 
+type SortKey = 'name' | 'division' | 'status' | 'admit_likelihood' | 'category' | 'last_contact' | 'next_action_due'
+type SortDir = 'asc' | 'desc'
+
+const CATEGORY_ORDER: Record<Category, number> = { A: 0, B: 1, C: 2, Nope: 3 }
+const STATUS_ORDER: Record<Status, number> = { 'Not Contacted': 0, 'Intro Sent': 1, 'Ongoing Conversation': 2, 'Visit Scheduled': 3, 'Offer': 4, 'Inactive': 5 }
+const ADMIT_ORDER: Record<string, number> = { 'Likely': 0, 'Target': 1, 'Reach': 2, 'Far Reach': 3 }
+
 interface Props {
   schools: School[]
   onSelectSchool: (s: School) => void
@@ -20,6 +27,7 @@ interface Props {
 
 export default function PipelineTable({ schools, onSelectSchool, onUpdateSchool }: Props) {
   const [filters, setFilters] = useState<PipelineFilters>(DEFAULT_FILTERS)
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'category', dir: 'asc' })
   const today = todayStr()
 
   const filtered = useMemo(() => schools.filter(s => {
@@ -34,6 +42,26 @@ export default function PipelineTable({ schools, onSelectSchool, onUpdateSchool 
     }
     return true
   }), [schools, filters])
+
+  const sorted = useMemo(() => {
+    const dir = sort.dir === 'asc' ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      switch (sort.key) {
+        case 'name': return dir * (a.short_name || a.name).localeCompare(b.short_name || b.name)
+        case 'division': return dir * (a.division ?? '').localeCompare(b.division ?? '')
+        case 'status': return dir * (STATUS_ORDER[a.status] - STATUS_ORDER[b.status])
+        case 'admit_likelihood': return dir * ((ADMIT_ORDER[a.admit_likelihood ?? ''] ?? 99) - (ADMIT_ORDER[b.admit_likelihood ?? ''] ?? 99))
+        case 'category': return dir * (CATEGORY_ORDER[a.category] - CATEGORY_ORDER[b.category])
+        case 'last_contact': return dir * ((a.last_contact ?? '').localeCompare(b.last_contact ?? ''))
+        case 'next_action_due': return dir * ((a.next_action_due ?? '9999').localeCompare(b.next_action_due ?? '9999'))
+        default: return 0
+      }
+    })
+  }, [filtered, sort])
+
+  const toggleSort = (key: SortKey) => {
+    setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' })
+  }
 
   const hasFilters = Object.values(filters).some(Boolean)
 
@@ -56,7 +84,7 @@ export default function PipelineTable({ schools, onSelectSchool, onUpdateSchool 
           <button onClick={() => setFilters(DEFAULT_FILTERS)} style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Clear</button>
         )}
       </div>
-      <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>{filtered.length} of {schools.length} schools</div>
+      <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>{sorted.length} of {schools.length} schools</div>
 
       {/* Table */}
       <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
@@ -64,13 +92,33 @@ export default function PipelineTable({ schools, onSelectSchool, onUpdateSchool 
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                {['School', 'Div', 'Status', 'Admit', 'Tier', 'Last Contact', 'Next Action', ''].map((h, i) => (
-                  <th key={i} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
+                {([
+                  ['School', 'name'],
+                  ['Div', 'division'],
+                  ['Status', 'status'],
+                  ['Admit', 'admit_likelihood'],
+                  ['Tier', 'category'],
+                  ['Last Contact', 'last_contact'],
+                  ['Next Action', 'next_action_due'],
+                  ['', null],
+                ] as [string, SortKey | null][]).map(([label, key], i) => (
+                  <th
+                    key={i}
+                    onClick={() => key && toggleSort(key)}
+                    style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', cursor: key ? 'pointer' : 'default', userSelect: 'none' }}
+                  >
+                    {label}
+                    {key && (
+                      <span style={{ marginLeft: 4, opacity: sort.key === key ? 1 : 0.25 }}>
+                        {sort.key === key && sort.dir === 'desc' ? '↓' : '↑'}
+                      </span>
+                    )}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map(s => {
+              {sorted.map(s => {
                 const overdue = !!(s.next_action_due && s.next_action_due < today)
                 const sc = STATUS_COLORS[s.status] || STATUS_COLORS['Not Contacted']
                 const ac = s.admit_likelihood ? ADMIT_COLORS[s.admit_likelihood] : '#94a3b8'
