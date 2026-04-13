@@ -5,14 +5,14 @@ import type { User } from '@supabase/supabase-js'
 import { useSchools, useContactLog } from '@/hooks/useRealtimeData'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { todayStr } from '@/lib/utils'
+import { todayStr, formatDate } from '@/lib/utils'
+import type { School, ContactLogEntry } from '@/lib/types'
 import DashboardView from './DashboardView'
 import PipelineTable from './PipelineTable'
 import ActionsPanel from './ActionsPanel'
 import ContactLogPanel from './ContactLogPanel'
 import EmailDraftsPanel from './EmailDraftsPanel'
 import SchoolModal from './SchoolModal'
-import type { School } from '@/lib/types'
 
 type Tab = 'dashboard' | 'pipeline' | 'actions' | 'log' | 'emails'
 
@@ -29,6 +29,70 @@ export default function DashboardClient({ user }: { user: User }) {
   function handleNavigate(dest: 'pipeline' | 'actions', filters?: Record<string, unknown>) {
     setPipelineFilters(filters ?? {})
     setTab(dest)
+  }
+
+  const [copied, setCopied] = useState(false)
+
+  function formatForClaude(schools: School[], contactLog: ContactLogEntry[]): string {
+    const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    const active = schools.filter(s => s.category !== 'Nope' && s.status !== 'Inactive')
+    const logBySchool = contactLog.reduce<Record<string, ContactLogEntry[]>>((acc, e) => {
+      if (!acc[e.school_id]) acc[e.school_id] = []
+      acc[e.school_id].push(e)
+      return acc
+    }, {})
+
+    const tiers: { label: string; cat: string }[] = [
+      { label: 'TIER A', cat: 'A' },
+      { label: 'TIER B', cat: 'B' },
+      { label: 'TIER C', cat: 'C' },
+    ]
+
+    const lines: string[] = [
+      `FINN RECRUITING CRM — ${date}`,
+      `Active schools: ${active.length} | Contact log entries: ${contactLog.length}`,
+      '',
+    ]
+
+    for (const { label, cat } of tiers) {
+      const tier = active.filter(s => s.category === cat)
+      if (tier.length === 0) continue
+      lines.push(`━━━ ${label} ━━━`, '')
+      for (const s of tier) {
+        lines.push(`SCHOOL: ${s.name}`)
+        lines.push(`  Stage: ${s.status}`)
+        lines.push(`  Division: ${s.division}${s.conference ? ` — ${s.conference}` : ''}`)
+        lines.push(`  Location: ${s.location || '—'}`)
+        lines.push(`  Admit Likelihood: ${s.admit_likelihood || '—'}`)
+        lines.push(`  Last Contact: ${formatDate(s.last_contact) || '—'}`)
+        if (s.notes) lines.push(`  Notes: ${s.notes.replace(/\n/g, ' | ')}`)
+        if (s.next_action) {
+          let action = `  Next Action: ${s.next_action}`
+          if (s.next_action_owner) action += ` (${s.next_action_owner})`
+          if (s.next_action_due) action += ` — due ${formatDate(s.next_action_due)}`
+          lines.push(action)
+        }
+        const log = logBySchool[s.id]
+        if (log && log.length > 0) {
+          lines.push(`  Contact Log (${log.length} entries):`)
+          log.slice(0, 3).forEach(e => {
+            lines.push(`    [${e.date}] ${e.direction} via ${e.channel}${e.coach_name ? ` — ${e.coach_name}` : ''}: ${e.summary.slice(0, 120)}${e.summary.length > 120 ? '…' : ''}`)
+          })
+          if (log.length > 3) lines.push(`    … and ${log.length - 3} more entries`)
+        }
+        lines.push('')
+      }
+    }
+
+    return lines.join('\n')
+  }
+
+  function handleCopyForClaude() {
+    const text = formatForClaude(schools, contactLog)
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    })
   }
 
   async function handleSignOut() {
@@ -80,6 +144,12 @@ export default function DashboardClient({ user }: { user: User }) {
               style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', color: '#64748b', fontFamily: 'inherit' }}
             >
               Sign out
+            </button>
+            <button
+              onClick={handleCopyForClaude}
+              style={{ background: copied ? '#059669' : '#7c3aed', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.2s' }}
+            >
+              {copied ? 'Copied!' : 'Copy for Claude'}
             </button>
             <button
               onClick={() => setAddingSchool(true)}
