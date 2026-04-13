@@ -51,6 +51,17 @@ export interface ContactLogEntry {
   school?: Pick<School, 'id' | 'name' | 'short_name'>
 }
 
+export interface ActionItem {
+  id: string
+  school_id: string
+  action: string
+  owner: 'Finn' | 'Randy' | null
+  due_date: string | null  // YYYY-MM-DD
+  created_at: string
+  // joined
+  school?: Pick<School, 'id' | 'name' | 'short_name' | 'category' | 'status'>
+}
+
 // ─── Filter state ─────────────────────────────────────────────────────────────
 
 export interface PipelineFilters {

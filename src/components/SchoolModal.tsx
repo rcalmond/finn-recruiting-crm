@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import type { School, Division, Status, AdmitLikelihood, Category, ActionOwner } from '@/lib/types'
-import { useContactLog } from '@/hooks/useRealtimeData'
-import { STATUS_COLORS, ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate, todayStr } from '@/lib/utils'
+import type { School, Division, Status, AdmitLikelihood, Category, ActionOwner, ActionItem } from '@/lib/types'
+import { useContactLog, useActionItems } from '@/hooks/useRealtimeData'
+import { STATUS_COLORS, ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate } from '@/lib/utils'
 import ContactLogPanel from './ContactLogPanel'
 
 const STATUSES: Status[] = ['Not Contacted', 'Intro Sent', 'Ongoing Conversation', 'Visit Scheduled', 'Offer', 'Inactive']
@@ -34,7 +34,6 @@ type Props = EditProps | AddProps
 export default function SchoolModal(props: Props) {
   const isEdit = props.school !== null
   const s = props.school
-  const today = todayStr()
 
   const [tab, setTab] = useState<Tab>('info')
   const [name, setName] = useState(s?.name ?? '')
@@ -51,13 +50,44 @@ export default function SchoolModal(props: Props) {
   const [rqStatus, setRqStatus] = useState(s?.rq_status ?? '')
   const [videosSent, setVideosSent] = useState(s?.videos_sent ?? false)
   const [notes, setNotes] = useState(s?.notes ?? '')
-  const [nextAction, setNextAction] = useState(s?.next_action ?? '')
-  const [nextActionOwner, setNextActionOwner] = useState<ActionOwner | ''>(s?.next_action_owner ?? '')
-  const [nextActionDue, setNextActionDue] = useState(s?.next_action_due ?? '')
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
+  // Action items (edit mode only)
+  const { items: actionItems, insertItem, updateItem, deleteItem: deleteActionItem } = useActionItems(s?.id)
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState<{ action: string; owner: string; due_date: string }>({ action: '', owner: '', due_date: '' })
+  const [addingNew, setAddingNew] = useState(false)
+  const [newDraft, setNewDraft] = useState<{ action: string; owner: string; due_date: string }>({ action: '', owner: '', due_date: '' })
+
   const { entries: contactLog } = useContactLog(s?.id)
+
+  function startEditItem(item: ActionItem) {
+    setEditingItemId(item.id)
+    setEditDraft({ action: item.action, owner: item.owner ?? '', due_date: item.due_date ?? '' })
+  }
+
+  async function saveEditItem() {
+    if (!editingItemId || !editDraft.action.trim()) return
+    await updateItem(editingItemId, {
+      action: editDraft.action.trim(),
+      owner: (editDraft.owner || null) as 'Finn' | 'Randy' | null,
+      due_date: editDraft.due_date || null,
+    })
+    setEditingItemId(null)
+  }
+
+  async function saveNewItem() {
+    if (!newDraft.action.trim() || !s?.id) return
+    await insertItem({
+      school_id: s.id,
+      action: newDraft.action.trim(),
+      owner: (newDraft.owner || null) as 'Finn' | 'Randy' | null,
+      due_date: newDraft.due_date || null,
+    })
+    setNewDraft({ action: '', owner: '', due_date: '' })
+    setAddingNew(false)
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -69,9 +99,7 @@ export default function SchoolModal(props: Props) {
       coach_email: coachEmail || null,
       admit_likelihood: (admit || null) as AdmitLikelihood | null,
       rq_status: rqStatus || null, videos_sent: videosSent,
-      notes: notes || null, next_action: nextAction || null,
-      next_action_owner: (nextActionOwner || null) as ActionOwner | null,
-      next_action_due: nextActionDue || null,
+      notes: notes || null,
     }
     if (isEdit) {
       await (props as EditProps).onUpdate(data)
@@ -81,8 +109,6 @@ export default function SchoolModal(props: Props) {
     setSaving(false)
     props.onClose()
   }
-
-  const overdue = !!(s?.next_action_due && s.next_action_due < today)
 
   return (
     <div
@@ -126,7 +152,10 @@ export default function SchoolModal(props: Props) {
         {/* Tabs (edit mode only) */}
         {isEdit && (
           <div style={{ padding: '12px 24px 0', display: 'flex', gap: 2, background: 'transparent' }}>
-            {(['info', 'log'] as Tab[]).map(t => (
+            {([
+              ['info', 'Info'],
+              ['log', `Contact Log (${contactLog.length})`],
+            ] as [Tab, string][]).map(([t, label]) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -137,7 +166,7 @@ export default function SchoolModal(props: Props) {
                   color: tab === t ? '#0f172a' : '#64748b',
                 }}
               >
-                {t === 'log' ? `Contact Log (${contactLog.length})` : 'Info'}
+                {label}
               </button>
             ))}
           </div>
@@ -215,24 +244,73 @@ export default function SchoolModal(props: Props) {
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} style={{ ...fieldStyle, resize: 'vertical' }} />
               </Field>
 
-              {/* Next Action */}
-              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8 }}>NEXT ACTION</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10 }}>
-                  <Field label="Action">
-                    <input value={nextAction} onChange={e => setNextAction(e.target.value)} style={fieldStyle} placeholder="e.g. Send wingback reel" />
-                  </Field>
-                  <Field label="Owner">
-                    <select value={nextActionOwner} onChange={e => setNextActionOwner(e.target.value as ActionOwner | '')} style={fieldStyle}>
-                      <option value="">—</option>
-                      {OWNERS.map(o => <option key={o}>{o}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="Due Date">
-                    <input type="date" value={nextActionDue} onChange={e => setNextActionDue(e.target.value)} style={fieldStyle} />
-                  </Field>
+              {/* Action Items (edit mode only) */}
+              {isEdit && (
+                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>
+                      ACTION ITEMS <span style={{ fontWeight: 400, color: '#94a3b8' }}>({actionItems.length}/3)</span>
+                    </div>
+                    {actionItems.length < 3 && !addingNew && (
+                      <button
+                        type="button"
+                        onClick={() => { setAddingNew(true); setNewDraft({ action: '', owner: '', due_date: '' }) }}
+                        style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 5, padding: '3px 10px', fontSize: 11.5, cursor: 'pointer', color: '#475569', fontFamily: 'inherit' }}
+                      >
+                        + Add
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {actionItems.map(item => (
+                      editingItemId === item.id ? (
+                        <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto auto', gap: 6, alignItems: 'end', background: '#f8fafc', borderRadius: 6, padding: '8px 10px', border: '1px solid #e2e8f0' }}>
+                          <input value={editDraft.action} onChange={e => setEditDraft(d => ({ ...d, action: e.target.value }))} style={{ ...fieldStyle, fontSize: 12 }} placeholder="Action" autoFocus />
+                          <select value={editDraft.owner} onChange={e => setEditDraft(d => ({ ...d, owner: e.target.value }))} style={{ ...fieldStyle, fontSize: 12 }}>
+                            <option value="">—</option>
+                            {OWNERS.map(o => <option key={o}>{o}</option>)}
+                          </select>
+                          <input type="date" value={editDraft.due_date} onChange={e => setEditDraft(d => ({ ...d, due_date: e.target.value }))} style={{ ...fieldStyle, fontSize: 12 }} />
+                          <button type="button" onClick={saveEditItem} style={actionBtnStyle('#0f172a', '#fff')}>Save</button>
+                          <button type="button" onClick={() => setEditingItemId(null)} style={actionBtnStyle('#f1f5f9', '#475569')}>×</button>
+                        </div>
+                      ) : (
+                        <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fafbfc', borderRadius: 6, padding: '8px 10px', border: '1px solid #f1f5f9' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ fontSize: 12.5, color: '#334155' }}>{item.action}</span>
+                          </div>
+                          {item.owner && (
+                            <span style={{ fontSize: 11, fontWeight: 600, color: item.owner === 'Finn' ? '#2563eb' : '#059669', flexShrink: 0 }}>{item.owner}</span>
+                          )}
+                          {item.due_date && (
+                            <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>{formatDate(item.due_date)}</span>
+                          )}
+                          <button type="button" onClick={() => startEditItem(item)} style={{ ...actionBtnStyle('#f1f5f9', '#475569'), fontSize: 11 }}>Edit</button>
+                          <button type="button" onClick={() => deleteActionItem(item.id)} style={{ ...actionBtnStyle('#fef2f2', '#dc2626'), fontSize: 11 }}>✕</button>
+                        </div>
+                      )
+                    ))}
+
+                    {addingNew && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto auto', gap: 6, alignItems: 'end', background: '#eff6ff', borderRadius: 6, padding: '8px 10px', border: '1px dashed #93c5fd' }}>
+                        <input value={newDraft.action} onChange={e => setNewDraft(d => ({ ...d, action: e.target.value }))} style={{ ...fieldStyle, fontSize: 12 }} placeholder="Action description" autoFocus />
+                        <select value={newDraft.owner} onChange={e => setNewDraft(d => ({ ...d, owner: e.target.value }))} style={{ ...fieldStyle, fontSize: 12 }}>
+                          <option value="">—</option>
+                          {OWNERS.map(o => <option key={o}>{o}</option>)}
+                        </select>
+                        <input type="date" value={newDraft.due_date} onChange={e => setNewDraft(d => ({ ...d, due_date: e.target.value }))} style={{ ...fieldStyle, fontSize: 12 }} />
+                        <button type="button" onClick={saveNewItem} disabled={!newDraft.action.trim()} style={actionBtnStyle('#0f172a', '#fff')}>Add</button>
+                        <button type="button" onClick={() => setAddingNew(false)} style={actionBtnStyle('#f1f5f9', '#475569')}>×</button>
+                      </div>
+                    )}
+
+                    {actionItems.length === 0 && !addingNew && (
+                      <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No action items yet.</div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </form>
           )}
 
@@ -286,4 +364,8 @@ const fieldStyle: React.CSSProperties = {
   width: '100%', padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: 6,
   fontSize: 13, fontFamily: 'inherit', background: '#fff', color: '#0f172a',
   outline: 'none', boxSizing: 'border-box',
+}
+
+function actionBtnStyle(bg: string, color: string): React.CSSProperties {
+  return { padding: '4px 8px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', background: bg, color, flexShrink: 0 }
 }

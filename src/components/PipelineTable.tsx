@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import type { School, PipelineFilters, Division, Status, AdmitLikelihood, Category, ActionOwner } from '@/lib/types'
+import type { School, ActionItem, PipelineFilters, Division, Status, AdmitLikelihood, Category, ActionOwner } from '@/lib/types'
 import { STATUS_COLORS, ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate, daysBetween, todayStr } from '@/lib/utils'
 
 const STATUSES: Status[] = ['Not Contacted', 'Intro Sent', 'Ongoing Conversation', 'Visit Scheduled', 'Offer', 'Inactive']
@@ -21,30 +21,39 @@ const ADMIT_ORDER: Record<string, number> = { 'Likely': 0, 'Target': 1, 'Reach':
 
 interface Props {
   schools: School[]
+  actionItems?: ActionItem[]
   onSelectSchool: (s: School) => void
   onUpdateSchool: (id: string, updates: Partial<School>) => Promise<unknown>
   initialFilters?: Partial<PipelineFilters>
 }
 
-export default function PipelineTable({ schools, onSelectSchool, onUpdateSchool, initialFilters }: Props) {
+export default function PipelineTable({ schools, actionItems = [], onSelectSchool, onUpdateSchool, initialFilters }: Props) {
   const [filters, setFilters] = useState<PipelineFilters>({ ...DEFAULT_FILTERS, ...initialFilters })
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'category', dir: 'asc' })
   const today = todayStr()
+
+  const actionsBySchool = useMemo(() => {
+    return actionItems.reduce<Record<string, ActionItem[]>>((acc, item) => {
+      if (!acc[item.school_id]) acc[item.school_id] = []
+      acc[item.school_id].push(item)
+      return acc
+    }, {})
+  }, [actionItems])
 
   const filtered = useMemo(() => schools.filter(s => {
     if (filters.status && s.status !== filters.status) return false
     if (filters.category && s.category !== filters.category) return false
     if (filters.division && s.division !== filters.division) return false
     if (filters.admit && s.admit_likelihood !== filters.admit) return false
-    if (filters.owner && s.next_action_owner !== filters.owner) return false
+    if (filters.owner && !actionsBySchool[s.id]?.some(i => i.owner === filters.owner)) return false
     if (filters.stale && !(s.last_contact && daysBetween(s.last_contact) > 60)) return false
-    if (filters.overdue && !(s.next_action_due && s.next_action_due < today)) return false
+    if (filters.overdue && !actionsBySchool[s.id]?.some(i => i.due_date && i.due_date < today)) return false
     if (filters.search) {
       const q = filters.search.toLowerCase()
       if (!s.name.toLowerCase().includes(q) && !(s.short_name ?? '').toLowerCase().includes(q)) return false
     }
     return true
-  }), [schools, filters, today])
+  }), [schools, filters, today, actionsBySchool])
 
   const sorted = useMemo(() => {
     const dir = sort.dir === 'asc' ? 1 : -1
@@ -56,7 +65,11 @@ export default function PipelineTable({ schools, onSelectSchool, onUpdateSchool,
         case 'admit_likelihood': return dir * ((ADMIT_ORDER[a.admit_likelihood ?? ''] ?? 99) - (ADMIT_ORDER[b.admit_likelihood ?? ''] ?? 99))
         case 'category': return dir * (CATEGORY_ORDER[a.category] - CATEGORY_ORDER[b.category])
         case 'last_contact': return dir * ((a.last_contact ?? '').localeCompare(b.last_contact ?? ''))
-        case 'next_action_due': return dir * ((a.next_action_due ?? '9999').localeCompare(b.next_action_due ?? '9999'))
+        case 'next_action_due': {
+          const aDate = actionsBySchool[a.id]?.map(i => i.due_date).filter(Boolean).sort()[0] ?? '9999'
+          const bDate = actionsBySchool[b.id]?.map(i => i.due_date).filter(Boolean).sort()[0] ?? '9999'
+          return dir * aDate.localeCompare(bDate)
+        }
         default: return 0
       }
     })
@@ -128,7 +141,9 @@ export default function PipelineTable({ schools, onSelectSchool, onUpdateSchool,
             </thead>
             <tbody>
               {sorted.map(s => {
-                const overdue = !!(s.next_action_due && s.next_action_due < today)
+                const schoolActions = actionsBySchool[s.id] ?? []
+                const firstAction = schoolActions[0]
+                const overdue = !!firstAction?.due_date && firstAction.due_date < today
                 const sc = STATUS_COLORS[s.status] || STATUS_COLORS['Not Contacted']
                 const ac = s.admit_likelihood ? ADMIT_COLORS[s.admit_likelihood] : '#94a3b8'
                 const cc = CATEGORY_COLORS[s.category]
@@ -171,15 +186,20 @@ export default function PipelineTable({ schools, onSelectSchool, onUpdateSchool,
                       {s.last_contact && <span style={{ color: '#94a3b8', fontSize: 11 }}> ({daysBetween(s.last_contact)}d)</span>}
                     </td>
                     <td style={{ padding: '10px 12px', maxWidth: 200 }}>
-                      {s.next_action && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          {overdue && <span style={{ padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: '#fef2f2', color: '#dc2626' }}>OVERDUE</span>}
-                          <span style={{ color: overdue ? '#dc2626' : '#475569', fontSize: 12 }}>{s.next_action}</span>
-                        </div>
-                      )}
-                      {s.next_action_owner && (
-                        <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 2 }}>
-                          {s.next_action_owner}{s.next_action_due ? ` · due ${formatDate(s.next_action_due)}` : ''}
+                      {firstAction && (
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            {overdue && <span style={{ padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: '#fef2f2', color: '#dc2626' }}>OVERDUE</span>}
+                            <span style={{ color: overdue ? '#dc2626' : '#475569', fontSize: 12 }}>{firstAction.action}</span>
+                            {schoolActions.length > 1 && (
+                              <span style={{ padding: '1px 5px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: '#f1f5f9', color: '#64748b' }}>+{schoolActions.length - 1}</span>
+                            )}
+                          </div>
+                          {(firstAction.owner || firstAction.due_date) && (
+                            <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 2 }}>
+                              {firstAction.owner}{firstAction.due_date ? `${firstAction.owner ? ' · ' : ''}due ${formatDate(firstAction.due_date)}` : ''}
+                            </div>
+                          )}
                         </div>
                       )}
                     </td>

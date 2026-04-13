@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { useSchools, useContactLog } from '@/hooks/useRealtimeData'
+import { useSchools, useContactLog, useActionItems } from '@/hooks/useRealtimeData'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { todayStr, formatDate } from '@/lib/utils'
@@ -21,6 +21,7 @@ export default function DashboardClient({ user }: { user: User }) {
   const supabase = createClient()
   const { schools, loading, updateSchool, insertSchool, deleteSchool } = useSchools()
   const { entries: contactLog } = useContactLog()
+  const { items: actionItems, deleteItem: deleteActionItem } = useActionItems()
   const [tab, setTab] = useState<Tab>('dashboard')
   const [pipelineFilters, setPipelineFilters] = useState<Record<string, unknown>>({})
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null)
@@ -102,8 +103,10 @@ export default function DashboardClient({ user }: { user: User }) {
 
   const today = todayStr()
   const active = schools.filter(s => s.category !== 'Nope' && s.status !== 'Inactive')
-  const overdueCount = active.filter(s => s.next_action && s.next_action_due && s.next_action_due < today).length
-  const actionCount = active.filter(s => s.next_action).length
+  const activeIds = new Set(active.map(s => s.id))
+  const activeActionItems = actionItems.filter(i => activeIds.has(i.school_id))
+  const overdueCount = activeActionItems.filter(i => i.due_date && i.due_date < today).length
+  const actionCount = activeActionItems.length
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: 'dashboard', label: 'Dashboard' },
@@ -191,6 +194,7 @@ export default function DashboardClient({ user }: { user: User }) {
         {!loading && tab === 'pipeline' && (
           <PipelineTable
             schools={schools}
+            actionItems={actionItems}
             onSelectSchool={setSelectedSchool}
             onUpdateSchool={updateSchool}
             initialFilters={pipelineFilters as never}
@@ -198,9 +202,10 @@ export default function DashboardClient({ user }: { user: User }) {
         )}
         {!loading && tab === 'actions' && (
           <ActionsPanel
+            actionItems={activeActionItems}
             schools={schools}
             onSelectSchool={setSelectedSchool}
-            onUpdateSchool={updateSchool}
+            onDeleteItem={deleteActionItem}
           />
         )}
         {!loading && tab === 'log' && (

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem } from '@/lib/types'
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
 
@@ -100,4 +100,67 @@ export function useContactLog(schoolId?: string) {
   }, [supabase])
 
   return { entries, loading, insertContact, insertContacts, deleteEntry, refetch: fetchEntries }
+}
+
+// ─── Action Items ─────────────────────────────────────────────────────────────
+
+export function useActionItems(schoolId?: string) {
+  const [items, setItems] = useState<ActionItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = useMemo(() => createClient(), [])
+
+  const fetchItems = useCallback(async () => {
+    let query = supabase
+      .from('action_items')
+      .select('*, school:schools(id, name, short_name, category, status)')
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true })
+    if (schoolId) query = query.eq('school_id', schoolId)
+    const { data, error } = await query
+    if (!error && data) setItems(data as ActionItem[])
+    setLoading(false)
+  }, [supabase, schoolId])
+
+  useEffect(() => {
+    fetchItems()
+    const channel = supabase
+      .channel(`action-items-${schoolId ?? 'all'}-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'action_items' }, fetchItems)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [fetchItems, supabase, schoolId])
+
+  const insertItem = useCallback(async (item: Omit<ActionItem, 'id' | 'created_at' | 'school'>) => {
+    const { data, error } = await supabase
+      .from('action_items')
+      .insert(item)
+      .select('*, school:schools(id, name, short_name, category, status)')
+      .single()
+    if (!error && data) {
+      setItems(prev => {
+        const next = [...prev, data as ActionItem]
+        return next.sort((a, b) => {
+          if (!a.due_date && !b.due_date) return 0
+          if (!a.due_date) return 1
+          if (!b.due_date) return -1
+          return a.due_date.localeCompare(b.due_date)
+        })
+      })
+    }
+    return error
+  }, [supabase])
+
+  const updateItem = useCallback(async (id: string, updates: Partial<Omit<ActionItem, 'id' | 'school_id' | 'created_at' | 'school'>>) => {
+    const { error } = await supabase.from('action_items').update(updates).eq('id', id)
+    if (!error) setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+    return error
+  }, [supabase])
+
+  const deleteItem = useCallback(async (id: string) => {
+    const { error } = await supabase.from('action_items').delete().eq('id', id)
+    if (!error) setItems(prev => prev.filter(i => i.id !== id))
+    return error
+  }, [supabase])
+
+  return { items, loading, insertItem, updateItem, deleteItem, refetch: fetchItems }
 }
