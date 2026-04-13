@@ -33,6 +33,9 @@ export interface School {
   next_action: string | null
   next_action_owner: ActionOwner | null
   next_action_due: string | null     // ISO date string YYYY-MM-DD
+  id_camp_1: string | null           // ISO date string YYYY-MM-DD
+  id_camp_2: string | null
+  id_camp_3: string | null
   created_at: string
   updated_at: string
 }

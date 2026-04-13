@@ -122,6 +122,7 @@ export default function PipelineTable({ schools, actionItems = [], onSelectSchoo
                   ['Tier', 'category'],
                   ['Last Contact', 'last_contact'],
                   ['Next Action', 'next_action_due'],
+                  ['ID Camps', null],
                   ['', null],
                 ] as [string, SortKey | null][]).map(([label, key], i) => (
                   <th
@@ -203,6 +204,16 @@ export default function PipelineTable({ schools, actionItems = [], onSelectSchoo
                         </div>
                       )}
                     </td>
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                      {[s.id_camp_1, s.id_camp_2, s.id_camp_3].filter(Boolean).map((d, i) => {
+                        const upcoming = d! >= today
+                        return (
+                          <div key={i} style={{ fontSize: 11, fontWeight: 600, color: upcoming ? '#0369a1' : '#94a3b8', background: upcoming ? '#e0f2fe' : '#f1f5f9', borderRadius: 4, padding: '1px 6px', display: 'inline-block', marginBottom: 2, marginRight: 2 }}>
+                            {formatDate(d)}
+                          </div>
+                        )
+                      })}
+                    </td>
                     <td style={{ padding: '10px 8px' }}>
                       <button
                         onClick={e => { e.stopPropagation(); onSelectSchool(s) }}
@@ -213,7 +224,7 @@ export default function PipelineTable({ schools, actionItems = [], onSelectSchoo
                 )
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={8} style={{ padding: 30, textAlign: 'center', color: '#94a3b8' }}>No schools match your filters.</td></tr>
+                <tr><td colSpan={9} style={{ padding: 30, textAlign: 'center', color: '#94a3b8' }}>No schools match your filters.</td></tr>
               )}
             </tbody>
           </table>
