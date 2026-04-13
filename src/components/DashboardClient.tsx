@@ -34,12 +34,17 @@ export default function DashboardClient({ user }: { user: User }) {
 
   const [copied, setCopied] = useState(false)
 
-  function formatForClaude(schools: School[], contactLog: ContactLogEntry[]): string {
+  function formatForClaude(schools: School[], contactLog: ContactLogEntry[], actionItems: typeof activeActionItems): string {
     const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     const active = schools.filter(s => s.category !== 'Nope' && s.status !== 'Inactive')
     const logBySchool = contactLog.reduce<Record<string, ContactLogEntry[]>>((acc, e) => {
       if (!acc[e.school_id]) acc[e.school_id] = []
       acc[e.school_id].push(e)
+      return acc
+    }, {})
+    const actionsBySchool = actionItems.reduce<Record<string, typeof actionItems>>((acc, i) => {
+      if (!acc[i.school_id]) acc[i.school_id] = []
+      acc[i.school_id].push(i)
       return acc
     }, {})
 
@@ -67,19 +72,23 @@ export default function DashboardClient({ user }: { user: User }) {
         lines.push(`  Admit Likelihood: ${s.admit_likelihood || '—'}`)
         lines.push(`  Last Contact: ${formatDate(s.last_contact) || '—'}`)
         if (s.notes) lines.push(`  Notes: ${s.notes.replace(/\n/g, ' | ')}`)
-        if (s.next_action) {
-          let action = `  Next Action: ${s.next_action}`
-          if (s.next_action_owner) action += ` (${s.next_action_owner})`
-          if (s.next_action_due) action += ` — due ${formatDate(s.next_action_due)}`
-          lines.push(action)
+        const actions = actionsBySchool[s.id]
+        if (actions && actions.length > 0) {
+          lines.push(`  Action Items:`)
+          actions.forEach(i => {
+            let line = `    • ${i.action}`
+            if (i.owner) line += ` (${i.owner})`
+            if (i.due_date) line += ` — due ${formatDate(i.due_date)}`
+            lines.push(line)
+          })
         }
         const log = logBySchool[s.id]
         if (log && log.length > 0) {
           lines.push(`  Contact Log (${log.length} entries):`)
-          log.slice(0, 3).forEach(e => {
-            lines.push(`    [${e.date}] ${e.direction} via ${e.channel}${e.coach_name ? ` — ${e.coach_name}` : ''}: ${e.summary.slice(0, 120)}${e.summary.length > 120 ? '…' : ''}`)
+          log.forEach(e => {
+            lines.push(`    [${e.date}] ${e.direction} via ${e.channel}${e.coach_name ? ` — ${e.coach_name}` : ''}:`)
+            lines.push(`      ${e.summary}`)
           })
-          if (log.length > 3) lines.push(`    … and ${log.length - 3} more entries`)
         }
         lines.push('')
       }
@@ -89,7 +98,7 @@ export default function DashboardClient({ user }: { user: User }) {
   }
 
   function handleCopyForClaude() {
-    const text = formatForClaude(schools, contactLog)
+    const text = formatForClaude(schools, contactLog, activeActionItems)
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
