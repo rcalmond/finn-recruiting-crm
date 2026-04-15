@@ -113,7 +113,7 @@ export function useActionItems(schoolId?: string) {
     let query = supabase
       .from('action_items')
       .select('*, school:schools(id, name, short_name, category, status)')
-      .order('due_date', { ascending: true, nullsFirst: false })
+      .order('sort_order', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
     if (schoolId) query = query.eq('school_id', schoolId)
     const { data, error } = await query
@@ -130,23 +130,22 @@ export function useActionItems(schoolId?: string) {
     return () => { supabase.removeChannel(channel) }
   }, [fetchItems, supabase, schoolId])
 
-  const insertItem = useCallback(async (item: Omit<ActionItem, 'id' | 'created_at' | 'school'>) => {
+  const insertItem = useCallback(async (item: Omit<ActionItem, 'id' | 'created_at' | 'school' | 'sort_order'>) => {
+    // Place new items at the end by fetching the current max sort_order globally
+    const { data: maxData } = await supabase
+      .from('action_items')
+      .select('sort_order')
+      .order('sort_order', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .single()
+    const nextOrder = ((maxData as ActionItem | null)?.sort_order ?? 0) + 1
+
     const { data, error } = await supabase
       .from('action_items')
-      .insert(item)
+      .insert({ ...item, sort_order: nextOrder })
       .select('*, school:schools(id, name, short_name, category, status)')
       .single()
-    if (!error && data) {
-      setItems(prev => {
-        const next = [...prev, data as ActionItem]
-        return next.sort((a, b) => {
-          if (!a.due_date && !b.due_date) return 0
-          if (!a.due_date) return 1
-          if (!b.due_date) return -1
-          return a.due_date.localeCompare(b.due_date)
-        })
-      })
-    }
+    if (!error && data) setItems(prev => [...prev, data as ActionItem])
     return error
   }, [supabase])
 
@@ -162,5 +161,24 @@ export function useActionItems(schoolId?: string) {
     return error
   }, [supabase])
 
-  return { items, loading, insertItem, updateItem, deleteItem, refetch: fetchItems }
+  // Reorder items by updating sort_order for all items in the new sequence.
+  // orderedIds should contain every item id in the desired order.
+  const reorderItems = useCallback(async (orderedIds: string[]) => {
+    // Optimistic update
+    setItems(prev => {
+      const byId = Object.fromEntries(prev.map(i => [i.id, i]))
+      const reordered = orderedIds
+        .filter(id => byId[id])
+        .map((id, idx) => ({ ...byId[id], sort_order: idx + 1 }))
+      const untouched = prev.filter(i => !orderedIds.includes(i.id))
+      return [...reordered, ...untouched]
+    })
+    await Promise.all(
+      orderedIds.map((id, idx) =>
+        supabase.from('action_items').update({ sort_order: idx + 1 }).eq('id', id)
+      )
+    )
+  }, [supabase])
+
+  return { items, loading, insertItem, updateItem, deleteItem, reorderItems, refetch: fetchItems }
 }

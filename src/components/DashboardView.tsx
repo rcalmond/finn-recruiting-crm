@@ -1,7 +1,7 @@
 'use client'
 
-import type { School, ContactLogEntry } from '@/lib/types'
-import { ADMIT_COLORS, CATEGORY_COLORS, STATUS_COLORS, daysBetween, todayStr } from '@/lib/utils'
+import type { School, ContactLogEntry, ActionItem } from '@/lib/types'
+import { ADMIT_COLORS, CATEGORY_COLORS, STATUS_COLORS, categoryLabel, formatDate, daysBetween, todayStr } from '@/lib/utils'
 
 const STATUSES = ['Not Contacted', 'Intro Sent', 'Ongoing Conversation', 'Visit Scheduled', 'Offer', 'Inactive'] as const
 const ADMIT_LEVELS = ['Likely', 'Target', 'Reach', 'Far Reach'] as const
@@ -38,11 +38,12 @@ function MiniBar({ label, count, total, color }: { label: string; count: number;
 interface DashboardViewProps {
   schools: School[]
   contactLog: ContactLogEntry[]
+  actionItems: ActionItem[]
   onNavigate: (tab: 'pipeline' | 'actions', filters?: Record<string, unknown>) => void
   onSelectSchool: (s: School) => void
 }
 
-export default function DashboardView({ schools, contactLog, onNavigate, onSelectSchool }: DashboardViewProps) {
+export default function DashboardView({ schools, contactLog, actionItems, onNavigate, onSelectSchool }: DashboardViewProps) {
   const active = schools.filter(s => s.status !== 'Inactive' && s.category !== 'Nope')
   const nope = schools.filter(s => s.category === 'Nope')
   const today = todayStr()
@@ -59,11 +60,14 @@ export default function DashboardView({ schools, contactLog, onNavigate, onSelec
   const tierCounts = { A: 0, B: 0, C: 0 }
   active.forEach(s => { if (s.category in tierCounts) tierCounts[s.category as keyof typeof tierCounts]++ })
 
-  const overdue = active.filter(s => s.next_action_due && s.next_action_due < today)
+  const overdueCount = actionItems.filter(i => i.due_date && i.due_date < today).length
   const stale = active.filter(s => s.last_contact && daysBetween(s.last_contact) > 60)
   const ongoing = active.filter(s => s.status === 'Ongoing Conversation')
   const rqDone = active.filter(s => s.rq_status?.toLowerCase().includes('completed'))
   const rqToDo = active.filter(s => s.rq_status?.toLowerCase().includes('to do'))
+
+  // Top 5 action items (already in manual sort order from hook)
+  const top5 = actionItems.slice(0, 5)
 
   return (
     <div>
@@ -71,9 +75,71 @@ export default function DashboardView({ schools, contactLog, onNavigate, onSelec
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
         <StatCard label="Active Schools" value={active.length} sub={`+ ${nope.length} parked`} onClick={() => onNavigate('pipeline')} />
         <StatCard label="Ongoing Conversations" value={ongoing.length} color="#2563eb" onClick={() => onNavigate('pipeline', { status: 'Ongoing Conversation' })} />
-        <StatCard label="Overdue Actions" value={overdue.length} color={overdue.length > 0 ? '#dc2626' : '#10b981'} onClick={() => onNavigate('actions')} />
+        <StatCard label="Overdue Actions" value={overdueCount} color={overdueCount > 0 ? '#dc2626' : '#10b981'} onClick={() => onNavigate('actions')} />
         <StatCard label="Stale (60+ days)" value={stale.length} color={stale.length > 5 ? '#f59e0b' : '#10b981'} sub="No contact" onClick={() => onNavigate('pipeline', { stale: true })} />
       </div>
+
+      {/* Top 5 Actions */}
+      {top5.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '16px 20px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Top Actions
+            </div>
+            <button
+              onClick={() => onNavigate('actions')}
+              style={{ background: 'none', border: 'none', fontSize: 11, color: '#6366f1', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+            >
+              View all {actionItems.length} →
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {top5.map((item, i) => {
+              const school = item.school
+              const schoolFull = schools.find(s => s.id === item.school_id)
+              const cat = school?.category ?? 'C'
+              const cc = CATEGORY_COLORS[cat]
+              const overdue = !!(item.due_date && item.due_date < today)
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => schoolFull && onSelectSchool(schoolFull)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '9px 12px', borderRadius: 7,
+                    background: overdue ? '#fef2f2' : '#f8fafc',
+                    border: `1px solid ${overdue ? '#fecaca' : '#f1f5f9'}`,
+                    cursor: schoolFull ? 'pointer' : 'default',
+                  }}
+                  onMouseEnter={e => { if (schoolFull) e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)' }}
+                  onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
+                >
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', width: 14, textAlign: 'right', flexShrink: 0 }}>{i + 1}</span>
+                  <span style={{ padding: '1px 5px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: cc + '18', color: cc, flexShrink: 0 }}>
+                    {categoryLabel(cat)}
+                  </span>
+                  <span style={{ fontWeight: 600, fontSize: 12, flexShrink: 0, color: '#0f172a' }}>
+                    {school?.short_name || school?.name || '—'}
+                  </span>
+                  <span style={{ fontSize: 12, color: '#475569', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.action}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    {item.owner && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: item.owner === 'Finn' ? '#2563eb' : '#059669' }}>{item.owner}</span>
+                    )}
+                    {item.due_date && (
+                      <span style={{ fontSize: 10, color: overdue ? '#dc2626' : '#94a3b8', fontWeight: overdue ? 700 : 400 }}>
+                        {overdue ? 'OVERDUE' : formatDate(item.due_date)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
         {/* Status breakdown */}

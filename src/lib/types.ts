@@ -30,9 +30,6 @@ export interface School {
   rq_status: string | null           // "Completed", "To Do", "Updated", etc.
   videos_sent: boolean
   notes: string | null
-  next_action: string | null
-  next_action_owner: ActionOwner | null
-  next_action_due: string | null     // ISO date string YYYY-MM-DD
   id_camp_1: string | null           // ISO date string YYYY-MM-DD
   id_camp_2: string | null
   id_camp_3: string | null
@@ -60,6 +57,7 @@ export interface ActionItem {
   action: string
   owner: 'Finn' | 'Randy' | null
   due_date: string | null  // YYYY-MM-DD
+  sort_order: number | null
   created_at: string
   // joined
   school?: Pick<School, 'id' | 'name' | 'short_name' | 'category' | 'status'>

@@ -11,17 +11,16 @@ import DashboardView from './DashboardView'
 import PipelineTable from './PipelineTable'
 import ActionsPanel from './ActionsPanel'
 import ContactLogPanel from './ContactLogPanel'
-import EmailDraftsPanel from './EmailDraftsPanel'
 import SchoolModal from './SchoolModal'
 
-type Tab = 'dashboard' | 'pipeline' | 'actions' | 'log' | 'emails'
+type Tab = 'dashboard' | 'pipeline' | 'actions' | 'log'
 
 export default function DashboardClient({ user }: { user: User }) {
   const router = useRouter()
   const supabase = createClient()
   const { schools, loading, updateSchool, insertSchool, deleteSchool } = useSchools()
   const { entries: contactLog } = useContactLog()
-  const { items: actionItems, deleteItem: deleteActionItem } = useActionItems()
+  const { items: actionItems, deleteItem: deleteActionItem, reorderItems: reorderActionItems } = useActionItems()
   const [tab, setTab] = useState<Tab>('dashboard')
   const [pipelineFilters, setPipelineFilters] = useState<Record<string, unknown>>({})
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null)
@@ -122,7 +121,6 @@ export default function DashboardClient({ user }: { user: User }) {
     { key: 'pipeline', label: 'Pipeline', count: schools.filter(s => s.status !== 'Inactive').length },
     { key: 'actions', label: 'Action Items', count: actionCount },
     { key: 'log', label: 'Contact Log', count: contactLog.length },
-    { key: 'emails', label: 'Email Drafts' },
   ]
 
   return (
@@ -198,7 +196,7 @@ export default function DashboardClient({ user }: { user: User }) {
         {loading && <div style={{ textAlign: 'center', padding: 60, color: '#94a3b8' }}>Loading…</div>}
 
         {!loading && tab === 'dashboard' && (
-          <DashboardView schools={schools} contactLog={contactLog} onNavigate={handleNavigate} onSelectSchool={setSelectedSchool} />
+          <DashboardView schools={schools} contactLog={contactLog} actionItems={activeActionItems} onNavigate={handleNavigate} onSelectSchool={setSelectedSchool} />
         )}
         {!loading && tab === 'pipeline' && (
           <PipelineTable
@@ -215,14 +213,13 @@ export default function DashboardClient({ user }: { user: User }) {
             schools={schools}
             onSelectSchool={setSelectedSchool}
             onDeleteItem={deleteActionItem}
+            onReorderItems={reorderActionItems}
           />
         )}
         {!loading && tab === 'log' && (
           <ContactLogPanel schools={schools} userId={user.id} />
         )}
-        {!loading && tab === 'emails' && (
-          <EmailDraftsPanel schools={schools} />
-        )}
+
       </div>
 
       {/* Modals */}
