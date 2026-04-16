@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import type { School, ActionItem, PipelineFilters, Division, Status, AdmitLikelihood, Category, ActionOwner } from '@/lib/types'
 import { STATUS_COLORS, ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate, daysBetween, todayStr } from '@/lib/utils'
 
@@ -24,12 +24,16 @@ interface Props {
   actionItems?: ActionItem[]
   onSelectSchool: (s: School) => void
   onUpdateSchool: (id: string, updates: Partial<School>) => Promise<unknown>
+  onReorderSchools: (orderedIds: string[]) => Promise<void>
   initialFilters?: Partial<PipelineFilters>
 }
 
-export default function PipelineTable({ schools, actionItems = [], onSelectSchool, onUpdateSchool, initialFilters }: Props) {
+export default function PipelineTable({ schools, actionItems = [], onSelectSchool, onUpdateSchool, onReorderSchools, initialFilters }: Props) {
+  const [sortMode, setSortMode] = useState<'manual' | 'smart'>('manual')
   const [filters, setFilters] = useState<PipelineFilters>({ ...DEFAULT_FILTERS, ...initialFilters })
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'category', dir: 'asc' })
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const dragIndexRef = useRef<number | null>(null)
   const today = todayStr()
 
   const actionsBySchool = useMemo(() => {
@@ -39,6 +43,8 @@ export default function PipelineTable({ schools, actionItems = [], onSelectSchoo
       return acc
     }, {})
   }, [actionItems])
+
+  const hasFilters = Object.values(filters).some(Boolean)
 
   const filtered = useMemo(() => schools.filter(s => {
     if (filters.status && s.status !== filters.status) return false
@@ -56,6 +62,9 @@ export default function PipelineTable({ schools, actionItems = [], onSelectSchoo
   }), [schools, filters, today, actionsBySchool])
 
   const sorted = useMemo(() => {
+    if (sortMode === 'manual') {
+      return [...filtered].sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999))
+    }
     const dir = sort.dir === 'asc' ? 1 : -1
     return [...filtered].sort((a, b) => {
       switch (sort.key) {
@@ -73,17 +82,78 @@ export default function PipelineTable({ schools, actionItems = [], onSelectSchoo
         default: return 0
       }
     })
-  }, [filtered, sort])
+  }, [filtered, sort, sortMode, actionsBySchool])
 
   const toggleSort = (key: SortKey) => {
+    if (sortMode === 'manual') return
     setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' })
   }
 
-  const hasFilters = Object.values(filters).some(Boolean)
+  const canDrag = sortMode === 'manual' && !hasFilters
+
+  function handleDragStart(e: React.DragEvent, index: number) {
+    dragIndexRef.current = index
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverIndex(index)
+  }
+
+  function handleDrop(e: React.DragEvent, dropIndex: number) {
+    e.preventDefault()
+    const fromIndex = dragIndexRef.current
+    if (fromIndex === null || fromIndex === dropIndex) {
+      dragIndexRef.current = null
+      setDragOverIndex(null)
+      return
+    }
+    const reordered = [...sorted]
+    const [moved] = reordered.splice(fromIndex, 1)
+    reordered.splice(dropIndex, 0, moved)
+    // Build full ordered list: reordered visible items merged back with any hidden schools
+    const visibleIds = new Set(reordered.map(s => s.id))
+    const hidden = schools.filter(s => !visibleIds.has(s.id)).sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999))
+    onReorderSchools([...reordered.map(s => s.id), ...hidden.map(s => s.id)])
+    dragIndexRef.current = null
+    setDragOverIndex(null)
+  }
+
+  function handleDragEnd() {
+    dragIndexRef.current = null
+    setDragOverIndex(null)
+  }
+
   const specialLabel = filters.stale ? 'Stale schools (60+ days no contact)' : filters.overdue ? 'Schools with overdue actions' : null
 
   return (
     <div>
+      {/* Sort mode toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sort</span>
+        {(['manual', 'smart'] as const).map(mode => (
+          <button
+            key={mode}
+            onClick={() => setSortMode(mode)}
+            style={{
+              padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: sortMode === mode ? 700 : 500, fontFamily: 'inherit',
+              background: sortMode === mode ? '#0f172a' : '#f1f5f9',
+              color: sortMode === mode ? '#fff' : '#475569',
+            }}
+          >
+            {mode === 'manual' ? 'Manual' : 'Smart (column sort)'}
+          </button>
+        ))}
+        {sortMode === 'manual' && (
+          <span style={{ fontSize: 11, color: hasFilters ? '#f59e0b' : '#94a3b8', marginLeft: 2 }}>
+            {hasFilters ? 'Clear filters to reorder' : 'Drag to reorder'}
+          </span>
+        )}
+      </div>
+
       {/* Filter bar */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
         <input
@@ -114,6 +184,8 @@ export default function PipelineTable({ schools, actionItems = [], onSelectSchoo
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                {/* Drag handle column header */}
+                {sortMode === 'manual' && <th style={{ padding: '10px 8px', width: 24 }} />}
                 {([
                   ['School', 'name'],
                   ['Div', 'division'],
@@ -128,10 +200,16 @@ export default function PipelineTable({ schools, actionItems = [], onSelectSchoo
                   <th
                     key={i}
                     onClick={() => key && toggleSort(key)}
-                    style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', cursor: key ? 'pointer' : 'default', userSelect: 'none' }}
+                    style={{
+                      padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b',
+                      fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                      cursor: key && sortMode === 'smart' ? 'pointer' : 'default',
+                      userSelect: 'none',
+                      opacity: sortMode === 'manual' && key ? 0.45 : 1,
+                    }}
                   >
                     {label}
-                    {key && (
+                    {key && sortMode === 'smart' && (
                       <span style={{ marginLeft: 4, opacity: sort.key === key ? 1 : 0.25 }}>
                         {sort.key === key && sort.dir === 'desc' ? '↓' : '↑'}
                       </span>
@@ -141,21 +219,38 @@ export default function PipelineTable({ schools, actionItems = [], onSelectSchoo
               </tr>
             </thead>
             <tbody>
-              {sorted.map(s => {
+              {sorted.map((s, index) => {
                 const schoolActions = actionsBySchool[s.id] ?? []
                 const firstAction = schoolActions[0]
                 const overdue = !!firstAction?.due_date && firstAction.due_date < today
                 const sc = STATUS_COLORS[s.status] || STATUS_COLORS['Not Contacted']
                 const ac = s.admit_likelihood ? ADMIT_COLORS[s.admit_likelihood] : '#94a3b8'
                 const cc = CATEGORY_COLORS[s.category]
+                const isDragTarget = dragOverIndex === index && dragIndexRef.current !== null && dragIndexRef.current !== index
+
                 return (
                   <tr
                     key={s.id}
+                    draggable={canDrag}
+                    onDragStart={canDrag ? e => handleDragStart(e, index) : undefined}
+                    onDragOver={canDrag ? e => handleDragOver(e, index) : undefined}
+                    onDrop={canDrag ? e => handleDrop(e, index) : undefined}
+                    onDragEnd={canDrag ? handleDragEnd : undefined}
                     onClick={() => onSelectSchool(s)}
-                    style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }}
+                    style={{
+                      borderBottom: '1px solid #f5f5f5',
+                      borderTop: isDragTarget ? '2px solid #6366f1' : undefined,
+                      cursor: canDrag ? 'grab' : 'pointer',
+                      opacity: dragIndexRef.current === index ? 0.4 : 1,
+                    }}
                     onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
+                    {sortMode === 'manual' && (
+                      <td style={{ padding: '10px 8px', color: canDrag ? '#cbd5e1' : '#e5e7eb', fontSize: 14, userSelect: 'none', textAlign: 'center' }}>
+                        ⠿
+                      </td>
+                    )}
                     <td style={{ padding: '10px 12px', fontWeight: 600 }}>
                       <div>{s.short_name || s.name}</div>
                       {s.location && <div style={{ fontWeight: 400, color: '#94a3b8', fontSize: 11 }}>{s.location}</div>}
@@ -164,7 +259,6 @@ export default function PipelineTable({ schools, actionItems = [], onSelectSchoo
                       <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: '#f1f5f9', color: '#475569' }}>{s.division}</span>
                     </td>
                     <td style={{ padding: '10px 12px' }}>
-                      {/* Inline status dropdown — stops propagation so row click still opens modal */}
                       <select
                         value={s.status}
                         onClick={e => e.stopPropagation()}
@@ -224,7 +318,7 @@ export default function PipelineTable({ schools, actionItems = [], onSelectSchoo
                 )
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={9} style={{ padding: 30, textAlign: 'center', color: '#94a3b8' }}>No schools match your filters.</td></tr>
+                <tr><td colSpan={sortMode === 'manual' ? 10 : 9} style={{ padding: 30, textAlign: 'center', color: '#94a3b8' }}>No schools match your filters.</td></tr>
               )}
             </tbody>
           </table>

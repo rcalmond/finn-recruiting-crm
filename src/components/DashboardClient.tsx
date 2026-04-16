@@ -18,7 +18,7 @@ type Tab = 'dashboard' | 'pipeline' | 'actions' | 'log'
 export default function DashboardClient({ user }: { user: User }) {
   const router = useRouter()
   const supabase = createClient()
-  const { schools, loading, updateSchool, insertSchool, deleteSchool } = useSchools()
+  const { schools, loading, updateSchool, insertSchool, deleteSchool, reorderSchools } = useSchools()
   const { entries: contactLog } = useContactLog()
   const { items: actionItems, deleteItem: deleteActionItem, reorderItems: reorderActionItems } = useActionItems()
   const [tab, setTab] = useState<Tab>('dashboard')
@@ -204,6 +204,7 @@ export default function DashboardClient({ user }: { user: User }) {
             actionItems={actionItems}
             onSelectSchool={setSelectedSchool}
             onUpdateSchool={updateSchool}
+            onReorderSchools={reorderSchools}
             initialFilters={pipelineFilters as never}
           />
         )}

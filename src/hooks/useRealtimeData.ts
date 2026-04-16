@@ -39,8 +39,15 @@ export function useSchools() {
     return error
   }, [supabase])
 
-  const insertSchool = useCallback(async (school: Omit<School, 'id' | 'created_at' | 'updated_at'>) => {
-    const { data, error } = await supabase.from('schools').insert(school).select().single()
+  const insertSchool = useCallback(async (school: Omit<School, 'id' | 'created_at' | 'updated_at' | 'sort_order'>) => {
+    const { data: maxData } = await supabase
+      .from('schools')
+      .select('sort_order')
+      .order('sort_order', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .single()
+    const nextOrder = ((maxData as School | null)?.sort_order ?? 0) + 1
+    const { data, error } = await supabase.from('schools').insert({ ...school, sort_order: nextOrder }).select().single()
     if (!error && data) setSchools(prev => [...prev, data as School].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name)))
     return error
   }, [supabase])
@@ -51,7 +58,23 @@ export function useSchools() {
     return error
   }, [supabase])
 
-  return { schools, loading, updateSchool, insertSchool, deleteSchool, refetch: fetchSchools }
+  const reorderSchools = useCallback(async (orderedIds: string[]) => {
+    setSchools(prev => {
+      const byId = Object.fromEntries(prev.map(s => [s.id, s]))
+      const reordered = orderedIds
+        .filter(id => byId[id])
+        .map((id, idx) => ({ ...byId[id], sort_order: idx + 1 }))
+      const untouched = prev.filter(s => !orderedIds.includes(s.id))
+      return [...reordered, ...untouched]
+    })
+    await Promise.all(
+      orderedIds.map((id, idx) =>
+        supabase.from('schools').update({ sort_order: idx + 1 }).eq('id', id)
+      )
+    )
+  }, [supabase])
+
+  return { schools, loading, updateSchool, insertSchool, deleteSchool, reorderSchools, refetch: fetchSchools }
 }
 
 // ─── Contact Log ──────────────────────────────────────────────────────────────

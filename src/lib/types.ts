@@ -30,6 +30,7 @@ export interface School {
   rq_status: string | null           // "Completed", "To Do", "Updated", etc.
   videos_sent: boolean
   notes: string | null
+  sort_order?: number | null
   id_camp_1: string | null           // ISO date string YYYY-MM-DD
   id_camp_2: string | null
   id_camp_3: string | null
