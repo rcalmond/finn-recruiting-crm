@@ -137,7 +137,6 @@ export default function AssetsClient({ user }: { user: User }) {
       )}
       {(modal?.kind === 'add-link' || modal?.kind === 'edit-link') && (
         <AddLinkModal
-          userId={user.id}
           existing={modal.kind === 'edit-link' ? modal.asset : undefined}
           onClose={() => setModal(null)}
           onSave={handleSaveLink}

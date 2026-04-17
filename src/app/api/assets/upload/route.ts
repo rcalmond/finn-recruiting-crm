@@ -45,7 +45,6 @@ export async function POST(req: NextRequest) {
                : type === 'transcript' ? 'transcripts'
                : 'other'
 
-  const ext = file.name.split('.').pop() ?? 'bin'
   const storagePath = `${folder}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
 
   // Upload to storage
@@ -85,9 +84,6 @@ export async function POST(req: NextRequest) {
     await admin.storage.from('assets').remove([storagePath])
     return NextResponse.json({ error: dbError.message }, { status: 500 })
   }
-
-  // Suppress unused var warning
-  void ext
 
   return NextResponse.json({ asset }, { status: 201 })
 }

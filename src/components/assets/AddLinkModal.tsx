@@ -11,7 +11,6 @@ const LINK_TYPES: { value: AssetType; label: string }[] = [
 ]
 
 interface Props {
-  userId: string
   existing?: Asset   // if set, we're editing
   onClose: () => void
   onSave: (data: { name: string; type: AssetType; url: string; description: string }) => Promise<void>

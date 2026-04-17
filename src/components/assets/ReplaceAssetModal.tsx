@@ -59,13 +59,6 @@ export default function ReplaceAssetModal({ asset, onClose, onReplaced }: Props)
 
     const newAsset: Asset = { ...json.asset, version: asset.version + 1 }
 
-    // Set correct version in DB
-    await fetch(`/api/assets/${json.asset.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ version: newAsset.version }),
-    })
-
     onReplaced(newAsset)
     onClose()
   }

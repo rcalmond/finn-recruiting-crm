@@ -89,7 +89,9 @@ export default function AssetCard({ asset, onPreview, onReplace, onEdit, onDelet
             {asset.category === 'link' && asset.url && (
               <a href={asset.url} target="_blank" rel="noopener noreferrer" style={{ ...btnStyle('#eff6ff', '#2563eb'), textDecoration: 'none' }}>Open</a>
             )}
-            <button onClick={() => onEdit(asset)} style={btnStyle('#f1f5f9', '#475569')}>Edit</button>
+            {asset.category === 'link' && (
+              <button onClick={() => onEdit(asset)} style={btnStyle('#f1f5f9', '#475569')}>Edit</button>
+            )}
             <button onClick={() => onReplace(asset)} style={btnStyle('#f1f5f9', '#475569')}>Replace</button>
             <button onClick={() => setConfirmDelete(true)} style={btnStyle('#fef2f2', '#dc2626')}>✕</button>
           </>
