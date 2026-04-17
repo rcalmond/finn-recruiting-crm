@@ -818,4 +818,6 @@ function LVMobileFrame({ initialCaughtUp = false, label }) {
   );
 }
 
-Object.assign(window, { LVDesktopFrame, LVMobileFrame, LV });
+if (typeof window !== 'undefined') Object.assign(window, { LVDesktopFrame, LVMobileFrame, LV });
+
+export { LVDesktopFrame, LVMobileFrame };
