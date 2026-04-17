@@ -40,9 +40,15 @@ export async function POST(req: NextRequest) {
 
     const raw = message.content[0].type === 'text' ? message.content[0].text : ''
 
+    const text = raw
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim()
+
     let parsed: { subject: string; body: string }
     try {
-      parsed = JSON.parse(raw)
+      parsed = JSON.parse(text)
     } catch {
       return NextResponse.json({ error: 'Model returned invalid JSON', raw }, { status: 500 })
     }
