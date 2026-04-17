@@ -161,6 +161,12 @@ export default function DashboardClient({ user }: { user: User }) {
             >
               {copied ? 'Copied!' : 'Copy for Claude'}
             </button>
+            <a
+              href="/assets"
+              style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer', color: '#64748b', fontFamily: 'inherit', textDecoration: 'none' }}
+            >
+              Assets
+            </a>
             <button
               onClick={() => setAddingSchool(true)}
               style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}

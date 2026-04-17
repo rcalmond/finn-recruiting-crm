@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Asset } from '@/lib/types'
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
 
@@ -204,4 +204,81 @@ export function useActionItems(schoolId?: string) {
   }, [supabase])
 
   return { items, loading, insertItem, updateItem, deleteItem, reorderItems, refetch: fetchItems }
+}
+
+// ─── Assets ───────────────────────────────────────────────────────────────────
+
+export function useAssets() {
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = useMemo(() => createClient(), [])
+
+  const fetchAssets = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('assets')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (!error && data) setAssets(data as Asset[])
+    setLoading(false)
+  }, [supabase])
+
+  useEffect(() => {
+    fetchAssets()
+    const channel = supabase
+      .channel(`assets-changes-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'assets' }, fetchAssets)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [fetchAssets, supabase])
+
+  const insertLink = useCallback(async (link: Pick<Asset, 'name' | 'type' | 'url' | 'description'> & { userId: string }) => {
+    const { data, error } = await supabase
+      .from('assets')
+      .insert({
+        name: link.name,
+        type: link.type,
+        category: 'link',
+        url: link.url,
+        description: link.description,
+        is_current: true,
+        version: 1,
+        uploaded_by: link.userId,
+      })
+      .select()
+      .single()
+    if (!error && data) setAssets(prev => [data as Asset, ...prev])
+    return error
+  }, [supabase])
+
+  const updateAsset = useCallback(async (id: string, updates: Partial<Asset>) => {
+    const { error } = await supabase.from('assets').update(updates).eq('id', id)
+    if (!error) setAssets(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a))
+    return error
+  }, [supabase])
+
+  // Mark old version inactive and point to new asset id
+  const archiveAsset = useCallback(async (oldId: string, newId: string) => {
+    const { error } = await supabase
+      .from('assets')
+      .update({ is_current: false, replaced_by: newId })
+      .eq('id', oldId)
+    if (!error) setAssets(prev => prev.map(a => a.id === oldId ? { ...a, is_current: false, replaced_by: newId } : a))
+    return error
+  }, [supabase])
+
+  // Called after API delete completes — remove from local state
+  const removeAsset = useCallback((id: string) => {
+    setAssets(prev => prev.map(a => a.id === id ? { ...a, is_current: false } : a))
+  }, [])
+
+  // Generate a signed URL for a file asset (1 hour expiry)
+  const getSignedUrl = useCallback(async (storagePath: string): Promise<string | null> => {
+    const { data, error } = await supabase.storage
+      .from('assets')
+      .createSignedUrl(storagePath, 3600)
+    if (error || !data) return null
+    return data.signedUrl
+  }, [supabase])
+
+  return { assets, loading, insertLink, updateAsset, archiveAsset, removeAsset, getSignedUrl, refetch: fetchAssets }
 }

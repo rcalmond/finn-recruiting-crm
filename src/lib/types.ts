@@ -64,6 +64,40 @@ export interface ActionItem {
   school?: Pick<School, 'id' | 'name' | 'short_name' | 'category' | 'status'>
 }
 
+// ─── Asset library ────────────────────────────────────────────────────────────
+
+export type AssetType =
+  | 'resume'
+  | 'transcript'
+  | 'highlight_reel'
+  | 'game_film'
+  | 'sports_recruits'
+  | 'link'
+  | 'other'
+
+export type AssetCategory = 'file' | 'link'
+
+export interface Asset {
+  id: string
+  name: string
+  type: AssetType
+  category: AssetCategory
+  // file fields
+  storage_path: string | null
+  file_name: string | null
+  file_size: number | null
+  mime_type: string | null
+  // link fields
+  url: string | null
+  // shared
+  description: string | null
+  is_current: boolean
+  version: number
+  replaced_by: string | null
+  uploaded_by: string | null
+  created_at: string
+}
+
 // ─── Filter state ─────────────────────────────────────────────────────────────
 
 export interface PipelineFilters {
