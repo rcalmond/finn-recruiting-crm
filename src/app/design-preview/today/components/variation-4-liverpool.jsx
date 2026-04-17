@@ -2,6 +2,8 @@
 // Color-dominant cards, asymmetric hero, oversized type.
 // Red owns the hero. Teal owns the inbox. Gold owns the watch.
 
+import { useState } from 'react';
+
 const LV = {
   paper: '#F6F1E8',         // warm off-white ground (NOT pure white)
   paperDeep: '#EFE8D8',
@@ -711,7 +713,7 @@ function LVMasthead({ caughtUp, isMobile }) {
 
 // ───────── Body ─────────
 function LVBody({ caughtUp, onHeroComplete, isMobile }) {
-  const [dismissed, setDismissed] = React.useState(new Set());
+  const [dismissed, setDismissed] = useState(new Set());
   const onDraft = (id) => setDismissed(prev => new Set([...prev, id]));
 
   return (
@@ -727,7 +729,7 @@ function LVBody({ caughtUp, onHeroComplete, isMobile }) {
 
 // ───────── Frames ─────────
 function LVDesktopFrame({ initialCaughtUp = false, label }) {
-  const [caughtUp, setCaughtUp] = React.useState(initialCaughtUp);
+  const [caughtUp, setCaughtUp] = useState(initialCaughtUp);
   return (
     <div data-screen-label={label} style={{
       width: 1440, height: 960,
@@ -744,7 +746,7 @@ function LVDesktopFrame({ initialCaughtUp = false, label }) {
 }
 
 function LVMobileFrame({ initialCaughtUp = false, label }) {
-  const [caughtUp, setCaughtUp] = React.useState(initialCaughtUp);
+  const [caughtUp, setCaughtUp] = useState(initialCaughtUp);
   return (
     <div data-screen-label={label} style={{
       width: 390, height: 844,
