@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem, Asset } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Asset, Question } from '@/lib/types'
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
 
@@ -281,4 +281,51 @@ export function useAssets() {
   }, [supabase])
 
   return { assets, loading, insertLink, updateAsset, archiveAsset, removeAsset, getSignedUrl, refetch: fetchAssets }
+}
+
+// ─── Questions ────────────────────────────────────────────────────────────────
+
+export function useQuestions() {
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = useMemo(() => createClient(), [])
+
+  const fetchQuestions = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('questions')
+      .select('*')
+      .order('sort_order', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true })
+    if (!error && data) setQuestions(data as Question[])
+    setLoading(false)
+  }, [supabase])
+
+  useEffect(() => {
+    fetchQuestions()
+    const channel = supabase
+      .channel(`questions-changes-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'questions' }, fetchQuestions)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [fetchQuestions, supabase])
+
+  const insertQuestion = useCallback(async (q: Omit<Question, 'id' | 'created_at'>) => {
+    const { data, error } = await supabase.from('questions').insert(q).select().single()
+    if (!error && data) setQuestions(prev => [...prev, data as Question])
+    return error
+  }, [supabase])
+
+  const updateQuestion = useCallback(async (id: string, updates: Partial<Question>) => {
+    const { error } = await supabase.from('questions').update(updates).eq('id', id)
+    if (!error) setQuestions(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q))
+    return error
+  }, [supabase])
+
+  const deleteQuestion = useCallback(async (id: string) => {
+    const { error } = await supabase.from('questions').delete().eq('id', id)
+    if (!error) setQuestions(prev => prev.filter(q => q.id !== id))
+    return error
+  }, [supabase])
+
+  return { questions, loading, insertQuestion, updateQuestion, deleteQuestion }
 }

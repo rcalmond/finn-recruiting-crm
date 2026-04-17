@@ -12,8 +12,9 @@ import PipelineTable from './PipelineTable'
 import ActionsPanel from './ActionsPanel'
 import ContactLogPanel from './ContactLogPanel'
 import SchoolModal from './SchoolModal'
+import QuestionsPanel from './QuestionsPanel'
 
-type Tab = 'dashboard' | 'pipeline' | 'actions' | 'log'
+type Tab = 'dashboard' | 'pipeline' | 'actions' | 'log' | 'questions'
 
 export default function DashboardClient({ user }: { user: User }) {
   const router = useRouter()
@@ -121,6 +122,7 @@ export default function DashboardClient({ user }: { user: User }) {
     { key: 'pipeline', label: 'Pipeline', count: schools.filter(s => s.status !== 'Inactive').length },
     { key: 'actions', label: 'Action Items', count: actionCount },
     { key: 'log', label: 'Contact Log', count: contactLog.length },
+    { key: 'questions', label: 'Question Bank' },
   ]
 
   return (
@@ -225,6 +227,9 @@ export default function DashboardClient({ user }: { user: User }) {
         )}
         {!loading && tab === 'log' && (
           <ContactLogPanel schools={schools} userId={user.id} />
+        )}
+        {tab === 'questions' && (
+          <QuestionsPanel />
         )}
 
       </div>

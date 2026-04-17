@@ -98,6 +98,25 @@ export interface Asset {
   created_at: string
 }
 
+// ─── Question bank ────────────────────────────────────────────────────────────
+
+export type QuestionCategory =
+  | 'Formation & Fit'
+  | 'Roster & Playing Time'
+  | 'Development'
+  | 'Culture'
+  | 'Academics & Aid'
+
+export interface Question {
+  id: string
+  category: QuestionCategory
+  question: string
+  rationale: string | null
+  is_custom: boolean
+  sort_order: number | null
+  created_at: string
+}
+
 // ─── Filter state ─────────────────────────────────────────────────────────────
 
 export interface PipelineFilters {
