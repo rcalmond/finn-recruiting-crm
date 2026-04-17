@@ -1,4 +1,4 @@
-import type { School, ContactLogEntry, Asset } from '@/lib/types'
+import type { School, ContactLogEntry, Asset, Question } from '@/lib/types'
 
 export const SYSTEM_PROMPT = `You are a college soccer recruiting assistant helping draft emails from Finn Almond to college coaches. You write in Finn's voice — confident, direct, genuine, and specific. Never generic. Never fluff.
 
@@ -146,6 +146,89 @@ export function buildUserPrompt(params: {
   }
 
   lines.push('Draft the email now. Return only valid JSON with "subject" and "body" keys.')
+
+  return lines.join('\n')
+}
+
+// ─── Prep for call ────────────────────────────────────────────────────────────
+
+export const PREP_SYSTEM_PROMPT = `You are a college soccer recruiting advisor helping Finn Almond (Class of 2027, left wingback) prepare for a conversation with a college coach.
+
+Finn's profile:
+- Position: Left Wingback (transitioned from striker Nov 2025)
+- Club: Albion SC Colorado MLS NEXT Academy U19
+- GPA: 3.78W / 3.57UW | SAT: 1340
+- Academic interest: Mechanical or Aerospace Engineering
+- Highlight reel: https://www.youtube.com/watch?v=Va_Z09OYcs0
+
+Your job:
+1. Review the school record and contact history provided
+2. Triage the global question bank — mark each question as priority, answered, or skip based on what's already known
+3. Suggest 2-3 school-specific questions that would advance THIS specific recruiting relationship
+4. Write a brief call_summary orienting Finn to where things stand
+
+Rules:
+- Be specific to what's actually in the notes and contact log
+- "answered" means there is clear evidence in the data — not a guess
+- "priority" questions should reflect the current relationship stage: early conversations need formation/roster questions; warm relationships need development/culture questions
+- School-specific questions should be actionable and advance the conversation, not generic
+- For category in school_specific_questions, use ONLY one of these exact strings: "Formation & Fit", "Roster & Playing Time", "Development", "Culture", "Academics & Aid"
+- Return only valid JSON matching the schema provided. No markdown fences, no preamble.`
+
+export function buildPrepPrompt(params: {
+  school: School
+  recentLogs: ContactLogEntry[]
+  globalQuestions: Question[]
+}): string {
+  const { school, recentLogs, globalQuestions } = params
+  const lines: string[] = []
+
+  lines.push(`SCHOOL: ${school.name}`)
+  lines.push(`Division: ${school.division}${school.conference ? ` — ${school.conference}` : ''}`)
+  lines.push(`Location: ${school.location || 'Unknown'}`)
+  lines.push(`Status: ${school.status}`)
+  lines.push(`Head Coach: ${school.head_coach || 'Unknown'}`)
+  if (school.admit_likelihood) lines.push(`Admit Likelihood: ${school.admit_likelihood}`)
+  if (school.notes) lines.push(`Notes: ${school.notes}`)
+  lines.push('')
+
+  if (recentLogs.length > 0) {
+    lines.push(`CONTACT HISTORY (${recentLogs.length} most recent entries):`)
+    recentLogs.forEach(e => {
+      lines.push(`  [${e.date}] ${e.direction} via ${e.channel}${e.coach_name ? ` — ${e.coach_name}` : ''}:`)
+      lines.push(`    ${e.summary}`)
+    })
+  } else {
+    lines.push('CONTACT HISTORY: None — no contact logged yet.')
+  }
+  lines.push('')
+
+  lines.push(`GLOBAL QUESTION BANK (${globalQuestions.length} questions — triage each one):`)
+  globalQuestions.forEach(q => {
+    lines.push(`  [${q.id}] ${q.category}: ${q.question}`)
+  })
+  lines.push('')
+
+  lines.push(`Return a JSON object with this exact schema:
+{
+  "overrides": [
+    {
+      "question_id": "<uuid from the list above>",
+      "status": "priority" | "answered" | "skip",
+      "context_note": "<what we know, why it's priority, or why skipping>"
+    }
+  ],
+  "school_specific_questions": [
+    {
+      "question_text": "<question to ask>",
+      "rationale": "<why this matters for this specific school>",
+      "category": "<exact category string>"
+    }
+  ],
+  "call_summary": "<2-3 sentences: where things stand with this school and what Finn should focus on in this call>"
+}
+
+Every question in the global bank must appear in overrides exactly once.`)
 
   return lines.join('\n')
 }

@@ -117,6 +117,36 @@ export interface Question {
   created_at: string
 }
 
+// ─── School prep ─────────────────────────────────────────────────────────────
+
+export type OverrideStatus = 'priority' | 'answered' | 'skip'
+
+export interface SchoolQuestionOverride {
+  id: string
+  school_id: string
+  question_id: string
+  status: OverrideStatus
+  context_note: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SchoolSpecificQuestion {
+  id: string
+  school_id: string
+  question_text: string
+  rationale: string | null
+  category: QuestionCategory
+  created_at: string
+  updated_at: string
+}
+
+export interface PrepResult {
+  overrides: SchoolQuestionOverride[]
+  school_specific_questions: SchoolSpecificQuestion[]
+  call_summary: string
+}
+
 // ─── Filter state ─────────────────────────────────────────────────────────────
 
 export interface PipelineFilters {
