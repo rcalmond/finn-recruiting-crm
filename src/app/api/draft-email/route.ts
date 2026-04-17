@@ -54,6 +54,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ subject: parsed.subject, body: parsed.body })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    const detail = err instanceof Error ? {
+      name: err.name,
+      message: err.message,
+      // @ts-expect-error Anthropic SDK errors have extra fields
+      status: err.status,
+      // @ts-expect-error
+      error: err.error,
+    } : err
+    console.error('[draft-email] Error:', JSON.stringify(detail, null, 2))
+    return NextResponse.json({ error: message, detail }, { status: 500 })
   }
 }
