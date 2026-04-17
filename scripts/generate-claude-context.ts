@@ -345,6 +345,12 @@ const STATIC_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-17 | Prep for call feature — AI-generated school-specific question triage | Feature |
+| 2026-04-17 | Question bank — 15 questions, 5 categories, add/edit/delete, nav tab | Feature |
+| 2026-04-17 | school_question_overrides + school_specific_questions tables (migration 010) | Schema |
+| 2026-04-16 | AI email drafting — /api/draft-email, DraftEmailModal, asset context layer | Feature |
+| 2026-04-16 | Asset library — file upload, link management, versioning (migration 003) | Feature |
+| 2026-04-16 | action_items table with drag-and-drop sort_order (migration 004-008) | Schema |
 | 2026-04-15 | Initial app setup — schools, contact_log tables, Next.js + Supabase + Vercel | Setup |
 | 2026-04-15 | Added \`generate-claude-context.ts\` script + \`npm run export-context\` | Tooling |
 
