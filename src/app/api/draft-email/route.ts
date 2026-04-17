@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { SYSTEM_PROMPT, buildUserPrompt } from '@/lib/prompts'
 import type { EmailType } from '@/lib/prompts'
-import type { School, ContactLogEntry } from '@/lib/types'
+import type { School, ContactLogEntry, Asset } from '@/lib/types'
+
+function serviceClient() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -29,7 +37,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields: emailType, school' }, { status: 400 })
     }
 
-    const userPrompt = buildUserPrompt({ emailType, school, recentLogs: recentLogs ?? [], coachMessage, additionalContext })
+    const admin = serviceClient()
+    const { data: assets } = await admin
+      .from('assets')
+      .select('*')
+      .eq('is_current', true)
+      .order('type')
+
+    const userPrompt = buildUserPrompt({
+      emailType,
+      school,
+      recentLogs: recentLogs ?? [],
+      assets: (assets ?? []) as Asset[],
+      coachMessage,
+      additionalContext,
+    })
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-5',

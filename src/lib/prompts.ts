@@ -1,4 +1,4 @@
-import type { School, ContactLogEntry } from '@/lib/types'
+import type { School, ContactLogEntry, Asset } from '@/lib/types'
 
 export const SYSTEM_PROMPT = `You are a college soccer recruiting assistant helping draft emails from Finn Almond to college coaches. You write in Finn's voice — confident, direct, genuine, and specific. Never generic. Never fluff.
 
@@ -29,10 +29,6 @@ Athletic Highlights:
   - 2024 HS Season: 29 goals, 14 assists in 16 games
   - 2024 HS Awards: 2nd Team All-State, 1st Team All-Conference, Team MVP
 
-Key Assets:
-  - Highlight Reel (PUBLIC): https://www.youtube.com/watch?v=Va_Z09OYcs0
-  - Full Game Film (UNLISTED — offer only if coach asks): https://youtu.be/Zzp-YMma_8g
-
 === EMAIL RULES ===
 
 LENGTH: Under 200 words. Always.
@@ -49,12 +45,12 @@ TONE:
 STRUCTURE:
   - Open: who Finn is and why he's reaching out — one sentence
   - Middle: specific reason this school matters — engineering program, playing style, prior contact — be concrete
-  - Always include highlight reel link
+  - Always include highlight reel link (from ASSETS section in user prompt)
   - Close with one clear ask only
   - Sign off: Thank you, name, email, phone, Sports Recruits link
 
 ALWAYS INCLUDE: highlight reel link, position (Left Wingback), grad year (2027), club
-NEVER INCLUDE: full game film unless coach asked, striker framing, generic school compliments, more than one ask
+NEVER INCLUDE: game film unless it appears in assets and coach asked, striker framing, generic school compliments, more than one ask
 SPECIAL RULE: Never draft any email for Colorado School of Mines — outreach is on hold.
 
 SCHOOL-SPECIFIC:
@@ -81,14 +77,25 @@ const EMAIL_TYPE_INSTRUCTIONS: Record<string, string> = {
 
 export type EmailType = keyof typeof EMAIL_TYPE_INSTRUCTIONS
 
+const ASSET_TYPE_LABELS: Record<string, string> = {
+  highlight_reel: 'Highlight Reel',
+  game_film: 'Game Film',
+  resume: 'Resume',
+  transcript: 'Transcript',
+  sports_recruits: 'Sports Recruits Profile',
+  link: 'Link',
+  other: 'Other',
+}
+
 export function buildUserPrompt(params: {
   emailType: EmailType
   school: School
   recentLogs: ContactLogEntry[]
+  assets: Asset[]
   coachMessage?: string
   additionalContext?: string
 }): string {
-  const { emailType, school, recentLogs, coachMessage, additionalContext } = params
+  const { emailType, school, recentLogs, assets, coachMessage, additionalContext } = params
 
   const lines: string[] = []
 
@@ -102,6 +109,17 @@ export function buildUserPrompt(params: {
   lines.push(`Status: ${school.status}`)
   if (school.notes) lines.push(`Notes: ${school.notes}`)
   lines.push('')
+
+  if (assets.length > 0) {
+    lines.push('ASSETS (current versions — use these links, not any hardcoded URLs):')
+    for (const a of assets) {
+      const label = ASSET_TYPE_LABELS[a.type] ?? a.type
+      const ref = a.category === 'link' && a.url ? a.url : a.file_name ?? '(file)'
+      const visibility = a.type === 'game_film' ? ' — UNLISTED, share only if coach asks' : ''
+      lines.push(`  ${label}: ${a.name} — ${ref}${visibility}`)
+    }
+    lines.push('')
+  }
 
   if (recentLogs.length > 0) {
     lines.push(`CONTACT HISTORY (${recentLogs.length} entries):`)
