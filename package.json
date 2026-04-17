@@ -11,6 +11,7 @@
     "export-context": "tsx scripts/generate-claude-context.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.4",
     "clsx": "^2.1.1",
