@@ -267,7 +267,7 @@ created_by  uuid FK → auth.users.id
 created_at  timestamptz
 \`\`\`
 
-### Table: `assets`
+### Table: \`assets\`
 \`\`\`
 id            uuid PK
 name          text                          -- display name
@@ -287,7 +287,7 @@ uploaded_by   uuid FK → auth.users.id
 created_at    timestamptz
 \`\`\`
 
-### Table: `questions`
+### Table: \`questions\`
 \`\`\`
 id          uuid PK
 question    text
@@ -299,7 +299,7 @@ created_at  timestamptz
 updated_at  timestamptz
 \`\`\`
 
-### Table: `school_question_overrides`
+### Table: \`school_question_overrides\`
 \`\`\`
 id           uuid PK
 school_id    uuid FK → schools.id (cascade delete)
@@ -311,7 +311,7 @@ updated_at   timestamptz
 -- unique constraint on (school_id, question_id)
 \`\`\`
 
-### Table: `school_specific_questions`
+### Table: \`school_specific_questions\`
 \`\`\`
 id            uuid PK
 school_id     uuid FK → schools.id (cascade delete)

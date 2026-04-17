@@ -97,11 +97,65 @@ created_by  uuid FK → auth.users.id
 created_at  timestamptz
 ```
 
+### Table: `assets`
+```
+id            uuid PK
+name          text                          -- display name
+type          'resume' | 'transcript' | 'highlight_reel' | 'game_film' |
+              'sports_recruits' | 'link' | 'other'
+category      'file' | 'link'
+storage_path  text                          -- Supabase Storage path (files only)
+file_name     text                          -- original filename (files only)
+file_size     integer                       -- bytes (files only)
+mime_type     text                          -- (files only)
+url           text                          -- (links only)
+description   text
+is_current    boolean                       -- false = archived version
+version       integer
+replaced_by   uuid FK → assets.id
+uploaded_by   uuid FK → auth.users.id
+created_at    timestamptz
+```
+
+### Table: `questions`
+```
+id          uuid PK
+question    text
+rationale   text
+category    'formation' | 'roster' | 'development' | 'culture' | 'aid'
+is_custom   boolean                         -- true = user-added, false = seeded default
+sort_order  integer
+created_at  timestamptz
+updated_at  timestamptz
+```
+
+### Table: `school_question_overrides`
+```
+id           uuid PK
+school_id    uuid FK → schools.id (cascade delete)
+question_id  uuid FK → questions.id (cascade delete)
+status       'priority' | 'answered' | 'skip'
+context_note text                           -- what we know, or why it's priority
+created_at   timestamptz
+updated_at   timestamptz
+-- unique constraint on (school_id, question_id)
+```
+
+### Table: `school_specific_questions`
+```
+id            uuid PK
+school_id     uuid FK → schools.id (cascade delete)
+question_text text
+rationale     text
+category      'formation' | 'roster' | 'development' | 'culture' | 'aid'
+created_at    timestamptz
+updated_at    timestamptz
+```
+
 ### RLS
-Both tables have RLS enabled. Any authenticated user gets full access.
+All tables have RLS enabled. Any authenticated user gets full access.
 Use the **service role key** in scripts/server-side code to bypass RLS.
 Use the **anon key** in the frontend (Next.js client components).
-
 ---
 
 ## 5. Email Subject Line Format
@@ -161,9 +215,9 @@ and are legacy — note this in contact log if surfaced.
 
 ---
 
-## 10. Live Pipeline — Generated April 15, 2026
+## 10. Live Pipeline — Generated April 17, 2026
 
-**Active schools: 32** | Overdue actions: 8
+**Active schools: 32** | Overdue actions: 9
 (Category Nope and status Inactive excluded)
 
 ### Tier A — Highest Priority (8 schools)
@@ -316,6 +370,7 @@ SCHOOL: University of Rochester
   Notes: Got a personalized email back from Coach Cross.
 
 Thanks for reaching out about your interest. I am impressed with your film as you show great technical skill to take on defenders and provide amazing services from the wide areas. I also like how seriously you take your academics and are interested in
+  Next Action: Ping again for meeting (coach streb) (Finn) — due 2026-04-18
   Contact Log (3 shown):
     [2026-04-08] Inbound via Sports Recruits:
       [EXT] Finn Almond | Left Wingback | Class of 2027 | University of Rochester
@@ -837,6 +892,12 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-17 | Prep for call feature — AI-generated school-specific question triage | Feature |
+| 2026-04-17 | Question bank — 15 questions, 5 categories, add/edit/delete, nav tab | Feature |
+| 2026-04-17 | school_question_overrides + school_specific_questions tables (migration 010) | Schema |
+| 2026-04-16 | AI email drafting — /api/draft-email, DraftEmailModal, asset context layer | Feature |
+| 2026-04-16 | Asset library — file upload, link management, versioning (migration 003) | Feature |
+| 2026-04-16 | action_items table with drag-and-drop sort_order (migration 004-008) | Schema |
 | 2026-04-15 | Initial app setup — schools, contact_log tables, Next.js + Supabase + Vercel | Setup |
 | 2026-04-15 | Added `generate-claude-context.ts` script + `npm run export-context` | Tooling |
 
