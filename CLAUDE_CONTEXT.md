@@ -910,20 +910,21 @@ SCHOOL: Williams
 | School | Role | Name | Status |
 |---|---|---|---|
 | University of Rochester | HC | Ben Cross | 🔥 Hottest lead — praised film |
+| MSOE | HC | Rob Harrington | Ongoing — connecting in May |
+| Lafayette College | HC | Dennis Bohn | Ongoing conversation |
 | Case Western Reserve | HC | Carter Poe | Responded on SR, sent schedule form |
 | Cal Poly SLO | HC | Oige Kennedy | Invited to May 9-10 ID camp |
-| Colorado School of Mines | HC | **VACANT** | Interim: Ben Fredrickson — hold all outreach |
-| MSOE | HC | TBD | Coach indicated May follow-up |
-| Penn State | HC | Rob Dow | Hired Dec 2025 |
-| Dartmouth | HC | Connor Klekota | Hired Dec 2025 |
-| Carnegie Mellon | Asst | Andrew Mpasiakos | |
-| Washington University | Asst | Gavin Kalish | |
-| Cal Poly Pomona | HC | Matt O'Sullivan | |
-| University of Portland | HC | Nick Carlin-Voigt | |
-| Emory | HC | Cory Greiner | |
-| Emory | Assoc HC | Clayton Schmitt | |
-| Cornell | HC | John Smith | |
-| Trinity College | HC | Methembe Ndlovu | |
+| Colorado School of Mines | HC | VACANT | Interim: Ben Fredrickson — hold all outreach |
+| WPI | HC | Brian Kelley | Intro sent |
+| RPI | HC | Adam Clinton | Intro sent |
+| South Dakota Mines | HC | Teren Schuster | Replied April 15 — await Finn response |
+| Bucknell | HC | Dave Brandt | Ongoing — 3-4-3 confirmed |
+| Carnegie Mellon | HC | Brandon Bowman | Middling response — keep warm |
+| Cornell | HC | John Smith | Intro sent |
+| Dartmouth | HC | Connor Klekota | Hired Dec 2025 — intro sent |
+| Emory | HC | Cory Greiner | Intro sent |
+| Cal Poly Pomona | HC | Matt O'Sullivan | Intro sent |
+| Washington University | HC | Andrew Bordelon | Intro sent |
 
 ---
 
