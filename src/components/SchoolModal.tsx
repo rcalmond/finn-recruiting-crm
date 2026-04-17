@@ -5,6 +5,7 @@ import type { School, Division, Status, AdmitLikelihood, Category, ActionOwner, 
 import { useContactLog, useActionItems } from '@/hooks/useRealtimeData'
 import { STATUS_COLORS, ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate } from '@/lib/utils'
 import ContactLogPanel from './ContactLogPanel'
+import DraftEmailModal from './DraftEmailModal'
 
 const STATUSES: Status[] = ['Not Contacted', 'Intro Sent', 'Ongoing Conversation', 'Visit Scheduled', 'Offer', 'Inactive']
 const DIVISIONS: Division[] = ['D1', 'D2', 'D3']
@@ -55,6 +56,7 @@ export default function SchoolModal(props: Props) {
   const [idCamp3, setIdCamp3] = useState(s?.id_camp_3 ?? '')
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [draftingEmail, setDraftingEmail] = useState(false)
 
   // Action items (edit mode only)
   const { items: actionItems, insertItem, updateItem, deleteItem: deleteActionItem } = useActionItems(s?.id)
@@ -341,6 +343,14 @@ export default function SchoolModal(props: Props) {
           )}
         </div>
 
+        {draftingEmail && isEdit && (
+          <DraftEmailModal
+            school={s!}
+            userId={props.userId}
+            onClose={() => setDraftingEmail(false)}
+          />
+        )}
+
         {/* Footer */}
         {tab === 'info' && (
           <div style={{ padding: '16px 24px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -358,7 +368,22 @@ export default function SchoolModal(props: Props) {
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {isEdit && (() => {
+                const onHold = s!.name === 'Colorado School of Mines'
+                return (
+                  <span title={onHold ? 'Outreach on hold — HC vacancy' : undefined} style={{ display: 'inline-block' }}>
+                    <button
+                      type="button"
+                      onClick={() => setDraftingEmail(true)}
+                      disabled={onHold}
+                      style={{ padding: '7px 14px', borderRadius: 6, border: 'none', cursor: onHold ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', background: '#7c3aed', color: '#fff', opacity: onHold ? 0.4 : 1 }}
+                    >
+                      Draft Email
+                    </button>
+                  </span>
+                )
+              })()}
               <button type="button" onClick={props.onClose} style={{ padding: '7px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', background: '#f1f5f9', color: '#475569' }}>Cancel</button>
               <button form="school-form" type="submit" disabled={saving || !name} style={{ padding: '7px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', background: '#0f172a', color: '#fff', opacity: saving || !name ? 0.5 : 1 }}>
                 {saving ? 'Saving…' : 'Save'}
