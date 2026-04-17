@@ -6,6 +6,7 @@ import { useContactLog, useActionItems } from '@/hooks/useRealtimeData'
 import { STATUS_COLORS, ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate } from '@/lib/utils'
 import ContactLogPanel from './ContactLogPanel'
 import DraftEmailModal from './DraftEmailModal'
+import PrepForCallModal from './PrepForCallModal'
 
 const STATUSES: Status[] = ['Not Contacted', 'Intro Sent', 'Ongoing Conversation', 'Visit Scheduled', 'Offer', 'Inactive']
 const DIVISIONS: Division[] = ['D1', 'D2', 'D3']
@@ -57,6 +58,7 @@ export default function SchoolModal(props: Props) {
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [draftingEmail, setDraftingEmail] = useState(false)
+  const [preppingCall, setPreppingCall] = useState(false)
 
   // Action items (edit mode only)
   const { items: actionItems, insertItem, updateItem, deleteItem: deleteActionItem } = useActionItems(s?.id)
@@ -350,6 +352,12 @@ export default function SchoolModal(props: Props) {
             onClose={() => setDraftingEmail(false)}
           />
         )}
+        {preppingCall && isEdit && (
+          <PrepForCallModal
+            school={s!}
+            onClose={() => setPreppingCall(false)}
+          />
+        )}
 
         {/* Footer */}
         {tab === 'info' && (
@@ -371,17 +379,30 @@ export default function SchoolModal(props: Props) {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {isEdit && (() => {
                 const onHold = s!.name === 'Colorado School of Mines'
+                const notContacted = s!.status === 'Not Contacted'
                 return (
-                  <span title={onHold ? 'Outreach on hold — HC vacancy' : undefined} style={{ display: 'inline-block' }}>
-                    <button
-                      type="button"
-                      onClick={() => setDraftingEmail(true)}
-                      disabled={onHold}
-                      style={{ padding: '7px 14px', borderRadius: 6, border: 'none', cursor: onHold ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', background: '#7c3aed', color: '#fff', opacity: onHold ? 0.4 : 1 }}
-                    >
-                      Draft Email
-                    </button>
-                  </span>
+                  <>
+                    <span title={onHold ? 'Outreach on hold — HC vacancy' : notContacted ? 'No contact yet — reach out first' : undefined} style={{ display: 'inline-block' }}>
+                      <button
+                        type="button"
+                        onClick={() => setPreppingCall(true)}
+                        disabled={onHold || notContacted}
+                        style={{ padding: '7px 14px', borderRadius: 6, border: 'none', cursor: (onHold || notContacted) ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', background: '#0369a1', color: '#fff', opacity: (onHold || notContacted) ? 0.4 : 1 }}
+                      >
+                        Prep for call
+                      </button>
+                    </span>
+                    <span title={onHold ? 'Outreach on hold — HC vacancy' : undefined} style={{ display: 'inline-block' }}>
+                      <button
+                        type="button"
+                        onClick={() => setDraftingEmail(true)}
+                        disabled={onHold}
+                        style={{ padding: '7px 14px', borderRadius: 6, border: 'none', cursor: onHold ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', background: '#7c3aed', color: '#fff', opacity: onHold ? 0.4 : 1 }}
+                      >
+                        Draft Email
+                      </button>
+                    </span>
+                  </>
                 )
               })()}
               <button type="button" onClick={props.onClose} style={{ padding: '7px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', background: '#f1f5f9', color: '#475569' }}>Cancel</button>
