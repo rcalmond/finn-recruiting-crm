@@ -31,6 +31,27 @@ const LV = {
 
 const LVF = `'Inter', -apple-system, BlinkMacSystemFont, sans-serif`;
 
+// ───────── Mock data (design preview only) ─────────
+const DATA = {
+  awaiting: [
+    { id: 1, school: 'South Dakota Mines', coach: 'Coach Schuster', role: 'Head Coach', waited: '3 days', preview: '"Saw your film from Dallas. Love the left foot. Any chance you\'re out here this spring?"' },
+    { id: 2, school: 'Rochester', coach: 'Coach Farrell', role: 'Asst. Coach', waited: '5 days', preview: '"We have a spot in our recruiting class for a left back. Would love to connect this week."' },
+  ],
+  week: [
+    { id: 1, school: 'South Dakota Mines', action: 'Reply to Coach Schuster re: spring visit', due: 'Today', urgency: 'red' },
+    { id: 2, school: 'MSOE', action: 'Follow up on application status', due: 'Tue', urgency: 'now' },
+    { id: 3, school: 'Rochester', action: 'Send highlight reel update', due: 'Wed', urgency: 'soon' },
+    { id: 4, school: 'Lafayette', action: 'Schedule campus visit', due: 'Thu', urgency: 'soon' },
+    { id: 5, school: 'Cal Poly SLO', action: 'Email recruiting coordinator', due: 'Fri', urgency: 'later' },
+  ],
+  cold: [
+    { id: 1, school: 'Clarkson', risk: 'Last contact was 8 days ago. Coach mentioned roster review in April.', meta: 'Cat B · Engineering' },
+    { id: 2, school: 'WPI', risk: 'Strong fit academically. No reply since you sent the highlight reel.', meta: 'Cat A · Engineering' },
+    { id: 3, school: 'Stevens Tech', risk: 'Recruiter opened your email twice but hasn\'t replied.', meta: 'Cat B · Engineering' },
+    { id: 4, school: 'Rose-Hulman', risk: 'Intro call went well. Follow-up was promised but never sent.', meta: 'Cat B · Engineering' },
+  ],
+};
+
 // ───────── Sidebar ─────────
 function LVSidebar() {
   const nav = (label, count, on) => (
