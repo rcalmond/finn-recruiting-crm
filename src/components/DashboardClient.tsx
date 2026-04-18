@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { useSchools, useContactLog, useActionItems } from '@/hooks/useRealtimeData'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { todayStr, formatDate } from '@/lib/utils'
 import type { School, ContactLogEntry } from '@/lib/types'
 import DashboardView from './DashboardView'
@@ -18,14 +18,32 @@ type Tab = 'dashboard' | 'pipeline' | 'actions' | 'log' | 'questions'
 
 export default function DashboardClient({ user }: { user: User }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
   const { schools, loading, updateSchool, insertSchool, deleteSchool, reorderSchools } = useSchools()
   const { entries: contactLog } = useContactLog()
   const { items: actionItems, deleteItem: deleteActionItem, reorderItems: reorderActionItems } = useActionItems()
-  const [tab, setTab] = useState<Tab>('dashboard')
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = searchParams.get('tab')
+    return (t === 'actions' || t === 'pipeline' || t === 'log' || t === 'questions') ? t : 'dashboard'
+  })
   const [pipelineFilters, setPipelineFilters] = useState<Record<string, unknown>>({})
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null)
   const [addingSchool, setAddingSchool] = useState(false)
+
+  // Open school modal when ?school=<id> is in the URL (e.g. deep-linked from Today)
+  const schoolParam = searchParams.get('school')
+  useEffect(() => {
+    if (!schoolParam || loading) return
+    const match = schools.find(s => s.id === schoolParam)
+    if (match) {
+      setSelectedSchool(match)
+      // Clean the param from the URL without a navigation
+      const url = new URL(window.location.href)
+      url.searchParams.delete('school')
+      window.history.replaceState(null, '', url.toString())
+    }
+  }, [schoolParam, schools, loading])
 
   function handleNavigate(dest: 'pipeline' | 'actions', filters?: Record<string, unknown>) {
     setPipelineFilters(filters ?? {})

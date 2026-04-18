@@ -21,14 +21,17 @@ interface Props {
   school: School
   userId: string
   onClose: () => void
+  initialEmailType?: EmailType
+  initialCoachMessage?: string
+  onOutreachLogged?: () => void
 }
 
-export default function DraftEmailModal({ school, userId, onClose }: Props) {
+export default function DraftEmailModal({ school, userId, onClose, initialEmailType, initialCoachMessage, onOutreachLogged }: Props) {
   const { entries } = useContactLog(school.id)
   const recentLogs = entries.slice(0, 5)
 
-  const [emailType, setEmailType] = useState<EmailType>('first_contact')
-  const [coachMessage, setCoachMessage] = useState('')
+  const [emailType, setEmailType] = useState<EmailType>(initialEmailType ?? 'first_contact')
+  const [coachMessage, setCoachMessage] = useState(initialCoachMessage ?? '')
   const [additionalContext, setAdditionalContext] = useState('')
   const [loading, setLoading] = useState(false)
   const [draft, setDraft] = useState<{ subject: string; body: string } | null>(null)
@@ -94,6 +97,7 @@ export default function DraftEmailModal({ school, userId, onClose }: Props) {
       created_by: userId,
     })
     setLogState('logged')
+    onOutreachLogged?.()
   }
 
   const canGenerate = emailType !== 'reply' || coachMessage.trim().length > 0

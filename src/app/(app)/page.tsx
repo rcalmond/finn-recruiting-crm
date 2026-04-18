@@ -1,11 +1,10 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import TodayClient from '@/components/TodayClient'
 
-// Phase 1 placeholder — Schools view will be built in Phase 3.
-// For now, redirect to the existing pipeline tab on the dashboard.
-export default async function SchoolsPage() {
+export default async function TodayPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
-  redirect('/pipeline')
+  return <TodayClient user={user} />
 }

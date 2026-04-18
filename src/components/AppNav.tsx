@@ -10,9 +10,9 @@ type NavItem = {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Today',   href: '/dashboard' },
-  { label: 'Schools', href: '/schools'   },
-  { label: 'Library', href: '/library'   },
+  { label: 'Today',   href: '/'         },
+  { label: 'Schools', href: '/pipeline' },
+  { label: 'Library', href: '/library'  },
 ]
 
 // ── Sidebar (desktop) ──────────────────────────────────────────────
@@ -20,7 +20,7 @@ export function AppSidebar() {
   const pathname = usePathname()
 
   const isActive = (href: string) => {
-    if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
+    if (href === '/') return pathname === '/'
     return pathname.startsWith(href)
   }
 
@@ -116,7 +116,7 @@ export function AppBottomNav() {
   const pathname = usePathname()
 
   const isActive = (href: string) => {
-    if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/'
+    if (href === '/') return pathname === '/'
     return pathname.startsWith(href)
   }
 
