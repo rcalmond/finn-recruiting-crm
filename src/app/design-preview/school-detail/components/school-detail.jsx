@@ -1,5 +1,6 @@
 // School detail view — Rochester
 // Matches V4 Liverpool: warm paper, italic display, red/teal/gold semantic
+import { useState, useEffect } from 'react';
 
 const SD = {
   paper: '#F6F1E8', paperDeep: '#EFE8D8',
@@ -660,8 +661,8 @@ function AboutBlock({ isMobile }) {
 
 // ─── Action items ───
 function ActionItems() {
-  const [done, setDone] = React.useState(new Set());
-  const [showDone, setShowDone] = React.useState(false);
+  const [done, setDone] = useState(new Set());
+  const [showDone, setShowDone] = useState(false);
   const items = [
     { id: 'a1', text: 'Ping Coach Cross for meeting date', due: 'Overdue · today', overdue: true },
     { id: 'a2', text: 'Send campus-visit prep questions', due: 'Apr 22' },
@@ -754,8 +755,8 @@ function ActionItems() {
 function SDDesktopBody({ extraExpanded }) {
   const defaultExpanded = new Set(['action-1', 'in-2', 'out-1', 'in-1', 'log-1']);
   const all = extraExpanded ? new Set([...defaultExpanded, 'out-0']) : defaultExpanded;
-  const [expandedIds, setExpandedIds] = React.useState(all);
-  React.useEffect(() => { setExpandedIds(all); }, [extraExpanded]);
+  const [expandedIds, setExpandedIds] = useState(all);
+  useEffect(() => { setExpandedIds(all); }, [extraExpanded]);
 
   return (
     <>
@@ -781,8 +782,8 @@ function SDDesktopBody({ extraExpanded }) {
 function SDMobileBody({ extraExpanded }) {
   const defaultExpanded = new Set(['action-1', 'in-2', 'out-1', 'in-1']);
   const all = extraExpanded ? new Set([...defaultExpanded, 'log-1']) : defaultExpanded;
-  const [expandedIds, setExpandedIds] = React.useState(all);
-  React.useEffect(() => { setExpandedIds(all); }, [extraExpanded]);
+  const [expandedIds, setExpandedIds] = useState(all);
+  useEffect(() => { setExpandedIds(all); }, [extraExpanded]);
 
   return (
     <>
@@ -869,4 +870,5 @@ function SDMobileFrame({ label, extraExpanded = false }) {
   );
 }
 
-Object.assign(window, { SDDesktopFrame, SDMobileFrame, SD });
+if (typeof window !== 'undefined') Object.assign(window, { SDDesktopFrame, SDMobileFrame, SD });
+export { SDDesktopFrame, SDMobileFrame };

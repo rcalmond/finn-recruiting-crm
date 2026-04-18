@@ -1,5 +1,6 @@
 // Library landing — V4 Liverpool system, restrained
 // Matches school-detail.jsx tokens exactly
+import { useState } from 'react';
 
 const LIB_SDF = `'Inter', -apple-system, BlinkMacSystemFont, sans-serif`;
 const LIB = {
@@ -296,4 +297,5 @@ function LibMobileFrame({ label }) {
   );
 }
 
-Object.assign(window, { LibDesktopFrame, LibMobileFrame });
+if (typeof window !== 'undefined') Object.assign(window, { LibDesktopFrame, LibMobileFrame });
+export { LibDesktopFrame, LibMobileFrame };

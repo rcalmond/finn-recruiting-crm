@@ -1,4 +1,5 @@
 // Schools list view — matches V4 Liverpool system
+import { useState, useEffect } from 'react';
 
 const SL = {
   paper: '#F6F1E8',
@@ -288,9 +289,9 @@ function Dropdown({ label, value }) {
 
 // ───────── Desktop body ─────────
 function SLDesktopBody() {
-  const [q, setQ] = React.useState('');
-  const [quick, setQuick] = React.useState(null); // 'awaiting' | 'cold' | 'active' | null
-  const [tierFilter, setTierFilter] = React.useState(null);
+  const [q, setQ] = useState('');
+  const [quick, setQuick] = useState(null); // 'awaiting' | 'cold' | 'active' | null
+  const [tierFilter, setTierFilter] = useState(null);
 
   const filtered = SCHOOLS.filter(s => {
     if (q && !s.name.toLowerCase().includes(q.toLowerCase())) return false;
@@ -470,8 +471,8 @@ function SLDesktopBody() {
 
 // ───────── Mobile body ─────────
 function SLMobileBody() {
-  const [q, setQ] = React.useState('');
-  const [quick, setQuick] = React.useState(null);
+  const [q, setQ] = useState('');
+  const [quick, setQuick] = useState(null);
   const filtered = SCHOOLS.filter(s => {
     if (q && !s.name.toLowerCase().includes(q.toLowerCase())) return false;
     if (quick === 'awaiting' && s.signal?.kind !== 'awaiting') return false;
@@ -679,4 +680,5 @@ function SLMobileFrame({ label }) {
   );
 }
 
-Object.assign(window, { SLDesktopFrame, SLMobileFrame, SL });
+if (typeof window !== 'undefined') Object.assign(window, { SLDesktopFrame, SLMobileFrame, SL });
+export { SLDesktopFrame, SLMobileFrame };
