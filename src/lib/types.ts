@@ -48,6 +48,8 @@ export interface ContactLogEntry {
   summary: string
   created_by: string                 // auth user id
   created_at: string
+  snoozed_until?: string | null      // ISO timestamp; hides from Awaiting reply until this time
+  dismissed_at?: string | null       // ISO timestamp; hides permanently from Awaiting reply
   // joined
   school?: Pick<School, 'id' | 'name' | 'short_name'>
 }

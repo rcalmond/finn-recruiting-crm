@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import SchoolsClient from '@/components/SchoolsClient'
+import QuestionsPanel from '@/components/QuestionsPanel'
 
-export default async function SchoolsPage() {
+export default async function QuestionsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
-  return <SchoolsClient user={user} />
+  return <QuestionsPanel />
 }

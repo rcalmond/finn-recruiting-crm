@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import type { FeaturedAction } from '@/lib/todayLogic'
 import type { School } from '@/lib/types'
 import type { EmailType } from '@/lib/prompts'
@@ -90,6 +91,7 @@ export default function HeroSection({ featured, heroCompleted, onComplete, onSno
   }
 
   // ── Hero — red, featured action ─────────────────────────────────────────────
+  const router = useRouter()
   const { title, context, ctaLabel, emailType, school, actionItem, inboundEntry } = featured!
 
   // Extract a quote from the inbound message (first ~140 chars)
@@ -188,7 +190,15 @@ export default function HeroSection({ featured, heroCompleted, onComplete, onSno
             color: LV.redInk, opacity: 0.9,
             lineHeight: 1.5, maxWidth: 440,
           }}>
-            {school.name}
+            <span
+              onClick={() => router.push(`/schools/${school.id}`)}
+              style={{
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                textDecorationColor: 'rgba(255,235,240,0.5)',
+                textUnderlineOffset: 3,
+              }}
+            >{school.name}</span>
             {school.division && ` · ${school.division}`}
             {school.location && ` · ${school.location}`}
           </div>

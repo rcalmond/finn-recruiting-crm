@@ -3,6 +3,18 @@
 import type { Asset } from '@/lib/types'
 import { useState } from 'react'
 
+const LV = {
+  ink: '#0E0E0E',
+  inkMid: '#4A4A4A',
+  inkLo: '#7A7570',
+  inkMute: '#A8A39B',
+  line: '#E2DBC9',
+  paper: '#F6F1E8',
+  tealDeep: '#006A65',
+  tealSoft: '#D7F0ED',
+  red: '#C8102E',
+}
+
 const TYPE_LABELS: Record<string, string> = {
   resume: 'Resume',
   transcript: 'Transcript',
@@ -13,14 +25,15 @@ const TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  resume: '#2563eb',
-  transcript: '#059669',
-  highlight_reel: '#dc2626',
-  game_film: '#7c3aed',
-  sports_recruits: '#0369a1',
-  link: '#64748b',
-  other: '#94a3b8',
+// Ink-adjacent hues — readable on paper, semantically distinct
+const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  resume:          { bg: LV.tealSoft,  text: LV.tealDeep },
+  transcript:      { bg: '#D7EFE0',    text: '#2D6A4F'   },
+  highlight_reel:  { bg: '#FAD9D9',    text: LV.red      },
+  game_film:       { bg: '#E9D9FA',    text: '#5B21B6'   },
+  sports_recruits: { bg: '#D6EAF8',    text: '#1A5276'   },
+  link:            { bg: LV.paper,     text: LV.inkLo    },
+  other:           { bg: LV.paper,     text: LV.inkMute  },
 }
 
 function formatBytes(bytes: number): string {
@@ -39,28 +52,40 @@ interface Props {
 
 export default function AssetCard({ asset, onPreview, onReplace, onEdit, onDelete }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const color = TYPE_COLORS[asset.type] ?? '#94a3b8'
+  const colors = TYPE_COLORS[asset.type] ?? { bg: LV.paper, text: LV.inkMute }
   const label = TYPE_LABELS[asset.type] ?? asset.type
 
   return (
     <div style={{
-      background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb',
-      padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14,
+      background: '#fff',
+      borderRadius: 10,
+      border: `1px solid ${LV.line}`,
+      padding: '13px 16px',
+      display: 'flex', alignItems: 'center', gap: 14,
     }}>
       {/* Type badge */}
       <span style={{
-        padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700,
-        background: color + '14', color, flexShrink: 0, whiteSpace: 'nowrap',
+        padding: '3px 9px', borderRadius: 999,
+        fontSize: 10, fontWeight: 800,
+        background: colors.bg, color: colors.text,
+        flexShrink: 0, whiteSpace: 'nowrap',
+        letterSpacing: '0.04em', textTransform: 'uppercase',
       }}>
         {label}
       </span>
 
       {/* Name + meta */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{
+          fontWeight: 650, fontSize: 13, color: LV.ink,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
           {asset.name}
         </div>
-        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{
+          fontSize: 11, color: LV.inkLo, marginTop: 2,
+          display: 'flex', gap: 8, flexWrap: 'wrap',
+        }}>
           {asset.category === 'file' && asset.file_name && (
             <span>{asset.file_name}</span>
           )}
@@ -68,13 +93,15 @@ export default function AssetCard({ asset, onPreview, onReplace, onEdit, onDelet
             <span>{formatBytes(asset.file_size)}</span>
           )}
           {asset.category === 'link' && asset.url && (
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 300 }}>{asset.url}</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 300 }}>
+              {asset.url}
+            </span>
           )}
           {asset.version > 1 && (
-            <span style={{ color: '#6366f1', fontWeight: 600 }}>v{asset.version}</span>
+            <span style={{ color: LV.tealDeep, fontWeight: 700 }}>v{asset.version}</span>
           )}
           {asset.description && (
-            <span style={{ fontStyle: 'italic' }}>{asset.description}</span>
+            <span style={{ fontStyle: 'italic', color: LV.inkMute }}>{asset.description}</span>
           )}
         </div>
       </div>
@@ -84,22 +111,27 @@ export default function AssetCard({ asset, onPreview, onReplace, onEdit, onDelet
         {!confirmDelete ? (
           <>
             {asset.category === 'file' && (
-              <button onClick={() => onPreview(asset)} style={btnStyle('#eff6ff', '#2563eb')}>Preview</button>
+              <button onClick={() => onPreview(asset)} style={btn(LV.tealSoft, LV.tealDeep)}>
+                Preview
+              </button>
             )}
             {asset.category === 'link' && asset.url && (
-              <a href={asset.url} target="_blank" rel="noopener noreferrer" style={{ ...btnStyle('#eff6ff', '#2563eb'), textDecoration: 'none' }}>Open</a>
+              <a href={asset.url} target="_blank" rel="noopener noreferrer"
+                style={{ ...btn(LV.tealSoft, LV.tealDeep), textDecoration: 'none' }}>
+                Open
+              </a>
             )}
             {asset.category === 'link' && (
-              <button onClick={() => onEdit(asset)} style={btnStyle('#f1f5f9', '#475569')}>Edit</button>
+              <button onClick={() => onEdit(asset)} style={btn(LV.paper, LV.inkMid)}>Edit</button>
             )}
-            <button onClick={() => onReplace(asset)} style={btnStyle('#f1f5f9', '#475569')}>Replace</button>
-            <button onClick={() => setConfirmDelete(true)} style={btnStyle('#fef2f2', '#dc2626')}>✕</button>
+            <button onClick={() => onReplace(asset)} style={btn(LV.paper, LV.inkMid)}>Replace</button>
+            <button onClick={() => setConfirmDelete(true)} style={btn('#FAD9D9', LV.red)}>✕</button>
           </>
         ) : (
           <>
-            <span style={{ fontSize: 11, color: '#dc2626' }}>Delete?</span>
-            <button onClick={() => onDelete(asset)} style={btnStyle('#dc2626', '#fff')}>Yes</button>
-            <button onClick={() => setConfirmDelete(false)} style={btnStyle('#f1f5f9', '#475569')}>No</button>
+            <span style={{ fontSize: 11, color: LV.red, fontWeight: 600 }}>Delete?</span>
+            <button onClick={() => onDelete(asset)} style={btn(LV.red, '#fff')}>Yes</button>
+            <button onClick={() => setConfirmDelete(false)} style={btn(LV.paper, LV.inkMid)}>No</button>
           </>
         )}
       </div>
@@ -107,9 +139,11 @@ export default function AssetCard({ asset, onPreview, onReplace, onEdit, onDelet
   )
 }
 
-function btnStyle(bg: string, color: string): React.CSSProperties {
+function btn(bg: string, color: string): React.CSSProperties {
   return {
-    padding: '4px 10px', borderRadius: 5, border: 'none', cursor: 'pointer',
-    fontSize: 11.5, fontWeight: 600, fontFamily: 'inherit', background: bg, color,
+    padding: '4px 10px', borderRadius: 6, border: 'none',
+    cursor: 'pointer', fontSize: 11.5, fontWeight: 700,
+    fontFamily: 'inherit', background: bg, color,
+    letterSpacing: '-0.01em',
   }
 }

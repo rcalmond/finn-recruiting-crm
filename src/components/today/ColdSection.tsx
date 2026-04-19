@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import type { ColdCandidate } from '@/lib/todayLogic'
 import type { School } from '@/lib/types'
 import type { EmailType } from '@/lib/prompts'
@@ -21,6 +22,7 @@ const LV = {
 }
 
 export default function ColdSection({ cold, onDraft }: Props) {
+  const router = useRouter()
   if (cold.length === 0) return null
 
   return (
@@ -70,7 +72,7 @@ export default function ColdSection({ cold, onDraft }: Props) {
           ].filter(Boolean).join(' · ')
 
           return (
-            <div key={school.id} style={{
+            <div key={school.id} onClick={() => router.push(`/schools/${school.id}`)} style={{
               background: '#fff',
               border: `1px solid ${LV.line}`,
               borderRadius: 12,
@@ -78,6 +80,7 @@ export default function ColdSection({ cold, onDraft }: Props) {
               display: 'flex', flexDirection: 'column', gap: 10,
               minHeight: 160,
               position: 'relative',
+              cursor: 'pointer',
             }}>
               {/* Gold top accent bar */}
               <div style={{
@@ -123,7 +126,7 @@ export default function ColdSection({ cold, onDraft }: Props) {
                   {meta}
                 </div>
                 <button
-                  onClick={() => onDraft(school, 'follow_up', inbound.summary)}
+                  onClick={(e) => { e.stopPropagation(); onDraft(school, 'follow_up', inbound.summary) }}
                   style={{
                     background: LV.ink, color: '#fff',
                     border: 'none', borderRadius: 999,

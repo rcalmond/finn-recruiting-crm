@@ -4,9 +4,17 @@ import { daysBetween, todayStr } from './utils'
 
 // ─── Unreplied inbound detection ─────────────────────────────────────────────
 
+/** Returns false for inbounds that are currently snoozed or permanently dismissed. */
+function isActiveInbound(entry: ContactLogEntry): boolean {
+  if (entry.dismissed_at) return false
+  if (entry.snoozed_until && entry.snoozed_until > new Date().toISOString()) return false
+  return true
+}
+
 /**
  * Returns all inbound contact_log entries that have no subsequent outbound
- * entry for the same school. Sorted oldest first (longest-waiting first).
+ * entry for the same school, excluding snoozed and dismissed entries.
+ * Sorted oldest first (longest-waiting first).
  */
 export function getUnrepliedInbounds(log: ContactLogEntry[]): ContactLogEntry[] {
   // Build per-school lookup
@@ -18,7 +26,7 @@ export function getUnrepliedInbounds(log: ContactLogEntry[]): ContactLogEntry[] 
 
   const unreplied: ContactLogEntry[] = []
   Array.from(bySchool.values()).forEach(entries => {
-    entries.filter(e => e.direction === 'Inbound').forEach(inbound => {
+    entries.filter(e => e.direction === 'Inbound' && isActiveInbound(e)).forEach(inbound => {
       const hasOutboundAfter = entries.some(
         e => e.direction === 'Outbound' && e.date > inbound.date
       )

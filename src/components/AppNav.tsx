@@ -10,10 +10,13 @@ type NavItem = {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Today',   href: '/'         },
-  { label: 'Schools', href: '/pipeline' },
-  { label: 'Library', href: '/library'  },
+  { label: 'Today',   href: '/'        },
+  { label: 'Schools', href: '/schools' },
+  { label: 'Library', href: '/library' },
 ]
+
+// Sub-paths that belong to the Library section
+const LIBRARY_PATHS = ['/library', '/assets', '/questions']
 
 // ── Sidebar (desktop) ──────────────────────────────────────────────
 export function AppSidebar() {
@@ -21,6 +24,7 @@ export function AppSidebar() {
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
+    if (href === '/library') return LIBRARY_PATHS.some(p => pathname.startsWith(p))
     return pathname.startsWith(href)
   }
 
@@ -117,6 +121,7 @@ export function AppBottomNav() {
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
+    if (href === '/library') return LIBRARY_PATHS.some(p => pathname.startsWith(p))
     return pathname.startsWith(href)
   }
 

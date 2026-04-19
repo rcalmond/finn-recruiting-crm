@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { ContactLogEntry, School } from '@/lib/types'
 import type { EmailType } from '@/lib/prompts'
 import { daysBetween } from '@/lib/utils'
@@ -11,6 +12,8 @@ interface Props {
   unreplied: ContactLogEntry[]
   schools: School[]
   onDraft: (school: School, emailType: EmailType, coachMessage?: string) => void
+  onSnooze: (id: string) => Promise<void>
+  onDismiss: (id: string) => Promise<void>
 }
 
 const LV = {
@@ -24,7 +27,8 @@ const LV = {
   line: '#E2DBC9',
 }
 
-export default function AwaitSection({ unreplied, schools, onDraft }: Props) {
+export default function AwaitSection({ unreplied, schools, onDraft, onSnooze, onDismiss }: Props) {
+  const router = useRouter()
   const schoolMap = new Map(schools.map(s => [s.id, s]))
   const [expanded, setExpanded] = useState(false)
 
@@ -83,11 +87,12 @@ export default function AwaitSection({ unreplied, schools, onDraft }: Props) {
               const preview = entry.summary.replace(/\n+/g, ' ').trim().slice(0, 120)
 
               return (
-                <div key={entry.id} style={{
+                <div key={entry.id} onClick={() => router.push(`/schools/${school.id}`)} style={{
                   padding: 'clamp(14px, 2vw, 20px) clamp(16px, 3vw, 24px)',
                   borderTop: i === 0 ? 'none' : `1px solid ${LV.line}`,
                   display: 'flex', gap: 'clamp(12px, 2vw, 20px)',
                   alignItems: 'center',
+                  cursor: 'pointer',
                 }}>
                   {/* Days column (desktop only) */}
                   <div style={{ width: 96, flexShrink: 0 }} className="await-days">
@@ -136,24 +141,47 @@ export default function AwaitSection({ unreplied, schools, onDraft }: Props) {
                     }}>{preview}{entry.summary.length > 120 ? '…' : ''}</div>
                   </div>
 
-                  {/* CTA */}
-                  <button
-                    onClick={() => onDraft(school, 'reply', entry.summary)}
-                    style={{
-                      padding: 'clamp(9px, 1.5vw, 11px) clamp(13px, 2vw, 18px)',
-                      background: LV.tealDeep, color: '#fff',
-                      border: 'none', borderRadius: 999,
-                      fontSize: 13, fontWeight: 650,
-                      cursor: 'pointer', fontFamily: 'inherit',
-                      flexShrink: 0, letterSpacing: -0.1,
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                    }}
-                  >
-                    Draft reply
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                      <path d="M5 12h14m-5-6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </button>
+                  {/* CTA + snooze/dismiss */}
+                  <div style={{
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'flex-end', gap: 7, flexShrink: 0,
+                  }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDraft(school, 'reply', entry.summary) }}
+                      style={{
+                        padding: 'clamp(9px, 1.5vw, 11px) clamp(13px, 2vw, 18px)',
+                        background: LV.tealDeep, color: '#fff',
+                        border: 'none', borderRadius: 999,
+                        fontSize: 13, fontWeight: 650,
+                        cursor: 'pointer', fontFamily: 'inherit',
+                        letterSpacing: -0.1,
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                      }}
+                    >
+                      Draft reply
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 12h14m-5-6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onSnooze(entry.id) }}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          fontSize: 11, fontWeight: 600, color: LV.inkLo,
+                          fontFamily: 'inherit', padding: 0, letterSpacing: -0.1,
+                        }}
+                      >Snooze 7d</button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDismiss(entry.id) }}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          fontSize: 11, fontWeight: 600, color: LV.inkLo,
+                          fontFamily: 'inherit', padding: 0, letterSpacing: -0.1,
+                        }}
+                      >Dismiss</button>
+                    </div>
+                  </div>
                 </div>
               )
             })}

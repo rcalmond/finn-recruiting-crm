@@ -114,7 +114,7 @@ export default function WeekSection({ items, today }: Props) {
           return (
             <div
               key={item.id}
-              onClick={() => schoolId && router.push(`/pipeline?school=${schoolId}`)}
+              onClick={() => schoolId && router.push(`/schools/${schoolId}`)}
               style={{
                 display: 'grid',
                 gridTemplateColumns: '14px minmax(120px, 180px) 1fr auto',

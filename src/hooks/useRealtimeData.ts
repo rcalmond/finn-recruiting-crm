@@ -122,7 +122,41 @@ export function useContactLog(schoolId?: string) {
     return error
   }, [supabase])
 
-  return { entries, loading, insertContact, insertContacts, deleteEntry, refetch: fetchEntries }
+  const snoozeEntry = useCallback(async (id: string, days = 7) => {
+    const until = new Date()
+    until.setDate(until.getDate() + days)
+    const snoozeUntil = until.toISOString()
+    const { error } = await supabase.from('contact_log')
+      .update({ snoozed_until: snoozeUntil, dismissed_at: null })
+      .eq('id', id)
+    if (!error) setEntries(prev => prev.map(e =>
+      e.id === id ? { ...e, snoozed_until: snoozeUntil, dismissed_at: null } : e
+    ))
+    return error
+  }, [supabase])
+
+  const dismissEntry = useCallback(async (id: string) => {
+    const now = new Date().toISOString()
+    const { error } = await supabase.from('contact_log')
+      .update({ dismissed_at: now, snoozed_until: null })
+      .eq('id', id)
+    if (!error) setEntries(prev => prev.map(e =>
+      e.id === id ? { ...e, dismissed_at: now, snoozed_until: null } : e
+    ))
+    return error
+  }, [supabase])
+
+  const undoEntry = useCallback(async (id: string) => {
+    const { error } = await supabase.from('contact_log')
+      .update({ snoozed_until: null, dismissed_at: null })
+      .eq('id', id)
+    if (!error) setEntries(prev => prev.map(e =>
+      e.id === id ? { ...e, snoozed_until: null, dismissed_at: null } : e
+    ))
+    return error
+  }, [supabase])
+
+  return { entries, loading, insertContact, insertContacts, deleteEntry, snoozeEntry, dismissEntry, undoEntry, refetch: fetchEntries }
 }
 
 // ─── Action Items ─────────────────────────────────────────────────────────────

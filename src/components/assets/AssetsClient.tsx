@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import type { User } from '@supabase/supabase-js'
 import type { Asset, AssetType } from '@/lib/types'
 import { useAssets } from '@/hooks/useRealtimeData'
@@ -9,6 +10,18 @@ import AddFileModal from './AddFileModal'
 import AddLinkModal from './AddLinkModal'
 import ReplaceAssetModal from './ReplaceAssetModal'
 import VersionHistoryDrawer from './VersionHistoryDrawer'
+
+const LV = {
+  paper: '#F6F1E8',
+  ink: '#0E0E0E',
+  inkMid: '#4A4A4A',
+  inkLo: '#7A7570',
+  inkMute: '#A8A39B',
+  line: '#E2DBC9',
+  teal: '#00B2A9',
+  tealDeep: '#006A65',
+  tealSoft: '#D7F0ED',
+}
 
 type Modal =
   | { kind: 'add-file' }
@@ -39,7 +52,6 @@ export default function AssetsClient({ user }: { user: User }) {
   }
 
   async function handleReplaced(oldAsset: Asset, newAsset: Asset) {
-    // Archive old, update new with correct version
     await archiveAsset(oldAsset.id, newAsset.id)
     await updateAsset(newAsset.id, { version: oldAsset.version + 1 })
   }
@@ -53,87 +65,112 @@ export default function AssetsClient({ user }: { user: User }) {
   }
 
   return (
-    <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", background: '#fafbfc', minHeight: '100vh', color: '#0f172a' }}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <div style={{
+      fontFamily: "'Inter', -apple-system, sans-serif",
+      background: LV.paper,
+      minHeight: '100vh',
+      color: LV.ink,
+      padding: 'clamp(28px, 4vw, 48px) clamp(20px, 5vw, 56px)',
+    }}>
+      {/* Header */}
+      <div style={{ marginBottom: 'clamp(24px, 3vw, 36px)', maxWidth: 720 }}>
+        <Link href="/library" style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          fontSize: 11, fontWeight: 700, color: LV.inkLo,
+          textDecoration: 'none', letterSpacing: '0.08em',
+          textTransform: 'uppercase', marginBottom: 14,
+        }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M19 12H5m5-6-6 6 6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Library
+        </Link>
 
-      <div style={{ padding: '20px 20px 40px', maxWidth: 800, margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>Asset Library</h1>
-            <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#64748b' }}>
-              Finn Almond · Class of 2027 · Recruiting assets
-            </p>
-          </div>
-          <a href="/dashboard" style={{ fontSize: 12, color: '#64748b', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6 }}>
-            ← Dashboard
-          </a>
-        </div>
-
-        {loading && <div style={{ textAlign: 'center', padding: 60, color: '#94a3b8' }}>Loading…</div>}
-
-        {!loading && (
-          <>
-            {/* Files section */}
-            <Section
-              title="Files"
-              count={currentFiles.length}
-              action={<button onClick={() => setModal({ kind: 'add-file' })} style={addBtnStyle}>+ Add File</button>}
-            >
-              {currentFiles.length === 0 ? (
-                <Empty message="No files uploaded yet." />
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {currentFiles.map(a => (
-                    <AssetCard
-                      key={a.id}
-                      asset={a}
-                      onPreview={handlePreview}
-                      onReplace={asset => setModal({ kind: 'replace', asset })}
-                      onEdit={asset => asset.category === 'link' ? setModal({ kind: 'edit-link', asset }) : undefined}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                </div>
-              )}
-            </Section>
-
-            {/* Links section */}
-            <Section
-              title="Links"
-              count={currentLinks.length}
-              action={<button onClick={() => setModal({ kind: 'add-link' })} style={addBtnStyle}>+ Add Link</button>}
-            >
-              {currentLinks.length === 0 ? (
-                <Empty message="No links added yet." />
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {currentLinks.map(a => (
-                    <AssetCard
-                      key={a.id}
-                      asset={a}
-                      onPreview={handlePreview}
-                      onReplace={asset => setModal({ kind: 'replace', asset })}
-                      onEdit={asset => setModal({ kind: 'edit-link', asset })}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                </div>
-              )}
-            </Section>
-
-            {/* Version history */}
-            <VersionHistoryDrawer archivedAssets={archived} onPreview={handlePreview} />
-          </>
-        )}
+        <h1 style={{
+          margin: '0 0 6px',
+          fontSize: 'clamp(40px, 6vw, 64px)',
+          fontWeight: 700, letterSpacing: 'clamp(-2px, -0.03em, -3px)',
+          color: LV.ink, fontStyle: 'italic', lineHeight: 1,
+        }}>
+          Assets.
+        </h1>
+        <p style={{ margin: 0, fontSize: 13, color: LV.inkLo }}>
+          Finn Almond · Class of 2027 · Recruiting assets
+        </p>
       </div>
+
+      {loading && (
+        <div style={{ padding: '60px 0', textAlign: 'center', color: LV.inkLo, fontSize: 14 }}>
+          Loading…
+        </div>
+      )}
+
+      {!loading && (
+        <div style={{ maxWidth: 720 }}>
+          {/* Files section */}
+          <Section
+            title="Files"
+            count={currentFiles.length}
+            action={
+              <button onClick={() => setModal({ kind: 'add-file' })} style={addBtnStyle(LV)}>
+                + Add File
+              </button>
+            }
+          >
+            {currentFiles.length === 0 ? (
+              <Empty message="No files uploaded yet." />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {currentFiles.map(a => (
+                  <AssetCard
+                    key={a.id}
+                    asset={a}
+                    onPreview={handlePreview}
+                    onReplace={asset => setModal({ kind: 'replace', asset })}
+                    onEdit={asset => asset.category === 'link' ? setModal({ kind: 'edit-link', asset }) : undefined}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
+            )}
+          </Section>
+
+          {/* Links section */}
+          <Section
+            title="Links"
+            count={currentLinks.length}
+            action={
+              <button onClick={() => setModal({ kind: 'add-link' })} style={addBtnStyle(LV)}>
+                + Add Link
+              </button>
+            }
+          >
+            {currentLinks.length === 0 ? (
+              <Empty message="No links added yet." />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {currentLinks.map(a => (
+                  <AssetCard
+                    key={a.id}
+                    asset={a}
+                    onPreview={handlePreview}
+                    onReplace={asset => setModal({ kind: 'replace', asset })}
+                    onEdit={asset => setModal({ kind: 'edit-link', asset })}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
+            )}
+          </Section>
+
+          {/* Version history */}
+          <VersionHistoryDrawer archivedAssets={archived} onPreview={handlePreview} />
+        </div>
+      )}
 
       {/* Modals */}
       {modal?.kind === 'add-file' && (
-        <AddFileModal
-          onClose={() => setModal(null)}
-          onUploaded={() => setModal(null)}
-        />
+        <AddFileModal onClose={() => setModal(null)} onUploaded={() => setModal(null)} />
       )}
       {(modal?.kind === 'add-link' || modal?.kind === 'edit-link') && (
         <AddLinkModal
@@ -154,13 +191,24 @@ export default function AssetsClient({ user }: { user: User }) {
   )
 }
 
-function Section({ title, count, action, children }: { title: string; count: number; action: React.ReactNode; children: React.ReactNode }) {
+function Section({ title, count, action, children }: {
+  title: string; count: number; action: React.ReactNode; children: React.ReactNode
+}) {
   return (
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{title}</span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', background: '#f1f5f9', borderRadius: 4, padding: '1px 6px' }}>{count}</span>
+    <div style={{ marginBottom: 32 }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: 12, paddingBottom: 10,
+        borderBottom: '1px solid #E2DBC9',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <span style={{
+            fontSize: 11, fontWeight: 800, letterSpacing: '0.15em',
+            textTransform: 'uppercase', color: '#7A7570',
+          }}>{title}</span>
+          <span style={{
+            fontSize: 12, fontWeight: 700, color: '#A8A39B',
+          }}>{count}</span>
         </div>
         {action}
       </div>
@@ -171,13 +219,24 @@ function Section({ title, count, action, children }: { title: string; count: num
 
 function Empty({ message }: { message: string }) {
   return (
-    <div style={{ padding: '20px 16px', textAlign: 'center', color: '#94a3b8', background: '#fff', borderRadius: 8, border: '1px dashed #e2e8f0', fontSize: 13 }}>
+    <div style={{
+      padding: '24px 16px', textAlign: 'center',
+      color: '#A8A39B', fontSize: 13,
+      background: '#fff', borderRadius: 10,
+      border: '1px dashed #E2DBC9',
+    }}>
       {message}
     </div>
   )
 }
 
-const addBtnStyle: React.CSSProperties = {
-  padding: '5px 12px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff',
-  fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: '#475569',
+function addBtnStyle(LV: Record<string, string>): React.CSSProperties {
+  return {
+    padding: '6px 14px', borderRadius: 999,
+    border: `1px solid ${LV.line}`,
+    background: '#fff',
+    fontSize: 12, fontWeight: 700, cursor: 'pointer',
+    fontFamily: 'inherit', color: LV.inkMid,
+    letterSpacing: '-0.01em',
+  }
 }

@@ -29,7 +29,7 @@ const LV = {
 export default function TodayClient({ user }: { user: User }) {
   const today = todayStr()
   const { schools, loading: schoolsLoading } = useSchools()
-  const { entries: contactLog, loading: logLoading } = useContactLog()
+  const { entries: contactLog, loading: logLoading, snoozeEntry, dismissEntry } = useContactLog()
   const { items: actionItems, loading: actionsLoading, updateItem, deleteItem } = useActionItems()
 
   const loading = schoolsLoading || logLoading || actionsLoading
@@ -157,6 +157,8 @@ export default function TodayClient({ user }: { user: User }) {
         onDraft={(school, emailType, coachMessage) =>
           openDraft(school, emailType, coachMessage)
         }
+        onSnooze={async (id) => { await snoozeEntry(id) }}
+        onDismiss={async (id) => { await dismissEntry(id) }}
       />
 
       {/* Section 3 — This week */}
