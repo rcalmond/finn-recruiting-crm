@@ -399,6 +399,7 @@ const STATIC_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-19 | contact_log snooze/dismiss (migration 011) + Today Awaiting reply UI | Schema |
 | 2026-04-17 | Prep for call feature — AI-generated school-specific question triage | Feature |
 | 2026-04-17 | Question bank — 15 questions, 5 categories, add/edit/delete, nav tab | Feature |
 | 2026-04-17 | school_question_overrides + school_specific_questions tables (migration 010) | Schema |
