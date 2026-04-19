@@ -399,6 +399,7 @@ const STATIC_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-19 | Starting Part 1: coaches table migration + backfill (email ingestion project) | Schema |
 | 2026-04-19 | Phase 3c: Library landing, Assets/Questions restyle | Feature |
 | 2026-04-19 | Phase 3b: School detail page at /schools/[id] with timeline, action bar, coach card | Feature |
 | 2026-04-19 | Phase 3a: Schools list at /schools with filters, signals, 6-stage flow | Feature |
