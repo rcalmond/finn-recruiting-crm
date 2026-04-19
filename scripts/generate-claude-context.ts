@@ -399,6 +399,11 @@ const STATIC_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-19 | Phase 3c: Library landing, Assets/Questions restyle | Feature |
+| 2026-04-19 | Phase 3b: School detail page at /schools/[id] with timeline, action bar, coach card | Feature |
+| 2026-04-19 | Phase 3a: Schools list at /schools with filters, signals, 6-stage flow | Feature |
+| 2026-04-19 | Phase 2: Today view replaces Dashboard as home page | Feature |
+| 2026-04-19 | Phase 1: Liverpool design system + app shell | UI |
 | 2026-04-19 | contact_log snooze/dismiss (migration 011) + Today Awaiting reply UI | Schema |
 | 2026-04-17 | Prep for call feature — AI-generated school-specific question triage | Feature |
 | 2026-04-17 | Question bank — 15 questions, 5 categories, add/edit/delete, nav tab | Feature |
