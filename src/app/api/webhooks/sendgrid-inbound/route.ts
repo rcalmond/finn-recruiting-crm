@@ -52,18 +52,22 @@ function stripHtml(html: string): string {
 
 // Gmail forward preamble: "---------- Forwarded message ---------\nFrom: ...\nDate: ...\n..."
 function extractForwardedContent(text: string): { body: string; forwardDate: string | null } {
+  // Normalize line endings first — email text frequently arrives with \r\n
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
   const forwardMarker = /[-]{5,}\s*Forwarded message\s*[-]{5,}/i
-  const match = text.match(forwardMarker)
-  if (match) {
-    const afterMarker = text.slice(match.index! + match[0].length)
-    // The forward header block ends at the first blank line
-    const headerEnd = afterMarker.indexOf('\n\n')
-    const forwardHeaders = headerEnd !== -1 ? afterMarker.slice(0, headerEnd) : ''
-    const innerBody = (headerEnd !== -1 ? afterMarker.slice(headerEnd + 2) : afterMarker).trim()
+  const match = normalized.match(forwardMarker)
+  if (match && match.index !== undefined) {
+    const afterMarker = normalized.slice(match.index + match[0].length)
+    // Strip leading blank lines before the preamble header block
+    const trimmed = afterMarker.replace(/^\n+/, '')
+    // Forward header block (From/Date/Subject/To) ends at first blank line
+    const headerEnd = trimmed.indexOf('\n\n')
+    const forwardHeaders = headerEnd !== -1 ? trimmed.slice(0, headerEnd) : ''
+    const innerBody = (headerEnd !== -1 ? trimmed.slice(headerEnd + 2) : trimmed).trim()
     const dateMatch = forwardHeaders.match(/^Date:\s*(.+)$/m)
     return { body: innerBody, forwardDate: dateMatch ? dateMatch[1].trim() : null }
   }
-  return { body: text.trim(), forwardDate: null }
+  return { body: normalized.trim(), forwardDate: null }
 }
 
 // ── SR detection ──────────────────────────────────────────────────────────────
@@ -128,44 +132,64 @@ function extractSchoolAndCoach(
 
 // Extract just the coach's message body from the SR notification
 function extractMessageBody(body: string): string {
-  // Start: after the SR internal subject line "*Subject: ...*\n"
-  const subjectMatch = body.match(/\*?Subject:[^\n]+\*?\n+/i)
-  const startIdx = subjectMatch
-    ? body.indexOf(subjectMatch[0]) + subjectMatch[0].length
-    : 0
+  // Normalize line endings — email text may arrive with \r\n
+  const normalized = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+
+  // Find the SR internal subject line — try formats in order of specificity
+  // The match index is used directly (avoids indexOf re-search on normalized string)
+  const subjectPatterns = [
+    /\*Subject:[^\n]+\*\n+/i,       // *Subject: Re: ...*
+    /\*Subject:[^\n]+\n+/i,          // *Subject: Re: ...  (no closing *)
+    /^Subject:[^\n]+\n+/im,          // Subject: Re: ...   (no asterisks, line-anchored)
+  ]
+
+  let startIdx = 0
+  for (const pattern of subjectPatterns) {
+    const m = normalized.match(pattern)
+    if (m && m.index !== undefined) {
+      startIdx = m.index + m[0].length
+      break
+    }
+  }
 
   // End: "Reply on SportsRecruits", footer disclaimer, or horizontal rule
-  let endIdx = body.length
+  let endIdx = normalized.length
   const candidates = [
-    body.indexOf('Reply on SportsRecruits'),
-    body.indexOf('Please do not reply to this notification email'),
-    body.indexOf('\n---\n', startIdx),
-    // Format A: body sometimes ends with just the thread link
-    body.indexOf('View the full message on SportsRecruits'),
+    normalized.indexOf('Reply on SportsRecruits', startIdx),
+    normalized.indexOf('Please do not reply to this notification email', startIdx),
+    normalized.indexOf('\n---\n', startIdx),
+    normalized.indexOf('View the full message on SportsRecruits', startIdx),
   ]
   for (const idx of candidates) {
     if (idx !== -1 && idx > startIdx) endIdx = Math.min(endIdx, idx)
   }
 
-  return body.slice(startIdx, endIdx).trim()
+  return normalized.slice(startIdx, endIdx).trim()
+}
+
+// Gmail preamble dates look like "Sat, Apr 4, 2026 at 7:35 AM" — "at" is not valid JS
+function parseGmailDate(raw: string): Date {
+  return new Date(raw.replace(/\s+at\s+/i, ' '))
 }
 
 function parseMessageDate(
   forwardDate: string | null,
   headers: string
 ): { date: string; isEstimated: boolean } {
-  // Prefer the Date from inside the Gmail forward preamble (= when SR sent it)
+  // Preamble date first: this is the original SR send time, preserved inside the
+  // Gmail forward body. The email headers Date is when Gmail *forwarded* the message
+  // (correct for live auto-forwards; wrong for manually forwarded old emails).
   if (forwardDate) {
-    const d = new Date(forwardDate)
+    const d = parseGmailDate(forwardDate)
     if (!isNaN(d.getTime())) return { date: d.toISOString().split('T')[0], isEstimated: false }
   }
-  // Fall back to the email headers Date field
+  // Fall back to email headers Date (correct for live auto-forwards, ~seconds off)
   const headerMatch = headers.match(/^Date:\s*(.+)$/m)
   if (headerMatch) {
     const d = new Date(headerMatch[1].trim())
     if (!isNaN(d.getTime())) return { date: d.toISOString().split('T')[0], isEstimated: false }
   }
-  // Last resort: today
+  // Last resort — flag as partial so we know the date is unreliable
   return { date: new Date().toISOString().split('T')[0], isEstimated: true }
 }
 
