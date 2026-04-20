@@ -47,10 +47,17 @@ export interface ContactLogEntry {
   direction: ContactDirection
   coach_name: string | null
   summary: string
-  created_by: string                 // auth user id
+  created_by: string | null          // auth user id; null for webhook-authored entries
   created_at: string
   snoozed_until?: string | null      // ISO timestamp; hides from Awaiting reply until this time
   dismissed_at?: string | null       // ISO timestamp; hides permanently from Awaiting reply
+  // source tracking (migration 014) — optional: DB defaults apply; UI inserts omit these
+  raw_source?: string | null
+  source_thread_id?: string | null
+  source_message_id?: string | null
+  parse_status?: 'parsed' | 'partial' | 'failed'
+  parse_notes?: string | null
+  coach_id?: string | null           // FK to coaches.id; null if no match found
   // joined
   school?: Pick<School, 'id' | 'name' | 'short_name'>
 }
