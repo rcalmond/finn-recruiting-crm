@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { School } from '@/lib/types'
+import type { School, Coach } from '@/lib/types'
 import type { EmailType } from '@/lib/prompts'
 import { useContactLog } from '@/hooks/useRealtimeData'
 import { createClient } from '@/lib/supabase/client'
@@ -24,9 +24,10 @@ interface Props {
   initialEmailType?: EmailType
   initialCoachMessage?: string
   onOutreachLogged?: () => void
+  primaryCoach?: Coach | null
 }
 
-export default function DraftEmailModal({ school, userId, onClose, initialEmailType, initialCoachMessage, onOutreachLogged }: Props) {
+export default function DraftEmailModal({ school, userId, onClose, initialEmailType, initialCoachMessage, onOutreachLogged, primaryCoach }: Props) {
   const { entries } = useContactLog(school.id)
   const recentLogs = entries.slice(0, 5)
 
@@ -87,13 +88,14 @@ export default function DraftEmailModal({ school, userId, onClose, initialEmailT
     if (!draft) return
     setLogState('logging')
     const supabase = createClient()
+    const coachName = primaryCoach?.name ?? school.head_coach ?? null
     await supabase.from('contact_log').insert({
       school_id: school.id,
       date: todayStr(),
       channel: 'Email',
       direction: 'Outbound',
       summary: draft.subject,
-      coach_name: school.head_coach || null,
+      coach_name: coachName,
       created_by: userId,
     })
     setLogState('logged')

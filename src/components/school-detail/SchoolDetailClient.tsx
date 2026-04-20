@@ -4,9 +4,9 @@ import { useState, useMemo, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
-import type { School, ContactLogEntry, ActionItem } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Coach } from '@/lib/types'
 import type { EmailType } from '@/lib/prompts'
-import { useSchools, useContactLog, useActionItems } from '@/hooks/useRealtimeData'
+import { useSchools, useContactLog, useActionItems, useCoaches } from '@/hooks/useRealtimeData'
 import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
 import { getRankedFeaturedAction } from '@/lib/todayLogic'
 import { todayStr } from '@/lib/utils'
@@ -759,22 +759,25 @@ function Timeline({
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
-interface CoachEntry { name: string; role: string }
+function coachInitials(name: string): string {
+  return name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('')
+}
 
-function parseCoaches(raw: string): CoachEntry[] {
+// Legacy fallback: parse head_coach string if coaches table is empty
+interface LegacyCoach { name: string; role: string; isHead: boolean }
+function parseLegacyCoaches(raw: string): LegacyCoach[] {
   return raw
     .split(';')
     .map(s => s.trim())
     .filter(Boolean)
-    .map(entry => {
-      const match = entry.match(/^(.+?)\s+[–—]\s+(.+)$/)
-      if (match) return { name: match[1].trim(), role: match[2].trim() }
-      return { name: entry, role: '' }
+    .map((entry, i) => {
+      const match = entry.match(/^(.+?)\s+[–—-]\s+(.+)$/)
+      if (match) {
+        const role = match[2].trim()
+        return { name: match[1].trim(), role, isHead: role.toLowerCase().includes('head') || i === 0 }
+      }
+      return { name: entry, role: '', isHead: i === 0 }
     })
-}
-
-function coachInitials(name: string): string {
-  return name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('')
 }
 
 function SidebarCard({ label, children }: { label: string; children: ReactNode }) {
@@ -808,18 +811,17 @@ function AboutRow({ label, value }: { label: string; value: string }) {
 }
 
 function Sidebar({
-  school, actionItems, today, onComplete, onPrepForCall,
+  school, coaches, actionItems, today, onComplete, onDraft, onPrepForCall, onSetPrimary,
 }: {
   school: School
+  coaches: Coach[]
   actionItems: ActionItem[]
   today: string
   onComplete: (id: string) => Promise<void>
+  onDraft: (emailType: EmailType) => void
   onPrepForCall: () => void
+  onSetPrimary: (id: string) => Promise<unknown>
 }) {
-  const coaches     = parseCoaches(school.head_coach ?? '')
-  const headIdx     = coaches.findIndex(c => c.role.toLowerCase().includes('head'))
-  const headCoachIdx = headIdx !== -1 ? headIdx : 0
-
   // ── About rows — only non-null values ────────────────────────────────────────
   const aboutRows: [string, string][] = [
     ['Division',     school.division                                                            ],
@@ -838,18 +840,21 @@ function Sidebar({
       display: 'flex', flexDirection: 'column', gap: 16,
       position: 'sticky', top: 20,
     }}>
-      {/* Coach card */}
+      {/* Coach card — coaches table if populated, legacy fallback otherwise */}
       <SidebarCard label="Coach">
-        {coaches.length === 0 ? (
-          <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>No coach on file.</div>
-        ) : (
+        {coaches.length > 0 ? (
+          // ── Coaches table records ────────────────────────────────────────────
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {coaches.map((coach, i) => {
-              const isHead = i === headCoachIdx
+            {coaches.map(coach => {
+              const isPrimary = coach.is_primary
+              // Primary email: coach.email first, then generic_team_email fallback
+              const emailToShow = isPrimary
+                ? (coach.email ?? school.generic_team_email ?? null)
+                : null
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                  {/* Avatar (head only) or small dot (assistants) */}
-                  {isHead ? (
+                <div key={coach.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  {/* Avatar (primary) or dot (secondary) */}
+                  {isPrimary ? (
                     <div style={{
                       width: 34, height: 34, borderRadius: '50%',
                       background: SD.ink, color: '#fff', flexShrink: 0,
@@ -861,47 +866,141 @@ function Sidebar({
                       width: 34, height: 34, flexShrink: 0,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <div style={{
-                        width: 5, height: 5, borderRadius: '50%', background: SD.inkMute,
-                      }} />
+                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: SD.inkMute }} />
                     </div>
                   )}
-                  <div>
-                    <div style={{
-                      fontSize: isHead ? 14 : 12,
-                      fontWeight: 700,
-                      color: isHead ? SD.ink : SD.inkMid,
-                      letterSpacing: -0.2, lineHeight: 1.3,
-                    }}>{coach.name}</div>
-                    {coach.role && (
-                      <div style={{ fontSize: 11, color: SD.inkLo, fontWeight: 500, marginTop: 1 }}>
-                        {coach.role}
-                      </div>
-                    )}
-                    {isHead && school.coach_email && (
-                      <a href={`mailto:${school.coach_email}`} style={{
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontSize: isPrimary ? 14 : 12, fontWeight: 700,
+                        color: isPrimary ? SD.ink : SD.inkMid,
+                        letterSpacing: -0.2, lineHeight: 1.3,
+                      }}>{coach.name}</span>
+                      {coach.needs_review && (
+                        <span
+                          title="This record was flagged during backfill — verify name, role, and email"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 3,
+                            padding: '1px 6px', borderRadius: 999,
+                            background: SD.goldSoft, color: SD.goldInk,
+                            fontSize: 9, fontWeight: 800, letterSpacing: 0.3,
+                            textTransform: 'uppercase', flexShrink: 0,
+                            border: `1px solid ${SD.goldDeep}`,
+                            cursor: 'help',
+                          }}
+                        >Needs review</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: SD.inkLo, fontWeight: 500, marginTop: 1 }}>
+                      {coach.role}
+                    </div>
+                    {emailToShow && (
+                      <a href={`mailto:${emailToShow}`} style={{
                         display: 'block', fontSize: 11, color: SD.tealDeep,
                         textDecoration: 'none', fontWeight: 600, marginTop: 2,
-                      }}>{school.coach_email}</a>
+                        wordBreak: 'break-all',
+                      }}>{emailToShow}</a>
+                    )}
+                    {!isPrimary && (
+                      <button
+                        onClick={() => onSetPrimary(coach.id)}
+                        style={{
+                          marginTop: 4,
+                          background: 'none', border: 'none', padding: 0,
+                          fontSize: 10, fontWeight: 600, color: SD.inkMute,
+                          cursor: 'pointer', fontFamily: 'inherit',
+                          textDecoration: 'underline', letterSpacing: 0.1,
+                        }}
+                      >Set as primary</button>
                     )}
                   </div>
                 </div>
               )
             })}
 
-            <button
-              onClick={onPrepForCall}
-              style={{
-                width: '100%', padding: '7px 0',
-                background: 'transparent',
-                border: `1.3px solid ${SD.line2}`,
-                borderRadius: 999,
-                fontSize: 11, fontWeight: 700, color: SD.inkMid,
-                cursor: 'pointer', letterSpacing: -0.1, fontFamily: 'inherit',
-                marginTop: 2,
-              }}
-            >Prep for call</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
+              <button
+                onClick={() => onDraft('follow_up')}
+                style={{
+                  width: '100%', padding: '8px 0',
+                  background: SD.ink, color: '#fff', border: 'none',
+                  borderRadius: 999, fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer', letterSpacing: -0.1, fontFamily: 'inherit',
+                }}
+              >Draft email</button>
+              <button
+                onClick={onPrepForCall}
+                style={{
+                  width: '100%', padding: '7px 0',
+                  background: 'transparent', border: `1.3px solid ${SD.line2}`,
+                  borderRadius: 999, fontSize: 11, fontWeight: 700, color: SD.inkMid,
+                  cursor: 'pointer', letterSpacing: -0.1, fontFamily: 'inherit',
+                }}
+              >Prep for call</button>
+            </div>
           </div>
+        ) : school.head_coach ? (
+          // ── Legacy fallback — parse head_coach string ────────────────────────
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {parseLegacyCoaches(school.head_coach).map((coach, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                {coach.isHead ? (
+                  <div style={{
+                    width: 34, height: 34, borderRadius: '50%',
+                    background: SD.ink, color: '#fff', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11, fontWeight: 800, letterSpacing: 0.5, marginTop: 1,
+                  }}>{coachInitials(coach.name)}</div>
+                ) : (
+                  <div style={{
+                    width: 34, height: 34, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: SD.inkMute }} />
+                  </div>
+                )}
+                <div>
+                  <div style={{
+                    fontSize: coach.isHead ? 14 : 12, fontWeight: 700,
+                    color: coach.isHead ? SD.ink : SD.inkMid, letterSpacing: -0.2, lineHeight: 1.3,
+                  }}>{coach.name}</div>
+                  {coach.role && (
+                    <div style={{ fontSize: 11, color: SD.inkLo, fontWeight: 500, marginTop: 1 }}>
+                      {coach.role}
+                    </div>
+                  )}
+                  {coach.isHead && school.coach_email && (
+                    <a href={`mailto:${school.coach_email}`} style={{
+                      display: 'block', fontSize: 11, color: SD.tealDeep,
+                      textDecoration: 'none', fontWeight: 600, marginTop: 2,
+                    }}>{school.coach_email}</a>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
+              <button
+                onClick={() => onDraft('follow_up')}
+                style={{
+                  width: '100%', padding: '8px 0',
+                  background: SD.ink, color: '#fff', border: 'none',
+                  borderRadius: 999, fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer', letterSpacing: -0.1, fontFamily: 'inherit',
+                }}
+              >Draft email</button>
+              <button
+                onClick={onPrepForCall}
+                style={{
+                  width: '100%', padding: '7px 0',
+                  background: 'transparent', border: `1.3px solid ${SD.line2}`,
+                  borderRadius: 999, fontSize: 11, fontWeight: 700, color: SD.inkMid,
+                  cursor: 'pointer', letterSpacing: -0.1, fontFamily: 'inherit',
+                }}
+              >Prep for call</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>No coach on file.</div>
         )}
       </SidebarCard>
 
@@ -996,9 +1095,9 @@ export default function SchoolDetailClient({
 
   // ── Realtime subscriptions ─────────────────────────────────────────────────
   const { schools, loading: schoolsLoading }   = useSchools()
-  // School-scoped subscriptions for contact log and action items
   const { entries: contactLog, loading: logLoading, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
   const { items: actionItems, loading: actionsLoading, deleteItem } = useActionItems(initialSchool.id)
+  const { coaches, setPrimary } = useCoaches(initialSchool.id)
 
   const loading = schoolsLoading || logLoading || actionsLoading
 
@@ -1029,6 +1128,7 @@ export default function SchoolDetailClient({
     : null
 
   const stage = deriveStage(school)
+  const primaryCoach = coaches.find(c => c.is_primary) ?? null
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
@@ -1085,10 +1185,13 @@ export default function SchoolDetailClient({
         />
         <Sidebar
           school={school}
+          coaches={coaches}
           actionItems={actionItems}
           today={today}
           onComplete={async (id) => { await deleteItem(id) }}
+          onDraft={(emailType) => setDraftTarget({ emailType })}
           onPrepForCall={() => setPrepOpen(true)}
+          onSetPrimary={setPrimary}
         />
       </div>
       <style>{`
@@ -1104,6 +1207,7 @@ export default function SchoolDetailClient({
           userId={user.id}
           initialEmailType={draftTarget.emailType}
           initialCoachMessage={draftTarget.coachMessage}
+          primaryCoach={primaryCoach}
           onClose={() => setDraftTarget(null)}
         />
       )}

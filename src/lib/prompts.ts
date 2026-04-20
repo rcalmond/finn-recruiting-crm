@@ -35,6 +35,8 @@ LENGTH: Under 200 words. Always.
 SUBJECT LINE: Finn Almond | Left Wingback | Class of 2027 | [School Name]
   Exception: replies match the existing thread subject.
 
+ADDRESSING: Always address the email to the coach named in GREETING TARGET. Do not let contact history override this — prior messages may be from a different coach, but GREETING TARGET is the current recipient. Use their last name in the salutation.
+
 TONE:
   - Written by a 17-year-old who is articulate and serious
   - Confident but not arrogant. Genuine but not sycophantic.
@@ -87,6 +89,21 @@ const ASSET_TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 }
 
+// Strip coach email signature blocks from contact log summaries.
+// Signatures typically look like: "Coach Name\nHead Men's Soccer Coach\n..."
+function stripSignature(summary: string): string {
+  const lines = summary.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim()
+    if (/^(?:Head|Interim Head|Associate Head|Assistant|Interim Assistant)\s+(?:Men['']?s\s+)?(?:Soccer\s+)?Coach/i.test(trimmed)) {
+      // Back up one line if the preceding line looks like a standalone name
+      const cutAt = i > 0 && /^[A-Z][a-z]+ [A-Z]/.test(lines[i - 1].trim()) && lines[i - 1].trim().split(' ').length <= 4 ? i - 1 : i
+      return lines.slice(0, cutAt).join('\n').trim()
+    }
+  }
+  return summary
+}
+
 export function buildUserPrompt(params: {
   emailType: EmailType
   school: School
@@ -94,10 +111,30 @@ export function buildUserPrompt(params: {
   assets: Asset[]
   coachMessage?: string
   additionalContext?: string
+  primaryCoachName?: string | null
+  primaryCoachEmail?: string | null
+  primaryCoachRole?: string | null
 }): string {
-  const { emailType, school, recentLogs, assets, coachMessage, additionalContext } = params
+  const { emailType, school, recentLogs, assets, coachMessage, additionalContext, primaryCoachName, primaryCoachEmail, primaryCoachRole } = params
 
   const lines: string[] = []
+
+  // ── GREETING TARGET first — must win over any contact-log context ──
+  if (primaryCoachName) {
+    const lastName = primaryCoachName.trim().split(' ').at(-1) ?? primaryCoachName
+    const rolePart = primaryCoachRole ? ` (${primaryCoachRole})` : ''
+    const emailPart = primaryCoachEmail ? ` <${primaryCoachEmail}>` : ''
+    lines.push(`GREETING TARGET — MANDATORY:`)
+    lines.push(`This email MUST be addressed to: ${primaryCoachName}${rolePart}${emailPart}`)
+    lines.push(`The salutation MUST use "Coach ${lastName}" — do NOT address any other coach, even if prior messages were from someone else.`)
+    lines.push('')
+  } else if (school.head_coach) {
+    const lastName = school.head_coach.trim().split(/[;\s]+/)[0].split(' ').at(-1) ?? school.head_coach
+    lines.push(`GREETING TARGET — MANDATORY:`)
+    lines.push(`This email MUST be addressed to: ${school.head_coach}`)
+    lines.push(`The salutation MUST use "Coach ${lastName}" — do NOT address any other coach.`)
+    lines.push('')
+  }
 
   lines.push(`EMAIL TYPE: ${emailType}`)
   lines.push(`INSTRUCTION: ${EMAIL_TYPE_INSTRUCTIONS[emailType]}`)
@@ -122,10 +159,11 @@ export function buildUserPrompt(params: {
   }
 
   if (recentLogs.length > 0) {
-    lines.push(`CONTACT HISTORY (${recentLogs.length} entries):`)
+    lines.push(`CONTACT HISTORY (${recentLogs.length} entries — note: contact history shows prior coaches; the GREETING TARGET above overrides who this email is addressed to):`)
     recentLogs.forEach(e => {
+      const summary = stripSignature(e.summary ?? '')
       lines.push(`  [${e.date}] ${e.direction} via ${e.channel}${e.coach_name ? ` — ${e.coach_name}` : ''}:`)
-      lines.push(`    ${e.summary}`)
+      lines.push(`    ${summary}`)
     })
     lines.push('')
   } else {

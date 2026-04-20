@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem, Asset, Question } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach } from '@/lib/types'
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
 
@@ -362,4 +362,83 @@ export function useQuestions() {
   }, [supabase])
 
   return { questions, loading, insertQuestion, updateQuestion, deleteQuestion }
+}
+
+// ─── Coaches ──────────────────────────────────────────────────────────────────
+
+export function useCoaches(schoolId?: string) {
+  const [coaches, setCoaches] = useState<Coach[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = useMemo(() => createClient(), [])
+
+  const fetchCoaches = useCallback(async () => {
+    if (!schoolId) {
+      setCoaches([])
+      setLoading(false)
+      return
+    }
+    const { data, error } = await supabase
+      .from('coaches')
+      .select('*')
+      .eq('school_id', schoolId)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+    if (!error && data) setCoaches(data as Coach[])
+    setLoading(false)
+  }, [supabase, schoolId])
+
+  useEffect(() => {
+    fetchCoaches()
+    const channel = supabase
+      .channel(`coaches-${schoolId ?? 'none'}-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'coaches' }, fetchCoaches)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [fetchCoaches, supabase, schoolId])
+
+  const insertCoach = useCallback(async (coach: Omit<Coach, 'id' | 'created_at' | 'updated_at'>) => {
+    const { data, error } = await supabase.from('coaches').insert(coach).select().single()
+    if (!error && data) {
+      setCoaches(prev => [...prev, data as Coach].sort((a, b) => a.sort_order - b.sort_order))
+    }
+    return error
+  }, [supabase])
+
+  const updateCoach = useCallback(async (id: string, updates: Partial<Omit<Coach, 'id' | 'school_id' | 'created_at' | 'updated_at'>>) => {
+    const { error } = await supabase.from('coaches').update(updates).eq('id', id)
+    if (!error) setCoaches(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
+    return error
+  }, [supabase])
+
+  const deleteCoach = useCallback(async (id: string) => {
+    const { error } = await supabase.from('coaches').delete().eq('id', id)
+    if (!error) setCoaches(prev => prev.filter(c => c.id !== id))
+    return error
+  }, [supabase])
+
+  // Flip is_primary to the given coach; clears all others for the same school first.
+  // Optimistic: updates state immediately, reverts on error.
+  const setPrimary = useCallback(async (coachId: string) => {
+    const target = coaches.find(c => c.id === coachId)
+    if (!target) return null
+
+    // Optimistic update
+    setCoaches(prev => prev.map(c => ({ ...c, is_primary: c.id === coachId })))
+
+    // Clear all primaries for this school, then set the new one
+    const { error: clearErr } = await supabase
+      .from('coaches')
+      .update({ is_primary: false })
+      .eq('school_id', target.school_id)
+    if (clearErr) {
+      await fetchCoaches()   // revert
+      return clearErr
+    }
+
+    const { error } = await supabase.from('coaches').update({ is_primary: true }).eq('id', coachId)
+    if (error) await fetchCoaches()  // revert
+    return error
+  }, [supabase, coaches, fetchCoaches])
+
+  return { coaches, loading, insertCoach, updateCoach, deleteCoach, setPrimary, refetch: fetchCoaches }
 }

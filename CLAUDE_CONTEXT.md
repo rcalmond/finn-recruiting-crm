@@ -215,9 +215,9 @@ and are legacy — note this in contact log if surfaced.
 
 ---
 
-## 10. Live Pipeline — Generated April 17, 2026
+## 10. Live Pipeline — Generated April 19, 2026
 
-**Active schools: 32** | Overdue actions: 9
+**Active schools: 32** | Overdue actions: 18
 (Category Nope and status Inactive excluded)
 
 ### Tier A — Highest Priority (8 schools)
@@ -227,27 +227,26 @@ SCHOOL: Cal Poly San Luis Obispo (Cal Poly SLO)
   Division: D1 — Big West
   Location: San Luis Obispo, CA
   Admit Likelihood: Reach
-  Head Coach: Oige Kennedy – Head Coach
-  Coach Email: okennedy@calpoly.edu
+  Coach: Oige Kennedy — Head Coach <okennedy@calpoly.edu> [primary]
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
-  Next Action: Wingback update email (Finn) — due 2026-04-14
+  Next Action: Wingback update email (Finn) — due 2026-04-18
 
 SCHOOL: Case Western
   Status: Ongoing Conversation
   Division: D3 — UAA
   Location: Cleveland, OH
   Admit Likelihood: Reach
-  Head Coach: Carter Poe – Head Coach
-  Coach Email: ccp51@case.edu
+  Coach: Carter Poe — Head Coach <ccp51@case.edu>
+  Coach: TEST — Head Coach [primary]
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
   Notes: In AZ
 Complete Schedule Form
 Filled out schedule form for MLS NEXT Fest
-  Next Action: Wingback update email (Finn) — due 2026-04-14
+  Next Action: Wingback update email (Finn) — due 2026-04-18
   Contact Log (1 shown):
     [2025-12-02] Inbound via Sports Recruits — Carter Poe:
       An email from SportsRecruits 
@@ -259,8 +258,7 @@ SCHOOL: CO School of Mines
   Division: D2 — RMAC
   Location: Golden, CO
   Admit Likelihood: Target
-  Head Coach: Ben Fredrickson – Interim/Assistant Coach
-  Coach Email: ben.fredrickson@mines.edu
+  Coach: Ben Fredrickson — Interim Assistant Coach [primary] ⚠ needs_review
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -301,14 +299,13 @@ SCHOOL: Lafayette College
   Division: D1 — Patriot League
   Location: Easton, PA
   Admit Likelihood: Reach
-  Head Coach: Dennis Bohn - Head Coach
-  Coach Email: bohnd@lafayette.edu
+  Coach: Dennis Bohn — Head Coach <bohnd@lafayette.edu> [primary]
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
   Notes: ID Camp in FL
 In Arizona
-  Next Action: Wingback update email (Finn) — due 2026-04-14
+  Next Action: Wingback update email (Finn) — due 2026-04-18
   Contact Log (2 shown):
     [2026-04-08] Inbound via Sports Recruits — Gabriel Robinson:
       An email from SportsRecruits 
@@ -324,13 +321,12 @@ SCHOOL: Milwaukee School of Engineering (MSOE)
   Division: D3 — Northern Athletics Collegiate Conference (NACC)
   Location: Milwaukee, WI
   Admit Likelihood: Likely
-  Head Coach: Rob Harrington - Head Men's Soccer Coach
-  Coach Email: harrington@msoe.edu
+  Coach: Rob Harrington — Head Coach <harrington@msoe.edu> [primary]
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
   Notes: What do you want to study?
-  Next Action: Wingback update email (Finn) — due 2026-04-14
+  Next Action: Reply to "Let's connect in May" (Finn) — due 2026-05-03
   Contact Log (3 shown):
     [2026-04-09] Inbound via Sports Recruits — Rob Harrington:
       An email from SportsRecruits 
@@ -350,39 +346,26 @@ SCHOOL: RPI
   Division: D3 — Liberty League
   Location: Troy, NY
   Admit Likelihood: Reach
-  Head Coach: Adam Clinton – Head Coach
-  Coach Email: clinta@rpi.edu
+  Coach: Adam Clinton — Head Coach <clinta@rpi.edu> [primary]
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
-  Next Action: Wingback update email (Finn) — due 2026-04-14
 
 SCHOOL: University of Rochester
   Status: Ongoing Conversation
   Division: D3 — UAA
   Location: Rochester, NY
   Admit Likelihood: Target
-  Head Coach: Ben Cross – Head Coach
-  Coach Email: bc006j@sports.rochester.edu
+  Coach: Ben Cross — Head Coach <bc006j@sports.rochester.edu> [primary]
   Last Contact: 2026-04-12
   RQ Status: Completed
   Videos Sent: Yes
   Notes: Got a personalized email back from Coach Cross.
 
 Thanks for reaching out about your interest. I am impressed with your film as you show great technical skill to take on defenders and provide amazing services from the wide areas. I also like how seriously you take your academics and are interested in
-  Next Action: Ping again for meeting (coach streb) (Finn) — due 2026-04-18
   Contact Log (3 shown):
-    [2026-04-08] Inbound via Sports Recruits:
-      [EXT] Finn Almond | Left Wingback | Class of 2027 | University of Rochester
-      Me
-      To: Ben Cross (University of Rochester)
+    [2026-04-19] Outbound via Email — Ben Cross – Head Coach:
       Re: [EXT] Finn Almond | Left Wingback | Class of 2027 | University of Rochester
-      Apr 8, 2026 at 5:56 PM
-      Hi Coach,
-      
-       
-      
-      I filled out the recruiting questionnaire, and I’ve also atta...
     [2026-04-08] Outbound via Sports Recruits — Ben Cross:
       Hi Coach,
       
@@ -398,22 +381,28 @@ Thanks for reaching out about your interest. I am impressed with your film as yo
       Finn Almond
       
       https://youtu.be/Va_Z09OYcs0?si=ZTKCyrC...
-    [2026-04-03] Inbound via Sports Recruits — Ben  Cross:
-      An email from SportsRecruits 
-      Ben Cross just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                        ...
+    [2026-04-08] Inbound via Sports Recruits:
+      [EXT] Finn Almond | Left Wingback | Class of 2027 | University of Rochester
+      Me
+      To: Ben Cross (University of Rochester)
+      Re: [EXT] Finn Almond | Left Wingback | Class of 2027 | University of Rochester
+      Apr 8, 2026 at 5:56 PM
+      Hi Coach,
+      
+       
+      
+      I filled out the recruiting questionnaire, and I’ve also atta...
 
 SCHOOL: WPI
   Status: Intro Sent
   Division: D3 — NEWMAC
   Location: Worcester, MA
   Admit Likelihood: Target
-  Head Coach: Brian Kelley – Head Coach
-  Coach Email: bkelley@wpi.edu
+  Coach: Brian Kelley — Head Coach <bkelley@wpi.edu> [primary]
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
-  Next Action: Wingback update email (Finn) — due 2026-04-14
+  Next Action: Wingback update email (Finn) — due 2026-04-18
 
 ### Tier B (12 schools)
 
@@ -422,8 +411,9 @@ SCHOOL: Bucknell University
   Division: D1 — Patriot League
   Location: Lewisburg, PA
   Admit Likelihood: Reach
-  Head Coach: Dave Brandt – Head Coach; David Yates – Assistant Coach; Casey Penrod – Assistant Coach
-  Coach Email: db055@bucknell.edu
+  Coach: Dave Brandt — Head Coach <db055@bucknell.edu>
+  Coach: David Yates — Assistant Coach
+  Coach: Casey Penrod — Assistant Coach [primary]
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -447,8 +437,7 @@ SCHOOL: Cal Poly Pomona
   Division: D2 — CCAA (D2)
   Location: Pomona, CA
   Admit Likelihood: Likely
-  Head Coach: Matt O'Sullivan – Head Coach
-  Coach Email: mosulliv@cpp.edu
+  Coach: Matt O'Sullivan — Head Coach <mosulliv@cpp.edu> [primary]
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
@@ -459,8 +448,7 @@ SCHOOL: Carnegie Mellon
   Division: D3 — UAA
   Location: Pittsburgh, PA
   Admit Likelihood: Far Reach
-  Head Coach: Brandon Bowman – Head Coach
-  Coach Email: bhbowman@andrew.cmu.edu
+  Coach: Brandon Bowman — Head Coach <bhbowman@andrew.cmu.edu> [primary]
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -487,8 +475,7 @@ SCHOOL: Cornell
   Division: D1 — Ivy League
   Location: Ithaca, NY
   Admit Likelihood: Far Reach
-  Head Coach: John Smith – Head Coach (Dr. Daniel P. Wood Endowed Chair)
-  Coach Email: msoccer@cornell.edu
+  Coach: John Smith — Head Coach [primary]
   Last Contact: 2026-04-02
   RQ Status: Updated (no email yet)
   Videos Sent: Yes
@@ -500,8 +487,7 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
   Division: D3 — Northern Athletics Collegiate Conference (NACC)
   Location: Chicago, IL (Bronzeville, near downtown)
   Admit Likelihood: Target
-  Head Coach: Marlon McKenzie - Head Men's Soccer Coach
-  Coach Email: mmckenzie1@illinoistech.edu
+  Coach: Marlon McKenzie — Head Coach <mmckenzie1@illinoistech.edu> [primary]
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
@@ -512,13 +498,14 @@ SCHOOL: Lehigh University
   Division: D1 — Patriot League
   Location: Bethlehem, PA
   Admit Likelihood: Reach
-  Head Coach: Dean Koski – Head Coach; Ryan Hess – Associate Head Coach; Matt Giacalone – Assistant Coach
-  Coach Email: dk0a@lehigh.edu
+  Coach: Dean Koski — Head Coach <dk0a@lehigh.edu> [primary]
+  Coach: Ryan Hess — Associate Head Coach
+  Coach: Matt Giacalone — Assistant Coach
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
   Notes: Yes in Arizona
-  Next Action: Wingback email update (Finn) — due 2026-04-12
+  Next Action: Wingback email update (Finn) — due 2026-04-18
   Also: Update RQ (Finn) — due 2026-04-20
   Contact Log (1 shown):
     [2025-11-29] Inbound via Sports Recruits — Will Flannery:
@@ -531,15 +518,12 @@ SCHOOL: Middlebury
   Division: D3 — NESCAC
   Location: Middlebury, VT
   Admit Likelihood: Far Reach
-  Head Coach: Alex Elias – Head Men's Soccer Coach
-  Coach Email: aelias@middlebury.edu
+  Coach: Alex Elias — Head Coach <aelias@middlebury.edu> [primary]
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
   Notes: Personal Intro
 ID Camp Info
-  Next Action: Wingback email update (Finn) — due 2026-04-14
-  Also: Update RQ (Finn) — due 2026-04-20
   Contact Log (3 shown):
     [2026-04-08] Inbound via Sports Recruits — Tim Peng:
       An email from SportsRecruits 
@@ -559,8 +543,7 @@ SCHOOL: Northeastern
   Division: D1 — CAA
   Location: Boston, MA
   Admit Likelihood: Reach
-  Head Coach: Jeremy Bonomo – Head Coach
-  Coach Email: j.bonomo@northeastern.edu
+  Coach: Jeremy Bonomo — Head Coach <j.bonomo@northeastern.edu> [primary]
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
@@ -576,8 +559,7 @@ SCHOOL: Rochester Institute of Technology (RIT)
   Division: D3 — Liberty League
   Location: Rochester, NY (Henrietta suburb)
   Admit Likelihood: Target
-  Head Coach: Bill Garno - Head Coach
-  Coach Email: bill.garno@rit.edu
+  Coach: Bill Garno — Head Coach <bill.garno@rit.edu> [primary]
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
@@ -588,13 +570,14 @@ SCHOOL: South Dakota Mines (South Dakota School of Mines & Technology)
   Division: D2 — Rocky Mountain Athletic Conference (RMAC)
   Location: Rapid City, SD
   Admit Likelihood: Likely
-  Head Coach: Teren Schuster - Head Coach
-  Coach Email: Teren.Schuster@sdsmt.edu
+  Coach: Teren Schuster — Head Coach <Teren.Schuster@sdsmt.edu> [primary]
   Last Contact: 2026-04-15
   RQ Status: Completed
   Videos Sent: Yes
   Next Action: Respond to email from Coach Schuster (Finn) — due 2026-04-15
-  Contact Log (1 shown):
+  Contact Log (2 shown):
+    [2026-04-19] Outbound via Email — Teren Schuster - Head Coach:
+      Re: [EXT] Finn Almond | Left Wingback | Class of 2027 | South Dakota Mines
     [2026-04-15] Inbound via Email — Teren Schuster:
       Re: [EXT] Finn Almond | Left Wingback | Class of 2027 | South Dakota Mines
       Teren Schuster (South Dakota School of Mines & Technology)
@@ -610,8 +593,7 @@ SCHOOL: Stevens Institute of Technology
   Division: D3 — MAC Freedom (Middle Atlantic Conference)
   Location: Hoboken, NJ
   Admit Likelihood: Reach
-  Head Coach: Dale Jordan - Head Coach
-  Coach Email: djordan@stevens.edu
+  Coach: Dale Jordan — Head Coach <djordan@stevens.edu> [primary]
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
@@ -622,8 +604,7 @@ SCHOOL: Washington University
   Division: D3 — UAA
   Location: St. Louis, MO
   Admit Likelihood: Far Reach
-  Head Coach: Andrew Bordelon – Head Coach
-  Coach Email: bordelon@wustl.edu
+  Coach: Andrew Bordelon — Head Coach <bordelon@wustl.edu> [primary]
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
@@ -641,8 +622,7 @@ SCHOOL: Amherst
   Division: D3 — NESCAC
   Location: Amherst, MA
   Admit Likelihood: Far Reach
-  Head Coach: Justin Serpone – Head Coach
-  Coach Email: jserpone@amherst.edu
+  Coach: Justin Serpone — Head Coach <jserpone@amherst.edu> [primary]
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -669,8 +649,7 @@ SCHOOL: Bowdoin
   Division: D3 — NESCAC
   Location: Brunswick, ME
   Admit Likelihood: Far Reach
-  Head Coach: Scott Wiercinski – Head Coach
-  Coach Email: swiercin@bowdoin.edu
+  Coach: Scott Wiercinski — Head Coach <swiercin@bowdoin.edu> [primary]
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -696,8 +675,7 @@ SCHOOL: Clark
   Division: D3 — NEWMAC
   Location: Worcester, MA
   Admit Likelihood: Likely
-  Head Coach: Samuel Matteson – Head Coach
-  Coach Email: smatteson@clarku.edu
+  Coach: Samuel Matteson — Head Coach <smatteson@clarku.edu> [primary]
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Notes: Sent MIT camp follow up email
@@ -710,8 +688,7 @@ SCHOOL: Colby
   Division: D3 — NESCAC
   Location: Waterville, ME
   Admit Likelihood: Far Reach
-  Head Coach: Sean Elvert – Head Coach
-  Coach Email: selvert@colby.edu
+  Coach: Sean Elvert — Head Coach <selvert@colby.edu> [primary]
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -733,8 +710,7 @@ SCHOOL: Colgate
   Division: D1 — Patriot League
   Location: Hamilton, NY
   Admit Likelihood: Reach
-  Head Coach: Erik Ronning - Head Coach
-  Coach Email: eronning@colgate.edu
+  Coach: Erik Ronning — Head Coach <eronning@colgate.edu> [primary]
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -755,8 +731,7 @@ SCHOOL: Dartmouth
   Division: D1 — Ivy League
   Location: Hanover, NH
   Admit Likelihood: Far Reach
-  Head Coach: Connor Klekota – Head Coach
-  Coach Email: msoccer@dartmouth.edu
+  Coach: Connor Klekota — Head Coach [primary]
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Notes: Sent MIT camp follow up email, but no response
@@ -770,8 +745,7 @@ SCHOOL: Emory
   Division: D3 — UAA
   Location: Atlanta, GA
   Admit Likelihood: Reach
-  Head Coach: Cory Greiner – Head Coach
-  Coach Email: cgreiner@emory.edu
+  Coach: Cory Greiner — Head Coach <cgreiner@emory.edu> [primary]
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-26
@@ -782,8 +756,7 @@ SCHOOL: Northwestern
   Division: D1 — Big Ten
   Location: Evanston, IL
   Admit Likelihood: Far Reach
-  Head Coach: Russell Payne – Head Coach
-  Coach Email: menssoccer@northwestern.edu
+  Coach: Russell Payne — Head Coach [primary]
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -802,8 +775,7 @@ SCHOOL: Princeton
   Division: D1 — Ivy League
   Location: Princeton, NJ
   Admit Likelihood: Far Reach
-  Head Coach: Jim Barlow – Head Coach
-  Coach Email: jimbarlo@princeton.edu
+  Coach: Jim Barlow — Head Coach <jimbarlo@princeton.edu> [primary]
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -823,8 +795,7 @@ SCHOOL: Stanford
   Division: D1 — ACC (men's soccer starting 2024)
   Location: Stanford, CA
   Admit Likelihood: Far Reach
-  Head Coach: Jeremy Gunn – Head Coach
-  Coach Email: smsoccer@stanford.edu
+  Coach: Jeremy Gunn — Head Coach [primary]
   Last Contact: 2026-04-02
   RQ Status: To Do
   Videos Sent: Yes
@@ -843,8 +814,7 @@ SCHOOL: Tufts
   Division: D3 — NESCAC
   Location: Medford, MA
   Admit Likelihood: Far Reach
-  Head Coach: Kyle Dezotell – Head Coach
-  Coach Email: menssoccer@tufts.edu
+  Coach: Kyle Dezotell — Head Coach [primary]
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -869,8 +839,7 @@ SCHOOL: Williams
   Division: D3 — NESCAC
   Location: Williamstown, MA
   Admit Likelihood: Far Reach
-  Head Coach: Steffen Siebert – Head Coach
-  Coach Email: ss40@williams.edu
+  Coach: Steffen Siebert — Head Coach <ss40@williams.edu> [primary]
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-26
@@ -892,6 +861,13 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-19 | Starting Part 1: coaches table migration + backfill (email ingestion project) | Schema |
+| 2026-04-19 | Phase 3c: Library landing, Assets/Questions restyle | Feature |
+| 2026-04-19 | Phase 3b: School detail page at /schools/[id] with timeline, action bar, coach card | Feature |
+| 2026-04-19 | Phase 3a: Schools list at /schools with filters, signals, 6-stage flow | Feature |
+| 2026-04-19 | Phase 2: Today view replaces Dashboard as home page | Feature |
+| 2026-04-19 | Phase 1: Liverpool design system + app shell | UI |
+| 2026-04-19 | contact_log snooze/dismiss (migration 011) + Today Awaiting reply UI | Schema |
 | 2026-04-17 | Prep for call feature — AI-generated school-specific question triage | Feature |
 | 2026-04-17 | Question bank — 15 questions, 5 categories, add/edit/delete, nav tab | Feature |
 | 2026-04-17 | school_question_overrides + school_specific_questions tables (migration 010) | Schema |

@@ -30,6 +30,7 @@ export interface School {
   rq_status: string | null           // "Completed", "To Do", "Updated", etc.
   videos_sent: boolean
   notes: string | null
+  generic_team_email: string | null
   sort_order?: number | null
   id_camp_1: string | null           // ISO date string YYYY-MM-DD
   id_camp_2: string | null
@@ -147,6 +148,30 @@ export interface PrepResult {
   overrides: SchoolQuestionOverride[]
   school_specific_questions: SchoolSpecificQuestion[]
   call_summary: string
+}
+
+// ─── Coaches ──────────────────────────────────────────────────────────────────
+
+export type CoachRole =
+  | 'Head Coach'
+  | 'Interim Head Coach'
+  | 'Associate Head Coach'
+  | 'Assistant Coach'
+  | 'Interim Assistant Coach'
+  | 'Other'
+
+export interface Coach {
+  id: string
+  school_id: string
+  name: string
+  role: CoachRole
+  email: string | null
+  is_primary: boolean
+  needs_review: boolean
+  sort_order: number
+  notes: string | null
+  created_at: string
+  updated_at: string
 }
 
 // ─── Filter state ─────────────────────────────────────────────────────────────

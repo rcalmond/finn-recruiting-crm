@@ -100,6 +100,17 @@ interface ActionItem {
   sort_order: number | null
 }
 
+interface Coach {
+  id: string
+  school_id: string
+  name: string
+  role: string
+  email: string | null
+  is_primary: boolean
+  needs_review: boolean
+  sort_order: number
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function todayFormatted(): string {
   return new Date().toLocaleDateString('en-US', {
@@ -107,7 +118,7 @@ function todayFormatted(): string {
   })
 }
 
-function formatSchoolBlock(school: School, logs: ContactLogEntry[], actions: ActionItem[]): string {
+function formatSchoolBlock(school: School, logs: ContactLogEntry[], actions: ActionItem[], coaches: Coach[]): string {
   const lines: string[] = []
 
   lines.push(`SCHOOL: ${school.name}`)
@@ -115,8 +126,22 @@ function formatSchoolBlock(school: School, logs: ContactLogEntry[], actions: Act
   lines.push(`  Division: ${school.division}${school.conference ? ` — ${school.conference}` : ''}`)
   if (school.location)         lines.push(`  Location: ${school.location}`)
   if (school.admit_likelihood) lines.push(`  Admit Likelihood: ${school.admit_likelihood}`)
-  if (school.head_coach)       lines.push(`  Head Coach: ${school.head_coach}`)
-  if (school.coach_email)      lines.push(`  Coach Email: ${school.coach_email}`)
+
+  // Coach data: prefer coaches table, fall back to legacy head_coach/coach_email
+  const schoolCoaches = coaches.filter(c => c.school_id === school.id)
+  if (schoolCoaches.length > 0) {
+    for (const c of schoolCoaches) {
+      const primaryMark = c.is_primary ? ' [primary]' : ''
+      const emailPart   = c.email ? ` <${c.email}>` : ''
+      const reviewMark  = c.needs_review ? ' ⚠ needs_review' : ''
+      lines.push(`  Coach: ${c.name} — ${c.role}${emailPart}${primaryMark}${reviewMark}`)
+    }
+  } else {
+    // Legacy fallback
+    if (school.head_coach)  lines.push(`  Head Coach: ${school.head_coach}`)
+    if (school.coach_email) lines.push(`  Coach Email: ${school.coach_email}`)
+  }
+
   if (school.last_contact)     lines.push(`  Last Contact: ${school.last_contact}`)
   if (school.rq_status)        lines.push(`  RQ Status: ${school.rq_status}`)
   lines.push(`  Videos Sent: ${school.videos_sent ? 'Yes' : 'No'}`)
@@ -507,11 +532,24 @@ async function main() {
     process.exit(1)
   }
 
+  console.log('🔄  Fetching coaches...')
+
+  const { data: coachesData, error: coachesError } = await supabase
+    .from('coaches')
+    .select('*')
+    .order('sort_order', { ascending: true })
+
+  if (coachesError) {
+    console.error('❌  Error fetching coaches:', coachesError.message)
+    process.exit(1)
+  }
+
   const allSchools    = (schools         ?? []) as School[]
   const allLogs       = (logs            ?? []) as ContactLogEntry[]
   const allActions    = (actionItemsData ?? []) as ActionItem[]
+  const allCoaches    = (coachesData     ?? []) as Coach[]
 
-  console.log(`✅  ${allSchools.length} schools | ${allLogs.length} contact log entries`)
+  console.log(`✅  ${allSchools.length} schools | ${allLogs.length} contact log entries | ${allCoaches.length} coaches`)
 
   // Group by tier
   const tiers: Record<string, School[]> = { A: [], B: [], C: [] }
@@ -542,7 +580,7 @@ async function main() {
     pipelineLines.push('')
 
     for (const school of tierSchools) {
-      pipelineLines.push(formatSchoolBlock(school, allLogs, allActions))
+      pipelineLines.push(formatSchoolBlock(school, allLogs, allActions, allCoaches))
       pipelineLines.push('')
     }
   }

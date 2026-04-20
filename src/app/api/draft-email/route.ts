@@ -38,11 +38,22 @@ export async function POST(req: NextRequest) {
     }
 
     const admin = serviceClient()
-    const { data: assets } = await admin
-      .from('assets')
-      .select('*')
-      .eq('is_current', true)
-      .order('type')
+
+    // Fetch current assets and all coaches for this school in parallel
+    const [{ data: assets }, { data: coachRecords }] = await Promise.all([
+      admin.from('assets').select('*').eq('is_current', true).order('type'),
+      admin.from('coaches').select('name, email, role, is_primary').eq('school_id', school.id).order('sort_order'),
+    ])
+
+    // Coach name/email: prefer coaches table primary; fall back to legacy only if NO coach records exist
+    type CoachRow = { name: string; email: string | null; role: string; is_primary: boolean }
+    const coaches = (coachRecords ?? []) as CoachRow[]
+    const primaryCoach = coaches.find(c => c.is_primary) ?? null
+    const hasCoachRecords = coaches.length > 0
+
+    const primaryCoachName  = primaryCoach?.name  ?? (hasCoachRecords ? null : (school.head_coach  ?? null))
+    const primaryCoachEmail = primaryCoach?.email  ?? (hasCoachRecords ? null : (school.coach_email ?? null))
+    const primaryCoachRole  = primaryCoach?.role   ?? null
 
     const userPrompt = buildUserPrompt({
       emailType,
@@ -51,6 +62,9 @@ export async function POST(req: NextRequest) {
       assets: (assets ?? []) as Asset[],
       coachMessage,
       additionalContext,
+      primaryCoachName,
+      primaryCoachEmail,
+      primaryCoachRole,
     })
 
     const message = await anthropic.messages.create({

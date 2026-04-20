@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import type { School, Division, Status, AdmitLikelihood, Category, ActionOwner, ActionItem } from '@/lib/types'
-import { useContactLog, useActionItems } from '@/hooks/useRealtimeData'
+import type { School, Division, Status, AdmitLikelihood, Category, ActionOwner, ActionItem, Coach, CoachRole } from '@/lib/types'
+import { useContactLog, useActionItems, useCoaches } from '@/hooks/useRealtimeData'
 import { STATUS_COLORS, ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate } from '@/lib/utils'
 import ContactLogPanel from './ContactLogPanel'
 import DraftEmailModal from './DraftEmailModal'
@@ -13,6 +13,7 @@ const DIVISIONS: Division[] = ['D1', 'D2', 'D3']
 const ADMITS: AdmitLikelihood[] = ['Likely', 'Target', 'Reach', 'Far Reach']
 const CATEGORIES: Category[] = ['A', 'B', 'C', 'Nope']
 const OWNERS: ActionOwner[] = ['Finn', 'Randy']
+const COACH_ROLES: CoachRole[] = ['Head Coach', 'Interim Head Coach', 'Associate Head Coach', 'Assistant Coach', 'Interim Assistant Coach', 'Other']
 
 type Tab = 'info' | 'log'
 
@@ -68,6 +69,44 @@ export default function SchoolModal(props: Props) {
   const [newDraft, setNewDraft] = useState<{ action: string; owner: string; due_date: string }>({ action: '', owner: '', due_date: '' })
 
   const { entries: contactLog } = useContactLog(s?.id)
+
+  // Coaches (edit mode only)
+  const { coaches, insertCoach, updateCoach, deleteCoach, setPrimary } = useCoaches(s?.id)
+  const [editingCoachId, setEditingCoachId] = useState<string | null>(null)
+  const [coachEditDraft, setCoachEditDraft] = useState<{ name: string; role: CoachRole; email: string }>({ name: '', role: 'Head Coach', email: '' })
+  const [addingCoach, setAddingCoach] = useState(false)
+  const [newCoachDraft, setNewCoachDraft] = useState<{ name: string; role: CoachRole; email: string }>({ name: '', role: 'Head Coach', email: '' })
+
+  function startEditCoach(coach: Coach) {
+    setEditingCoachId(coach.id)
+    setCoachEditDraft({ name: coach.name, role: coach.role, email: coach.email ?? '' })
+  }
+
+  async function saveEditCoach() {
+    if (!editingCoachId || !coachEditDraft.name.trim()) return
+    await updateCoach(editingCoachId, {
+      name: coachEditDraft.name.trim(),
+      role: coachEditDraft.role,
+      email: coachEditDraft.email.trim() || null,
+    })
+    setEditingCoachId(null)
+  }
+
+  async function saveNewCoach() {
+    if (!newCoachDraft.name.trim() || !s?.id) return
+    await insertCoach({
+      school_id: s.id,
+      name: newCoachDraft.name.trim(),
+      role: newCoachDraft.role,
+      email: newCoachDraft.email.trim() || null,
+      is_primary: coaches.length === 0,   // first coach added becomes primary automatically
+      needs_review: false,
+      sort_order: coaches.length * 10,
+      notes: null,
+    })
+    setNewCoachDraft({ name: '', role: 'Head Coach', email: '' })
+    setAddingCoach(false)
+  }
 
   function startEditItem(item: ActionItem) {
     setEditingItemId(item.id)
@@ -225,13 +264,99 @@ export default function SchoolModal(props: Props) {
                   <input value={conference} onChange={e => setConference(e.target.value)} style={fieldStyle} placeholder="e.g. UAA" />
                 </Field>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <Field label="Head Coach">
-                  <input value={headCoach} onChange={e => setHeadCoach(e.target.value)} style={fieldStyle} />
-                </Field>
-                <Field label="Coach Email">
-                  <input type="email" value={coachEmail} onChange={e => setCoachEmail(e.target.value)} style={fieldStyle} />
-                </Field>
+              {/* Coaches section (edit mode only) */}
+              {isEdit && (
+                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>
+                      COACHES <span style={{ fontWeight: 400, color: '#94a3b8' }}>({coaches.length})</span>
+                    </div>
+                    {!addingCoach && (
+                      <button
+                        type="button"
+                        onClick={() => { setAddingCoach(true); setNewCoachDraft({ name: '', role: 'Head Coach', email: '' }) }}
+                        style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 5, padding: '3px 10px', fontSize: 11.5, cursor: 'pointer', color: '#475569', fontFamily: 'inherit' }}
+                      >+ Add</button>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {coaches.map(coach => (
+                      editingCoachId === coach.id ? (
+                        <div key={coach.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 2fr auto auto', gap: 6, alignItems: 'end', background: '#f8fafc', borderRadius: 6, padding: '8px 10px', border: '1px solid #e2e8f0' }}>
+                          <input value={coachEditDraft.name} onChange={e => setCoachEditDraft(d => ({ ...d, name: e.target.value }))} style={{ ...fieldStyle, fontSize: 12 }} placeholder="Name" autoFocus />
+                          <select value={coachEditDraft.role} onChange={e => setCoachEditDraft(d => ({ ...d, role: e.target.value as CoachRole }))} style={{ ...fieldStyle, fontSize: 12 }}>
+                            {COACH_ROLES.map(r => <option key={r}>{r}</option>)}
+                          </select>
+                          <input type="email" value={coachEditDraft.email} onChange={e => setCoachEditDraft(d => ({ ...d, email: e.target.value }))} style={{ ...fieldStyle, fontSize: 12 }} placeholder="Email (optional)" />
+                          <button type="button" onClick={saveEditCoach} style={actionBtnStyle('#0f172a', '#fff')}>Save</button>
+                          <button type="button" onClick={() => setEditingCoachId(null)} style={actionBtnStyle('#f1f5f9', '#475569')}>×</button>
+                        </div>
+                      ) : (
+                        <div key={coach.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fafbfc', borderRadius: 6, padding: '8px 10px', border: '1px solid #f1f5f9' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ fontSize: 12.5, color: '#334155', fontWeight: 600 }}>{coach.name}</span>
+                            <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 6 }}>{coach.role}</span>
+                            {coach.email && <span style={{ fontSize: 11, color: '#64748b', marginLeft: 6 }}>{coach.email}</span>}
+                            {coach.needs_review && (
+                              <span
+                                title="Flagged during backfill — verify name, role, and email"
+                                style={{
+                                  marginLeft: 6, display: 'inline-block',
+                                  padding: '1px 6px', borderRadius: 4,
+                                  background: '#fef9c3', color: '#854d0e',
+                                  fontSize: 10, fontWeight: 700, border: '1px solid #ca8a04',
+                                  cursor: 'help',
+                                }}
+                              >Needs review</span>
+                            )}
+                          </div>
+                          {coach.is_primary && (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', background: '#e2e8f0', borderRadius: 4, padding: '2px 6px', flexShrink: 0 }}>Primary</span>
+                          )}
+                          {!coach.is_primary && (
+                            <button type="button" onClick={() => s?.id && setPrimary(coach.id)} style={{ ...actionBtnStyle('#f8fafc', '#64748b'), fontSize: 10, border: '1px solid #e2e8f0' }}>
+                              Set primary
+                            </button>
+                          )}
+                          <button type="button" onClick={() => startEditCoach(coach)} style={{ ...actionBtnStyle('#f1f5f9', '#475569'), fontSize: 11 }}>Edit</button>
+                          <button type="button" onClick={() => deleteCoach(coach.id)} style={{ ...actionBtnStyle('#fef2f2', '#dc2626'), fontSize: 11 }}>✕</button>
+                        </div>
+                      )
+                    ))}
+
+                    {addingCoach && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 2fr auto auto', gap: 6, alignItems: 'end', background: '#eff6ff', borderRadius: 6, padding: '8px 10px', border: '1px dashed #93c5fd' }}>
+                        <input value={newCoachDraft.name} onChange={e => setNewCoachDraft(d => ({ ...d, name: e.target.value }))} style={{ ...fieldStyle, fontSize: 12 }} placeholder="Coach name" autoFocus />
+                        <select value={newCoachDraft.role} onChange={e => setNewCoachDraft(d => ({ ...d, role: e.target.value as CoachRole }))} style={{ ...fieldStyle, fontSize: 12 }}>
+                          {COACH_ROLES.map(r => <option key={r}>{r}</option>)}
+                        </select>
+                        <input type="email" value={newCoachDraft.email} onChange={e => setNewCoachDraft(d => ({ ...d, email: e.target.value }))} style={{ ...fieldStyle, fontSize: 12 }} placeholder="Email (optional)" />
+                        <button type="button" onClick={saveNewCoach} disabled={!newCoachDraft.name.trim()} style={actionBtnStyle('#0f172a', '#fff')}>Add</button>
+                        <button type="button" onClick={() => setAddingCoach(false)} style={actionBtnStyle('#f1f5f9', '#475569')}>×</button>
+                      </div>
+                    )}
+
+                    {coaches.length === 0 && !addingCoach && (
+                      <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No coach records yet. Click + Add to create one.</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Legacy fields — read only */}
+              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Legacy fields (read only — coach data now lives in Coaches above)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <Field label="Head Coach (legacy)">
+                    <input value={headCoach} readOnly style={{ ...fieldStyle, background: '#f8fafc', color: '#94a3b8', cursor: 'default' }} />
+                  </Field>
+                  <Field label="Coach Email (legacy)">
+                    <input value={coachEmail} readOnly style={{ ...fieldStyle, background: '#f8fafc', color: '#94a3b8', cursor: 'default' }} />
+                  </Field>
+                </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                 <Field label="Last Contact">
@@ -349,6 +474,7 @@ export default function SchoolModal(props: Props) {
           <DraftEmailModal
             school={s!}
             userId={props.userId}
+            primaryCoach={coaches.find(c => c.is_primary) ?? null}
             onClose={() => setDraftingEmail(false)}
           />
         )}
