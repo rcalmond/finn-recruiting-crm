@@ -130,13 +130,31 @@ function extractSchoolAndCoach(
   return { coachName: null, schoolName: schoolFromSubject, srSubject: strippedSubject }
 }
 
+// Remove SR notification noise from an extracted body string
+function cleanExtractedBody(text: string): string {
+  // 1. Strip orphaned subject-line tail on the first line.
+  //    Happens when the subject line wraps across two physical lines:
+  //    pattern matches the first line, leaving e.g. "MSOE)*\n\n\n..." at top.
+  //    Match: any chars (no newline/asterisk), then *, then blank lines.
+  text = text.replace(/^[^\n*]*\*[ \t]*\n+/, '')
+
+  // 2. Remove inline CSS rules that survive HTML→text conversion
+  //    e.g. "P {margin-top:0;margin-bottom:0;}"
+  text = text.replace(/[A-Za-z]\s*\{[^}]*\}/g, '')
+
+  // 3. Collapse three or more consecutive blank lines to one
+  text = text.replace(/\n{3,}/g, '\n\n')
+
+  return text.trim()
+}
+
 // Extract just the coach's message body from the SR notification
 function extractMessageBody(body: string): string {
   // Normalize line endings — email text may arrive with \r\n
   const normalized = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
-  // Find the SR internal subject line — try formats in order of specificity
-  // The match index is used directly (avoids indexOf re-search on normalized string)
+  // Find the SR internal subject line — try formats in order of specificity.
+  // Use m.index directly (avoids re-searching the string via indexOf).
   const subjectPatterns = [
     /\*Subject:[^\n]+\*\n+/i,       // *Subject: Re: ...*
     /\*Subject:[^\n]+\n+/i,          // *Subject: Re: ...  (no closing *)
@@ -164,7 +182,7 @@ function extractMessageBody(body: string): string {
     if (idx !== -1 && idx > startIdx) endIdx = Math.min(endIdx, idx)
   }
 
-  return normalized.slice(startIdx, endIdx).trim()
+  return cleanExtractedBody(normalized.slice(startIdx, endIdx))
 }
 
 // Gmail preamble dates look like "Sat, Apr 4, 2026 at 7:35 AM" — "at" is not valid JS
