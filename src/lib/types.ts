@@ -31,6 +31,7 @@ export interface School {
   videos_sent: boolean
   notes: string | null
   generic_team_email: string | null
+  aliases: string[]
   sort_order?: number | null
   id_camp_1: string | null           // ISO date string YYYY-MM-DD
   id_camp_2: string | null

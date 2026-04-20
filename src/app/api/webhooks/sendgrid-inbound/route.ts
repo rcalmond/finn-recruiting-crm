@@ -213,7 +213,7 @@ function parseMessageDate(
 
 // ── School & coach matching ───────────────────────────────────────────────────
 
-type SchoolRow = { id: string; name: string; short_name: string | null }
+type SchoolRow = { id: string; name: string; short_name: string | null; aliases: string[] }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase  = ReturnType<typeof createServiceClient<any>>
 
@@ -221,29 +221,31 @@ async function matchSchool(
   admin: Supabase,
   parsedName: string
 ): Promise<{ school: SchoolRow | null; matchType: string }> {
-  const { data } = await admin.from('schools').select('id, name, short_name')
+  const { data } = await admin.from('schools').select('id, name, short_name, aliases')
   const schools  = (data ?? []) as SchoolRow[]
   const lower    = parsedName.toLowerCase().trim()
 
-  const exact       = schools.find(s => s.name.toLowerCase() === lower)
+  // 1. Exact name match
+  const exact = schools.find(s => s.name.toLowerCase() === lower)
   if (exact) return { school: exact, matchType: 'exact' }
 
-  const shortExact  = schools.find(s => s.short_name?.toLowerCase() === lower)
+  // 2. Exact short_name match
+  const shortExact = schools.find(s => s.short_name?.toLowerCase() === lower)
   if (shortExact) return { school: shortExact, matchType: 'short_name_exact' }
 
-  // school.name contains the parsed token (e.g. "Amherst" → "Amherst College")
+  // 3. Alias match (case-insensitive) — SR uses formal names we've aliased
+  const aliasMatch = schools.find(s =>
+    (s.aliases ?? []).some(a => a.toLowerCase() === lower)
+  )
+  if (aliasMatch) return { school: aliasMatch, matchType: 'alias' }
+
+  // 4. school.name contains the parsed token (e.g. "Amherst" → "Amherst College")
   const nameContains = schools.find(s => s.name.toLowerCase().includes(lower))
   if (nameContains) return { school: nameContains, matchType: 'name_contains_parsed' }
 
-  // parsed token contains school.name (e.g. "University of Rochester" contains "Rochester")
+  // 5. parsed token contains school.name (e.g. "University of Rochester" → "Rochester")
   const parsedContainsName = schools.find(s => lower.includes(s.name.toLowerCase()))
   if (parsedContainsName) return { school: parsedContainsName, matchType: 'parsed_contains_name' }
-
-  // parsed token contains short_name
-  const parsedContainsShort = schools.find(
-    s => s.short_name && lower.includes(s.short_name.toLowerCase())
-  )
-  if (parsedContainsShort) return { school: parsedContainsShort, matchType: 'parsed_contains_short_name' }
 
   return { school: null, matchType: 'none' }
 }

@@ -215,7 +215,7 @@ and are legacy — note this in contact log if surfaced.
 
 ---
 
-## 10. Live Pipeline — Generated April 19, 2026
+## 10. Live Pipeline — Generated April 20, 2026
 
 **Active schools: 32** | Overdue actions: 18
 (Category Nope and status Inactive excluded)
@@ -232,6 +232,16 @@ SCHOOL: Cal Poly San Luis Obispo (Cal Poly SLO)
   RQ Status: Completed
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-18
+  Contact Log (1 shown):
+    [2026-04-03] Inbound via Sports Recruits — Brandon Bautista:
+      Hi Finn,
+      
+      Thanks for reaching out!
+      
+      We will be hosting an ID camp on May 9-10 & August 1-2 that you can attend.
+      It’ll be a great opportunity to get in front of our staff in a training and
+      match environment as we continue to recruit for 2027. If you’re interested,
+      you can register at the link belo...
 
 SCHOOL: Case Western
   Status: Ongoing Conversation
@@ -239,7 +249,6 @@ SCHOOL: Case Western
   Location: Cleveland, OH
   Admit Likelihood: Reach
   Coach: Carter Poe — Head Coach <ccp51@case.edu>
-  Coach: TEST — Head Coach [primary]
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
@@ -249,9 +258,8 @@ Filled out schedule form for MLS NEXT Fest
   Next Action: Wingback update email (Finn) — due 2026-04-18
   Contact Log (1 shown):
     [2025-12-02] Inbound via Sports Recruits — Carter Poe:
-      An email from SportsRecruits 
-      Carter Poe just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                       ...
+      Finn, Thanks for reaching out. If you'd like to get on our schedule, please
+      fill out the form below. https://forms.gle/V5d8u9oc3F8VYHGr8 Coach Poe
 
 SCHOOL: CO School of Mines
   Status: Ongoing Conversation
@@ -275,24 +283,11 @@ Emailed on 3/15 with update
 Emailed about PHX on 2/12 (responded)
   Next Action: Check for new HC (Finn) — due 2026-04-19
   Also: Update RQ (Finn) — due 2026-05-29
-  Contact Log (2 shown):
-    [2026-04-13] Inbound via Email — Ben Fredrickson:
-      Colorado Mines Men's Soccer Camp Follow Up
-      College Soccer
-      
-      Ben Fredrickson <ben.fredrickson@mines.edu>
-      Fri, Feb 20, 7:11 PM
-      to me
-      
-      Finn Almond,
-      
-      We hope this email finds you well.
-      
-      Thank you for joining us at our recent ID soccer camp on Feb 7th. We truly appreciate your time, energy, and effort ...
+  Contact Log (1 shown):
     [2025-12-01] Inbound via Sports Recruits — Greg Mulholland:
-      An email from SportsRecruits 
-      Greg Mulholland just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                  ...
+      See you out there Finn!
+      
+      <https://minesathletics.com/sports/mens-soccer>
 
 SCHOOL: Lafayette College
   Status: Ongoing Conversation
@@ -308,13 +303,23 @@ In Arizona
   Next Action: Wingback update email (Finn) — due 2026-04-18
   Contact Log (2 shown):
     [2026-04-08] Inbound via Sports Recruits — Gabriel Robinson:
-      An email from SportsRecruits 
-      Gabriel Robinson just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                 ...
+      Finn,
+      
+      Thank you for the email reaching out and touching base with us. Please keep
+      us updated on your schedule moving forward. Please also see the information
+      below providing more insight into our college, program, and PPA ID camps.
+      
+      Summer ID camp information
+      
+      https://peakperformancesoccer.com/
+      ...
     [2025-12-01] Inbound via Sports Recruits — Gabriel Robinson:
-      An email from SportsRecruits 
-      Gabriel Robinson just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                 ...
+      Finn, Thank you for the email reaching out and touching base with us. We
+      will be attending the event and will plan on attending a match. Please keep
+      us updated on any schedule changes. Please also see the information below
+      providing more insight into our college, program, and winter ID camp.
+      
+      htt...
 
 SCHOOL: Milwaukee School of Engineering (MSOE)
   Status: Ongoing Conversation
@@ -328,18 +333,48 @@ SCHOOL: Milwaukee School of Engineering (MSOE)
   Notes: What do you want to study?
   Next Action: Reply to "Let's connect in May" (Finn) — due 2026-05-03
   Contact Log (3 shown):
-    [2026-04-09] Inbound via Sports Recruits — Rob Harrington:
-      An email from SportsRecruits 
-      Rob Harrington just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                   ...
+    [2026-04-08] Inbound via Sports Recruits — Rob Harrington:
+      Finn,
+      
+      Let's connect in May.
+      
+      Rob H
+      
+      Rob Harrington
+      
+      Head Men’s Soccer Coach
+      
+      414-803-4769 cell
+      
+      NACC Regular or Conference Tournament Champs in 2025, 24, 23, 22, 21 Spring
+      Covid, 2018, 2015, 2014
+      
+      Over 80% of MSOE soccer players received internships in their field (over
+      50% get two or more)
+      
+      99%...
     [2025-12-05] Inbound via Sports Recruits — Rob Harrington:
-      An email from SportsRecruits 
-      Rob Harrington just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                   ...
+      What’s your jersey number
+      
+      Get Outlook for iOS <https://aka.ms/o0ukef>
     [2025-12-04] Inbound via Sports Recruits — Rob Harrington:
-      An email from SportsRecruits 
-      Rob Harrington just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                   ...
+      What would you like to study?
+      
+      Rob H
+      
+      Rob Harrington
+      
+      Head Men’s Soccer Coach
+      
+      414-803-4769 cell
+      
+      Average Graduate Starting Salary $76,647
+      
+      Number 12 School for starting salaries in the country
+      
+      99% of graduates get a job in their field
+      
+      NACC Regular or Conference Tournament Champs in 2025, 24, 2...
 
 SCHOOL: RPI
   Status: Intro Sent
@@ -363,35 +398,34 @@ SCHOOL: University of Rochester
   Notes: Got a personalized email back from Coach Cross.
 
 Thanks for reaching out about your interest. I am impressed with your film as you show great technical skill to take on defenders and provide amazing services from the wide areas. I also like how seriously you take your academics and are interested in
-  Contact Log (3 shown):
-    [2026-04-19] Outbound via Email — Ben Cross – Head Coach:
-      Re: [EXT] Finn Almond | Left Wingback | Class of 2027 | University of Rochester
-    [2026-04-08] Outbound via Sports Recruits — Ben Cross:
-      Hi Coach,
+  Contact Log (2 shown):
+    [2026-04-20] Inbound via Sports Recruits — Ben Cross:
+      Finn,
       
-       
-      
-      I filled out the recruiting questionnaire, and I’ve also attached an updated highlight reel with some clips from MLS cup qualifiers. 
-      
-      
-      Would you be available to talk anytime after 3pm mountain time this Saturday the 11th?
+      Let's plan for Wednesday at 2pm MT. I will call then!
       
       Best,
       
-      Finn Almond
+      *Sean Streb*
       
-      https://youtu.be/Va_Z09OYcs0?si=ZTKCyrC...
-    [2026-04-08] Inbound via Sports Recruits:
-      [EXT] Finn Almond | Left Wingback | Class of 2027 | University of Rochester
-      Me
-      To: Ben Cross (University of Rochester)
-      Re: [EXT] Finn Almond | Left Wingback | Class of 2027 | University of Rochester
-      Apr 8, 2026 at 5:56 PM
-      Hi Coach,
+      Rochester Men’s Soccer – Assistant Coach
       
-       
+      [image: Blue text on a black background<br><br>Description automatically
+      generated]
       
-      I filled out the recruiting questionnaire, and I’ve also atta...
+      *Recruiting Questionnaire*
+      <https://questionnaires.armssoftware.com/0fbb1bedbe0c>
+      
+      *Jun...
+    [2026-04-03] Inbound via Sports Recruits — Ben Cross:
+      Finn,
+      
+      Thanks for reaching out about your interest. I am impressed with your film
+      as you show great technical skill to take on defenders and provide amazing
+      services from the wide areas. I also like how seriously you take your
+      academics and are interested in our Hajim School of Engineering.
+      
+      Plea...
 
 SCHOOL: WPI
   Status: Intro Sent
@@ -411,9 +445,9 @@ SCHOOL: Bucknell University
   Division: D1 — Patriot League
   Location: Lewisburg, PA
   Admit Likelihood: Reach
-  Coach: Dave Brandt — Head Coach <db055@bucknell.edu>
+  Coach: Dave Brandt — Head Coach <db055@bucknell.edu> [primary]
   Coach: David Yates — Assistant Coach
-  Coach: Casey Penrod — Assistant Coach [primary]
+  Coach: Casey Penrod — Assistant Coach
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -424,13 +458,19 @@ Strong Mental Game
   Also: Update RQ (Finn) — due 2026-04-20
   Contact Log (2 shown):
     [2025-12-03] Inbound via Sports Recruits — Dave Brandt:
-      An email from SportsRecruits 
-      Dave Brandt just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                      ...
+      *Finn-appreciate you reaching out; we are now at the point where we will
+      begin to look closely at 27’s, so good to hear from you. A ton of very
+      relevant and specific info below on both Bucknell and all aspects of what
+      is a unique and successful program culture.*
+      
+      1. first, we will look closely at...
     [2025-11-28] Inbound via Sports Recruits — Dave Brandt:
-      An email from SportsRecruits 
-      Dave Brandt just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                      ...
+      *Finn-appreciate you reaching out; we are now at the point where we will
+      begin to look closely at 27’s, so good to hear from you. A ton of very
+      relevant and specific info below on both Bucknell and all aspects of what
+      is a unique and successful program culture.*
+      
+      1. first, we will look closely at...
 
 SCHOOL: Cal Poly Pomona
   Status: Intro Sent
@@ -458,17 +498,15 @@ Attended ID Camp in September 2025
   Also: Update RQ (Finn) — due 2026-04-20
   Contact Log (3 shown):
     [2026-04-03] Inbound via Sports Recruits — Brandon Bowman:
-      An email from SportsRecruits 
-      Brandon Bowman just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                   ...
+      Thank you Finn.
     [2025-10-13] Inbound via Sports Recruits — Ross Macklin:
-      An email from SportsRecruits 
-      Ross Macklin just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                     ...
+      Hi Finn - thanks for reaching back out and for your efforts during camp. We
+      thought you showed a lot of qualities. However, in the interest of
+      transparency, as things stand, there are other players in our pool that are
+      ahead of you for the '27 class. Still, the recruiting process is very fluid
+      an...
     [2025-09-23] Inbound via Sports Recruits — Ross Macklin:
-      An email from SportsRecruits 
-      Ross Macklin just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                     ...
+      Hi Finn - looking forward to seeing you Sunday.
 
 SCHOOL: Cornell
   Status: Intro Sent
@@ -508,10 +546,15 @@ SCHOOL: Lehigh University
   Next Action: Wingback email update (Finn) — due 2026-04-18
   Also: Update RQ (Finn) — due 2026-04-20
   Contact Log (1 shown):
-    [2025-11-29] Inbound via Sports Recruits — Will Flannery:
-      An email from SportsRecruits 
-      Will Flannery just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                    ...
+    [2025-11-28] Inbound via Sports Recruits — Will Flannery:
+      Finn,
+      
+      Thank you for your email and for your interest in Lehigh University & our
+      Men’s Soccer program. We will make every effort to attend one of your
+      matches at the upcoming event.
+      
+      In the meantime, please fill out the questionnaire (linked below) to be
+      added to our recruiting database, and see ...
 
 SCHOOL: Middlebury
   Status: Ongoing Conversation
@@ -525,18 +568,22 @@ SCHOOL: Middlebury
   Notes: Personal Intro
 ID Camp Info
   Contact Log (3 shown):
+    [2026-04-20] Inbound via Sports Recruits — Tim Peng:
+      That’s great to hear-
+      
+      Here’s the link as well https://www.middleburysoccercamps.com
+      
+      I think we will be a strong team in the fall
+      
+      Tim Peng Assistant Men’s Soccer Coach Middlebury College
     [2026-04-08] Inbound via Sports Recruits — Tim Peng:
-      An email from SportsRecruits 
-      Tim Peng just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                         ...
+      Hope that event went well!
+      
+      Want to come out to our camp in May? I can share the link if you need it
+      
+      Tim Peng Assistant Men’s Soccer Coach Middlebury College
     [2025-12-04] Inbound via Sports Recruits — Alex Elias:
-      An email from SportsRecruits 
-      Alex Elias just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                       ...
-    [2025-12-03] Inbound via Sports Recruits — Tim Peng:
-      An email from SportsRecruits 
-      Tim Peng just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                         ...
+      Thanks, Finn!
 
 SCHOOL: Northeastern
   Status: Intro Sent
@@ -548,11 +595,6 @@ SCHOOL: Northeastern
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
   Also: Update RQ (Finn) — due 2026-04-20
-  Contact Log (1 shown):
-    [2026-01-07] Inbound via Sports Recruits — Kaneile Thomas:
-      An email from SportsRecruits 
-      Kaneile Thomas just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                   ...
 
 SCHOOL: Rochester Institute of Technology (RIT)
   Status: Intro Sent
@@ -576,17 +618,30 @@ SCHOOL: South Dakota Mines (South Dakota School of Mines & Technology)
   Videos Sent: Yes
   Next Action: Respond to email from Coach Schuster (Finn) — due 2026-04-15
   Contact Log (2 shown):
-    [2026-04-19] Outbound via Email — Teren Schuster - Head Coach:
-      Re: [EXT] Finn Almond | Left Wingback | Class of 2027 | South Dakota Mines
-    [2026-04-15] Inbound via Email — Teren Schuster:
-      Re: [EXT] Finn Almond | Left Wingback | Class of 2027 | South Dakota Mines
-      Teren Schuster (South Dakota School of Mines & Technology)
-      To: Me
-      Re: Re: [EXT] Finn Almond | Left Wingback | Class of 2027 | South Dakota Mines
-      Apr 15, 2026 at 9:27 AM
-      Outlook-South Dako.png
-      Outlook-South Dako.png
-      Outlook...
+    [2026-04-20] Inbound via Sports Recruits — Teren Schuster:
+      Hi Finn,
+      
+      Too bad, we are nearly finished with training, this is our last week. Send
+      me your league schedule and I'll see if I can swing down and watch you play
+      
+      Teren Schuster, Head Men's Soccer Coach
+      
+      Hardrocker Men’s Soccer
+      
+      South Dakota Mines
+      
+      501 E. Saint Joseph St., Rapid City, SD 57701
+      
+      O:...
+    [2026-04-15] Inbound via Sports Recruits — Teren Schuster:
+      Hi Finn,
+      
+      Thank you for showing interest in our program. Happy to hear you are
+      interested not only in our soccer program, but what our university has to
+      offer academically. After watching your highlights, you will be
+      on our radar.
+      
+      Please fill out our recruiting questionnaire so you are in our da...
 
 SCHOOL: Stevens Institute of Technology
   Status: Intro Sent
@@ -611,9 +666,12 @@ SCHOOL: Washington University
   Also: Update RQ (Finn) — due 2026-04-20
   Contact Log (1 shown):
     [2026-04-02] Inbound via Sports Recruits — Jack Mathis:
-      An email from SportsRecruits 
-      Jack Mathis just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                      ...
+      Hello,
+      
+      Thank you so much for reaching out to Wash U Men's Soccer. I "Jack Mathis"
+      have left the position as of 1/9/26 and will no longer be responding to
+      emails for Wash U in St. Louis. Please reach out to Coach Bordelon for all
+      questions regarding Wash U Men's Soccer. His email is bordelon@wust...
 
 ### Tier C — Exploratory (12 schools)
 
@@ -631,18 +689,31 @@ Arizona?
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
   Contact Log (3 shown):
-    [2026-04-06] Inbound via Sports Recruits — Rye  Jaran:
-      An email from SportsRecruits 
-      Rye Jaran just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                        ...
+    [2026-04-06] Inbound via Sports Recruits — Rye Jaran:
+      Hi Finn,
+      
+      Thank you for reaching out and for your interest in Amherst College and our
+      soccer program.
+      
+      Most recently, we won the 2024 National Championship, and we’ve reached the
+      Final Four four times in the last six seasons.
+      
+      Amherst Men's Soccer <https://new.express.adobe.com/webpage/VmbEWqgaBK...
     [2026-04-04] Inbound via Sports Recruits — Justin Serpone:
-      An email from SportsRecruits 
-      Justin Serpone just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                   ...
+      Hi Finn,
+      
+      Thank you for your interest in Amherst College and our soccer program.
+      
+      Over the past 17 years, our program is 275-44-44 -*it’s been a special time
+      to be part of Amherst Men’s Soccer*.
+      
+      In 2024, we won the National Championship. We've been to the Final Four 4
+      times in the past 6 seasons...
     [2026-03-05] Inbound via Sports Recruits — Justin Serpone:
-      An email from SportsRecruits 
-      Justin Serpone just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                   ...
+      I hope you’re having a good Winter season! A number of 2027’s have reached
+      out to set up a phone call. Unfortunately, we don't have the bandwidth to
+      connect individually with all interested players, but we're going to have
+      an informational Zoom for those who have expressed interest in connecting....
 
 SCHOOL: Bowdoin
   Status: Ongoing Conversation
@@ -656,19 +727,41 @@ SCHOOL: Bowdoin
   Notes: Coach Banadda will be in AZ
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
-  Contact Log (3 shown):
+  Contact Log (2 shown):
     [2026-04-03] Inbound via Sports Recruits — Scott Wiercinski:
-      An email from SportsRecruits 
-      Scott Wiercinski just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                 ...
+      Finn,
+      
+      Thank you for your interest in our Bowdoin Soccer program.  We are excited
+      to learn more about you and watch you compete in the months
+      ahead. Unfortunately, we are not able to attend your Scottsdale event due
+      to commitments elsewhere.  We wish you the best of luck.
+      
+      We recently published o...
     [2025-12-04] Inbound via Sports Recruits — Scott Wiercinski:
-      An email from SportsRecruits 
-      Scott Wiercinski just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                 ...
-    [2025-12-04] Inbound via Sports Recruits — Scott Wiercinski:
-      An email from SportsRecruits 
-      Scott Wiercinski just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                 ...
+      Thanks Finn.
+      
+      Good luck.
+      
+      Sincerely,
+      
+      Scott Wiercinski
+      
+      Head Coach – Men’s Soccer
+      
+      Bowdoin College
+      
+      9000 College Station
+      
+      Brunswick, Maine 04011
+      
+      (O): 207.725.3665
+      
+      (F): 207.725.3019
+      
+      Bowdoin College <http://www.bowdoin.edu/>
+      
+      Bowdoin College Men's Soccer
+      <http://athletics.bowdoin.edu/sports/msoc...
 
 SCHOOL: Clark
   Status: Intro Sent
@@ -696,14 +789,31 @@ SCHOOL: Colby
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
   Contact Log (2 shown):
-    [2026-04-03] Inbound via Sports Recruits — Sean  Elvert:
-      An email from SportsRecruits 
-      Sean Elvert just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                      ...
-    [2025-11-29] Inbound via Sports Recruits — Sean  Elvert:
-      An email from SportsRecruits 
-      Sean Elvert just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                      ...
+    [2026-04-03] Inbound via Sports Recruits — Sean Elvert:
+      Finn,
+      
+      Thanks for checking in with your continued interest in our program - if you
+      could let us know the events you’ll be attending with your team or as an
+      individual this spring/summer, that would be great.
+      
+       [image: Picture 1397805423, Picture]
+      
+      Sean Elvert
+      
+      *Head Men’s Soccer Coach  *
+      
+      *Colby ...
+    [2025-11-29] Inbound via Sports Recruits — Sean Elvert:
+      Finn,
+      
+      Thanks for reaching out with your interest in our program ahead of Fest -
+      we enjoyed the highlight video and will be sure to take in a couple halves
+      of yours in Phoenix.
+      
+      Prior to the event, please complete the recruit questionnaire in the
+      signature below.
+      
+       [image: Picture 1397805423, Pic...
 
 SCHOOL: Colgate
   Status: Ongoing Conversation
@@ -722,9 +832,9 @@ Emailed about MIT Camp and Coach Brown responded. Not going to be at the camp. A
   Also: Update RQ (Finn) — due 2026-04-27
   Contact Log (1 shown):
     [2025-12-02] Inbound via Sports Recruits — Tim Stanton:
-      An email from SportsRecruits 
-      Tim Stanton just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                      ...
+      Thank you for reaching out with your schedule and for your interest in
+      Colgate Men's Soccer. We are looking forward to seeing you play in next few
+      days. Good luck! – Coach Stanton
 
 SCHOOL: Dartmouth
   Status: Intro Sent
@@ -766,9 +876,14 @@ RQ
   Also: Update RQ (Finn) — due 2026-04-27
   Contact Log (1 shown):
     [2025-11-30] Inbound via Sports Recruits — Russell Payne:
-      An email from SportsRecruits 
-      Russell Payne just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                    ...
+      Hi Finn,
+      
+      Thank you for your interest in our university and soccer program!
+      
+      As a potential 2027 recruit with limited opportunities to watch you play, I
+      think it would be a good idea to consider our upcoming Winter ID Camps.
+      These camps give you the best chance to be exposed to the Northwestern
+      c...
 
 SCHOOL: Princeton
   Status: Ongoing Conversation
@@ -786,9 +901,12 @@ Not in Arizona
   Next Action: Update RQ (Finn) — due 2026-04-27
   Contact Log (1 shown):
     [2025-11-28] Inbound via Sports Recruits — Steve Totten:
-      An email from SportsRecruits 
-      Steve Totten just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                     ...
+      Finn,
+      
+      Thanks for your email and interest in Princeton Soccer.  Hopefully we are
+      able to watch more this year.  We just wrapped up a very successful season
+      and we are doing our best to turn our attention towards recruiting, though
+      it will take us some time to catch up on things.  We have had a bu...
 
 SCHOOL: Stanford
   Status: Ongoing Conversation
@@ -805,9 +923,13 @@ ID Camp
   Also: Update RQ (Finn) — due 2026-04-27
   Contact Log (1 shown):
     [2025-11-28] Inbound via Sports Recruits — Drew Hutchins:
-      An email from SportsRecruits 
-      Drew Hutchins just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                    ...
+      Hi Finn,
+      
+      Thank you for reaching out and expressing interest in our team. We're
+      always excited to hear from dedicated student-athletes who are passionate
+      about competing at the highest level on the field and in the classroom.
+      
+      We will be at MLS Next Fest and I look forward to seeing you play. Ful...
 
 SCHOOL: Tufts
   Status: Ongoing Conversation
@@ -826,13 +948,17 @@ Coach Dezotell did college talk on day 1 - Focused on winning mentality
   Next Action: Update RQ (Finn) — due 2026-04-27
   Contact Log (2 shown):
     [2026-04-03] Inbound via Sports Recruits — Eric Nordenson:
-      An email from SportsRecruits 
-      Eric Nordenson just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                   ...
+      Finn - Thank you for reaching out to our program and for your interest in
+      Tufts Men’s Soccer! We have just wrapped up a *historic season*
+      <https://gotuftsjumbos.com/sports/mens-soccer/schedule/2025>, winning our
+      5th National Championship in program history, as well as winning the NESCAC
+      Regular S...
     [2025-11-28] Inbound via Sports Recruits — Kyle Dezotell:
-      An email from SportsRecruits 
-      Kyle Dezotell just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                    ...
+      Finn - Thank you for reaching out to our program and for your interest in
+      Tufts Men’s Soccer! Our primary focus is on the current team and our
+      upcoming matches. We have been to 11 consecutive NCAA Tournaments, winning
+      4 National Championships in that run, and are working hard to continue this
+      lon...
 
 SCHOOL: Williams
   Status: Ongoing Conversation
@@ -846,9 +972,14 @@ SCHOOL: Williams
   Also: Update RQ (Finn) — due 2026-04-27
   Contact Log (1 shown):
     [2026-04-06] Inbound via Sports Recruits — Bill Schmid:
-      An email from SportsRecruits 
-      Bill Schmid just sent a message to you on SportsRecruits. 
-                                                                                                                                                                                                                      ...
+      Finn,
+      
+      Thanks for reaching out with your interest in Williams. It’s great to hear
+      from you!
+      
+      We are in the thick of the 2027 recruiting process and would be happy to
+      learn more about you! When you have some time, please fill out our Recruit
+      Questionnaire <https://questionnaires.armssoftware.com/f...
 
 ---
 
