@@ -59,6 +59,7 @@ export interface ContactLogEntry {
   parse_status?: 'parsed' | 'partial' | 'failed'
   parse_notes?: string | null
   coach_id?: string | null           // FK to coaches.id; null if no match found
+  content_hash?: string | null       // sha256 dedup key for bulk-imported rows (migration 017)
   // joined
   school?: Pick<School, 'id' | 'name' | 'short_name'>
 }

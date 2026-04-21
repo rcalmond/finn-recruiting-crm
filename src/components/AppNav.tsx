@@ -10,9 +10,10 @@ type NavItem = {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Today',   href: '/'        },
-  { label: 'Schools', href: '/schools' },
-  { label: 'Library', href: '/library' },
+  { label: 'Today',   href: '/'             },
+  { label: 'Schools', href: '/schools'      },
+  { label: 'Library', href: '/library'      },
+  { label: 'Import',  href: '/bulk-import'  },
 ]
 
 // Sub-paths that belong to the Library section

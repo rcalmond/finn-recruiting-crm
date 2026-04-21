@@ -217,7 +217,7 @@ and are legacy — note this in contact log if surfaced.
 
 ## 10. Live Pipeline — Generated April 20, 2026
 
-**Active schools: 32** | Overdue actions: 18
+**Active schools: 32** | Overdue actions: 30
 (Category Nope and status Inactive excluded)
 
 ### Tier A — Highest Priority (8 schools)
@@ -561,7 +561,8 @@ SCHOOL: Middlebury
   Division: D3 — NESCAC
   Location: Middlebury, VT
   Admit Likelihood: Far Reach
-  Coach: Alex Elias — Head Coach <aelias@middlebury.edu> [primary]
+  Coach: Alex Elias — Head Coach <aelias@middlebury.edu>
+  Coach: Tim Peng — Assistant Coach <tp@middlebury.edu> [primary]
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -992,7 +993,8 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
-| 2026-04-19 | Starting Part 1: coaches table migration + backfill (email ingestion project) | Schema |
+| 2026-04-20 | Part 2 of email ingestion: SendGrid webhook + SR inbound parser (migrations 014, 015, 016) + school aliases + reparse script | Feature |
+| 2026-04-19 | Part 1 of email ingestion: coaches table migration + backfill + app integration (migrations 012, 013) | Feature |
 | 2026-04-19 | Phase 3c: Library landing, Assets/Questions restyle | Feature |
 | 2026-04-19 | Phase 3b: School detail page at /schools/[id] with timeline, action bar, coach card | Feature |
 | 2026-04-19 | Phase 3a: Schools list at /schools with filters, signals, 6-stage flow | Feature |
