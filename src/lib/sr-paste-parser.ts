@@ -230,14 +230,28 @@ function parseBlock(rawBlock: string, debug: boolean): RawMessage | null {
   const text = rawBlock.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
   const lines = text.split('\n')
 
-  // ── Skip preamble: advance until we find a sender line ──
-  // The first block in an SR paste starts with the thread-level subject header
-  // (e.g. "[EXT] Finn Almond | Left Wingback | ...") before "Me". Skip it.
+  // ── Skip preamble: find sender line with To:/From: lookahead confirmation ──
+  //
+  // A real sender line is ALWAYS immediately followed (next non-empty line) by
+  // "To:" or "From:". This rules out subject lines that happen to contain
+  // parentheses matching the coach pattern, e.g.:
+  //   "[External] Film + MLS Next Fest (Engineering + NESCAC Fit)"  ← NOT a sender
+  //   "Kyle Dezotell (Tufts University)"                             ← sender ✓ (To: follows)
   let i = 0
-  while (i < lines.length && !isSenderLine(lines[i])) i++
+  while (i < lines.length) {
+    if (isSenderLine(lines[i])) {
+      // Look ahead to the next non-empty line
+      let j = i + 1
+      while (j < lines.length && lines[j].trim() === '') j++
+      if (j < lines.length && /^(To|From):/i.test(lines[j].trim())) {
+        break  // confirmed sender
+      }
+    }
+    i++
+  }
 
   if (i >= lines.length) {
-    if (debug) console.error('[sr-parser] parseBlock: no sender line found, skipping block')
+    if (debug) console.error('[sr-parser] parseBlock: no confirmed sender line found, skipping block')
     return null
   }
 
