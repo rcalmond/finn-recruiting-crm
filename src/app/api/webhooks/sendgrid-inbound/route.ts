@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import {
+  parseSRPaste,
+  computeContentHash,
+  computeThreadKey,
+  normalizeSubject,
+  cleanBody,
+  USER_TIMEZONE,
+} from '@/lib/sr-paste-parser'
 
 // SendGrid Inbound Parse webhook — Sports Recruits notification ingestion
 // URL: /api/webhooks/sendgrid-inbound?key=<SENDGRID_INBOUND_SECRET>
@@ -286,6 +294,254 @@ async function matchCoach(
   return { coachId: null, matchType: 'none' }
 }
 
+// ── Outbound CC detection ─────────────────────────────────────────────────────
+//
+// SR sends a CC notification to finn@in.finnsoccer.com when Finn manually CCs
+// that address on an outbound SR message. Subject format:
+//   "Finn Almond CC'ed You on a Message to University of Rochester"
+// Body contains: "You were CC'd on a SportsRecruits message"
+//
+// These emails do NOT pass isSRNotification() (different action phrases, no thread
+// URL in subject), so we intercept them first.
+
+function isOutboundCC(subject: string, body: string): boolean {
+  return (
+    /CC'?ed You on a Message to /i.test(subject) ||
+    /You were CC'?d on a SportsRecruits message/i.test(body)
+  )
+}
+
+// ── Outbound CC extraction helpers ────────────────────────────────────────────
+
+// Extract coach names from the notification sentence:
+// "Finn Almond used his SportsRecruits account to send a message to Coach Sean
+//  Streb and Coach Ben Cross."  →  ["Sean Streb", "Ben Cross"]
+function extractCoachNamesFromCC(body: string): string[] {
+  const m = body.match(/send a message to (.+?)\.(?:\s|$)/i)
+  if (!m) return []
+  return m[1]
+    .split(/\s+and\s+/i)
+    .map(s => s.replace(/^Coach\s+/i, '').trim())
+    .filter(Boolean)
+}
+
+// Find the "Subject:" line that SR embeds in the notification body, then return:
+//   srSubject   — the SR internal subject string
+//   messageBody — everything below that line (Finn's actual message), cleaned
+function extractCCBody(body: string): { srSubject: string | null; messageBody: string } {
+  const normalized = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const subjectMatch = normalized.match(/^Subject:\s*(.+)$/im)
+
+  if (!subjectMatch || subjectMatch.index === undefined) {
+    // No Subject: line — clean the whole body and return
+    return { srSubject: null, messageBody: cleanBody(normalized) }
+  }
+
+  const srSubject = subjectMatch[1].trim()
+  const afterSubject = normalized
+    .slice(subjectMatch.index + subjectMatch[0].length)
+    .replace(/^\n+/, '') // drop leading blank lines between subject and body
+
+  return { srSubject, messageBody: cleanBody(afterSubject) }
+}
+
+// Parse the email Date header into a JS Date object
+function getEmailDate(headers: string): Date {
+  const m = headers.match(/^Date:\s*(.+)$/m)
+  if (m) {
+    const d = new Date(m[1].trim())
+    if (!isNaN(d.getTime())) return d
+  }
+  return new Date()
+}
+
+// Format a Date as "Apr 19, 2026 at 11:23 AM" in USER_TIMEZONE.
+// This exact format is what parseSRPaste's date parser expects — it will
+// re-parse the string and extract the Denver-local date correctly.
+function formatDateForParser(d: Date): string {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: USER_TIMEZONE,
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  })
+  const parts = fmt.formatToParts(d)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  return `${get('month')} ${get('day')}, ${get('year')} at ${get('hour')}:${get('minute')} ${get('dayPeriod')}`
+}
+
+// ── Outbound CC handler ───────────────────────────────────────────────────────
+
+async function handleOutboundCC(
+  admin: Supabase,
+  subject: string,
+  body: string,
+  headers: string,
+  rawText: string,
+  sourceMessageId: string | null,
+  receivedAt: string
+): Promise<void> {
+  // 1. School from subject: "...CC'ed You on a Message to University of Rochester"
+  const schoolMatch = subject.match(/CC'?ed You on a Message to (.+)$/i)
+  const parsedSchoolName = schoolMatch ? schoolMatch[1].trim() : null
+
+  // 2. Coach names from notification sentence ("to Coach X and Coach Y")
+  const coachNames = extractCoachNamesFromCC(body)
+
+  // 3. SR internal subject + Finn's message body
+  const { srSubject, messageBody } = extractCCBody(body)
+
+  // 4. Email date formatted as a paste-compatible string in Denver TZ
+  const emailDate  = getEmailDate(headers)
+  const dateStr    = formatDateForParser(emailDate)
+
+  // 5. Build a paste-style block and run through parseSRPaste.
+  //    This reuses all existing parser logic: date parsing (Denver TZ fix),
+  //    body cleaning, sender/To detection, and normalizeSubject.
+  const schoolForTo  = parsedSchoolName ?? 'Unknown School'
+  const coachesForTo = coachNames.length > 0 ? coachNames : ['Unknown Coach']
+  const pasteBlock   = [
+    'Me',
+    `To: ${coachesForTo.map(n => `${n} (${schoolForTo})`).join(', ')}`,
+    srSubject ?? '',
+    dateStr,
+    '',
+    messageBody,
+  ].join('\n')
+
+  const messages    = parseSRPaste(pasteBlock, true) // debug=true → logs to console.error
+  const outboundMsg = messages.find(m => m.isOutbound) ?? null
+
+  if (!outboundMsg) {
+    console.error(`[sg-inbound] ${receivedAt} — outbound CC: parser returned no outbound message`)
+    await admin.from('contact_log').insert({
+      school_id:         null,
+      date:              new Date().toISOString().split('T')[0],
+      channel:           'Sports Recruits',
+      direction:         'Outbound',
+      coach_name:        coachNames.join('; ') || null,
+      summary:           messageBody || srSubject || subject,
+      raw_source:        rawText,
+      source_message_id: sourceMessageId,
+      parse_status:      'partial',
+      parse_notes:       'Outbound CC: parseSRPaste found no outbound message — manual review needed',
+      created_by:        null,
+    })
+    return
+  }
+
+  const isoDate: string = outboundMsg.isoDate ?? new Date().toISOString().split('T')[0]
+  const notes: string[] = []
+  let parseStatus: 'parsed' | 'partial' = 'parsed'
+
+  // 6. School matching (reuses existing matchSchool — 5-level hierarchy)
+  let schoolId: string | null = null
+  if (!parsedSchoolName) {
+    notes.push('Could not extract school name from CC subject')
+    parseStatus = 'partial'
+  } else {
+    const { school, matchType } = await matchSchool(admin, parsedSchoolName)
+    if (school) {
+      schoolId = school.id
+      if (matchType !== 'exact') {
+        notes.push(`School matched via ${matchType}: "${parsedSchoolName}" → "${school.name}"`)
+      }
+    } else {
+      notes.push(`No school match for "${parsedSchoolName}"`)
+      parseStatus = 'partial'
+    }
+  }
+
+  // 7. Coach matching — one call per name (multi-coach supported)
+  type CoachResult = { coachId: string | null; name: string }
+  const coachResults: CoachResult[] = []
+  for (const name of coachNames) {
+    if (schoolId) {
+      const { coachId, matchType } = await matchCoach(admin, schoolId, name)
+      coachResults.push({ coachId, name })
+      if (coachId && matchType !== 'exact') {
+        notes.push(`Coach matched via ${matchType}: "${name}"`)
+      } else if (!coachId) {
+        notes.push(`No coach match for "${name}"`)
+        parseStatus = 'partial'
+      }
+    } else {
+      coachResults.push({ coachId: null, name })
+    }
+  }
+
+  const matchedCoachIds = coachResults
+    .map(r => r.coachId)
+    .filter((id): id is string => id !== null)
+  const primaryCoachId  = matchedCoachIds[0] ?? null
+  const coachNameJoined = coachNames.join('; ')
+
+  // 8. Thread key — hybrid tokens (coach:<uuid> or name:<normalized>),
+  //    same algorithm as bulk importer so threads align across both paths
+  const normSubject  = srSubject ? normalizeSubject(srSubject) : null
+  const coachTokens  = coachResults.map(r =>
+    r.coachId
+      ? `coach:${r.coachId}`
+      : `name:${r.name.toLowerCase().replace(/\s+/g, ' ').trim()}`
+  )
+  const threadKey = normSubject && coachTokens.length > 0
+    ? computeThreadKey(normSubject, coachTokens)
+    : null
+
+  // 9. Content hash + dedup check against contact_log.content_hash
+  let contentHash: string | null = null
+  if (schoolId) {
+    const hashTokens = coachResults.map(r =>
+      r.coachId
+        ? `coach:${r.coachId}`
+        : `name:${r.name.toLowerCase().replace(/\s+/g, ' ').trim()}`
+    )
+    contentHash = computeContentHash(isoDate, schoolId, hashTokens, outboundMsg.body)
+
+    const { data: existing } = await admin
+      .from('contact_log')
+      .select('id')
+      .eq('content_hash', contentHash)
+      .limit(1)
+    if (existing && existing.length > 0) {
+      console.log(`[sg-inbound] ${receivedAt} — outbound CC: duplicate (content_hash), skipping`)
+      return
+    }
+  }
+
+  // 10. Insert
+  const parseNotes = notes.length > 0 ? notes.join('; ') : null
+  const { error: insertError } = await admin.from('contact_log').insert({
+    school_id:         schoolId,
+    date:              isoDate,
+    channel:           'Sports Recruits',
+    direction:         'Outbound',
+    coach_name:        coachNameJoined || null,
+    coach_id:          primaryCoachId,
+    summary:           outboundMsg.body || srSubject || subject,
+    raw_source:        rawText,
+    source_thread_id:  threadKey,
+    source_message_id: sourceMessageId,
+    parse_status:      parseStatus,
+    parse_notes:       parseNotes,
+    content_hash:      contentHash,
+    created_by:        null,
+  })
+
+  if (insertError) {
+    console.error(`[sg-inbound] ${receivedAt} — outbound CC insert error: ${insertError.message}`)
+    return
+  }
+
+  console.log(
+    `[sg-inbound] ${receivedAt} — outbound CC: ${parseStatus}` +
+    ` | school="${parsedSchoolName ?? '?'}" → id=${schoolId ?? 'null'}` +
+    ` | coaches="${coachNameJoined}" (${matchedCoachIds.length}/${coachNames.length} matched)` +
+    ` | date=${isoDate}` +
+    ` | thread=${threadKey ? threadKey.slice(0, 8) + '…' : 'null'}`
+  )
+  if (parseNotes) console.log(`[sg-inbound] notes: ${parseNotes}`)
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -334,6 +590,15 @@ export async function POST(req: NextRequest) {
 
   // 5. Unwrap Gmail forward wrapper to get the original SR notification body
   const { body: innerBody, forwardDate } = extractForwardedContent(fullBodyText)
+
+  // 5b. Outbound CC intercept — must run BEFORE isSRNotification().
+  //     CC notifications ("Finn Almond CC'ed You on a Message to ...") use different
+  //     action phrases and don't pass the inbound SR check, so we catch them first.
+  if (isOutboundCC(subject, innerBody)) {
+    console.log(`[sg-inbound] ${receivedAt} — outbound CC detected, routing to outbound handler`)
+    await handleOutboundCC(admin, subject, innerBody, headers, fullBodyText, sourceMessageId, receivedAt)
+    return NextResponse.json({ ok: true })
+  }
 
   // 6. Non-SR detection — write a partial entry and return
   if (!isSRNotification(subject, innerBody)) {

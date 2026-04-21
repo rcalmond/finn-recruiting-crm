@@ -215,9 +215,9 @@ and are legacy — note this in contact log if surfaced.
 
 ---
 
-## 10. Live Pipeline — Generated April 20, 2026
+## 10. Live Pipeline — Generated April 21, 2026
 
-**Active schools: 32** | Overdue actions: 30
+**Active schools: 32** | Overdue actions: 29
 (Category Nope and status Inactive excluded)
 
 ### Tier A — Highest Priority (8 schools)
@@ -475,20 +475,8 @@ SCHOOL: University of Rochester
   Notes: Got a personalized email back from Coach Cross.
 
 Thanks for reaching out about your interest. I am impressed with your film as you show great technical skill to take on defenders and provide amazing services from the wide areas. I also like how seriously you take your academics and are interested in
+  Next Action: Prep for call (Finn) — due 2026-04-21
   Contact Log (3 shown):
-    [2026-04-20] Outbound via Sports Recruits — Ben Cross:
-      Hi Coach,
-      
-       
-      That works perfect! Im looking forward to it.
-      
-       
-      Here's my phone number (720)-687-8982
-      
-       
-      Best,
-      
-      Finn Almond
     [2026-04-20] Inbound via Sports Recruits — Ben Cross:
       Finn,
       
@@ -507,6 +495,19 @@ Thanks for reaching out about your interest. I am impressed with your film as yo
       <https://questionnaires.armssoftware.com/0fbb1bedbe0c>
       
       *Jun...
+    [2026-04-20] Outbound via Sports Recruits — Ben Cross:
+      Hi Coach,
+      
+       
+      That works perfect! Im looking forward to it.
+      
+       
+      Here's my phone number (720)-687-8982
+      
+       
+      Best,
+      
+      Finn Almond
     [2026-04-19] Outbound via Sports Recruits — Sean Streb; Ben Cross:
       Hi Coach,
       
@@ -825,7 +826,6 @@ SCHOOL: South Dakota Mines (South Dakota School of Mines & Technology)
   Last Contact: 2026-04-15
   RQ Status: Completed
   Videos Sent: Yes
-  Next Action: Respond to email from Coach Schuster (Finn) — due 2026-04-15
   Contact Log (3 shown):
     [2026-04-20] Inbound via Sports Recruits — Teren Schuster:
       Hi Finn,
@@ -1371,6 +1371,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-21 | Part 3b of email ingestion: SR Sent bulk importer (migration 017, sr-paste-parser, /bulk-import page, content-hash dedup) | Feature |
 | 2026-04-20 | Part 2 of email ingestion: SendGrid webhook + SR inbound parser (migrations 014, 015, 016) + school aliases + reparse script | Feature |
 | 2026-04-19 | Part 1 of email ingestion: coaches table migration + backfill + app integration (migrations 012, 013) | Feature |
 | 2026-04-19 | Phase 3c: Library landing, Assets/Questions restyle | Feature |
