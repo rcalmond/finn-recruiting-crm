@@ -232,7 +232,7 @@ SCHOOL: Cal Poly San Luis Obispo (Cal Poly SLO)
   RQ Status: Completed
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-18
-  Contact Log (1 shown):
+  Contact Log (3 shown):
     [2026-04-03] Inbound via Sports Recruits — Brandon Bautista:
       Hi Finn,
       
@@ -242,6 +242,18 @@ SCHOOL: Cal Poly San Luis Obispo (Cal Poly SLO)
       It’ll be a great opportunity to get in front of our staff in a training and
       match environment as we continue to recruit for 2027. If you’re interested,
       you can register at the link belo...
+    [2026-04-02] Outbound via Sports Recruits — Oige Kennedy; Zach Watson; Brandon Bautista:
+      Coach Kennedy,
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Cal Poly SLO's back-to-back Big West titles and the reputation of the engineering college — especially the aerospace and mechanical programs — make this one of the most compelling programs on my list.
+      ...
+    [2025-12-03] Outbound via Sports Recruits — Oige Kennedy; Zach Watson; Brandon Bautista:
+      Hi Coach,
+      I wanted to follow up quickly in case my earlier email got buried.
+      
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in your program and would love it if you could check out one of my games at MLS Next Fest.
+      
+      Here is my schedule in...
 
 SCHOOL: Case Western
   Status: Ongoing Conversation
@@ -256,7 +268,23 @@ SCHOOL: Case Western
 Complete Schedule Form
 Filled out schedule form for MLS NEXT Fest
   Next Action: Wingback update email (Finn) — due 2026-04-18
-  Contact Log (1 shown):
+  Contact Log (3 shown):
+    [2026-04-02] Outbound via Sports Recruits — Carter Poe; Fernando Lisboa:
+      Coach Poe,
+      
+      Great connecting in Arizona — I wanted to follow up and confirm I've completed the schedule form you mentioned.
+      
+      A quick update: I'm currently playing left wingback for Albion SC Colorado MLS NEXT Academy U19, and that's the position I'm most excited about at the next level. The UAA's...
+    [2025-12-03] Outbound via Sports Recruits — Carter Poe:
+      Hi Coach,
+      
+       
+      I completed the schedule form and the recruiting questionnaire. Let me know if you need anything else. Looking forward to seeing you in Phoenix!
+      
+       
+      Thanks,
+      
+      Finn
     [2025-12-02] Inbound via Sports Recruits — Carter Poe:
       Finn, Thanks for reaching out. If you'd like to get on our schedule, please
       fill out the form below. https://forms.gle/V5d8u9oc3F8VYHGr8 Coach Poe
@@ -283,7 +311,33 @@ Emailed on 3/15 with update
 Emailed about PHX on 2/12 (responded)
   Next Action: Check for new HC (Finn) — due 2026-04-19
   Also: Update RQ (Finn) — due 2026-05-29
-  Contact Log (1 shown):
+  Contact Log (3 shown):
+    [2026-01-07] Outbound via Sports Recruits — Greg Mulholland:
+      Hi Coach,
+      
+       
+      I hope everything is going well, I just wanted to let you know that I signed up for the ID camp in February.
+      
+       
+      I've also attached both of my highlight videos below so you can see me a little bit more before the camp.
+      
+       
+      Best,
+      
+      Finn Almond 
+      
+       
+      Main Highlight Video
+      
+      MLS NEXT Highlight...
+    [2025-12-29] Outbound via Sports Recruits — Greg Mulholland:
+      Hi Coach,
+      
+      I wanted to follow up with you after MLS NEXT Fest.
+      
+      I’m a 2027 forward/winger with Albion SC Colorado MLS NEXT and played approximately 135 minutes across three matches at Fest. We went 1–2, including a 1–0 win and two competitive losses.
+      
+      I also made a MLS NEXT Fest specific highligh...
     [2025-12-01] Inbound via Sports Recruits — Greg Mulholland:
       See you out there Finn!
       
@@ -301,7 +355,7 @@ SCHOOL: Lafayette College
   Notes: ID Camp in FL
 In Arizona
   Next Action: Wingback update email (Finn) — due 2026-04-18
-  Contact Log (2 shown):
+  Contact Log (3 shown):
     [2026-04-08] Inbound via Sports Recruits — Gabriel Robinson:
       Finn,
       
@@ -313,13 +367,25 @@ In Arizona
       
       https://peakperformancesoccer.com/
       ...
-    [2025-12-01] Inbound via Sports Recruits — Gabriel Robinson:
-      Finn, Thank you for the email reaching out and touching base with us. We
-      will be attending the event and will plan on attending a match. Please keep
-      us updated on any schedule changes. Please also see the information below
-      providing more insight into our college, program, and winter ID camp.
+    [2026-04-02] Outbound via Sports Recruits — Dennis Bohn; Gabriel Robinson; Ismar Tandir; Malik Wagner:
+      Coach Bohn,
       
-      htt...
+      Good to have spent time with your program in Florida and again in Arizona — I wanted to check in and share a few updates.
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Lafayette's engineering programs and Patriot League soccer have stayed near the t...
+    [2025-12-03] Outbound via Sports Recruits — Gabriel Robinson:
+      Hi Coach,
+      
+       
+      I just completed the recruiting questionnaire. Let me know if you need anything else. The camp looks interesting also. I'll work with my parents to see if I can make it.
+      
+       
+      Looking forward to seeing you in Phoenix!
+      
+       
+      Thanks,
+      
+      Finn
 
 SCHOOL: Milwaukee School of Engineering (MSOE)
   Status: Ongoing Conversation
@@ -353,28 +419,20 @@ SCHOOL: Milwaukee School of Engineering (MSOE)
       50% get two or more)
       
       99%...
-    [2025-12-05] Inbound via Sports Recruits — Rob Harrington:
-      What’s your jersey number
+    [2026-04-02] Outbound via Sports Recruits — Rob Harrington:
+      Coach Harrington,
       
-      Get Outlook for iOS <https://aka.ms/o0ukef>
-    [2025-12-04] Inbound via Sports Recruits — Rob Harrington:
-      What would you like to study?
+      Thank you for your continued interest — I wanted to answer the question you asked about what I want to study.
       
-      Rob H
+      My focus is mechanical or aerospace engineering. MSOE's hands-on, project-based approach to engineering education is exactly the kind of environment I'm looking for — ...
+    [2025-12-28] Outbound via Sports Recruits — Rob Harrington:
+      Hi Coach,
       
-      Rob Harrington
+      I wanted to follow up with you after MLS NEXT Fest.
       
-      Head Men’s Soccer Coach
+      I’m a 2027 forward/winger with Albion SC Colorado MLS NEXT and played approximately 135 minutes across three matches at Fest. I really enjoyed the level of competition and the environment.
       
-      414-803-4769 cell
-      
-      Average Graduate Starting Salary $76,647
-      
-      Number 12 School for starting salaries in the country
-      
-      99% of graduates get a job in their field
-      
-      NACC Regular or Conference Tournament Champs in 2025, 24, 2...
+      Here's my highlight reel from MLS NEXT Fest...
 
 SCHOOL: RPI
   Status: Intro Sent
@@ -385,6 +443,25 @@ SCHOOL: RPI
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
+  Contact Log (3 shown):
+    [2026-04-02] Outbound via Sports Recruits — Adam Clinton; Sean Maruscsak; Julian Boehning; Steve Wieczorek:
+      Coach Clinton,
+      
+      I'm following up on my earlier message. I'm Finn Almond, a 2027 left wingback playing for Albion SC Colorado MLS NEXT Academy. RPI's engineering reputation is one of the strongest in the country, and the Liberty League's level of play is something I want to compete in.
+      
+      I play lef...
+    [2025-12-03] Outbound via Sports Recruits — Adam Clinton; Sean Maruscsak; Julian Boehning; Steve Wieczorek:
+      Hi Coach,
+      I wanted to follow up quickly in case my earlier email got buried.
+      
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in your program and would love it if you could check out one of my games at MLS Next Fest.
+      
+      Here is my schedule in...
+    [2025-11-28] Outbound via Sports Recruits — Adam Clinton; Sean Maruscsak; Julian Boehning; Steve Wieczorek:
+      Hi Coach,
+      My name is Finn Almond, a 2027 striker/winger with Albion SC Colorado MLS NEXT. RPI is a program I’m excited about because of its strong engineering and applied science offerings and its high-level Liberty League soccer environment.
+      
+      This year I scored 29 goals with 14 assists, earning ...
 
 SCHOOL: University of Rochester
   Status: Ongoing Conversation
@@ -398,7 +475,20 @@ SCHOOL: University of Rochester
   Notes: Got a personalized email back from Coach Cross.
 
 Thanks for reaching out about your interest. I am impressed with your film as you show great technical skill to take on defenders and provide amazing services from the wide areas. I also like how seriously you take your academics and are interested in
-  Contact Log (2 shown):
+  Contact Log (3 shown):
+    [2026-04-20] Outbound via Sports Recruits — Ben Cross:
+      Hi Coach,
+      
+       
+      That works perfect! Im looking forward to it.
+      
+       
+      Here's my phone number (720)-687-8982
+      
+       
+      Best,
+      
+      Finn Almond
     [2026-04-20] Inbound via Sports Recruits — Ben Cross:
       Finn,
       
@@ -417,15 +507,16 @@ Thanks for reaching out about your interest. I am impressed with your film as yo
       <https://questionnaires.armssoftware.com/0fbb1bedbe0c>
       
       *Jun...
-    [2026-04-03] Inbound via Sports Recruits — Ben Cross:
-      Finn,
+    [2026-04-19] Outbound via Sports Recruits — Sean Streb; Ben Cross:
+      Hi Coach,
       
-      Thanks for reaching out about your interest. I am impressed with your film
-      as you show great technical skill to take on defenders and provide amazing
-      services from the wide areas. I also like how seriously you take your
-      academics and are interested in our Hajim School of Engineering.
+       
+      I wanted to follow up on this thread below. I'm very interested in Rochester and I would love to hop on a call this week. I can be available most anytime Monday the 20th, anytime after 12pm MT on Wednesday the 22nd, or most anytime Thursday the 23rd.
       
-      Plea...
+       
+      Best,
+      
+      Finn Almond
 
 SCHOOL: WPI
   Status: Intro Sent
@@ -437,6 +528,18 @@ SCHOOL: WPI
   RQ Status: Completed
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-18
+  Contact Log (2 shown):
+    [2026-04-02] Outbound via Sports Recruits — Brian Kelley; Alex Wolfel; Gabe Ramos:
+      Coach Kelley,
+      
+      I'm Finn Almond, a 2027 left wingback playing for Albion SC Colorado MLS NEXT Academy. WPI's project-based engineering curriculum and NEWMAC soccer make it a compelling combination — the idea of solving real engineering problems from day one is something I've been drawn to.
+      
+      I play...
+    [2025-11-28] Outbound via Sports Recruits — Brian Kelley; Alex Wolfel; Gabe Ramos:
+      Hi Coach,
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in WPI because of its strong project-based engineering programs and the competitive NEWMAC soccer environment.
+      
+      I wrapped up my HS season with 29 goals and 14 assists, earning 2nd Te...
 
 ### Tier B (12 schools)
 
@@ -456,7 +559,13 @@ High Press
 Strong Mental Game
   Next Action: Wingback update email (Finn) — due 2026-04-19
   Also: Update RQ (Finn) — due 2026-04-20
-  Contact Log (2 shown):
+  Contact Log (3 shown):
+    [2026-04-02] Outbound via Sports Recruits — Dave Brandt; Jeremy Payne; Mark Tun:
+      Coach Brandt,
+      
+      Good to see you in Phoenix — I appreciated the conversation and wanted to follow up.
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. The things your staff emphasized — high press, strong mental game — are central to how I play. I'm a defender who wa...
     [2025-12-03] Inbound via Sports Recruits — Dave Brandt:
       *Finn-appreciate you reaching out; we are now at the point where we will
       begin to look closely at 27’s, so good to hear from you. A ton of very
@@ -464,13 +573,16 @@ Strong Mental Game
       is a unique and successful program culture.*
       
       1. first, we will look closely at...
-    [2025-11-28] Inbound via Sports Recruits — Dave Brandt:
-      *Finn-appreciate you reaching out; we are now at the point where we will
-      begin to look closely at 27’s, so good to hear from you. A ton of very
-      relevant and specific info below on both Bucknell and all aspects of what
-      is a unique and successful program culture.*
+    [2025-12-03] Outbound via Sports Recruits — Dave Brandt:
+      Hi Coach,
       
-      1. first, we will look closely at...
+       
+      I just completed the recruiting questionnaire. Let me know if you need anything else. Looking forward to seeing you in Phoenix!
+      
+       
+      Thanks,
+      
+      Finn
 
 SCHOOL: Cal Poly Pomona
   Status: Intro Sent
@@ -482,6 +594,18 @@ SCHOOL: Cal Poly Pomona
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
   Also: Update RQ (Finn) — due 2026-04-20
+  Contact Log (2 shown):
+    [2026-04-02] Outbound via Sports Recruits — Matt O'Sullivan; Jose Ortega; Andriy Budnyy:
+      Coach O'Sullivan,
+      
+      I'm Finn Almond, a 2027 left wingback from Albion SC Colorado MLS NEXT Academy. Cal Poly Pomona's record in D2 — consistent NCAA tournament appearances and a program that develops players who go pro — is something I've been tracking for a while.
+      
+      I play left wingback at the MLS...
+    [2025-11-28] Outbound via Sports Recruits — Matt O'Sullivan; Jose Ortega; Andriy Budnyy:
+      Hi Coach,
+      My name is Finn Almond, a 2027 striker/winger with Albion SC Colorado MLS NEXT. Cal Poly Pomona interests me because of its strong engineering programs and the highly competitive D2 soccer environment.
+      
+      This fall I scored 29 goals and 14 assists, earning 2nd Team All-State, and I’ve upl...
 
 SCHOOL: Carnegie Mellon
   Status: Ongoing Conversation
@@ -499,14 +623,22 @@ Attended ID Camp in September 2025
   Contact Log (3 shown):
     [2026-04-03] Inbound via Sports Recruits — Brandon Bowman:
       Thank you Finn.
-    [2025-10-13] Inbound via Sports Recruits — Ross Macklin:
-      Hi Finn - thanks for reaching back out and for your efforts during camp. We
-      thought you showed a lot of qualities. However, in the interest of
-      transparency, as things stand, there are other players in our pool that are
-      ahead of you for the '27 class. Still, the recruiting process is very fluid
-      an...
-    [2025-09-23] Inbound via Sports Recruits — Ross Macklin:
-      Hi Finn - looking forward to seeing you Sunday.
+    [2026-04-02] Outbound via Sports Recruits — Brandon Bowman; Spencer Wolfe:
+      Coach Bowman,
+      
+      I wanted to check in following the ID camp in September and share an update on my season.
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. CMU is a program and a university I have a lot of respect for — the UAA's academic culture is one of a kind, an...
+    [2025-12-03] Outbound via Sports Recruits — Ross Macklin:
+      Hi Coach,
+      
+       
+      I just updated the recruiting questionnaire with my new club team information as well as with an updated transcript and test scores. Hope to see you this week in Phoenix!
+      
+       
+      Thanks,
+      
+      Finn
 
 SCHOOL: Cornell
   Status: Intro Sent
@@ -519,6 +651,12 @@ SCHOOL: Cornell
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
   Also: Update RQ (Finn) — due 2026-04-20
+  Contact Log (1 shown):
+    [2025-11-27] Outbound via Sports Recruits — Luke Staats; John Smith; Tyler Keever:
+      Hi Coach,
+      My name is Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Cornell because of the strong engineering college, especially mechanical and aerospace pathways, and the way your team plays vertically and aggressively.
+      
+      I recently finish...
 
 SCHOOL: Illinois Institute of Technology (Illinois Tech)
   Status: Intro Sent
@@ -530,6 +668,18 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
   Also: Update RQ (Finn) — due 2026-04-20
+  Contact Log (2 shown):
+    [2026-04-02] Outbound via Sports Recruits — Marlon McKenzie; Aziz Tahir:
+      Coach McKenzie,
+      
+      I'm Finn Almond, a 2027 left wingback playing for Albion SC Colorado MLS NEXT Academy. Illinois Tech appeals to me for two reasons: the depth of the engineering programs and the chance to play competitive D3 soccer in Chicago.
+      
+      I play an attacking left wingback role — overlapping...
+    [2025-11-28] Outbound via Sports Recruits — Marlon McKenzie; Aziz Tahir:
+      Hi Coach,
+      My name is Finn Almond, a 2027 striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Illinois Tech because of its strong engineering and computer science programs and the competitive environment in the Northern Athletics Conference.
+      
+      This season I had 29 goals and 14 a...
 
 SCHOOL: Lehigh University
   Status: Ongoing Conversation
@@ -545,7 +695,23 @@ SCHOOL: Lehigh University
   Notes: Yes in Arizona
   Next Action: Wingback email update (Finn) — due 2026-04-18
   Also: Update RQ (Finn) — due 2026-04-20
-  Contact Log (1 shown):
+  Contact Log (3 shown):
+    [2026-04-02] Outbound via Sports Recruits — Dean Koski; Ryan Hess; Will Flannery:
+      Coach Koski,
+      
+      Good to connect in Arizona — I wanted to follow up and stay on your radar heading into the spring.
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Lehigh's Patriot League profile and engineering college are a great match for what I'm looking for, and...
+    [2025-12-03] Outbound via Sports Recruits — Will Flannery:
+      Hi Coach,
+      
+       
+      I just completed the recruiting questionnaire. Let me know if you need anything else. Looking forward to seeing you in Phoenix!
+      
+       
+      Thanks,
+      
+      Finn
     [2025-11-28] Inbound via Sports Recruits — Will Flannery:
       Finn,
       
@@ -577,14 +743,18 @@ ID Camp Info
       I think we will be a strong team in the fall
       
       Tim Peng Assistant Men’s Soccer Coach Middlebury College
+    [2026-04-19] Outbound via Sports Recruits — Tim Peng:
+      Coach Peng,
+      
+      The event went really well — thanks for asking. I'd definitely be interested in the May camp link when you have a chance.
+      
+      Since we last connected, I've put together a highlight reel that shows my transition to left wingback this season with Albion's U19s. The two-way game — overlapp...
     [2026-04-08] Inbound via Sports Recruits — Tim Peng:
       Hope that event went well!
       
       Want to come out to our camp in May? I can share the link if you need it
       
       Tim Peng Assistant Men’s Soccer Coach Middlebury College
-    [2025-12-04] Inbound via Sports Recruits — Alex Elias:
-      Thanks, Finn!
 
 SCHOOL: Northeastern
   Status: Intro Sent
@@ -596,6 +766,25 @@ SCHOOL: Northeastern
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
   Also: Update RQ (Finn) — due 2026-04-20
+  Contact Log (3 shown):
+    [2026-04-02] Outbound via Sports Recruits — Jeremy Bonomo; Jordan Koduah; John Manga:
+      Coach Bonomo,
+      
+      I'm following up on my earlier message and wanted to share a quick update. I'm Finn Almond, a 2027 left wingback playing for Albion SC Colorado MLS NEXT Academy out of Dawson School in Lafayette, CO.
+      
+      Northeastern's co-op engineering model is genuinely rare — the ability to combine...
+    [2025-12-03] Outbound via Sports Recruits — Jeremy Bonomo; Jordan Koduah; John Manga:
+      Hi Coach,
+      I wanted to follow up quickly in case my earlier email got buried.
+      
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in your program and would love it if you could check out one of my games at MLS Next Fest.
+      
+      Here is my schedule in...
+    [2025-11-28] Outbound via Sports Recruits — Jeremy Bonomo; Jordan Koduah; John Manga:
+      Hi Coach,
+      I’m Finn Almond, a 2027 striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Northeastern because of the strong engineering programs and the player development model in the CAA, along with co-op opportunities that fit my academic goals.
+      
+      I recently finished my high sc...
 
 SCHOOL: Rochester Institute of Technology (RIT)
   Status: Intro Sent
@@ -607,6 +796,25 @@ SCHOOL: Rochester Institute of Technology (RIT)
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
   Also: Update RQ (Finn) — due 2026-04-20
+  Contact Log (3 shown):
+    [2026-04-02] Outbound via Sports Recruits — Bill Garno; Yuri Lavrynenko; Kevin May; Travis Wood:
+      Coach Garno,
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. RIT's combination of a top engineering college and competitive Liberty League soccer is exactly the profile I'm looking for.
+      
+      I play an attacking wingback role on the left side — strong in 1v1 situations...
+    [2025-12-03] Outbound via Sports Recruits — Bill Garno; Yuri Lavrynenko; Kevin May; Travis Wood:
+      Hi Coach,
+      I wanted to follow up quickly in case my earlier email got buried.
+      
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in your program and would love it if you could check out one of my games at MLS Next Fest.
+      
+      Here is my schedule in...
+    [2025-11-28] Outbound via Sports Recruits — Bill Garno; Yuri Lavrynenko; Kevin May; Travis Wood:
+      Hi Coach,
+      I’m Finn Almond, a 2027 striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in RIT because of the strong engineering and applied technology programs and the competitive soccer environment in the Liberty League.
+      
+      I recently wrapped up my HS season with 29 goals and 14 as...
 
 SCHOOL: South Dakota Mines (South Dakota School of Mines & Technology)
   Status: Ongoing Conversation
@@ -618,7 +826,7 @@ SCHOOL: South Dakota Mines (South Dakota School of Mines & Technology)
   RQ Status: Completed
   Videos Sent: Yes
   Next Action: Respond to email from Coach Schuster (Finn) — due 2026-04-15
-  Contact Log (2 shown):
+  Contact Log (3 shown):
     [2026-04-20] Inbound via Sports Recruits — Teren Schuster:
       Hi Finn,
       
@@ -634,6 +842,12 @@ SCHOOL: South Dakota Mines (South Dakota School of Mines & Technology)
       501 E. Saint Joseph St., Rapid City, SD 57701
       
       O:...
+    [2026-04-19] Outbound via Sports Recruits — Teren Schuster:
+      Coach Schuster,
+      
+      Thank you for the invite and for putting me on your radar. I filled out the recruiting questionnaire.
+      
+      Unfortunately I have a conflict with the July ID camp dates. Are there other opportunities to get in front of you and your staff this spring or summer — a showcase you'll be att...
     [2026-04-15] Inbound via Sports Recruits — Teren Schuster:
       Hi Finn,
       
@@ -654,6 +868,25 @@ SCHOOL: Stevens Institute of Technology
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
   Also: Update RQ (Finn) — due 2026-04-20
+  Contact Log (3 shown):
+    [2026-04-02] Outbound via Sports Recruits — Dale Jordan; Duncan Swanwick:
+      Coach Jordan,
+      
+      I'm following up on my earlier message. I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Stevens stood out to me for the engineering depth and the proximity to New York City — that's a combination that's hard to find anywhere.
+      
+      I play an attacking lef...
+    [2025-12-03] Outbound via Sports Recruits — Dale Jordan; Duncan Swanwick:
+      Hi Coach,
+      I wanted to follow up quickly in case my earlier email got buried.
+      
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in your program and would love it if you could check out one of my games at MLS Next Fest.
+      
+      Here is my schedule in...
+    [2025-11-28] Outbound via Sports Recruits — Dale Jordan; Duncan Swanwick:
+      Hi Coach,
+      My name is Finn Almond, a 2027 striker/winger with Albion SC Colorado MLS NEXT. Stevens really interests me because of its elite engineering programs and one of the strongest D3 soccer traditions in the country.
+      
+      This fall I had 29 goals and 14 assists, earning 2nd Team All-State, and I...
 
 SCHOOL: Washington University
   Status: Intro Sent
@@ -665,7 +898,7 @@ SCHOOL: Washington University
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
   Also: Update RQ (Finn) — due 2026-04-20
-  Contact Log (1 shown):
+  Contact Log (3 shown):
     [2026-04-02] Inbound via Sports Recruits — Jack Mathis:
       Hello,
       
@@ -673,6 +906,19 @@ SCHOOL: Washington University
       have left the position as of 1/9/26 and will no longer be responding to
       emails for Wash U in St. Louis. Please reach out to Coach Bordelon for all
       questions regarding Wash U Men's Soccer. His email is bordelon@wust...
+    [2026-04-02] Outbound via Sports Recruits:
+      Coach Bordelon,
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Wash U's position in the UAA — among the top academic D3 programs in the country — is something I've had on my radar for a while.
+      
+      I play an attacking left wingback role. My game is built around makin...
+    [2025-12-03] Outbound via Sports Recruits:
+      Hi Coach,
+      I wanted to follow up quickly in case my earlier email got buried.
+      
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in your program and would love it if you could check out one of my games at MLS Next Fest.
+      
+      Here is my schedule in...
 
 ### Tier C — Exploratory (12 schools)
 
@@ -710,11 +956,12 @@ Arizona?
       
       In 2024, we won the National Championship. We've been to the Final Four 4
       times in the past 6 seasons...
-    [2026-03-05] Inbound via Sports Recruits — Justin Serpone:
-      I hope you’re having a good Winter season! A number of 2027’s have reached
-      out to set up a phone call. Unfortunately, we don't have the bandwidth to
-      connect individually with all interested players, but we're going to have
-      an informational Zoom for those who have expressed interest in connecting....
+    [2026-04-02] Outbound via Sports Recruits — Justin Serpone; Rye Jaran:
+      Coach Serpone,
+      
+      Congratulations on the 2024 national championship — that's a remarkable achievement and speaks to the standard you've built at Amherst.
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Following the FL ID camp and our conversations in Arizona, I rem...
 
 SCHOOL: Bowdoin
   Status: Ongoing Conversation
@@ -728,7 +975,7 @@ SCHOOL: Bowdoin
   Notes: Coach Banadda will be in AZ
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
-  Contact Log (2 shown):
+  Contact Log (3 shown):
     [2026-04-03] Inbound via Sports Recruits — Scott Wiercinski:
       Finn,
       
@@ -738,6 +985,12 @@ SCHOOL: Bowdoin
       to commitments elsewhere.  We wish you the best of luck.
       
       We recently published o...
+    [2026-04-02] Outbound via Sports Recruits — Scott Wiercinski:
+      Coach Wiercinski,
+      
+      I wanted to follow up after connecting with your staff in Arizona — it was a good interaction and Bowdoin has stayed on my list.
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. The NESCAC's combination of academic culture and competitive soccer ...
     [2025-12-04] Inbound via Sports Recruits — Scott Wiercinski:
       Thanks Finn.
       
@@ -776,6 +1029,25 @@ SCHOOL: Clark
 Has a shared engineering program with Columbia
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
+  Contact Log (3 shown):
+    [2026-04-02] Outbound via Sports Recruits — Samuel Matteson; Matthews Lima; Maitoe Suppasuesanguan; Nur Adhikarie:
+      Coach Matteson,
+      
+      I wanted to follow up after the MIT ID camp this past July — it was a great experience and I came away with a lot of respect for the coaches involved in that event.
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy out of Dawson School in Lafayette, ...
+    [2025-12-03] Outbound via Sports Recruits — Samuel Matteson; Matthews Lima; Maitoe Suppasuesanguan; Nur Adhikarie:
+      Hi Coach,
+      I wanted to follow up quickly in case my earlier email got buried.
+      
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in your program and would love it if you could check out one of my games at MLS Next Fest.
+      
+      Here is my schedule in...
+    [2025-11-28] Outbound via Sports Recruits — Samuel Matteson; Matthews Lima; Maitoe Suppasuesanguan; Nur Adhikarie:
+      Hi Coach,
+      My name is Finn Almond, a 2027 striker/winger with Albion SC Colorado MLS NEXT. I believe we met this summer at the late July ID camp at MIT.  I’m interested in Clark because of the strong STEM and applied science pathways, and the direction the soccer program is moving in the NEWMAC.
+      
+      ...
 
 SCHOOL: Colby
   Status: Ongoing Conversation
@@ -789,7 +1061,7 @@ SCHOOL: Colby
   Notes: Yes in Arizona
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
-  Contact Log (2 shown):
+  Contact Log (3 shown):
     [2026-04-03] Inbound via Sports Recruits — Sean Elvert:
       Finn,
       
@@ -804,17 +1076,22 @@ SCHOOL: Colby
       *Head Men’s Soccer Coach  *
       
       *Colby ...
-    [2025-11-29] Inbound via Sports Recruits — Sean Elvert:
-      Finn,
+    [2026-04-02] Outbound via Sports Recruits — Sean Elvert; Ben Manoogian:
+      Coach Elvert,
       
-      Thanks for reaching out with your interest in our program ahead of Fest -
-      we enjoyed the highlight video and will be sure to take in a couple halves
-      of yours in Phoenix.
+      Good to connect in Arizona — I wanted to follow up and mention something I appreciate about your background.
       
-      Prior to the event, please complete the recruit questionnaire in the
-      signature below.
+      Coming from Colorado College, you know the soccer environment here and the players coming out of it. I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT ...
+    [2025-12-03] Outbound via Sports Recruits — Sean Elvert:
+      Hi Coach,
       
-       [image: Picture 1397805423, Pic...
+       
+      I just completed the recruiting questionnaire. Let me know if you need anything else. Looking forward to seeing you in Phoenix!
+      
+       
+      Thanks,
+      
+      Finn
 
 SCHOOL: Colgate
   Status: Ongoing Conversation
@@ -831,11 +1108,26 @@ No engineering program, but has applied mathematics and other hard sciences
 Emailed about MIT Camp and Coach Brown responded. Not going to be at the camp. Are starting to work on 2027s. Invited to their camp which is on August 1-2.
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
-  Contact Log (1 shown):
+  Contact Log (3 shown):
+    [2025-12-03] Outbound via Sports Recruits — Tim Stanton:
+      Hi Coach,
+      
+       
+      That's awesome! I also just completed the recruiting questionnaire. Let me know if you need anything else. Looking forward to seeing you in Phoenix!
+      
+       
+      Thanks,
+      
+      Finn
     [2025-12-02] Inbound via Sports Recruits — Tim Stanton:
       Thank you for reaching out with your schedule and for your interest in
       Colgate Men's Soccer. We are looking forward to seeing you play in next few
       days. Good luck! – Coach Stanton
+    [2025-11-28] Outbound via Sports Recruits — Erik Ronning; Ricky Brown; Tim Stanton:
+      Hi Coach,
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Colgate because of the strong quantitative academics and the high-energy, disciplined style your team plays in the Patriot League.
+      
+      This fall I scored 29 goals with 14 assists, ea...
 
 SCHOOL: Dartmouth
   Status: Intro Sent
@@ -850,6 +1142,12 @@ No interaction with Finn
 Has Engineering program combined with AB program
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
+  Contact Log (1 shown):
+    [2025-11-28] Outbound via Sports Recruits — Bo Oshoniyi; Trevor Banks; Alexis Diaz; Alex Fetterly:
+      Hi Coach,
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Dartmouth because of its strong engineering program at the Thayer School and the way the team plays in the Ivy League.
+      
+      I recently finished my HS season with 29 goals and 14 assis...
 
 SCHOOL: Emory
   Status: Intro Sent
@@ -861,6 +1159,21 @@ SCHOOL: Emory
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
+  Contact Log (3 shown):
+    [2026-04-02] Outbound via Sports Recruits — Cory Greiner; Clayton Schmitt:
+      Coach Greiner,
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. The UAA's academic culture and Emory's consistent D3 soccer program are a strong combination. The 3-2 engineering partnership with Georgia Tech is also something I've been looking at as a path to the e...
+    [2025-12-03] Outbound via Sports Recruits — Clayton Schmitt; Cory Greiner:
+      Hi Coach,
+      I wanted to follow up quickly in case my earlier email got buried.
+      
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in your program and would love it if you could check out one of my games at MLS Next Fest.
+      
+      Here is my schedule in...
+    [2025-11-28] Outbound via Sports Recruits — Clayton Schmitt; Cory Greiner:
+      Hi Coach,
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Emory because of the engineering pathway through Emory + Georgia Tech and your program’s reputation for developing smart, technical attacking players. I also have family in the At...
 
 SCHOOL: Northwestern
   Status: Ongoing Conversation
@@ -875,7 +1188,20 @@ SCHOOL: Northwestern
 RQ
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
-  Contact Log (1 shown):
+  Contact Log (3 shown):
+    [2025-12-03] Outbound via Sports Recruits — Russell Payne:
+      Hi Coach,
+      
+       
+      I just completed the recruiting questionnaire. Let me know if you need anything else.
+      
+       
+      I won't be able to make the 12/20 camp, and will look for camps in the new year.
+      
+       
+      Thanks,
+      
+      Finn
     [2025-11-30] Inbound via Sports Recruits — Russell Payne:
       Hi Finn,
       
@@ -885,6 +1211,11 @@ RQ
       think it would be a good idea to consider our upcoming Winter ID Camps.
       These camps give you the best chance to be exposed to the Northwestern
       c...
+    [2025-11-28] Outbound via Sports Recruits — Russell Payne; Ronnie Bouemboue; JR DeRose; Flo Liu:
+      Hi Coach,
+      I’m Finn Almond, a 2027 striker/winger with Albion SC Colorado MLS NEXT. Northwestern interests me because of its strong engineering and applied sciences, and the highly competitive Big Ten soccer environment.
+      
+      This fall I scored 29 goals and 14 assists, earning 2nd Team All-State, and ...
 
 SCHOOL: Princeton
   Status: Ongoing Conversation
@@ -900,7 +1231,17 @@ Test Scores
 Events
 Not in Arizona
   Next Action: Update RQ (Finn) — due 2026-04-27
-  Contact Log (1 shown):
+  Contact Log (3 shown):
+    [2025-11-28] Outbound via Sports Recruits — Steve Totten:
+      Hi Coach,
+      
+       
+      Thank you for the response. I will keep you updated on how the tournament goes, club season, and how my academics progress throughout my junior year.
+      
+       
+      Best,
+      
+      Finn Almond
     [2025-11-28] Inbound via Sports Recruits — Steve Totten:
       Finn,
       
@@ -908,6 +1249,11 @@ Not in Arizona
       able to watch more this year.  We just wrapped up a very successful season
       and we are doing our best to turn our attention towards recruiting, though
       it will take us some time to catch up on things.  We have had a bu...
+    [2025-11-27] Outbound via Sports Recruits — Steve Totten; Jim Barlow; Sam Maira:
+      Hi Coach,
+      My name is Finn Almond, a 2027 striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Princeton for its combination of top-tier engineering and a strong soccer program that develops attacking players well.
+      
+      I recently finished the high school season with 29 goals and 14...
 
 SCHOOL: Stanford
   Status: Ongoing Conversation
@@ -922,7 +1268,20 @@ SCHOOL: Stanford
 ID Camp
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
-  Contact Log (1 shown):
+  Contact Log (3 shown):
+    [2025-11-30] Outbound via Sports Recruits — Drew Hutchins:
+      Hi Coach,
+      
+      Thanks for the info about the ID camp. I'll talk with my folks to see what we can work out in the new year. I'm looking forward to seeing you all in Arizona. 
+      
+      Best, 
+      
+      Finn
+    [2025-11-28] Outbound via Sports Recruits — Drew Hutchins; Kevin McCarthy; Woo Jeon:
+      Hi Coach,
+      My name is Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. Stanford is a dream academic and athletic fit for me because of its elite engineering programs and one of the best player development environments in college soccer.
+      
+      I finished my high school se...
     [2025-11-28] Inbound via Sports Recruits — Drew Hutchins:
       Hi Finn,
       
@@ -947,13 +1306,19 @@ Responded generically pushing id camps
 Sent MIT camp follow up email
 Coach Dezotell did college talk on day 1 - Focused on winning mentality
   Next Action: Update RQ (Finn) — due 2026-04-27
-  Contact Log (2 shown):
+  Contact Log (3 shown):
     [2026-04-03] Inbound via Sports Recruits — Eric Nordenson:
       Finn - Thank you for reaching out to our program and for your interest in
       Tufts Men’s Soccer! We have just wrapped up a *historic season*
       <https://gotuftsjumbos.com/sports/mens-soccer/schedule/2025>, winning our
       5th National Championship in program history, as well as winning the NESCAC
       Regular S...
+    [2026-04-02] Outbound via Sports Recruits — Kyle Dezotell:
+      Coach Dezotell,
+      
+      It was great to hear you speak at the MIT camp last July — the perspective you shared on recruiting and what you look for in a player has stuck with me.
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Tufts is one of the schools I'm most intereste...
     [2025-11-28] Inbound via Sports Recruits — Kyle Dezotell:
       Finn - Thank you for reaching out to our program and for your interest in
       Tufts Men’s Soccer! Our primary focus is on the current team and our
@@ -971,7 +1336,7 @@ SCHOOL: Williams
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
-  Contact Log (1 shown):
+  Contact Log (3 shown):
     [2026-04-06] Inbound via Sports Recruits — Bill Schmid:
       Finn,
       
@@ -981,6 +1346,19 @@ SCHOOL: Williams
       We are in the thick of the 2027 recruiting process and would be happy to
       learn more about you! When you have some time, please fill out our Recruit
       Questionnaire <https://questionnaires.armssoftware.com/f...
+    [2026-04-02] Outbound via Sports Recruits — Steffen Siebert; Bill Schmid:
+      Coach Siebert,
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Williams is a program I've had on my list for a while — the NESCAC's academic culture and the level of D3 soccer in that conference are among the best in the country.
+      
+      I play left wingback in a back-th...
+    [2025-12-03] Outbound via Sports Recruits — Steffen Siebert; Bill Schmid; Max Aken Tyers:
+      Hi Coach,
+      I wanted to follow up quickly in case my earlier email got buried.
+      
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in your program and would love it if you could check out one of my games at MLS Next Fest.
+      
+      Here is my schedule in...
 
 ---
 
