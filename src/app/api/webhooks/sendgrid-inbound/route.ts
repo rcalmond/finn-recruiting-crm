@@ -316,21 +316,46 @@ function isOutboundCC(subject: string, body: string): boolean {
 // Extract coach names from the notification sentence:
 // "Finn Almond used his SportsRecruits account to send a message to Coach Sean
 //  Streb and Coach Ben Cross."  →  ["Sean Streb", "Ben Cross"]
+// Normalizes internal whitespace so "Kevin  McCarthy" → "Kevin McCarthy".
 function extractCoachNamesFromCC(body: string): string[] {
   const m = body.match(/send a message to (.+?)\.(?:\s|$)/i)
   if (!m) return []
   return m[1]
     .split(/\s+and\s+/i)
     .map(s => s.replace(/^Coach\s+/i, '').trim())
+    .map(s => s.replace(/\s+/g, ' '))   // collapse double spaces ("Kevin  McCarthy")
     .filter(Boolean)
 }
 
+// Pre-clean the raw SR notification body before searching for the Subject: boundary.
+// SR's HTML email template renders with CSS blocks, tab-indented whitespace, and
+// \xa0 non-breaking spaces. Cleaning first prevents all of that from ending up
+// in the summary when the Subject: regex would otherwise fail.
+function precleanCCBody(body: string): string {
+  return body
+    .replace(/\/\*[\s\S]*?\*\//g, '')                              // CSS block comments
+    .replace(/@[a-z-][^{]*\{[^}]*\}/gi, '')                       // CSS @at-rules
+    .replace(/[A-Za-z#.*_][A-Za-z0-9\s,#.*[\]:()_-]*\s*\{[^}]*\}/g, '')  // CSS rules
+    .replace(/\xa0/g, ' ')                                         // non-breaking spaces
+    .replace(/^[ \t]+$/gm, '')                                     // whitespace-only lines
+    .replace(/\n{3,}/g, '\n\n')                                    // 3+ blank lines → 2
+}
+
 // Find the "Subject:" line that SR embeds in the notification body, then return:
-//   srSubject   — the SR internal subject string
+//   srSubject   — the SR internal subject string (no [EXT] prefix on new-compose)
 //   messageBody — everything below that line (Finn's actual message), cleaned
+//
+// SR's HTML email indents "Subject:" with spaces, so we allow leading whitespace
+// in the regex. We also pre-clean CSS/template junk before searching so that a
+// missed match doesn't dump raw HTML into the summary.
 function extractCCBody(body: string): { srSubject: string | null; messageBody: string } {
-  const normalized = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  const subjectMatch = normalized.match(/^Subject:\s*(.+)$/im)
+  let normalized = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+
+  // Pre-clean CSS template artifacts before searching for the Subject: boundary
+  normalized = precleanCCBody(normalized)
+
+  // Allow leading whitespace: SR notification emails indent "Subject:" with spaces
+  const subjectMatch = normalized.match(/^\s*Subject:\s*(.+)$/im)
 
   if (!subjectMatch || subjectMatch.index === undefined) {
     // No Subject: line — clean the whole body and return
