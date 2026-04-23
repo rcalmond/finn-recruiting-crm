@@ -486,19 +486,6 @@ Thanks for reaching out about your interest. I am impressed with your film as yo
       I'll keep you updated on my upcoming games and whether we qualify for MLS NEXT Cup in Utah.
       
       Best,...
-    [2026-04-20] Outbound via Sports Recruits — Ben Cross:
-      Hi Coach,
-      
-       
-      That works perfect! Im looking forward to it.
-      
-       
-      Here's my phone number (720)-687-8982
-      
-       
-      Best,
-      
-      Finn Almond
     [2026-04-20] Inbound via Sports Recruits — Ben Cross:
       Finn,
       
@@ -517,6 +504,19 @@ Thanks for reaching out about your interest. I am impressed with your film as yo
       <https://questionnaires.armssoftware.com/0fbb1bedbe0c>
       
       *Jun...
+    [2026-04-20] Outbound via Sports Recruits — Ben Cross:
+      Hi Coach,
+      
+       
+      That works perfect! Im looking forward to it.
+      
+       
+      Here's my phone number (720)-687-8982
+      
+       
+      Best,
+      
+      Finn Almond
 
 SCHOOL: WPI
   Status: Intro Sent
@@ -566,6 +566,13 @@ Strong Mental Game
       Good to see you in Phoenix — I appreciated the conversation and wanted to follow up.
       
       I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. The things your staff emphasized — high press, strong mental game — are central to how I play. I'm a defender who wa...
+    [2025-12-03] Inbound via Sports Recruits — Dave Brandt:
+      *Finn-appreciate you reaching out; we are now at the point where we will
+      begin to look closely at 27’s, so good to hear from you. A ton of very
+      relevant and specific info below on both Bucknell and all aspects of what
+      is a unique and successful program culture.*
+      
+      1. first, we will look closely at...
     [2025-12-03] Outbound via Sports Recruits — Dave Brandt:
       Hi Coach,
       
@@ -576,13 +583,6 @@ Strong Mental Game
       Thanks,
       
       Finn
-    [2025-12-03] Inbound via Sports Recruits — Dave Brandt:
-      *Finn-appreciate you reaching out; we are now at the point where we will
-      begin to look closely at 27’s, so good to hear from you. A ton of very
-      relevant and specific info below on both Bucknell and all aspects of what
-      is a unique and successful program culture.*
-      
-      1. first, we will look closely at...
 
 SCHOOL: Cal Poly Pomona
   Status: Intro Sent
@@ -613,6 +613,8 @@ SCHOOL: Carnegie Mellon
   Location: Pittsburgh, PA
   Admit Likelihood: Far Reach
   Coach: Brandon Bowman — Head Coach <bhbowman@andrew.cmu.edu> [primary]
+  Coach: Andrew Mpasiakos — Assistant Coach
+  Coach: Spencer Wolfe — Assistant Coach
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -709,15 +711,11 @@ SCHOOL: Lehigh University
       Thanks,
       
       Finn
-    [2025-11-28] Inbound via Sports Recruits — Will Flannery:
-      Finn,
+    [2025-11-28] Outbound via Sports Recruits — Dean Koski; Ryan Hess; Will Flannery:
+      Hi Coach,
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Lehigh because of its strong engineering college and the competitive style of play in the Patriot League.
       
-      Thank you for your email and for your interest in Lehigh University & our
-      Men’s Soccer program. We will make every effort to attend one of your
-      matches at the upcoming event.
-      
-      In the meantime, please fill out the questionnaire (linked below) to be
-      added to our recruiting database, and see ...
+      I just wrapped up my high school season with 29 goals and 14 assists, ea...
 
 SCHOOL: Middlebury
   Status: Ongoing Conversation
@@ -1016,6 +1014,7 @@ SCHOOL: Caltech
   Location: Pasadena, CA
   Admit Likelihood: Far Reach
   Coach: Duncan Gillis — Head Coach <dgillis@caltech.edu> [primary]
+  Coach: Rockne DeCoster — Assistant Coach <rockne@caltech.edu>
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -1172,6 +1171,9 @@ SCHOOL: Dartmouth
   Location: Hanover, NH
   Admit Likelihood: Far Reach
   Coach: Connor Klekota — Head Coach <Connor.A.Klekota@dartmouth.edu> [primary]
+  Coach: Ross Macklin — Assistant Coach <ross.d.macklin@dartmouth.edu>
+  Coach: Robby Dambrot — Assistant Coach <rob.dambrot@dartmouth.edu>
+  Coach: Liam Abdalla — Assistant Coach <liam.c.abdalla@dartmouth.edu>
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Notes: Sent MIT camp follow up email, but no response
@@ -1369,6 +1371,11 @@ ID Camp
       Best, 
       
       Finn
+    [2025-11-28] Outbound via Sports Recruits — Drew Hutchins; Kevin McCarthy; Woo Jeon:
+      Hi Coach,
+      My name is Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. Stanford is a dream academic and athletic fit for me because of its elite engineering programs and one of the best player development environments in college soccer.
+      
+      I finished my high school se...
     [2025-11-28] Inbound via Sports Recruits — Drew Hutchins:
       Hi Finn,
       
@@ -1377,11 +1384,6 @@ ID Camp
       about competing at the highest level on the field and in the classroom.
       
       We will be at MLS Next Fest and I look forward to seeing you play. Ful...
-    [2025-11-28] Outbound via Sports Recruits — Drew Hutchins; Kevin McCarthy; Woo Jeon:
-      Hi Coach,
-      My name is Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. Stanford is a dream academic and athletic fit for me because of its elite engineering programs and one of the best player development environments in college soccer.
-      
-      I finished my high school se...
 
 SCHOOL: Tufts
   Status: Ongoing Conversation
@@ -1463,6 +1465,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-23 | Part 5d: Coach Roster Scraper — migration 020, scraper with Claude Haiku 4.5, URL discovery, initial seed (6 new coaches), Sun+Wed cron, /settings/coach-changes review UI, Today view callout | Feature |
 | 2026-04-23 | Part 5a: schools.domains[] infrastructure — migration 019, auto-learn script, parser Strategy 1b, reparse-orphan-domains.ts rescued 11 rows (Hopkins + Tufts) | Schema + Feature |
 | 2026-04-22 | Part 4 extension: sent scan in autolabel captures Finn's direct outbound Gmail to known coaches | Feature |
 | 2026-04-22 | Part 4 of email ingestion: Gmail API direct integration with OAuth, daily cron, /settings/gmail UI, parser rework | Feature |

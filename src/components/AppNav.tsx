@@ -9,24 +9,30 @@ type NavItem = {
   count?: number
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Today',    href: '/'              },
-  { label: 'Schools',  href: '/schools'       },
-  { label: 'Library',  href: '/library'       },
-  { label: 'Import',   href: '/bulk-import'   },
-  { label: 'Settings', href: '/settings/gmail'},
-]
-
 // Sub-paths that belong to the Library section
 const LIBRARY_PATHS = ['/library', '/assets', '/questions']
 
+function buildNavItems(pendingCoachChanges: number): NavItem[] {
+  return [
+    { label: 'Today',          href: '/'                       },
+    { label: 'Schools',        href: '/schools'                },
+    { label: 'Library',        href: '/library'                },
+    { label: 'Import',         href: '/bulk-import'            },
+    { label: 'Review',  href: '/settings/coach-changes',
+      count: pendingCoachChanges > 0 ? pendingCoachChanges : undefined },
+    { label: 'Settings',       href: '/settings/gmail'         },
+  ]
+}
+
 // ── Sidebar (desktop) ──────────────────────────────────────────────
-export function AppSidebar() {
+export function AppSidebar({ pendingCoachChanges = 0 }: { pendingCoachChanges?: number }) {
   const pathname = usePathname()
+  const NAV_ITEMS = buildNavItems(pendingCoachChanges)
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
     if (href === '/library') return LIBRARY_PATHS.some(p => pathname.startsWith(p))
+    if (href === '/settings/gmail') return pathname.startsWith('/settings/gmail')
     return pathname.startsWith(href)
   }
 
@@ -118,12 +124,14 @@ export function AppSidebar() {
 }
 
 // ── Bottom nav (mobile) ────────────────────────────────────────────
-export function AppBottomNav() {
+export function AppBottomNav({ pendingCoachChanges = 0 }: { pendingCoachChanges?: number }) {
   const pathname = usePathname()
+  const NAV_ITEMS = buildNavItems(pendingCoachChanges)
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
     if (href === '/library') return LIBRARY_PATHS.some(p => pathname.startsWith(p))
+    if (href === '/settings/gmail') return pathname.startsWith('/settings/gmail')
     return pathname.startsWith(href)
   }
 

@@ -26,7 +26,7 @@ const LV = {
   inkLo: '#7A7570',
 }
 
-export default function TodayClient({ user }: { user: User }) {
+export default function TodayClient({ user, pendingCoachChanges = 0 }: { user: User; pendingCoachChanges?: number }) {
   const today = todayStr()
   const { schools, loading: schoolsLoading } = useSchools()
   const { entries: contactLog, loading: logLoading, snoozeEntry, dismissEntry } = useContactLog()
@@ -138,6 +138,27 @@ export default function TodayClient({ user }: { user: User }) {
           {dayName} — {dateLabel}
         </div>
       </div>
+
+      {/* Coach changes callout — shown when pending review > 0 */}
+      {pendingCoachChanges > 0 && (
+        <div style={{
+          margin: 'clamp(0px, 1vw, 4px) clamp(22px, 5vw, 56px) 20px',
+        }}>
+          <a href="/settings/coach-changes" style={{ textDecoration: 'none' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '11px 16px', borderRadius: 8,
+              background: '#FEF3C7', border: '1px solid #FCD34D',
+              cursor: 'pointer',
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#92400E' }}>
+                {pendingCoachChanges} coaching staff change{pendingCoachChanges !== 1 ? 's' : ''} to review
+              </span>
+              <span style={{ fontSize: 12, color: '#B45309', fontWeight: 600 }}>Review →</span>
+            </div>
+          </a>
+        </div>
+      )}
 
       {/* Section 1 — Hero */}
       <HeroSection
