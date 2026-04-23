@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
           note:   'Cron safe to run concurrently — gmail_message_id dedup prevents double-inserts',
         })
 
-        let labelResult = { labeled: 0, skipped: 0 }
+        let labelResult = { labeled: 0, skipped: 0, inboundLabeled: 0, sentLabeled: 0 }
         try {
           labelResult = await autoLabelKnownSenders(GMAIL_USER, { lookbackDays: windowDays })
         } catch (err) {

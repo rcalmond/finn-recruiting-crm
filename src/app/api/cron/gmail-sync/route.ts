@@ -121,11 +121,12 @@ export async function GET(req: NextRequest) {
 
   // ── 3. Auto-label known senders ────────────────────────────────────────────
 
-  let labelResult = { labeled: 0, skipped: 0 }
+  let labelResult = { labeled: 0, skipped: 0, inboundLabeled: 0, sentLabeled: 0 }
   try {
     labelResult = await autoLabelKnownSenders(GMAIL_USER)
     console.log(
-      `[gmail-sync] ${startedAt} — autolabel: ${labelResult.labeled} labeled, ` +
+      `[gmail-sync] ${startedAt} — autolabel: ` +
+      `${labelResult.inboundLabeled} inbound + ${labelResult.sentLabeled} sent labeled, ` +
       `${labelResult.skipped} skipped`
     )
   } catch (err) {
