@@ -217,7 +217,7 @@ and are legacy — note this in contact log if surfaced.
 
 ## 10. Live Pipeline — Generated April 22, 2026
 
-**Active schools: 33** | Overdue actions: 27
+**Active schools: 34** | Overdue actions: 27
 (Category Nope and status Inactive excluded)
 
 ### Tier A — Highest Priority (8 schools)
@@ -900,12 +900,6 @@ SCHOOL: Washington University
       At camp, you will:
       
         *   Train and compete directly in front of the ...
-    [2026-04-02] Outbound via Sports Recruits:
-      Coach Bordelon,
-      
-      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Wash U's position in the UAA — among the top academic D3 programs in the country — is something I've had on my radar for a while.
-      
-      I play an attacking left wingback role. My game is built around makin...
     [2026-04-02] Inbound via Sports Recruits — Jack Mathis:
       Hello,
       
@@ -913,8 +907,14 @@ SCHOOL: Washington University
       have left the position as of 1/9/26 and will no longer be responding to
       emails for Wash U in St. Louis. Please reach out to Coach Bordelon for all
       questions regarding Wash U Men's Soccer. His email is bordelon@wust...
+    [2026-04-02] Outbound via Sports Recruits:
+      Coach Bordelon,
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Wash U's position in the UAA — among the top academic D3 programs in the country — is something I've had on my radar for a while.
+      
+      I play an attacking left wingback role. My game is built around makin...
 
-### Tier C — Exploratory (13 schools)
+### Tier C — Exploratory (14 schools)
 
 SCHOOL: Amherst
   Status: Ongoing Conversation
@@ -985,31 +985,16 @@ SCHOOL: Bowdoin
       I wanted to follow up after connecting with your staff in Arizona — it was a good interaction and Bowdoin has stayed on my list.
       
       I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. The NESCAC's combination of academic culture and competitive soccer ...
-    [2025-12-04] Inbound via Sports Recruits — Scott Wiercinski:
-      Thanks Finn.
+    [2025-12-04] Outbound via Sports Recruits — Scott Wiercinski:
+      Hi Coach,
       
-      Good luck.
+       
+      I just completed the recruiting questionnaire. Looking forward to meeting Coach Banadda. Let me know if you need anything else.
       
-      Sincerely,
+       
+      Best,
       
-      Scott Wiercinski
-      
-      Head Coach – Men’s Soccer
-      
-      Bowdoin College
-      
-      9000 College Station
-      
-      Brunswick, Maine 04011
-      
-      (O): 207.725.3665
-      
-      (F): 207.725.3019
-      
-      Bowdoin College <http://www.bowdoin.edu/>
-      
-      Bowdoin College Men's Soccer
-      <http://athletics.bowdoin.edu/sports/msoc...
+      Finn Almond
 
 SCHOOL: Caltech
   Status: Ongoing Conversation
@@ -1172,7 +1157,7 @@ SCHOOL: Dartmouth
   Division: D1 — Ivy League
   Location: Hanover, NH
   Admit Likelihood: Far Reach
-  Coach: Connor Klekota — Head Coach [primary]
+  Coach: Connor Klekota — Head Coach <Connor.A.Klekota@dartmouth.edu> [primary]
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Notes: Sent MIT camp follow up email, but no response
@@ -1180,7 +1165,16 @@ No interaction with Finn
 Has Engineering program combined with AB program
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
-  Contact Log (1 shown):
+  Contact Log (2 shown):
+    [2026-04-22] Outbound via Email — Connor Klekota:
+      Hi Coach Klekota,
+      
+      I'm a 2027 left wingback at Albion SC Colorado MLS NEXT Academy U19 and
+      wanted to reach out directly to get on your radar.
+      
+      I'm a 16-game starter at left wingback for our U19 Academy side where I
+      have 2G/1A, including an Olimpico at MLS NEXT Cup Qualifiers in Scottsdale
+      last we...
     [2025-11-28] Outbound via Sports Recruits — Bo Oshoniyi; Trevor Banks; Alexis Diaz; Alex Fetterly:
       Hi Coach,
       I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Dartmouth because of its strong engineering program at the Thayer School and the way the team plays in the Ivy League.
@@ -1212,6 +1206,38 @@ SCHOOL: Emory
     [2025-11-28] Outbound via Sports Recruits — Clayton Schmitt; Cory Greiner:
       Hi Coach,
       I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Emory because of the engineering pathway through Emory + Georgia Tech and your program’s reputation for developing smart, technical attacking players. I also have family in the At...
+
+SCHOOL: Johns Hopkins
+  Status: Ongoing Conversation
+  Division: D3 — Centennial Conference
+  Location: Baltimore, MD
+  Admit Likelihood: Far Reach
+  Coach: Craig Appleby — Head Coach [primary]
+  Last Contact: 2026-04-02
+  RQ Status: Completed
+  Videos Sent: Yes
+  Notes: Asked us to keep them posted with soccer and academic updates!
+Responded asking for transcript & test scores (Sent)
+Coached your team on day 1 of MIT Camp
+  Next Action: Wingback update email (Finn) — due 2026-04-26
+  Also: Update RQ (Finn) — due 2026-04-27
+  Contact Log (2 shown):
+    [2025-12-03] Outbound via Sports Recruits — Craig Appleby:
+      Hi Coach,
+      
+       
+      I also just updated the recruiting questionnaire with my new team info and updated transcript and test scores. Hope to see you this week in Phoenix!
+      
+       
+      Thanks,
+      
+      Finn
+    [2025-11-28] Outbound via Sports Recruits — Craig Appleby:
+      Hi Coach Appleby,
+      
+      We've been in touch over email from our work together at the MIT Camp in late July. I'm moving over to SportsRecruits for all of my soccer conversations. I wanted to update you on my high school season and invite you to see my games at MLS NEXT Fest next week.
+      
+      I wrapped up my ...
 
 SCHOOL: Northwestern
   Status: Ongoing Conversation
@@ -1409,7 +1435,8 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
-| 2026-04-22 | Part 4 of email ingestion: Gmail API direct integration with OAuth, daily cron at 14:00 UTC, /settings/gmail UI, parser rework for honest confidence labels | Feature |
+| 2026-04-22 | Part 4 extension: sent scan in autolabel captures Finn's direct outbound Gmail to known coaches | Feature |
+| 2026-04-22 | Part 4 of email ingestion: Gmail API direct integration with OAuth, daily cron, /settings/gmail UI, parser rework | Feature |
 | 2026-04-21 | Part 3a of email ingestion: live outbound CC capture via sendgrid webhook (HTML email preclean + reuse of sr-paste-parser) | Feature |
 | 2026-04-21 | Part 3b of email ingestion: SR Sent bulk importer (migration 017, sr-paste-parser, /bulk-import page, content-hash dedup) | Feature |
 | 2026-04-20 | Part 2 of email ingestion: SendGrid webhook + SR inbound parser (migrations 014, 015, 016) + school aliases + reparse script | Feature |
