@@ -259,13 +259,26 @@ and are legacy — note this in contact log if surfaced.
 - **Gmail partial re-linking**: Some contact_log rows may lack coach_id FK if the coach email
   wasn't in the DB at parse time. Re-parsing script not yet built.
 
-### Review Queue — deferred items (as of 2026-04-23)
-These 5 items are in coach_changes with status='manual' and require human judgment:
-- **Tim Vom Steeg (UCSB)**: role_changed Head Coach → Assistant Coach — suspicious demotion, may be scraper error
-- **Oige Kennedy (Cal Poly SLO)**: email_changed okennedy@calpoly.edu → mensoccer@calpoly.edu — team inbox replacing personal email
-- **Cory Greiner (Emory)**: email_changed cgreiner@emory.edu → cgreine@emory.edu — 'r' missing, likely Haiku OCR error
-- **Dean Koski (Lehigh)**: email_changed dk0a@lehigh.edu → lehighmenssoccer@lehigh.edu — team inbox replacing personal email
-- **Neil Jones (Wisconsin)**: email_changed NWJ@athletics.wisc.edu → wisconsinmsoc@athletics.wisc.edu — team inbox replacing personal email
+### Review Queue — Part 5d initial seed outcomes (closed 2026-04-23)
+All 23 manual items from the initial seed run have been resolved (0 pending):
+- 13 coach_departed — applied (real departures)
+- 1 role_changed (Jamie Franks, DU: Head → Associate Head) — applied
+- 4 email_changed — applied (clean personal-to-personal address updates)
+- 1 role_changed (Tim Vom Steeg, UCSB: Head → Assistant) — REJECTED (scraper false positive, no new HC scraped at same school)
+- 3 email_changed (Kennedy/Cal Poly, Koski/Lehigh, Jones/Wisconsin) — REJECTED (team inbox replacing personal email)
+- 1 email_changed (Cory Greiner, Emory: cgreiner → cgreine) — ACCEPTED (correct scrape; Emory uses deliberate 7-char username truncation policy, e.g. ceschmi@, tssherm@)
+
+**Emory email convention:** Emory Athletics truncates usernames to 7 characters. Short addresses like cgreine@emory.edu are real, not OCR errors. Do not flag Emory addresses for suspicious length.
+
+### Scraper hardening — future improvements (not yet implemented)
+
+**Idea A — Team-inbox heuristic for email_changed proposals:**
+If a proposed email_changed replaces a person-shaped address (firstname.lastname@, initials@, firstname@) with a team-pattern address (mensoccer@, msoc@, soccer@, or containing the school name like "lehighmenssoccer", "wisconsinmsoc"), auto-reject with a likely_team_inbox flag instead of surfacing for human review. Would have auto-caught 3 of the 4 rejected email_changed items from the Part 5d seed run. Cheap post-processing on scraper output, not new extraction logic.
+
+**Idea B — Role demotion sanity check:**
+If an existing Head Coach gets re-classified to a lower role AND no new Head Coach appears in the same scrape for that school, flag as suspicious_parsing rather than queuing for review. Would have caught the Vom Steeg (UCSB) false positive. Revisit when we next touch the scraper.
+
+**Do NOT add:** heuristics based on username character count or missing letters. Emory's policy proves that truncated usernames are real. Trust the scraped page.
 
 ---
 
@@ -283,7 +296,7 @@ These 5 items are in coach_changes with status='manual' and require human judgme
 
 ## 11. Live Pipeline — Generated April 23, 2026
 
-**Active schools: 34** | Overdue actions: 27
+**Active schools: 34** | Overdue actions: 26
 (Category Nope and status Inactive excluded)
 
 ### Tier A — Highest Priority (8 schools)
@@ -557,7 +570,6 @@ SCHOOL: University of Rochester
   Notes: Got a personalized email back from Coach Cross.
 
 Thanks for reaching out about your interest. I am impressed with your film as you show great technical skill to take on defenders and provide amazing services from the wide areas. I also like how seriously you take your academics and are interested in
-  Next Action: Prep for call (Finn) — due 2026-04-21
   Contact Log (3 shown):
     [2026-04-22] Outbound via Sports Recruits — Sean Streb:
       Hi Coach,
@@ -1325,7 +1337,7 @@ SCHOOL: Emory
   Division: D3 — UAA
   Location: Atlanta, GA
   Admit Likelihood: Reach
-  Coach: Cory Greiner — Head Coach <cgreiner@emory.edu> [primary]
+  Coach: Cory Greiner — Head Coach <cgreine@emory.edu> [primary]
   Coach: Clayton Schmitt — Associate Head Coach <ceschmi@emory.edu>
   Coach: Felipe Quintero — Other
   Coach: Jose Casique — Assistant Coach
@@ -1608,7 +1620,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
-| 2026-04-23 | Part 5 completion: migration 021 (coach_page_scrape_enabled), SPA skip mechanism for Notre Dame, 3 ND coaches manually seeded, 18 review queue items applied (13 departed, 1 role, 4 email) | Schema + Feature |
+| 2026-04-23 | Part 5 complete: SPA skip (Notre Dame), ND coaches seeded, 18 queue items applied, 5 resolved (4 rejected team-inbox/false-positive, 1 accepted Emory 7-char convention) | Schema + Feature |
 | 2026-04-23 | Part 5d: Coach Roster Scraper — migration 020, scraper with Claude Haiku 4.5, URL discovery, initial seed (6 new coaches), Sun+Wed cron, /settings/coach-changes review UI, Today view callout | Feature |
 | 2026-04-23 | Part 5a: schools.domains[] infrastructure — migration 019, auto-learn script, parser Strategy 1b, reparse-orphan-domains.ts rescued 11 rows (Hopkins + Tufts) | Schema + Feature |
 | 2026-04-22 | Part 4 extension: sent scan in autolabel captures Finn's direct outbound Gmail to known coaches | Feature |
