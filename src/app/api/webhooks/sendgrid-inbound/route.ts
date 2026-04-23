@@ -456,7 +456,7 @@ async function handleOutboundCC(
 
   const isoDate: string = outboundMsg.isoDate ?? new Date().toISOString().split('T')[0]
   const notes: string[] = []
-  let parseStatus: 'parsed' | 'partial' = 'parsed'
+  let parseStatus: 'full' | 'partial' = 'full'
 
   // 6. School matching (reuses existing matchSchool — 5-level hierarchy)
   let schoolId: string | null = null
@@ -669,7 +669,7 @@ export async function POST(req: NextRequest) {
   // 9. School matching
   const notes: string[] = []
   let schoolId: string | null = null
-  let parseStatus: 'parsed' | 'partial' | 'failed' = 'parsed'
+  let parseStatus: 'full' | 'partial' | 'orphan' = 'full'
 
   if (!parsedSchoolName) {
     notes.push('Could not extract school name from SR notification')
@@ -701,7 +701,7 @@ export async function POST(req: NextRequest) {
 
   if (dateEstimated) {
     notes.push('Message date could not be parsed; used today as fallback')
-    if (parseStatus === 'parsed') parseStatus = 'partial'
+    if (parseStatus === 'full') parseStatus = 'partial'
   }
 
   const parseNotes = notes.length > 0 ? notes.join('; ') : null

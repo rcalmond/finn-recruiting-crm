@@ -12,7 +12,7 @@ type NavItem = {
 // Sub-paths that belong to the Library section
 const LIBRARY_PATHS = ['/library', '/assets', '/questions']
 
-function buildNavItems(pendingCoachChanges: number): NavItem[] {
+function buildNavItems(pendingCoachChanges: number, pendingGmailPartials: number): NavItem[] {
   return [
     { label: 'Today',          href: '/'                       },
     { label: 'Schools',        href: '/schools'                },
@@ -20,19 +20,27 @@ function buildNavItems(pendingCoachChanges: number): NavItem[] {
     { label: 'Import',         href: '/bulk-import'            },
     { label: 'Review',  href: '/settings/coach-changes',
       count: pendingCoachChanges > 0 ? pendingCoachChanges : undefined },
+    { label: 'Gmail Partials', href: '/settings/gmail-partials',
+      count: pendingGmailPartials > 0 ? pendingGmailPartials : undefined },
     { label: 'Settings',       href: '/settings/gmail'         },
   ]
 }
 
 // ── Sidebar (desktop) ──────────────────────────────────────────────
-export function AppSidebar({ pendingCoachChanges = 0 }: { pendingCoachChanges?: number }) {
+export function AppSidebar({
+  pendingCoachChanges = 0,
+  pendingGmailPartials = 0,
+}: {
+  pendingCoachChanges?: number
+  pendingGmailPartials?: number
+}) {
   const pathname = usePathname()
-  const NAV_ITEMS = buildNavItems(pendingCoachChanges)
+  const NAV_ITEMS = buildNavItems(pendingCoachChanges, pendingGmailPartials)
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
     if (href === '/library') return LIBRARY_PATHS.some(p => pathname.startsWith(p))
-    if (href === '/settings/gmail') return pathname.startsWith('/settings/gmail')
+    if (href === '/settings/gmail') return pathname === '/settings/gmail'
     return pathname.startsWith(href)
   }
 
@@ -124,14 +132,20 @@ export function AppSidebar({ pendingCoachChanges = 0 }: { pendingCoachChanges?: 
 }
 
 // ── Bottom nav (mobile) ────────────────────────────────────────────
-export function AppBottomNav({ pendingCoachChanges = 0 }: { pendingCoachChanges?: number }) {
+export function AppBottomNav({
+  pendingCoachChanges = 0,
+  pendingGmailPartials = 0,
+}: {
+  pendingCoachChanges?: number
+  pendingGmailPartials?: number
+}) {
   const pathname = usePathname()
-  const NAV_ITEMS = buildNavItems(pendingCoachChanges)
+  const NAV_ITEMS = buildNavItems(pendingCoachChanges, pendingGmailPartials)
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
     if (href === '/library') return LIBRARY_PATHS.some(p => pathname.startsWith(p))
-    if (href === '/settings/gmail') return pathname.startsWith('/settings/gmail')
+    if (href === '/settings/gmail') return pathname === '/settings/gmail'
     return pathname.startsWith(href)
   }
 

@@ -227,14 +227,14 @@ export async function POST(req: NextRequest) {
   // coachIds from the parse step, which was done against the originally matched school.
   //
   // parse_status:
-  //   'parsed'  — school matched AND all coaches resolved to a DB record (or school has no coaches)
+  //   'full'    — school matched AND all coaches resolved to a DB record (or school has no coaches)
   //   'partial' — school matched but at least one coach name didn't find a DB match
 
   interface ResolvedRow {
     row: ImportRow
     resolvedCoachIds: string[]
     primaryCoachId: string | null
-    parseStatus: 'parsed' | 'partial'
+    parseStatus: 'full' | 'partial'
   }
 
   const resolvedRows: ResolvedRow[] = validRows.map(row => {
@@ -244,12 +244,12 @@ export async function POST(req: NextRequest) {
       : []
 
     if (parsedNames.length === 0) {
-      // No coach names to match — mark parsed if school has no coaches, partial if it does
+      // No coach names to match — mark full if school has no coaches, partial if it does
       return {
         row,
         resolvedCoachIds: [],
         primaryCoachId: null,
-        parseStatus: schoolCoaches.length === 0 ? 'parsed' : 'partial',
+        parseStatus: schoolCoaches.length === 0 ? 'full' : 'partial',
       }
     }
 
@@ -259,7 +259,7 @@ export async function POST(req: NextRequest) {
       .filter((id): id is string => id !== null)
 
     const allMatched = matchResults.every(r => r.matched)
-    const parseStatus: 'parsed' | 'partial' = allMatched ? 'parsed' : 'partial'
+    const parseStatus: 'full' | 'partial' = allMatched ? 'full' : 'partial'
 
     // Primary: prefer a DB coach flagged is_primary; fall back to first matched
     const primaryCoachId =

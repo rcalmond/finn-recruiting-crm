@@ -43,7 +43,7 @@ export interface ResolveResult {
   coachId:     string | null
   coachName:   string | null
   matchNotes:  string[]
-  parseStatus: 'parsed' | 'partial'
+  parseStatus: 'full' | 'partial' | 'orphan'
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ export async function resolveSchoolAndCoach(
         coachId:     exactCoach.id,
         coachName:   exactCoach.name,
         matchNotes:  notes,
-        parseStatus: 'parsed',
+        parseStatus: 'full',
       }
     }
   }
@@ -288,22 +288,94 @@ export async function resolveSchoolAndCoach(
     }
   }
 
-  // ── Bug 5: confidence gate for parse_status ────────────────────────────────
+  // ── Confidence gate for parse_status ──────────────────────────────────────
   //
-  // 'parsed' = HIGH confidence on both school AND coach:
-  //   HIGH school: exact email (strategy 1), domain (strategy 2), or
-  //                word-boundary subject match (strategy 3).
-  //   HIGH coach:  exact email (strategy 1), or exact name match.
-  //
-  // Fuzzy name match, To: header display names, or new-coach display-name
-  // fallback → coachConfidence='low' → parseStatus='partial'.
+  // 'full'    = HIGH confidence on both school AND coach (exact email match
+  //             exits early above; name exact match lands here).
+  // 'partial' = school known but coach unresolved or low-confidence.
+  //             These rows surface in the Gmail Partials review UI.
+  // 'orphan'  = school unknown (domain not in DB, subject match failed).
+  //             No review possible until school coverage improves.
 
-  const parseStatus: 'parsed' | 'partial' =
+  const parseStatus: 'full' | 'partial' | 'orphan' =
     schoolConfidence === 'high' && coachConfidence === 'high'
-      ? 'parsed'
+      ? 'full'
+      : !schoolId
+      ? 'orphan'
       : 'partial'
 
   return { schoolId, coachId, coachName, matchNotes: notes, parseStatus }
+}
+
+// ── Re-parse partials for a school ───────────────────────────────────────────
+//
+// Called after a new coach is inserted (scraper apply, Gmail UI create-and-link,
+// any other coach-creation path). Re-runs coach-matching on every gmail row that
+// has school_id = schoolId but coach_id = null (parse_status = 'partial').
+//
+// If a match is found: sets coach_id and parse_status = 'full'.
+// If no match: leaves the row as-is.
+//
+// Runs after the coach is committed — never inside a transaction. Errors are
+// logged but do NOT propagate (coach insert must succeed regardless).
+
+export async function reparsePartialsForSchool(
+  admin: Supabase,
+  schoolId: string,
+): Promise<{ rescued: number; checked: number }> {
+  try {
+    // Fetch all gmail partials for this school
+    const { data: partials, error: fetchErr } = await admin
+      .from('contact_log')
+      .select('id, coach_name, direction')
+      .eq('school_id', schoolId)
+      .eq('parse_status', 'partial')
+      .not('gmail_message_id', 'is', null)
+
+    if (fetchErr || !partials || partials.length === 0) {
+      return { rescued: 0, checked: 0 }
+    }
+
+    // Fetch current coaches for this school
+    const { data: schoolCoachRows } = await admin
+      .from('coaches')
+      .select('id, name, email, school_id')
+      .eq('school_id', schoolId)
+
+    const schoolCoaches = (schoolCoachRows ?? []) as CoachRow[]
+    if (schoolCoaches.length === 0) return { rescued: 0, checked: partials.length }
+
+    let rescued = 0
+
+    for (const row of partials) {
+      // Only inbound rows have a coach_name to match; outbound partials need a
+      // different trigger (they're linked by email address, not display name)
+      if (row.direction !== 'Inbound' || !row.coach_name) continue
+
+      const senderName = normalizeDisplayName(row.coach_name)
+      if (isGenericSender(senderName)) continue
+
+      const nameResult = matchCoachByName(senderName, schoolCoaches)
+      if (!nameResult) continue
+
+      // Match found — update the row
+      const { error: updateErr } = await admin
+        .from('contact_log')
+        .update({ coach_id: nameResult.coach.id, parse_status: 'full' })
+        .eq('id', row.id)
+
+      if (updateErr) {
+        console.error(`[reparsePartials] Failed to update row ${row.id}: ${updateErr.message}`)
+      } else {
+        rescued++
+      }
+    }
+
+    return { rescued, checked: partials.length }
+  } catch (err) {
+    console.error('[reparsePartials] Unexpected error:', err)
+    return { rescued: 0, checked: 0 }
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

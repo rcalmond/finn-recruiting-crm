@@ -1,30 +1,52 @@
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { AppSidebar, AppBottomNav } from '@/components/AppNav'
 
+function makeAdmin() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
+
 async function getPendingCoachChanges(): Promise<number> {
   try {
-    const admin = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-    const { count } = await admin
+    const { count } = await makeAdmin()
       .from('coach_changes')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'manual')
     return count ?? 0
   } catch {
-    return 0  // nav badge is non-critical; fail silently
+    return 0
+  }
+}
+
+async function getPendingGmailPartials(): Promise<number> {
+  try {
+    const { count } = await makeAdmin()
+      .from('contact_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('parse_status', 'partial')
+      .not('gmail_message_id', 'is', null)
+    return count ?? 0
+  } catch {
+    return 0
   }
 }
 
 export default async function AppShellLayout({ children }: { children: React.ReactNode }) {
-  const pendingCoachChanges = await getPendingCoachChanges()
+  const [pendingCoachChanges, pendingGmailPartials] = await Promise.all([
+    getPendingCoachChanges(),
+    getPendingGmailPartials(),
+  ])
 
   return (
     <>
       {/* Desktop sidebar — hidden on mobile via inline media */}
       <div className="hidden md:block">
-        <AppSidebar pendingCoachChanges={pendingCoachChanges} />
+        <AppSidebar
+          pendingCoachChanges={pendingCoachChanges}
+          pendingGmailPartials={pendingGmailPartials}
+        />
       </div>
 
       {/* Main content area */}
@@ -34,7 +56,10 @@ export default async function AppShellLayout({ children }: { children: React.Rea
 
       {/* Mobile bottom nav — hidden on desktop */}
       <div className="block md:hidden">
-        <AppBottomNav pendingCoachChanges={pendingCoachChanges} />
+        <AppBottomNav
+          pendingCoachChanges={pendingCoachChanges}
+          pendingGmailPartials={pendingGmailPartials}
+        />
       </div>
     </>
   )

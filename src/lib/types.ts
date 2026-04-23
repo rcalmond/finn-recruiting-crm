@@ -56,7 +56,7 @@ export interface ContactLogEntry {
   raw_source?: string | null
   source_thread_id?: string | null
   source_message_id?: string | null
-  parse_status?: 'parsed' | 'partial' | 'failed'
+  parse_status?: 'full' | 'partial' | 'non_coach' | 'orphan'
   parse_notes?: string | null
   coach_id?: string | null           // FK to coaches.id; null if no match found
   content_hash?: string | null       // sha256 dedup key for bulk-imported rows (migration 017)

@@ -23,6 +23,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { reparsePartialsForSchool } from '@/lib/gmail-resolve'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = ReturnType<typeof createServiceClient<any>>
@@ -107,6 +108,7 @@ export async function PUT(
           is_primary:   isPrimary,
           needs_review: false,
           sort_order:   nextSort,
+          source:       'scraped',
         })
         if (error) applyErr = error.message
         break
@@ -168,6 +170,16 @@ export async function PUT(
 
     if (applyErr) {
       return NextResponse.json({ error: `Apply failed: ${applyErr}` }, { status: 500 })
+    }
+
+    // After a successful coach_added apply, re-parse any gmail partials for this
+    // school that couldn't be linked before (coach wasn't in DB at parse time).
+    if (change.change_type === 'coach_added') {
+      reparsePartialsForSchool(admin, change.school_id).then(({ rescued, checked }) => {
+        if (checked > 0) {
+          console.log(`[coach-changes] reparse for school ${change.school_id}: rescued ${rescued}/${checked} partials`)
+        }
+      }).catch(() => { /* non-critical; log swallowed */ })
     }
   }
 
