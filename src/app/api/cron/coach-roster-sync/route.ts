@@ -62,11 +62,11 @@ export async function GET(req: NextRequest) {
 
   const admin = serviceClient()
 
-  // ── 2. Fetch all schools with a coach_page_url ────────────────────────────
+  // ── 2. Fetch all schools with a coach_page_url and scrape enabled ──────────
 
-  const { data: schools, error: fetchErr } = await admin
+  const { data: allSchools, error: fetchErr } = await admin
     .from('schools')
-    .select('id, name')
+    .select('id, name, coach_page_scrape_enabled')
     .not('coach_page_url', 'is', null)
     .order('name')
 
@@ -75,9 +75,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: fetchErr.message }, { status: 500 })
   }
 
-  if (!schools || schools.length === 0) {
+  if (!allSchools || allSchools.length === 0) {
     console.log(`[coach-roster-sync] ${startedAt} — no schools with coach_page_url; nothing to do`)
     return NextResponse.json({ ok: true, schoolsProcessed: 0 })
+  }
+
+  const schools   = allSchools.filter(s => s.coach_page_scrape_enabled !== false)
+  const skipped   = allSchools.filter(s => s.coach_page_scrape_enabled === false)
+
+  if (skipped.length > 0) {
+    console.log(
+      `[coach-roster-sync] ${startedAt} — skipped ${skipped.length} school(s) (scrape_enabled=false): ` +
+      skipped.map(s => s.name).join(', ')
+    )
+  }
+
+  if (schools.length === 0) {
+    console.log(`[coach-roster-sync] ${startedAt} — all schools skipped; nothing to do`)
+    return NextResponse.json({ ok: true, schoolsProcessed: 0, skipped: skipped.length })
   }
 
   console.log(`[coach-roster-sync] ${startedAt} — processing ${schools.length} school(s)`)
@@ -92,6 +107,7 @@ export async function GET(req: NextRequest) {
 
   const stats = {
     schools:   schools.length,
+    skipped:   skipped.length,
     errors:    0,
     changes:   0,
     applied:   0,

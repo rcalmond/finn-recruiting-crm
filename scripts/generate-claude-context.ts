@@ -347,6 +347,50 @@ created_at    timestamptz
 updated_at    timestamptz
 \`\`\`
 
+### Table: \`coaches\`
+\`\`\`
+id           uuid PK
+school_id    uuid FK → schools.id (cascade delete)
+name         text
+role         text                   -- 'Head Coach' | 'Assistant Coach' | 'Associate Head Coach' | 'Other' | etc.
+email        text
+is_primary   boolean                -- true = designated contact for this school
+needs_review boolean                -- true = flagged for human review (coach_departed applies this)
+sort_order   integer
+notes        text                   -- used for endowed chair titles, misc
+created_at   timestamptz
+updated_at   timestamptz
+\`\`\`
+
+### Table: \`coach_changes\`
+\`\`\`
+id            uuid PK
+school_id     uuid FK → schools.id (cascade delete)
+change_type   'coach_added' | 'coach_departed' | 'email_added' | 'email_changed' | 'role_changed' | 'name_changed'
+coach_id      uuid FK → coaches.id (on delete set null)
+details       jsonb    -- shape varies by change_type; see migration 020 for per-type docs
+status        'auto' | 'manual' | 'seed' | 'applied' | 'rejected'
+created_at    timestamptz
+reviewed_at   timestamptz
+reviewer_note text
+\`\`\`
+
+### Scraper columns on \`schools\`
+\`\`\`
+coach_page_url              text      -- URL of school's official men's soccer coaches page
+coach_page_last_scraped_at  timestamptz
+coach_page_last_error       text
+coach_page_scrape_enabled   boolean not null default true
+                            -- false = SPA/JS-rendered page; scraper skips but URL preserved
+                            -- currently false: Notre Dame (und.com is a React SPA)
+\`\`\`
+
+**SPA schools — how to handle a new one:**
+1. Write the URL to \`schools.coach_page_url\` for human reference.
+2. Set \`coach_page_scrape_enabled = false\`.
+3. Manually insert the coaching staff into \`coaches\` (all emails null if unknown).
+4. Log in CLAUDE_CONTEXT "Known SPA schools" list.
+
 ### RLS
 All tables have RLS enabled. Any authenticated user gets full access.
 Use the **service role key** in scripts/server-side code to bypass RLS.
@@ -398,7 +442,29 @@ and are legacy — note this in contact log if surfaced.
 
 ---
 
-## 9. Session Startup Checklist for Claude Code
+## 9. Known Gaps and Limitations
+
+### Coach Roster Scraper
+- **SPA schools** (JS-rendered, static fetch fails): currently only **Notre Dame** (\`und.com\`).
+  These have \`coach_page_scrape_enabled = false\` — scraper skips them, URL is preserved.
+  Staff must be seeded manually; updates require manual checking.
+- **Email ambiguity**: If a school uses a shared team inbox (e.g., \`mensoccer@calpoly.edu\`),
+  the scraper suppresses it (shared email detection). Coaches at that school will have null email.
+- **Shared domains**: Some schools share CDN-hosted sites — rate limiting (2s delay) mitigates this.
+- **Gmail partial re-linking**: Some contact_log rows may lack coach_id FK if the coach email
+  wasn't in the DB at parse time. Re-parsing script not yet built.
+
+### Review Queue — deferred items (as of 2026-04-23)
+These 5 items are in coach_changes with status='manual' and require human judgment:
+- **Tim Vom Steeg (UCSB)**: role_changed Head Coach → Assistant Coach — suspicious demotion, may be scraper error
+- **Oige Kennedy (Cal Poly SLO)**: email_changed okennedy@calpoly.edu → mensoccer@calpoly.edu — team inbox replacing personal email
+- **Cory Greiner (Emory)**: email_changed cgreiner@emory.edu → cgreine@emory.edu — 'r' missing, likely Haiku OCR error
+- **Dean Koski (Lehigh)**: email_changed dk0a@lehigh.edu → lehighmenssoccer@lehigh.edu — team inbox replacing personal email
+- **Neil Jones (Wisconsin)**: email_changed NWJ@athletics.wisc.edu → wisconsinmsoc@athletics.wisc.edu — team inbox replacing personal email
+
+---
+
+## 10. Session Startup Checklist for Claude Code
 
 1. Read \`CLAUDE_CONTEXT.md\` (this file)
 2. Skim \`src/lib/types.ts\` to confirm current type definitions
@@ -415,7 +481,7 @@ and are legacy — note this in contact log if surfaced.
 const STATIC_FOOTER = `
 ---
 
-## 11. Recent Changes
+## 12. Recent Changes
 
 > **How to use this section:** When you make a meaningful change — new feature, schema update,
 > tech stack addition, recruiting strategy shift — add a one-line entry here with the date.
@@ -424,6 +490,7 @@ const STATIC_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-23 | Part 5 completion: migration 021 (coach_page_scrape_enabled), SPA skip mechanism for Notre Dame, 3 ND coaches manually seeded, 18 review queue items applied (13 departed, 1 role, 4 email) | Schema + Feature |
 | 2026-04-23 | Part 5d: Coach Roster Scraper — migration 020, scraper with Claude Haiku 4.5, URL discovery, initial seed (6 new coaches), Sun+Wed cron, /settings/coach-changes review UI, Today view callout | Feature |
 | 2026-04-23 | Part 5a: schools.domains[] infrastructure — migration 019, auto-learn script, parser Strategy 1b, reparse-orphan-domains.ts rescued 11 rows (Hopkins + Tufts) | Schema + Feature |
 | 2026-04-22 | Part 4 extension: sent scan in autolabel captures Finn's direct outbound Gmail to known coaches | Feature |
@@ -451,7 +518,7 @@ const STATIC_FOOTER = `
 
 ---
 
-## 12. Key Coaching Contacts (verified April 2026 — confirm before emailing)
+## 13. Key Coaching Contacts (verified April 2026 — confirm before emailing)
 
 | School | Role | Name | Status |
 |---|---|---|---|
@@ -474,7 +541,7 @@ const STATIC_FOOTER = `
 
 ---
 
-## 13. "Copy for Claude" Export (strategy sessions in Claude.ai)
+## 14. "Copy for Claude" Export (strategy sessions in Claude.ai)
 
 The app has (or will have) a "Copy for Claude" button that copies a formatted plaintext
 pipeline summary to the clipboard for pasting into Claude.ai strategy sessions.
@@ -492,7 +559,7 @@ SCHOOL: [name]
 
 ---
 
-*Context file last regenerated: see Section 10 header for date.*
+*Context file last regenerated: see Section 11 header for date.*
 *To update: \`npm run export-context\` from repo root.*
 *Maintained by: Randy Almond | finnalmond08@gmail.com*
 `
@@ -568,9 +635,9 @@ async function main() {
   const today = new Date().toISOString().slice(0, 10)
   const overdueCount = allActions.filter(a => a.due_date && a.due_date < today).length
 
-  // Build Section 10
+  // Build Section 11
   const pipelineLines: string[] = []
-  pipelineLines.push(`## 10. Live Pipeline — Generated ${todayFormatted()}`)
+  pipelineLines.push(`## 11. Live Pipeline — Generated ${todayFormatted()}`)
   pipelineLines.push('')
   pipelineLines.push(`**Active schools: ${allSchools.length}** | Overdue actions: ${overdueCount}`)
   pipelineLines.push('(Category Nope and status Inactive excluded)')

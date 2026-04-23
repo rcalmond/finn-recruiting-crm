@@ -152,6 +152,50 @@ created_at    timestamptz
 updated_at    timestamptz
 ```
 
+### Table: `coaches`
+```
+id           uuid PK
+school_id    uuid FK → schools.id (cascade delete)
+name         text
+role         text                   -- 'Head Coach' | 'Assistant Coach' | 'Associate Head Coach' | 'Other' | etc.
+email        text
+is_primary   boolean                -- true = designated contact for this school
+needs_review boolean                -- true = flagged for human review (coach_departed applies this)
+sort_order   integer
+notes        text                   -- used for endowed chair titles, misc
+created_at   timestamptz
+updated_at   timestamptz
+```
+
+### Table: `coach_changes`
+```
+id            uuid PK
+school_id     uuid FK → schools.id (cascade delete)
+change_type   'coach_added' | 'coach_departed' | 'email_added' | 'email_changed' | 'role_changed' | 'name_changed'
+coach_id      uuid FK → coaches.id (on delete set null)
+details       jsonb    -- shape varies by change_type; see migration 020 for per-type docs
+status        'auto' | 'manual' | 'seed' | 'applied' | 'rejected'
+created_at    timestamptz
+reviewed_at   timestamptz
+reviewer_note text
+```
+
+### Scraper columns on `schools`
+```
+coach_page_url              text      -- URL of school's official men's soccer coaches page
+coach_page_last_scraped_at  timestamptz
+coach_page_last_error       text
+coach_page_scrape_enabled   boolean not null default true
+                            -- false = SPA/JS-rendered page; scraper skips but URL preserved
+                            -- currently false: Notre Dame (und.com is a React SPA)
+```
+
+**SPA schools — how to handle a new one:**
+1. Write the URL to `schools.coach_page_url` for human reference.
+2. Set `coach_page_scrape_enabled = false`.
+3. Manually insert the coaching staff into `coaches` (all emails null if unknown).
+4. Log in CLAUDE_CONTEXT "Known SPA schools" list.
+
 ### RLS
 All tables have RLS enabled. Any authenticated user gets full access.
 Use the **service role key** in scripts/server-side code to bypass RLS.
@@ -203,7 +247,29 @@ and are legacy — note this in contact log if surfaced.
 
 ---
 
-## 9. Session Startup Checklist for Claude Code
+## 9. Known Gaps and Limitations
+
+### Coach Roster Scraper
+- **SPA schools** (JS-rendered, static fetch fails): currently only **Notre Dame** (`und.com`).
+  These have `coach_page_scrape_enabled = false` — scraper skips them, URL is preserved.
+  Staff must be seeded manually; updates require manual checking.
+- **Email ambiguity**: If a school uses a shared team inbox (e.g., `mensoccer@calpoly.edu`),
+  the scraper suppresses it (shared email detection). Coaches at that school will have null email.
+- **Shared domains**: Some schools share CDN-hosted sites — rate limiting (2s delay) mitigates this.
+- **Gmail partial re-linking**: Some contact_log rows may lack coach_id FK if the coach email
+  wasn't in the DB at parse time. Re-parsing script not yet built.
+
+### Review Queue — deferred items (as of 2026-04-23)
+These 5 items are in coach_changes with status='manual' and require human judgment:
+- **Tim Vom Steeg (UCSB)**: role_changed Head Coach → Assistant Coach — suspicious demotion, may be scraper error
+- **Oige Kennedy (Cal Poly SLO)**: email_changed okennedy@calpoly.edu → mensoccer@calpoly.edu — team inbox replacing personal email
+- **Cory Greiner (Emory)**: email_changed cgreiner@emory.edu → cgreine@emory.edu — 'r' missing, likely Haiku OCR error
+- **Dean Koski (Lehigh)**: email_changed dk0a@lehigh.edu → lehighmenssoccer@lehigh.edu — team inbox replacing personal email
+- **Neil Jones (Wisconsin)**: email_changed NWJ@athletics.wisc.edu → wisconsinmsoc@athletics.wisc.edu — team inbox replacing personal email
+
+---
+
+## 10. Session Startup Checklist for Claude Code
 
 1. Read `CLAUDE_CONTEXT.md` (this file)
 2. Skim `src/lib/types.ts` to confirm current type definitions
@@ -215,7 +281,7 @@ and are legacy — note this in contact log if surfaced.
 
 ---
 
-## 10. Live Pipeline — Generated April 23, 2026
+## 11. Live Pipeline — Generated April 23, 2026
 
 **Active schools: 34** | Overdue actions: 27
 (Category Nope and status Inactive excluded)
@@ -228,6 +294,8 @@ SCHOOL: Cal Poly San Luis Obispo (Cal Poly SLO)
   Location: San Luis Obispo, CA
   Admit Likelihood: Reach
   Coach: Oige Kennedy — Head Coach <okennedy@calpoly.edu> [primary]
+  Coach: Zach Watson — Assistant Coach <zwatso01@calpoly.edu>
+  Coach: Brandon Bautista — Assistant Coach <bbauti11@calpoly.edu>
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
@@ -261,6 +329,7 @@ SCHOOL: Case Western
   Location: Cleveland, OH
   Admit Likelihood: Reach
   Coach: Carter Poe — Head Coach <ccp51@case.edu>
+  Coach: Fernando Lisboa — Assistant Coach <fxm272@case.edu>
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
@@ -294,7 +363,7 @@ SCHOOL: CO School of Mines
   Division: D2 — RMAC
   Location: Golden, CO
   Admit Likelihood: Target
-  Coach: Ben Fredrickson — Interim Assistant Coach <ben.fredrickson@mines.edu> [primary] ⚠ needs_review
+  Coach: Ben Fredrickson — Assistant Coach <ben.fredrickson@mines.edu> [primary] ⚠ needs_review
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -350,6 +419,8 @@ SCHOOL: Lafayette College
   Location: Easton, PA
   Admit Likelihood: Reach
   Coach: Dennis Bohn — Head Coach <bohnd@lafayette.edu> [primary]
+  Coach: Gabriel Robinson — Associate Head Coach <robingab@lafayette.edu>
+  Coach: Ismar Tandir — Assistant Coach <tandiri@lafayette.edu>
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
@@ -394,6 +465,11 @@ SCHOOL: Milwaukee School of Engineering (MSOE)
   Location: Milwaukee, WI
   Admit Likelihood: Likely
   Coach: Rob Harrington — Head Coach <harrington@msoe.edu> [primary]
+  Coach: Joe Schauer — Assistant Coach
+  Coach: Caden Pruitt — Assistant Coach
+  Coach: Derek Marie — Assistant Coach
+  Coach: John Moynihan — Assistant Coach
+  Coach: Lukas Schwenke — Assistant Coach
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
@@ -441,6 +517,9 @@ SCHOOL: RPI
   Location: Troy, NY
   Admit Likelihood: Reach
   Coach: Adam Clinton — Head Coach <clinta@rpi.edu> [primary]
+  Coach: Steve Wieczorek — Assistant Coach <wieczs@rpi.edu>
+  Coach: Paul Fowler — Assistant Coach
+  Coach: Sean Maruscsak — Assistant Coach <maruss@rpi.edu>
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
@@ -470,6 +549,8 @@ SCHOOL: University of Rochester
   Location: Rochester, NY
   Admit Likelihood: Target
   Coach: Ben Cross — Head Coach <bc006j@sports.rochester.edu> [primary]
+  Coach: Sean Streb — Assistant Coach <sstreb3@ur.rochester.edu>
+  Coach: Andrew Crawford — Assistant Coach <acrawf10@sports.rochester.edu>
   Last Contact: 2026-04-12
   RQ Status: Completed
   Videos Sent: Yes
@@ -524,6 +605,10 @@ SCHOOL: WPI
   Location: Worcester, MA
   Admit Likelihood: Target
   Coach: Brian Kelley — Head Coach <bkelley@wpi.edu> [primary]
+  Coach: Alex Wolfel — Assistant Coach <arwolfel@wpi.edu>
+  Coach: Taskin Guven — Assistant Coach
+  Coach: Riley Doherty — Assistant Coach
+  Coach: Gabe Ramos — Assistant Coach <gramos@wpi.edu>
   Last Contact: 2026-04-14
   RQ Status: Completed
   Videos Sent: Yes
@@ -548,9 +633,10 @@ SCHOOL: Bucknell University
   Division: D1 — Patriot League
   Location: Lewisburg, PA
   Admit Likelihood: Reach
-  Coach: Dave Brandt — Head Coach <db055@bucknell.edu> [primary]
-  Coach: David Yates — Assistant Coach
-  Coach: Casey Penrod — Assistant Coach
+  Coach: Dave Brandt — Head Coach <db071@bucknell.edu> [primary]
+  Coach: David Yates — Assistant Coach ⚠ needs_review
+  Coach: Casey Penrod — Assistant Coach ⚠ needs_review
+  Coach: Mark Tun — Assistant Coach <mt041@bucknell.edu>
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -589,7 +675,9 @@ SCHOOL: Cal Poly Pomona
   Division: D2 — CCAA (D2)
   Location: Pomona, CA
   Admit Likelihood: Likely
-  Coach: Matt O'Sullivan — Head Coach <mosulliv@cpp.edu> [primary]
+  Coach: Matt O'Sullivan — Head Coach <mjosullivan@cpp.edu> [primary]
+  Coach: Jose Ortega — Assistant Coach <joseortega@cpp.edu>
+  Coach: Andriy Budnyy — Assistant Coach <ambudnyy@cpp.edu>
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
@@ -644,7 +732,10 @@ SCHOOL: Cornell
   Division: D1 — Ivy League
   Location: Ithaca, NY
   Admit Likelihood: Far Reach
-  Coach: John Smith — Head Coach [primary]
+  Coach: John Smith — Head Coach [primary] ⚠ needs_review
+  Coach: Daniel P. Wood — Head Coach <msoccer@cornell.edu>
+  Coach: Luke Staats — Associate Head Coach
+  Coach: Tyler Keever — Assistant Coach
   Last Contact: 2026-04-02
   RQ Status: Updated (no email yet)
   Videos Sent: Yes
@@ -663,6 +754,9 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
   Location: Chicago, IL (Bronzeville, near downtown)
   Admit Likelihood: Target
   Coach: Marlon McKenzie — Head Coach <mmckenzie1@illinoistech.edu> [primary]
+  Coach: Aziz Tahir — Assistant Coach <atahir2@illinoistech.edu>
+  Coach: Julian Soto — Assistant Coach
+  Coach: Mateo Sanchez — Assistant Coach
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
@@ -686,8 +780,10 @@ SCHOOL: Lehigh University
   Location: Bethlehem, PA
   Admit Likelihood: Reach
   Coach: Dean Koski — Head Coach <dk0a@lehigh.edu> [primary]
-  Coach: Ryan Hess — Associate Head Coach
-  Coach: Matt Giacalone — Assistant Coach
+  Coach: Ryan Hess — Associate Head Coach <reh311@lehigh.edu>
+  Coach: Matt Giacalone — Assistant Coach ⚠ needs_review
+  Coach: Brendan McIntyre — Assistant Coach
+  Coach: Chase Tackett — Assistant Coach <cht526@lehigh.edu>
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -724,6 +820,9 @@ SCHOOL: Middlebury
   Admit Likelihood: Far Reach
   Coach: Alex Elias — Head Coach <aelias@middlebury.edu>
   Coach: Tim Peng — Assistant Coach <tp@middlebury.edu> [primary]
+  Coach: Ben Potter — Assistant Coach <bpotter@middlebury.edu>
+  Coach: Leland Gazo — Assistant Coach <lagazo@middlebury.edu>
+  Coach: Luke Madden — Assistant Coach
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -757,6 +856,9 @@ SCHOOL: Northeastern
   Location: Boston, MA
   Admit Likelihood: Reach
   Coach: Jeremy Bonomo — Head Coach <j.bonomo@northeastern.edu> [primary]
+  Coach: Jordan Koduah — Assistant Coach <j.koduah@northeastern.edu>
+  Coach: John Manga — Assistant Coach <j.manga@northeastern.edu>
+  Coach: William Levitsky — Other
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
@@ -787,6 +889,9 @@ SCHOOL: Rochester Institute of Technology (RIT)
   Location: Rochester, NY (Henrietta suburb)
   Admit Likelihood: Target
   Coach: Bill Garno — Head Coach <bill.garno@rit.edu> [primary]
+  Coach: Yuri Lavrynenko — Associate Head Coach
+  Coach: Kevin May — Assistant Coach
+  Coach: Travis Wood — Other
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
@@ -817,6 +922,8 @@ SCHOOL: South Dakota Mines (South Dakota School of Mines & Technology)
   Location: Rapid City, SD
   Admit Likelihood: Likely
   Coach: Teren Schuster — Head Coach <Teren.Schuster@sdsmt.edu> [primary]
+  Coach: Rob Reagan — Assistant Coach <robert.reagan@sdsmt.edu>
+  Coach: Mike Fairchild — Assistant Coach
   Last Contact: 2026-04-15
   RQ Status: Completed
   Videos Sent: Yes
@@ -855,6 +962,7 @@ SCHOOL: Stevens Institute of Technology
   Location: Hoboken, NJ
   Admit Likelihood: Reach
   Coach: Dale Jordan — Head Coach <djordan@stevens.edu> [primary]
+  Coach: Duncan Swanwick — Assistant Coach <dswanwic@stevens.edu>
   Last Contact: 2026-04-22
   RQ Status: Completed
   Videos Sent: Yes
@@ -886,6 +994,8 @@ SCHOOL: Washington University
   Location: St. Louis, MO
   Admit Likelihood: Far Reach
   Coach: Andrew Bordelon — Head Coach <bordelon@wustl.edu> [primary]
+  Coach: Gavin Kalish — Assistant Coach <gavink@wustl.edu>
+  Coach: Jake Leeker — Assistant Coach <leeker@wustl.edu>
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-19
@@ -919,6 +1029,9 @@ SCHOOL: Amherst
   Location: Amherst, MA
   Admit Likelihood: Far Reach
   Coach: Justin Serpone — Head Coach <jserpone@amherst.edu> [primary]
+  Coach: Derek Shea — Assistant Coach
+  Coach: Alex Ortega — Assistant Coach <aortega@amherst.edu>
+  Coach: Jeff Huffman — Assistant Coach
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -960,6 +1073,8 @@ SCHOOL: Bowdoin
   Location: Brunswick, ME
   Admit Likelihood: Far Reach
   Coach: Scott Wiercinski — Head Coach <swiercin@bowdoin.edu> [primary]
+  Coach: Andrew Banadda — Assistant Coach <a.banadda@bowdoin.edu>
+  Coach: Elayna Girardin — Assistant Coach
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -1059,6 +1174,9 @@ SCHOOL: Clark
   Location: Worcester, MA
   Admit Likelihood: Likely
   Coach: Samuel Matteson — Head Coach <smatteson@clarku.edu> [primary]
+  Coach: Matthews Lima — Assistant Coach <malima@clarku.edu>
+  Coach: Maitoe Suppasuesanguan — Assistant Coach <msuppasuesanguan@clarku.edu>
+  Coach: Nur Adhikarie — Assistant Coach <nadhikarie@clarku.edu>
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Notes: Sent MIT camp follow up email
@@ -1091,6 +1209,9 @@ SCHOOL: Colby
   Location: Waterville, ME
   Admit Likelihood: Far Reach
   Coach: Sean Elvert — Head Coach <selvert@colby.edu> [primary]
+  Coach: Ben Manoogian — Assistant Coach <bmanoogi@colby.edu>
+  Coach: Yuri Nascimento — Other <ynascime@colby.edu>
+  Coach: Karl Schroeder — Assistant Coach
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -1135,6 +1256,8 @@ SCHOOL: Colgate
   Location: Hamilton, NY
   Admit Likelihood: Reach
   Coach: Erik Ronning — Head Coach <eronning@colgate.edu> [primary]
+  Coach: Ricky Brown — Assistant Coach
+  Coach: Tim Stanton — Assistant Coach
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -1203,6 +1326,9 @@ SCHOOL: Emory
   Location: Atlanta, GA
   Admit Likelihood: Reach
   Coach: Cory Greiner — Head Coach <cgreiner@emory.edu> [primary]
+  Coach: Clayton Schmitt — Associate Head Coach <ceschmi@emory.edu>
+  Coach: Felipe Quintero — Other
+  Coach: Jose Casique — Assistant Coach
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-26
@@ -1229,6 +1355,7 @@ SCHOOL: Johns Hopkins
   Location: Baltimore, MD
   Admit Likelihood: Far Reach
   Coach: Craig Appleby — Head Coach [primary]
+  Coach: William Vanzela — Assistant Coach
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -1274,7 +1401,11 @@ SCHOOL: Northwestern
   Division: D1 — Big Ten
   Location: Evanston, IL
   Admit Likelihood: Far Reach
-  Coach: Russell Payne — Head Coach [primary]
+  Coach: Russell Payne — Head Coach <msoccer@northwestern.edu> [primary]
+  Coach: Ronnie Bouemboue — Assistant Coach <rbouemboue@northwestern.edu>
+  Coach: JR DeRose — Assistant Coach <jr.derose@northwestern.edu>
+  Coach: Flo Liu — Assistant Coach <flo.liu@northwestern.edu>
+  Coach: Joe Moulden — Assistant Coach <joe.moulden@northwestern.edu>
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -1317,6 +1448,9 @@ SCHOOL: Princeton
   Location: Princeton, NJ
   Admit Likelihood: Far Reach
   Coach: Jim Barlow — Head Coach <jimbarlo@princeton.edu> [primary]
+  Coach: Steve Totten — Associate Head Coach <stotten@princeton.edu>
+  Coach: Sam Maira — Assistant Coach <smaira@princeton.edu>
+  Coach: Tom Moffat — Assistant Coach
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -1355,6 +1489,9 @@ SCHOOL: Stanford
   Location: Stanford, CA
   Admit Likelihood: Far Reach
   Coach: Jeremy Gunn — Head Coach [primary]
+  Coach: Drew Hutchins — Associate Head Coach
+  Coach: Kevin McCarthy — Assistant Coach
+  Coach: Woo Jeon — Assistant Coach
   Last Contact: 2026-04-02
   RQ Status: To Do
   Videos Sent: Yes
@@ -1391,6 +1528,11 @@ SCHOOL: Tufts
   Location: Medford, MA
   Admit Likelihood: Far Reach
   Coach: Kyle Dezotell — Head Coach [primary]
+  Coach: Adam Batista — Assistant Coach
+  Coach: Cristian Wood-Suvak — Assistant Coach
+  Coach: Eric Nordenson — Assistant Coach
+  Coach: Luca Napora — Assistant Coach
+  Coach: Zack Abdu-Glass — Other
   Last Contact: 2026-04-02
   RQ Status: Completed
   Videos Sent: Yes
@@ -1426,6 +1568,7 @@ SCHOOL: Williams
   Location: Williamstown, MA
   Admit Likelihood: Far Reach
   Coach: Steffen Siebert — Head Coach <ss40@williams.edu> [primary]
+  Coach: Bill Schmid — Assistant Coach <williamsmenssoccer@gmail.com>
   Last Contact: 2026-04-02
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-26
@@ -1456,7 +1599,7 @@ SCHOOL: Williams
 
 ---
 
-## 11. Recent Changes
+## 12. Recent Changes
 
 > **How to use this section:** When you make a meaningful change — new feature, schema update,
 > tech stack addition, recruiting strategy shift — add a one-line entry here with the date.
@@ -1465,6 +1608,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-23 | Part 5 completion: migration 021 (coach_page_scrape_enabled), SPA skip mechanism for Notre Dame, 3 ND coaches manually seeded, 18 review queue items applied (13 departed, 1 role, 4 email) | Schema + Feature |
 | 2026-04-23 | Part 5d: Coach Roster Scraper — migration 020, scraper with Claude Haiku 4.5, URL discovery, initial seed (6 new coaches), Sun+Wed cron, /settings/coach-changes review UI, Today view callout | Feature |
 | 2026-04-23 | Part 5a: schools.domains[] infrastructure — migration 019, auto-learn script, parser Strategy 1b, reparse-orphan-domains.ts rescued 11 rows (Hopkins + Tufts) | Schema + Feature |
 | 2026-04-22 | Part 4 extension: sent scan in autolabel captures Finn's direct outbound Gmail to known coaches | Feature |
@@ -1492,7 +1636,7 @@ SCHOOL: Williams
 
 ---
 
-## 12. Key Coaching Contacts (verified April 2026 — confirm before emailing)
+## 13. Key Coaching Contacts (verified April 2026 — confirm before emailing)
 
 | School | Role | Name | Status |
 |---|---|---|---|
@@ -1515,7 +1659,7 @@ SCHOOL: Williams
 
 ---
 
-## 13. "Copy for Claude" Export (strategy sessions in Claude.ai)
+## 14. "Copy for Claude" Export (strategy sessions in Claude.ai)
 
 The app has (or will have) a "Copy for Claude" button that copies a formatted plaintext
 pipeline summary to the clipboard for pasting into Claude.ai strategy sessions.
@@ -1533,6 +1677,6 @@ SCHOOL: [name]
 
 ---
 
-*Context file last regenerated: see Section 10 header for date.*
+*Context file last regenerated: see Section 11 header for date.*
 *To update: `npm run export-context` from repo root.*
 *Maintained by: Randy Almond | finnalmond08@gmail.com*

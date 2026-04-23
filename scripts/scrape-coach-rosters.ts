@@ -157,25 +157,37 @@ function printResult(r: ScrapeResult): void {
 // ── Summary counters ──────────────────────────────────────────────────────────
 
 interface Tally {
-  schools:    number
-  scraped:    number
-  added:      number
-  departed:   number
-  emailDiff:  number  // email_added + email_changed
-  roleDiff:   number
-  applied:    number
-  errors:     number
+  schools:      number
+  scraped:      number
+  added:        number
+  departed:     number
+  emailDiff:    number   // email_added + email_changed
+  roleDiff:     number
+  manualItems:  number   // changes with wouldStatus='manual' (queued for review UI)
+  applied:      number
+  haikuCalls:   number   // schools where fetch succeeded → Haiku was invoked
+  errorSchools: { name: string; error: string }[]
 }
 
 function sumTally(tally: Tally, r: ScrapeResult): void {
   tally.schools++
   tally.scraped += r.scrapedCount
-  if (r.error) { tally.errors++; return }
+
+  if (r.error) {
+    // Haiku was called if fetch succeeded but extraction failed
+    if (r.error.includes('malformed') || r.error.includes('unparseable')) tally.haikuCalls++
+    tally.errorSchools.push({ name: r.schoolName, error: r.error })
+    return
+  }
+
+  tally.haikuCalls++  // fetch + extraction succeeded
+
   for (const c of r.changes) {
-    if (c.changeType === 'coach_added')                             tally.added++
-    if (c.changeType === 'coach_departed')                         tally.departed++
-    if (c.changeType === 'email_added' || c.changeType === 'email_changed') tally.emailDiff++
-    if (c.changeType === 'role_changed')                           tally.roleDiff++
+    if (c.changeType === 'coach_added')                                      tally.added++
+    if (c.changeType === 'coach_departed')                                   tally.departed++
+    if (c.changeType === 'email_added' || c.changeType === 'email_changed')  tally.emailDiff++
+    if (c.changeType === 'role_changed')                                     tally.roleDiff++
+    if (c.wouldStatus === 'manual')                                          tally.manualItems++
   }
   tally.applied += r.appliedCount
 }
@@ -183,19 +195,31 @@ function sumTally(tally: Tally, r: ScrapeResult): void {
 function printSummary(tally: Tally): void {
   const totalChanges = tally.added + tally.departed + tally.emailDiff + tally.roleDiff
   const mode = DRY_RUN ? ' (DRY RUN — nothing written)' : ''
+  // Haiku 4.5: ~$0.80/MTok input, ~$4/MTok output. Typical page: ~2500 input + 300 output tokens.
+  const estimatedCost = ((tally.haikuCalls * 2500 * 0.80) / 1_000_000) + ((tally.haikuCalls * 300 * 4.00) / 1_000_000)
 
-  console.log('\n' + '─'.repeat(50))
+  console.log('\n' + '─'.repeat(60))
   console.log('── SUMMARY' + mode)
-  console.log('─'.repeat(50))
-  console.log(`Processed : ${tally.schools} school${tally.schools !== 1 ? 's' : ''}`)
-  console.log(`Scraped   : ${tally.scraped} total coaches`)
-  console.log(`Changes   : ${totalChanges} (added ${tally.added}, departed ${tally.departed}, email ${tally.emailDiff}, role ${tally.roleDiff})`)
-  console.log(`Applied   : ${tally.applied}${DRY_RUN ? ' (0 — dry-run)' : ''}`)
-  console.log(`Errors    : ${tally.errors}`)
+  console.log('─'.repeat(60))
+  console.log(`Processed  : ${tally.schools} schools`)
+  console.log(`Scraped    : ${tally.scraped} total coaches found on pages`)
+  console.log(`Applied    : ${tally.applied} coaches inserted/updated in DB`)
+  console.log(`Changes    : ${totalChanges} (added ${tally.added}, departed ${tally.departed}, email ${tally.emailDiff}, role ${tally.roleDiff})`)
+  console.log(`Review UI  : ${tally.manualItems} manual item${tally.manualItems !== 1 ? 's' : ''} queued`)
+  console.log(`Errors     : ${tally.errorSchools.length}`)
+  console.log(`Haiku calls: ${tally.haikuCalls}  (~$${estimatedCost.toFixed(3)} estimated)`)
+
+  if (tally.errorSchools.length > 0) {
+    console.log('\n── Schools with errors (coach_page_last_error populated) ───────')
+    for (const { name, error } of tally.errorSchools) {
+      console.log(`  ${name}`)
+      console.log(`    ${error}`)
+    }
+  }
 
   if (INITIAL_SEED && !DRY_RUN) {
-    console.log('\nInitial seed complete. All coach_added and email_added changes')
-    console.log('are written to coach_changes with status="seed".')
+    console.log('\nInitial seed complete. coach_added + email_added written as status="seed".')
+    console.log('Manual changes (departed, role, email_changed) queued in review UI.')
   }
   if (DRY_RUN) {
     console.log('\nTo apply changes, re-run without --dry-run.')
@@ -214,7 +238,8 @@ async function main(): Promise<void> {
 
   const tally: Tally = {
     schools: 0, scraped: 0, added: 0, departed: 0,
-    emailDiff: 0, roleDiff: 0, applied: 0, errors: 0,
+    emailDiff: 0, roleDiff: 0, manualItems: 0,
+    applied: 0, haikuCalls: 0, errorSchools: [],
   }
 
   // ── Single-school mode ────────────────────────────────────────────────────
@@ -229,9 +254,9 @@ async function main(): Promise<void> {
 
   // ── Multi-school mode: all schools with a coach_page_url ──────────────────
 
-  const { data: schools, error: fetchErr } = await admin
+  const { data: allSchools, error: fetchErr } = await admin
     .from('schools')
-    .select('id, name')
+    .select('id, name, coach_page_scrape_enabled')
     .not('coach_page_url', 'is', null)
     .order('name')
 
@@ -240,12 +265,24 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  if (!schools || schools.length === 0) {
+  if (!allSchools || allSchools.length === 0) {
     console.log('No schools have coach_page_url set. Run discover-coach-urls.ts first.')
     return
   }
 
-  console.log(`Found ${schools.length} school(s) with coach_page_url`)
+  const schools = allSchools.filter(s => s.coach_page_scrape_enabled !== false)
+  const skipped = allSchools.filter(s => s.coach_page_scrape_enabled === false)
+
+  if (skipped.length > 0) {
+    console.log(`Skipped ${skipped.length} school(s) (scrape_enabled=false): ${skipped.map(s => s.name).join(', ')}`)
+  }
+
+  if (schools.length === 0) {
+    console.log('All schools are skipped (scrape_enabled=false). Nothing to do.')
+    return
+  }
+
+  console.log(`Found ${schools.length} school(s) with coach_page_url (${skipped.length} skipped)`)
 
   for (let i = 0; i < schools.length; i++) {
     if (i > 0) await sleep(2_000)  // rate limit: 2s between schools
