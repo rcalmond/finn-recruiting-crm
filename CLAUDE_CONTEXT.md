@@ -215,7 +215,7 @@ and are legacy — note this in contact log if surfaced.
 
 ---
 
-## 10. Live Pipeline — Generated April 22, 2026
+## 10. Live Pipeline — Generated April 23, 2026
 
 **Active schools: 34** | Overdue actions: 27
 (Category Nope and status Inactive excluded)
@@ -478,6 +478,14 @@ SCHOOL: University of Rochester
 Thanks for reaching out about your interest. I am impressed with your film as you show great technical skill to take on defenders and provide amazing services from the wide areas. I also like how seriously you take your academics and are interested in
   Next Action: Prep for call (Finn) — due 2026-04-21
   Contact Log (3 shown):
+    [2026-04-22] Outbound via Sports Recruits — Sean Streb:
+      Hi Coach,
+      
+      Thank you so much for your time today, I really enjoyed hearing more about the team and school. Sounds like wingbacks play a key role in your system, which is really intriguing for me.  
+      
+      I'll keep you updated on my upcoming games and whether we qualify for MLS NEXT Cup in Utah.
+      
+      Best,...
     [2026-04-20] Outbound via Sports Recruits — Ben Cross:
       Hi Coach,
       
@@ -509,16 +517,6 @@ Thanks for reaching out about your interest. I am impressed with your film as yo
       <https://questionnaires.armssoftware.com/0fbb1bedbe0c>
       
       *Jun...
-    [2026-04-19] Outbound via Sports Recruits — Sean Streb; Ben Cross:
-      Hi Coach,
-      
-       
-      I wanted to follow up on this thread below. I'm very interested in Rochester and I would love to hop on a call this week. I can be available most anytime Monday the 20th, anytime after 12pm MT on Wednesday the 22nd, or most anytime Thursday the 23rd.
-      
-       
-      Best,
-      
-      Finn Almond
 
 SCHOOL: WPI
   Status: Intro Sent
@@ -863,25 +861,26 @@ SCHOOL: Stevens Institute of Technology
   RQ Status: Completed
   Videos Sent: Yes
   Contact Log (3 shown):
+    [2026-04-22] Outbound via Sports Recruits — Dale Jordan:
+      Hi Jordan,
+      
+      Thanks for the reply. Unfortunately we won't be in Dallas — Flex is Homegrown Division, and my club (Albion SC Colorado) is in the Academy Division, so our qualifier was in Scottsdale earlier this month. We went 2-2-0 and I scored an Olimpico directly off a corner.
+      
+      We're currently 2n...
+    [2026-04-22] Inbound via Sports Recruits — Dale Jordan:
+      Thanks for sharing
+      
+      Will you be playing in Dallas next week?
+      
+      Cheers
+      
+      Dale
     [2026-04-21] Outbound via Sports Recruits — Dale Jordan; Duncan Swanwick:
       Coach Jordan,
       
       I'm sending an updated highlight reel now that I've been playing left wingback full-time since November. I've transitioned from the striker role you may have seen earlier — now I'm playing a two-way wingback at Albion SC MLS NEXT Academy U19.
       
       Stevens continues to stand out for mec...
-    [2026-04-02] Outbound via Sports Recruits — Dale Jordan; Duncan Swanwick:
-      Coach Jordan,
-      
-      I'm following up on my earlier message. I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Stevens stood out to me for the engineering depth and the proximity to New York City — that's a combination that's hard to find anywhere.
-      
-      I play an attacking lef...
-    [2025-12-03] Outbound via Sports Recruits — Dale Jordan; Duncan Swanwick:
-      Hi Coach,
-      I wanted to follow up quickly in case my earlier email got buried.
-      
-      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in your program and would love it if you could check out one of my games at MLS Next Fest.
-      
-      Here is my schedule in...
 
 SCHOOL: Washington University
   Status: Intro Sent
@@ -985,16 +984,31 @@ SCHOOL: Bowdoin
       I wanted to follow up after connecting with your staff in Arizona — it was a good interaction and Bowdoin has stayed on my list.
       
       I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. The NESCAC's combination of academic culture and competitive soccer ...
-    [2025-12-04] Outbound via Sports Recruits — Scott Wiercinski:
-      Hi Coach,
+    [2025-12-04] Inbound via Sports Recruits — Scott Wiercinski:
+      Thanks Finn.
       
-       
-      I just completed the recruiting questionnaire. Looking forward to meeting Coach Banadda. Let me know if you need anything else.
+      Good luck.
       
-       
-      Best,
+      Sincerely,
       
-      Finn Almond
+      Scott Wiercinski
+      
+      Head Coach – Men’s Soccer
+      
+      Bowdoin College
+      
+      9000 College Station
+      
+      Brunswick, Maine 04011
+      
+      (O): 207.725.3665
+      
+      (F): 207.725.3019
+      
+      Bowdoin College <http://www.bowdoin.edu/>
+      
+      Bowdoin College Men's Soccer
+      <http://athletics.bowdoin.edu/sports/msoc...
 
 SCHOOL: Caltech
   Status: Ongoing Conversation
@@ -1221,7 +1235,7 @@ Responded asking for transcript & test scores (Sent)
 Coached your team on day 1 of MIT Camp
   Next Action: Wingback update email (Finn) — due 2026-04-26
   Also: Update RQ (Finn) — due 2026-04-27
-  Contact Log (2 shown):
+  Contact Log (3 shown):
     [2025-12-03] Outbound via Sports Recruits — Craig Appleby:
       Hi Coach,
       
@@ -1238,6 +1252,20 @@ Coached your team on day 1 of MIT Camp
       We've been in touch over email from our work together at the MIT Camp in late July. I'm moving over to SportsRecruits for all of my soccer conversations. I wanted to update you on my high school season and invite you to see my games at MLS NEXT Fest next week.
       
       I wrapped up my ...
+    [2025-08-09] Outbound via Email:
+      Hi Coach Appleby,
+      
+      I've just completed the recruiting questionnaire, and I've signed up for
+      the October SAT timeslot.
+      
+      Best,
+      Finn Almond (#30 at MIT Camp)
+      Striker/Winger
+      Class of 2027
+      Dawson School / Albion SC Boulder
+      720.687.8982
+      finnalmond08@gmail.com
+      Highlight Reel <https://www.youtube.com/wat...
 
 SCHOOL: Northwestern
   Status: Ongoing Conversation
@@ -1435,6 +1463,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-23 | Part 5a: schools.domains[] infrastructure — migration 019, auto-learn script, parser Strategy 1b, reparse-orphan-domains.ts rescued 11 rows (Hopkins + Tufts) | Schema + Feature |
 | 2026-04-22 | Part 4 extension: sent scan in autolabel captures Finn's direct outbound Gmail to known coaches | Feature |
 | 2026-04-22 | Part 4 of email ingestion: Gmail API direct integration with OAuth, daily cron, /settings/gmail UI, parser rework | Feature |
 | 2026-04-21 | Part 3a of email ingestion: live outbound CC capture via sendgrid webhook (HTML email preclean + reuse of sr-paste-parser) | Feature |

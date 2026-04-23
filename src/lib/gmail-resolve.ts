@@ -28,6 +28,7 @@ export type SchoolRow = {
   name:       string
   short_name: string | null
   aliases:    string[]
+  domains:    string[]
 }
 
 export type CoachRow = {
@@ -62,6 +63,11 @@ export async function resolveSchoolAndCoach(
     .from('coaches')
     .select('id, name, email, school_id')
   const coaches = (allCoaches ?? []) as CoachRow[]
+
+  const { data: allSchools } = await admin
+    .from('schools')
+    .select('id, name, short_name, aliases, domains')
+  const schools = (allSchools ?? []) as SchoolRow[]
 
   // ── Strategy 1: Exact email match ─────────────────────────────────────────
   //
@@ -116,20 +122,30 @@ export async function resolveSchoolAndCoach(
         c => c.email?.split('@')[1]?.toLowerCase() === parsed.senderDomain
       )
       if (domainCoach) {
-        // (a) Known sender domain — HIGH confidence
+        // (1a) Known sender domain via coaches.email — HIGH confidence
         schoolId         = domainCoach.school_id
         schoolConfidence = 'high'
         notes.push(`School identified via sender domain "${parsed.senderDomain}"`)
       } else {
-        // (b) Unknown institutional sender domain — block subject fallback
-        institutionalDomainBlocked = true
-        notes.push(
-          `Sender domain "${parsed.senderDomain}" not in DB — ` +
-          'school unknown; add coaches with this domain to expand coverage'
+        // (1b) Sender domain not in coaches — check schools.domains[] — HIGH confidence
+        const domainSchool = schools.find(
+          s => (s.domains ?? []).includes(parsed.senderDomain!)
         )
+        if (domainSchool) {
+          schoolId         = domainSchool.id
+          schoolConfidence = 'high'
+          notes.push(`School matched via schools.domains[]: "${parsed.senderDomain}"`)
+        } else {
+          // (2) Unknown institutional sender domain — block subject fallback
+          institutionalDomainBlocked = true
+          notes.push(
+            `Sender domain "${parsed.senderDomain}" not in DB — ` +
+            'school unknown; add coaches with this domain to expand coverage'
+          )
+        }
       }
     }
-    // (c) senderDomain === null: generic sender, falls through to Strategy 3
+    // (3) senderDomain === null: generic sender, falls through to Strategy 3
   } else {
     // Outbound: use recipient domains as the authoritative signal
     const recipDomains = Array.from(new Set(
@@ -152,6 +168,20 @@ export async function resolveSchoolAndCoach(
       }
     }
 
+    // (1b) Recipient domain not in coaches — check schools.domains[] — HIGH confidence
+    if (!schoolId && recipDomains.length > 0) {
+      for (const domain of recipDomains) {
+        const domainSchool = schools.find(s => (s.domains ?? []).includes(domain))
+        if (domainSchool) {
+          schoolId         = domainSchool.id
+          schoolConfidence = 'high'
+          matchedDomain    = domain
+          notes.push(`School matched via schools.domains[]: "${domain}"`)
+          break
+        }
+      }
+    }
+
     if (recipDomains.length > 1) {
       // Flag multi-school sends for triage — rare but possible
       notes.push(
@@ -161,7 +191,7 @@ export async function resolveSchoolAndCoach(
     }
 
     if (!schoolId && recipDomains.length > 0) {
-      // (b) All institutional recipient domains unknown — block subject fallback
+      // (2) All institutional recipient domains unknown — block subject fallback
       institutionalDomainBlocked = true
       notes.push(
         `Recipient domain(s) ${recipDomains.join(', ')} not in DB — ` +
@@ -182,11 +212,7 @@ export async function resolveSchoolAndCoach(
   // Only domain match ever yields HIGH school confidence.
 
   if (!schoolId && !institutionalDomainBlocked && parsed.subject) {
-    const { data: schoolData } = await admin
-      .from('schools')
-      .select('id, name, short_name, aliases')
-    const schools = (schoolData ?? []) as SchoolRow[]
-    const result   = matchSchoolFromSubjectWordBoundary(parsed.subject, schools)
+    const result = matchSchoolFromSubjectWordBoundary(parsed.subject, schools)
     if (result === null) {
       // no match
     } else if (result.ambiguous) {
