@@ -597,10 +597,44 @@ as Finn→Coach, subsequent messages from non-coach participants (Randy, family,
 get ingested as if they were coach replies. Future fix: filter inbound rows where sender email
 matches known family addresses (rcalmond@*, etc.); exclude from contact_log ingestion at source.
 
-**MIT recruiting contact may be missing:**
-The Colgate/MIT Camp thread context suggests someone at MIT is in active recruiting conversation
-with Finn. Current MIT coach list in DB may be incomplete. Worth spot-check against MIT men's
-soccer staff page next time the scraper runs.
+**MIT assistant coach email coverage:**
+2 of 4 MIT coaches (assistants Jutamulia and Griffin) have null email addresses in the coaches
+table. Likely a scraper limitation — MIT's public staff page may not list assistant emails.
+Not surfacing as a problem currently; flag if future inbound from these coaches arrives and fails
+to match. (Earlier note suggesting MIT coach list is incomplete was based on a misread of row
+3840cbd3 — Randy's forwarded email, not a coach message. Gerard Miniaci is in the DB with a
+valid email.)
+
+### Phase 1 Complete (2026-04-24)
+
+- Migration 023 shipped (authored_by, intent, classification_confidence, classification_notes,
+  classified_at columns on contact_log)
+- Haiku 4.5 classifier with strict rubric + 7 few-shot examples
+- 70 inbound rows classified (100% high, 0% low; 3 medium: Tim Peng/Middlebury,
+  Sean Streb/Rochester, Kaneile Thomas/NC State)
+- Live classification hook on gmail-sync cron and SendGrid webhook (fire-and-forget)
+- 21 SendGrid orphans relabeled (partial → orphan); source-level fix applied
+- 1 manual override (row 3840cbd3: Randy's forwarded email, marked non_coach)
+- schools.category tier selector live on school detail page (A/B/C/Nope dropdown)
+- Today "Awaiting Reply" filter: (coach_personal|coach_via_platform) × requires_reply
+  + 180-day window + thread-state check (school-level outbound proxy)
+  + null school_id excluded from unreplied detection
+- Awaiting Reply count: 27 → 4 rows as of 2026-04-24
+  (Gerard Miniaci/MIT 143d, Kaneile Thomas/NC State 142d,
+  Rob Harrington/MSOE 17d, Dale Jordan/Stevens 3d)
+  Note: Teren Schuster/SD Mines correctly excluded — Finn replied 2026-04-21
+
+Tech debt carried to Phase 2:
+- Decline context staleness: Mines and CMU declined Finn as striker; Finn now plays wingback.
+  Declines should carry evaluated-position + evaluating-coach context so stale declines can be
+  flagged when position or coach changes. Both kept Tier A per Randy's judgment.
+- Non-recruiting email pollution in contact_log: thread-tracking ingests non-coach messages
+  from thread participants. Future fix: filter on known family sender addresses at ingestion.
+- Strict rubric rationale documented: concrete asks (forms, camps) take priority over
+  "keep us updated" pleasantries when classifying intent.
+- MIT assistant coach email coverage gap (2 of 4 assistants lack emails in coaches table).
+
+Phase 2 (campaigns) and Phase 3 (Today redesign) build on this foundation.
 
 ### Review Queue — Part 5d initial seed outcomes (closed 2026-04-23)
 All 23 manual items from the initial seed run have been resolved (0 pending):

@@ -17,9 +17,10 @@ function isActiveInbound(entry: ContactLogEntry): boolean {
  * Sorted oldest first (longest-waiting first).
  */
 export function getUnrepliedInbounds(log: ContactLogEntry[]): ContactLogEntry[] {
-  // Build per-school lookup
+  // Build per-school lookup — skip rows with no school (orphans, non-recruiting inbound)
   const bySchool = new Map<string, ContactLogEntry[]>()
   for (const e of log) {
+    if (!e.school_id) continue
     if (!bySchool.has(e.school_id)) bySchool.set(e.school_id, [])
     bySchool.get(e.school_id)!.push(e)
   }
@@ -129,30 +130,27 @@ function isActionableReply(e: ContactLogEntry): boolean {
 
 /**
  * Returns unreplied inbounds filtered for display in the Awaiting section.
- * Noise-reduction rules:
- *   - Phase 1 classification filter: positive whitelist (coach_personal|coach_via_platform) × requires_reply
- *   - Always include: inbound within last 30 days (any category)
- *   - Include: A/B school inbounds up to 90 days old
- *   - Exclude: anything older than 90 days
- *   - Exclude: C/Nope school inbounds older than 30 days
+ *
+ * Phase 1 filter (all three gates must pass):
+ *   1. Classification: (coach_personal | coach_via_platform) × requires_reply
+ *      Unclassified rows included conservatively (classified_at IS NULL).
+ *   2. Thread-state: no subsequent outbound to same school after this inbound
+ *      (handled by getUnrepliedInbounds — school-level proxy for thread state).
+ *   3. Window: ≤ 180 days old
+ *
+ * Tier is NOT gated here — intent classification is the noise filter.
+ * A coach asking Finn a direct question warrants a reply regardless of tier.
  * Sorted oldest first.
  */
 export function getFilteredAwaitingReplies(
   log: ContactLogEntry[],
-  schools: School[]
+  _schools?: School[]   // kept for API compatibility; tier no longer gates this filter
 ): ContactLogEntry[] {
-  const schoolMap = new Map(schools.map(s => [s.id, s]))
   const unreplied = getUnrepliedInbounds(log)
 
   return unreplied.filter(e => {
-    // Phase 1: classification axis filter
     if (!isActionableReply(e)) return false
-
-    const daysOld = daysBetween(e.date)
-    if (daysOld > 90) return false
-    if (daysOld <= 30) return true
-    const school = schoolMap.get(e.school_id)
-    return !!(school && ['A', 'B'].includes(school.category))
+    return daysBetween(e.date) <= 180
   })
 }
 
