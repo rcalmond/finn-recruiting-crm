@@ -77,10 +77,10 @@ AXIS 2 — intent (what action this email requires from the recruit):
   decline            — Program is full, not recruiting this position, not a fit — no response needed
   unknown            — Genuinely can't tell
 
-CONFIDENCE calibration:
-  high   — Clear signal, obvious category, no ambiguity
-  medium — Some ambiguity (e.g., could be coach or staff, could be reply or action)
-  low    — Genuinely unclear; likely needs human review
+CONFIDENCE calibration (strict):
+  high   — Both axes are unambiguous. A clear direct question in plain English, a clear team-inbox sender, a clear program-full decline. No reasonable human would disagree.
+  medium — One axis is ambiguous OR the email contains contradictory signals (e.g., personalized opener + boilerplate body, or both an action ask AND a reply ask). If you find yourself saying "probably X", it is medium.
+  low    — Genuinely unsure. You need more context than the email provides. Human should review.
 
 EXAMPLES:
 
@@ -111,6 +111,12 @@ Example 5:
 Example 6:
   Body: "Finn, please fill out our recruiting questionnaire at <link> so we can evaluate you."
   → {"authored_by":"coach_personal","intent":"requires_action","confidence":"medium","notes":"Action requested (fill form), not a reply; medium confidence because sender wasn't clearly coach vs. staff"}
+
+Example 7 — recruiting-template email with multiple asks:
+  Body: "Finn, thank you for reaching out. Please keep us updated on your schedule moving forward. Please also see the information below for our program, camps, and questionnaire..."
+  (email contains links to questionnaire + camp registration, extensive program marketing, and a 'keep us updated' pleasantry)
+  → {"authored_by":"coach_via_platform","intent":"requires_action","confidence":"high","notes":"Template-style recruiting email with concrete asks (fill form, attend camp). 'Keep us updated' is conversational framing, not the primary ask."}
+  RULE: when an email contains BOTH a pleasantry phrase ("keep us updated", "stay in touch") AND concrete action links (forms, camps, questionnaires), classify as requires_action. Concrete asks take priority over conversational framing.
 
 Respond ONLY with valid JSON matching this exact shape:
 {"authored_by":"<value>","intent":"<value>","confidence":"<value>","notes":"<string under 200 chars>"}`
