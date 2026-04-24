@@ -20,6 +20,7 @@ function buildNavItems(
   return [
     { label: 'Today',          href: '/'                       },
     { label: 'Schools',        href: '/schools'                },
+    { label: 'Campaigns',      href: '/campaigns'              },
     { label: 'Library',        href: '/library'                },
     { label: 'Import',         href: '/bulk-import'            },
     { label: 'Review',         href: '/settings/coach-changes',

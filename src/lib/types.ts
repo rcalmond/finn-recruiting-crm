@@ -189,6 +189,49 @@ export interface Coach {
   updated_at: string
 }
 
+// ─── Campaigns (Phase 2a) ─────────────────────────────────────────────────────
+
+export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed'
+export type CampaignSchoolStatus = 'pending' | 'sent' | 'dismissed' | 'bounced'
+
+export interface CampaignTemplate {
+  id: string
+  name: string
+  body: string
+  created_at: string
+  updated_at: string
+}
+
+export interface Campaign {
+  id: string
+  name: string
+  template_id: string
+  status: CampaignStatus
+  tier_scope: string[]
+  throttle_days: number
+  created_at: string
+  activated_at: string | null
+  completed_at: string | null
+  // joined
+  template?: CampaignTemplate
+}
+
+/** Row in campaign_schools, with school + coach joined */
+export interface CampaignSchool {
+  id: string
+  campaign_id: string
+  school_id: string
+  coach_id: string | null
+  status: CampaignSchoolStatus
+  sent_at: string | null
+  contact_log_id: string | null
+  dismissed_at: string | null
+  created_at: string
+  // joined
+  school?: Pick<School, 'id' | 'name' | 'short_name' | 'category'>
+  coach?: Pick<Coach, 'id' | 'name' | 'role' | 'email'> | null
+}
+
 // ─── Filter state ─────────────────────────────────────────────────────────────
 
 export interface PipelineFilters {
