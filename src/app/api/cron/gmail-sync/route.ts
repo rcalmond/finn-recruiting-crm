@@ -257,7 +257,7 @@ export async function GET(req: NextRequest) {
       }
 
       // 6e. Insert into contact_log
-      const { error: insertErr } = await admin.from('contact_log').insert({
+      const { data: insertedRow, error: insertErr } = await admin.from('contact_log').insert({
         school_id:         schoolId,
         date:              parsed.isoDate,
         channel:           'Email',
@@ -272,7 +272,7 @@ export async function GET(req: NextRequest) {
         parse_status:      parseStatus,
         parse_notes:       parseNotes.length > 0 ? parseNotes.join('; ') : null,
         created_by:        null,
-      })
+      }).select('id').single()
 
       if (insertErr) {
         console.error(`[gmail-sync] ${startedAt} — insert failed for ${messageId}: ${insertErr.message}`)
@@ -282,6 +282,20 @@ export async function GET(req: NextRequest) {
 
       stats.inserted++
       if (parseStatus === 'partial') stats.partial++
+
+      // 6f. Fire-and-forget inbound classification
+      if (parsed.direction === 'Inbound' && insertedRow?.id) {
+        const rowId = insertedRow.id
+        const classifyInput = {
+          summary:    parsed.body || parsed.snippet,
+          coach_name: coachName,
+          raw_source: details.textBody ?? null,
+          channel:    'Email',
+        }
+        import('@/lib/classify-inbound').then(({ classifyAndUpdate }) =>
+          classifyAndUpdate(admin, rowId, classifyInput)
+        ).catch(err => console.error(`[gmail-sync] classify import failed for ${messageId}:`, err))
+      }
 
       console.log(
         `[gmail-sync] ${startedAt} — ${parsed.direction} | ${parsed.isoDate} | ` +

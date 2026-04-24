@@ -326,6 +326,41 @@ for school matching, and classify direction as Inbound (since the forwarded cont
 reply). Do not remove the forwarded-message detection logic currently in place — it just needs
 to act on the inner headers, not the outer.
 
+### Inbound Classification — Phase 1 (migration 023, shipped 2026-04-23)
+
+**Two-axis model:** Every inbound `contact_log` row gets classified on two independent axes:
+- `authored_by`: `coach_personal` | `coach_via_platform` | `team_automated` | `staff_non_coach` | `unknown`
+- `intent`: `requires_reply` | `requires_action` | `informational` | `acknowledgement` | `decline` | `unknown`
+
+**Classifier:** `src/lib/classify-inbound.ts` — Claude Haiku (`claude-haiku-4-5-20251001`), fire-and-forget.
+- Exports `classifyInbound(input)` and `classifyAndUpdate(admin, rowId, input)`
+- Truncates body to 1500 chars for cost control
+- Fallback: `{unknown, unknown, low, "classifier parse error..."}` on any failure
+- Never throws — all errors are logged and swallowed
+
+**Live hooks:** Both `/api/cron/gmail-sync` and `/api/webhooks/sendgrid-inbound` fire `classifyAndUpdate`
+as a dynamic import after every successful Inbound insert. Uses `dynamic import().then().catch()` so
+classification never blocks or breaks the insert path.
+
+**Backfill:** `scripts/backfill-inbound-classification.ts` — supports `--dry-run` and `--reclassify-all`.
+Rate-limited to 5 calls/sec (200ms delay). Cost ~$0.00085/row (Haiku pricing).
+
+**Review UI:** `/settings/classification-review` — shows all low-confidence classified inbound rows.
+Groups by school. Per-card: authored_by + intent chips, Haiku notes, snippet with expand, override dropdowns,
+"Save override" (sets confidence=high, removes from queue) and "Mark unknown" buttons.
+Low-confidence count badge appears in sidebar nav ("Email Review" link).
+
+**Today filter (`src/lib/todayLogic.ts` — `isActionableReply`):**
+Unclassified rows (`classified_at IS NULL`) are conservatively included.
+Filtered OUT once classified:
+- `team_automated` or `staff_non_coach` authors (regardless of intent)
+- `informational`, `acknowledgement`, or `decline` intent
+- `requires_action` intent (camp invites, questionnaire requests — handled via action items)
+
+**Tier selector:** School detail page (`SchoolDetailClient.tsx`) now shows a dropdown to change
+`schools.category` (A/B/C/Nope) inline. Uses existing `useSchools().updateSchool()` — no new API endpoint.
+No migration needed (category column already existed).
+
 ### Review Queue — Part 5d initial seed outcomes (closed 2026-04-23)
 All 23 manual items from the initial seed run have been resolved (0 pending):
 - 13 coach_departed — applied (real departures)
@@ -361,7 +396,7 @@ If an existing Head Coach gets re-classified to a lower role AND no new Head Coa
 
 ---
 
-## 11. Live Pipeline — Generated April 23, 2026
+## 11. Live Pipeline — Generated April 24, 2026
 
 **Active schools: 34** | Overdue actions: 27
 (Category Nope and status Inactive excluded)
@@ -381,6 +416,16 @@ SCHOOL: Cal Poly San Luis Obispo (Cal Poly SLO)
   Videos Sent: Yes
   Next Action: Wingback update email (Finn) — due 2026-04-18
   Contact Log (3 shown):
+    [2026-04-19] Inbound via Email — Brandon Bautista:
+      Hello!
+      
+      Thanks for filling out our questionnaire. I wanted to share our summer ID camp info with you so you can put it on your radar. Please see the dates below:
+      
+        *   May 9 & 10, 2026
+      
+        *   August 1 & 2, 2026
+      
+      Our ID Camp is an excellent opportunity to participate in training sessions and game...
     [2026-04-03] Inbound via Sports Recruits — Brandon Bautista:
       Hi Finn,
       
@@ -395,13 +440,6 @@ SCHOOL: Cal Poly San Luis Obispo (Cal Poly SLO)
       
       I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Cal Poly SLO's back-to-back Big West titles and the reputation of the engineering college — especially the aerospace and mechanical programs — make this one of the most compelling programs on my list.
       ...
-    [2025-12-03] Outbound via Sports Recruits — Oige Kennedy; Zach Watson; Brandon Bautista:
-      Hi Coach,
-      I wanted to follow up quickly in case my earlier email got buried.
-      
-      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in your program and would love it if you could check out one of my games at MLS Next Fest.
-      
-      Here is my schedule in...
 
 SCHOOL: Case Western
   Status: Ongoing Conversation
@@ -646,6 +684,19 @@ Thanks for reaching out about your interest. I am impressed with your film as yo
       I'll keep you updated on my upcoming games and whether we qualify for MLS NEXT Cup in Utah.
       
       Best,...
+    [2026-04-20] Outbound via Sports Recruits — Ben Cross:
+      Hi Coach,
+      
+       
+      That works perfect! Im looking forward to it.
+      
+       
+      Here's my phone number (720)-687-8982
+      
+       
+      Best,
+      
+      Finn Almond
     [2026-04-20] Inbound via Sports Recruits — Ben Cross:
       Finn,
       
@@ -664,19 +715,6 @@ Thanks for reaching out about your interest. I am impressed with your film as yo
       <https://questionnaires.armssoftware.com/0fbb1bedbe0c>
       
       *Jun...
-    [2026-04-20] Outbound via Sports Recruits — Ben Cross:
-      Hi Coach,
-      
-       
-      That works perfect! Im looking forward to it.
-      
-       
-      Here's my phone number (720)-687-8982
-      
-       
-      Best,
-      
-      Finn Almond
 
 SCHOOL: WPI
   Status: Intro Sent
@@ -731,6 +769,13 @@ Strong Mental Game
       Good to see you in Phoenix — I appreciated the conversation and wanted to follow up.
       
       I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. The things your staff emphasized — high press, strong mental game — are central to how I play. I'm a defender who wa...
+    [2025-12-03] Inbound via Sports Recruits — Dave Brandt:
+      *Finn-appreciate you reaching out; we are now at the point where we will
+      begin to look closely at 27’s, so good to hear from you. A ton of very
+      relevant and specific info below on both Bucknell and all aspects of what
+      is a unique and successful program culture.*
+      
+      1. first, we will look closely at...
     [2025-12-03] Outbound via Sports Recruits — Dave Brandt:
       Hi Coach,
       
@@ -741,13 +786,6 @@ Strong Mental Game
       Thanks,
       
       Finn
-    [2025-12-03] Inbound via Sports Recruits — Dave Brandt:
-      *Finn-appreciate you reaching out; we are now at the point where we will
-      begin to look closely at 27’s, so good to hear from you. A ton of very
-      relevant and specific info below on both Bucknell and all aspects of what
-      is a unique and successful program culture.*
-      
-      1. first, we will look closely at...
 
 SCHOOL: Cal Poly Pomona
   Status: Intro Sent
@@ -886,11 +924,15 @@ SCHOOL: Lehigh University
       Thanks,
       
       Finn
-    [2025-11-28] Outbound via Sports Recruits — Dean Koski; Ryan Hess; Will Flannery:
-      Hi Coach,
-      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Lehigh because of its strong engineering college and the competitive style of play in the Patriot League.
+    [2025-11-28] Inbound via Sports Recruits — Will Flannery:
+      Finn,
       
-      I just wrapped up my high school season with 29 goals and 14 assists, ea...
+      Thank you for your email and for your interest in Lehigh University & our
+      Men’s Soccer program. We will make every effort to attend one of your
+      matches at the upcoming event.
+      
+      In the meantime, please fill out the questionnaire (linked below) to be
+      added to our recruiting database, and see ...
 
 SCHOOL: Middlebury
   Status: Ongoing Conversation
@@ -1046,12 +1088,6 @@ SCHOOL: Stevens Institute of Technology
   RQ Status: Completed
   Videos Sent: Yes
   Contact Log (3 shown):
-    [2026-04-22] Outbound via Sports Recruits — Dale Jordan:
-      Hi Jordan,
-      
-      Thanks for the reply. Unfortunately we won't be in Dallas — Flex is Homegrown Division, and my club (Albion SC Colorado) is in the Academy Division, so our qualifier was in Scottsdale earlier this month. We went 2-2-0 and I scored an Olimpico directly off a corner.
-      
-      We're currently 2n...
     [2026-04-22] Inbound via Sports Recruits — Dale Jordan:
       Thanks for sharing
       
@@ -1060,6 +1096,12 @@ SCHOOL: Stevens Institute of Technology
       Cheers
       
       Dale
+    [2026-04-22] Outbound via Sports Recruits — Dale Jordan:
+      Hi Jordan,
+      
+      Thanks for the reply. Unfortunately we won't be in Dallas — Flex is Homegrown Division, and my club (Albion SC Colorado) is in the Academy Division, so our qualifier was in Scottsdale earlier this month. We went 2-2-0 and I scored an Olimpico directly off a corner.
+      
+      We're currently 2n...
     [2026-04-21] Outbound via Sports Recruits — Dale Jordan; Duncan Swanwick:
       Coach Jordan,
       
@@ -1687,6 +1729,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-23 | Phase 1: Inbound classification — migration 023 (authored_by × intent two-axis model, Haiku classifier, fire-and-forget live hook, /settings/classification-review UI, Today filter, tier selector on school detail) | Schema + Feature |
 | 2026-04-23 | Part 5b: Gmail partials review UI — migration 022 (parse_status full/partial/non_coach/orphan, coaches.source), /settings/gmail-partials UI, reparsePartialsForSchool, backfill rescued 4 rows | Schema + Feature |
 | 2026-04-23 | Part 5 complete: SPA skip (Notre Dame), ND coaches seeded, 18 queue items applied, 5 resolved (4 rejected team-inbox/false-positive, 1 accepted Emory 7-char convention) | Schema + Feature |
 | 2026-04-23 | Part 5d: Coach Roster Scraper — migration 020, scraper with Claude Haiku 4.5, URL discovery, initial seed (6 new coaches), Sun+Wed cron, /settings/coach-changes review UI, Today view callout | Feature |

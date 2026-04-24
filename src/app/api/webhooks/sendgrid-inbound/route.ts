@@ -708,7 +708,7 @@ export async function POST(req: NextRequest) {
 
   // 11. Write contact_log entry
   const summary = messageBody || srSubject || subject
-  const { error: insertError } = await admin.from('contact_log').insert({
+  const { data: insertedRow, error: insertError } = await admin.from('contact_log').insert({
     school_id:        schoolId,
     date:             messageDate,
     channel:          'Sports Recruits',
@@ -722,7 +722,7 @@ export async function POST(req: NextRequest) {
     parse_status:     parseStatus,
     parse_notes:      parseNotes,
     created_by:       null,
-  })
+  }).select('id').single()
 
   if (insertError) {
     console.log(`[sg-inbound] ${receivedAt} — DB insert error: ${insertError.message}`)
@@ -737,6 +737,20 @@ export async function POST(req: NextRequest) {
     ` | school="${parsedSchoolName ?? '?'}" coach="${parsedCoachName ?? '?'}"`
   )
   if (parseNotes) console.log(`[sg-inbound] notes: ${parseNotes}`)
+
+  // Fire-and-forget inbound classification
+  if (insertedRow?.id) {
+    const rowId = insertedRow.id
+    const classifyInput = {
+      summary,
+      coach_name: parsedCoachName ?? null,
+      raw_source: fullBodyText,
+      channel:    'Sports Recruits',
+    }
+    import('@/lib/classify-inbound').then(({ classifyAndUpdate }) =>
+      classifyAndUpdate(admin, rowId, classifyInput)
+    ).catch(err => console.error(`[sg-inbound] classify import failed:`, err))
+  }
 
   return NextResponse.json({ ok: true })
 }

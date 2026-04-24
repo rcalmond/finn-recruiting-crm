@@ -102,11 +102,41 @@ export function getThisWeekItems(actionItems: ActionItem[], today: string): Acti
   })
 }
 
+// ─── Classification filter (Phase 1) ─────────────────────────────────────────
+
+/**
+ * Returns true if a classified inbound warrants a reply from Finn.
+ * Conservative: unclassified rows (classified_at == null) are included
+ * so nothing disappears before the backfill or live-hook has run.
+ *
+ * Filtered OUT:
+ *   - team_automated or staff_non_coach authors (regardless of intent)
+ *   - informational, acknowledgement, or decline intent
+ *   - requires_action intent (camp invites, questionnaire requests — not a reply)
+ */
+function isActionableReply(e: ContactLogEntry): boolean {
+  if (!e.classified_at) return true   // unclassified: include conservatively
+
+  const { authored_by, intent } = e
+
+  // Non-coach/non-human senders never need a reply
+  if (authored_by === 'team_automated' || authored_by === 'staff_non_coach') return false
+
+  // These intents never require Finn to write back
+  if (intent === 'informational' || intent === 'acknowledgement' || intent === 'decline') return false
+
+  // Camp invites, questionnaire requests, etc. are handled via action items
+  if (intent === 'requires_action') return false
+
+  return true
+}
+
 // ─── Filtered awaiting replies (for Section 2 display) ───────────────────────
 
 /**
  * Returns unreplied inbounds filtered for display in the Awaiting section.
  * Noise-reduction rules:
+ *   - Phase 1 classification filter: exclude non-actionable rows (see isActionableReply)
  *   - Always include: inbound within last 30 days (any category)
  *   - Include: A/B school inbounds up to 90 days old
  *   - Exclude: anything older than 90 days
@@ -121,6 +151,9 @@ export function getFilteredAwaitingReplies(
   const unreplied = getUnrepliedInbounds(log)
 
   return unreplied.filter(e => {
+    // Phase 1: classification axis filter
+    if (!isActionableReply(e)) return false
+
     const daysOld = daysBetween(e.date)
     if (daysOld > 90) return false
     if (daysOld <= 30) return true

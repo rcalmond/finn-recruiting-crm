@@ -60,6 +60,12 @@ export interface ContactLogEntry {
   parse_notes?: string | null
   coach_id?: string | null           // FK to coaches.id; null if no match found
   content_hash?: string | null       // sha256 dedup key for bulk-imported rows (migration 017)
+  // inbound classification (migration 023)
+  authored_by?: 'coach_personal' | 'coach_via_platform' | 'team_automated' | 'staff_non_coach' | 'unknown' | null
+  intent?: 'requires_reply' | 'requires_action' | 'informational' | 'acknowledgement' | 'decline' | 'unknown' | null
+  classification_confidence?: 'high' | 'medium' | 'low' | null
+  classification_notes?: string | null
+  classified_at?: string | null      // ISO timestamp; null = never classified
   // joined
   school?: Pick<School, 'id' | 'name' | 'short_name'>
 }

@@ -77,10 +77,11 @@ function StageDots({ stage, size = 9 }: { stage: number; size?: number }) {
 // ─── Header ───────────────────────────────────────────────────────────────────
 
 function DetailHeader({
-  school, stage, prevSchool, nextSchool,
+  school, stage, prevSchool, nextSchool, onTierChange,
 }: {
   school: School; stage: number
   prevSchool: School | null; nextSchool: School | null
+  onTierChange?: (tier: string) => void
 }) {
   const router = useRouter()
   const metaParts = [school.division, school.conference, school.location].filter(Boolean).join(' · ')
@@ -109,9 +110,28 @@ function DetailHeader({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {/* Sibling nav — desktop only */}
           <div className="hidden md:flex" style={{ alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: SD.inkLo, fontWeight: 600 }}>
-              Tier {school.category}
-            </span>
+            {onTierChange ? (
+              <select
+                value={school.category}
+                onChange={e => onTierChange(e.target.value)}
+                title="Change tier"
+                style={{
+                  fontSize: 11, fontWeight: 600, color: SD.inkLo,
+                  background: 'transparent', border: `1px solid ${SD.line}`,
+                  borderRadius: 4, padding: '2px 6px', cursor: 'pointer',
+                  outline: 'none', appearance: 'none',
+                }}
+              >
+                <option value="A">Tier A</option>
+                <option value="B">Tier B</option>
+                <option value="C">Tier C</option>
+                <option value="Nope">Nope</option>
+              </select>
+            ) : (
+              <span style={{ fontSize: 11, color: SD.inkLo, fontWeight: 600 }}>
+                Tier {school.category}
+              </span>
+            )}
             <button
               onClick={() => prevSchool && router.push(`/schools/${prevSchool.id}`)}
               disabled={!prevSchool}
@@ -1094,7 +1114,7 @@ export default function SchoolDetailClient({
   const [prepOpen, setPrepOpen]       = useState(false)
 
   // ── Realtime subscriptions ─────────────────────────────────────────────────
-  const { schools, loading: schoolsLoading }   = useSchools()
+  const { schools, loading: schoolsLoading, updateSchool } = useSchools()
   const { entries: contactLog, loading: logLoading, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
   const { items: actionItems, loading: actionsLoading, deleteItem } = useActionItems(initialSchool.id)
   const { coaches, setPrimary } = useCoaches(initialSchool.id)
@@ -1151,6 +1171,7 @@ export default function SchoolDetailClient({
         stage={stage}
         prevSchool={prevSchool}
         nextSchool={nextSchool}
+        onTierChange={async (tier) => { await updateSchool(school.id, { category: tier as School['category'] }) }}
       />
 
       <ActionBar

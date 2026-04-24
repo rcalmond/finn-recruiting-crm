@@ -12,16 +12,22 @@ type NavItem = {
 // Sub-paths that belong to the Library section
 const LIBRARY_PATHS = ['/library', '/assets', '/questions']
 
-function buildNavItems(pendingCoachChanges: number, pendingGmailPartials: number): NavItem[] {
+function buildNavItems(
+  pendingCoachChanges: number,
+  pendingGmailPartials: number,
+  pendingClassification: number,
+): NavItem[] {
   return [
     { label: 'Today',          href: '/'                       },
     { label: 'Schools',        href: '/schools'                },
     { label: 'Library',        href: '/library'                },
     { label: 'Import',         href: '/bulk-import'            },
-    { label: 'Review',  href: '/settings/coach-changes',
+    { label: 'Review',         href: '/settings/coach-changes',
       count: pendingCoachChanges > 0 ? pendingCoachChanges : undefined },
     { label: 'Gmail Partials', href: '/settings/gmail-partials',
       count: pendingGmailPartials > 0 ? pendingGmailPartials : undefined },
+    { label: 'Email Review',   href: '/settings/classification-review',
+      count: pendingClassification > 0 ? pendingClassification : undefined },
     { label: 'Settings',       href: '/settings/gmail'         },
   ]
 }
@@ -30,12 +36,14 @@ function buildNavItems(pendingCoachChanges: number, pendingGmailPartials: number
 export function AppSidebar({
   pendingCoachChanges = 0,
   pendingGmailPartials = 0,
+  pendingClassification = 0,
 }: {
   pendingCoachChanges?: number
   pendingGmailPartials?: number
+  pendingClassification?: number
 }) {
   const pathname = usePathname()
-  const NAV_ITEMS = buildNavItems(pendingCoachChanges, pendingGmailPartials)
+  const NAV_ITEMS = buildNavItems(pendingCoachChanges, pendingGmailPartials, pendingClassification)
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
@@ -135,12 +143,14 @@ export function AppSidebar({
 export function AppBottomNav({
   pendingCoachChanges = 0,
   pendingGmailPartials = 0,
+  pendingClassification = 0,
 }: {
   pendingCoachChanges?: number
   pendingGmailPartials?: number
+  pendingClassification?: number
 }) {
   const pathname = usePathname()
-  const NAV_ITEMS = buildNavItems(pendingCoachChanges, pendingGmailPartials)
+  const NAV_ITEMS = buildNavItems(pendingCoachChanges, pendingGmailPartials, pendingClassification)
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'

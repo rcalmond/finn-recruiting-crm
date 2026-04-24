@@ -33,10 +33,25 @@ async function getPendingGmailPartials(): Promise<number> {
   }
 }
 
+async function getPendingClassification(): Promise<number> {
+  try {
+    const { count } = await makeAdmin()
+      .from('contact_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('direction', 'Inbound')
+      .eq('classification_confidence', 'low')
+      .not('classified_at', 'is', null)
+    return count ?? 0
+  } catch {
+    return 0
+  }
+}
+
 export default async function AppShellLayout({ children }: { children: React.ReactNode }) {
-  const [pendingCoachChanges, pendingGmailPartials] = await Promise.all([
+  const [pendingCoachChanges, pendingGmailPartials, pendingClassification] = await Promise.all([
     getPendingCoachChanges(),
     getPendingGmailPartials(),
+    getPendingClassification(),
   ])
 
   return (
@@ -46,6 +61,7 @@ export default async function AppShellLayout({ children }: { children: React.Rea
         <AppSidebar
           pendingCoachChanges={pendingCoachChanges}
           pendingGmailPartials={pendingGmailPartials}
+          pendingClassification={pendingClassification}
         />
       </div>
 
@@ -59,6 +75,7 @@ export default async function AppShellLayout({ children }: { children: React.Rea
         <AppBottomNav
           pendingCoachChanges={pendingCoachChanges}
           pendingGmailPartials={pendingGmailPartials}
+          pendingClassification={pendingClassification}
         />
       </div>
     </>

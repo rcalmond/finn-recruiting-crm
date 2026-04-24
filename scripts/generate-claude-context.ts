@@ -521,6 +521,41 @@ for school matching, and classify direction as Inbound (since the forwarded cont
 reply). Do not remove the forwarded-message detection logic currently in place — it just needs
 to act on the inner headers, not the outer.
 
+### Inbound Classification — Phase 1 (migration 023, shipped 2026-04-23)
+
+**Two-axis model:** Every inbound \`contact_log\` row gets classified on two independent axes:
+- \`authored_by\`: \`coach_personal\` | \`coach_via_platform\` | \`team_automated\` | \`staff_non_coach\` | \`unknown\`
+- \`intent\`: \`requires_reply\` | \`requires_action\` | \`informational\` | \`acknowledgement\` | \`decline\` | \`unknown\`
+
+**Classifier:** \`src/lib/classify-inbound.ts\` — Claude Haiku (\`claude-haiku-4-5-20251001\`), fire-and-forget.
+- Exports \`classifyInbound(input)\` and \`classifyAndUpdate(admin, rowId, input)\`
+- Truncates body to 1500 chars for cost control
+- Fallback: \`{unknown, unknown, low, "classifier parse error..."}\` on any failure
+- Never throws — all errors are logged and swallowed
+
+**Live hooks:** Both \`/api/cron/gmail-sync\` and \`/api/webhooks/sendgrid-inbound\` fire \`classifyAndUpdate\`
+as a dynamic import after every successful Inbound insert. Uses \`dynamic import().then().catch()\` so
+classification never blocks or breaks the insert path.
+
+**Backfill:** \`scripts/backfill-inbound-classification.ts\` — supports \`--dry-run\` and \`--reclassify-all\`.
+Rate-limited to 5 calls/sec (200ms delay). Cost ~\$0.00085/row (Haiku pricing).
+
+**Review UI:** \`/settings/classification-review\` — shows all low-confidence classified inbound rows.
+Groups by school. Per-card: authored_by + intent chips, Haiku notes, snippet with expand, override dropdowns,
+"Save override" (sets confidence=high, removes from queue) and "Mark unknown" buttons.
+Low-confidence count badge appears in sidebar nav ("Email Review" link).
+
+**Today filter (\`src/lib/todayLogic.ts\` — \`isActionableReply\`):**
+Unclassified rows (\`classified_at IS NULL\`) are conservatively included.
+Filtered OUT once classified:
+- \`team_automated\` or \`staff_non_coach\` authors (regardless of intent)
+- \`informational\`, \`acknowledgement\`, or \`decline\` intent
+- \`requires_action\` intent (camp invites, questionnaire requests — handled via action items)
+
+**Tier selector:** School detail page (\`SchoolDetailClient.tsx\`) now shows a dropdown to change
+\`schools.category\` (A/B/C/Nope) inline. Uses existing \`useSchools().updateSchool()\` — no new API endpoint.
+No migration needed (category column already existed).
+
 ### Review Queue — Part 5d initial seed outcomes (closed 2026-04-23)
 All 23 manual items from the initial seed run have been resolved (0 pending):
 - 13 coach_departed — applied (real departures)
@@ -570,6 +605,7 @@ const STATIC_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-23 | Phase 1: Inbound classification — migration 023 (authored_by × intent two-axis model, Haiku classifier, fire-and-forget live hook, /settings/classification-review UI, Today filter, tier selector on school detail) | Schema + Feature |
 | 2026-04-23 | Part 5b: Gmail partials review UI — migration 022 (parse_status full/partial/non_coach/orphan, coaches.source), /settings/gmail-partials UI, reparsePartialsForSchool, backfill rescued 4 rows | Schema + Feature |
 | 2026-04-23 | Part 5 complete: SPA skip (Notre Dame), ND coaches seeded, 18 queue items applied, 5 resolved (4 rejected team-inbox/false-positive, 1 accepted Emory 7-char convention) | Schema + Feature |
 | 2026-04-23 | Part 5d: Coach Roster Scraper — migration 020, scraper with Claude Haiku 4.5, URL discovery, initial seed (6 new coaches), Sun+Wed cron, /settings/coach-changes review UI, Today view callout | Feature |
