@@ -304,9 +304,27 @@ Not actionable in the short term.
 - Backfill scope: 17 Gmail partials (`gmail_message_id IS NOT NULL`)
 - Rescued: 4 (Caltech x3 — Rockne DeCoster; Colgate x1 — "Rick Brown" matched "Ricky Brown")
 - Post-backfill: 136 partial + 100 full
-- Gmail partials remaining in review queue: 13
+- Gmail partials resolved via review UI: 1 (see forwarded-message bug below)
+- Gmail partials remaining: 0
 - Non-Gmail partials (out of scope): 123
-Math validates end-to-end: event-driven reparse, UI writes, and status transitions are consistent.
+
+**Forwarded-message parser bug (known, not fixed in parser — 2026-04-23):**
+When Randy forwards an inbound coach email to himself/Finn, the Gmail sync ingests it as a
+separate message. The outer `From` is Randy → `direction=Outbound`. If the original subject
+contains a school name that collides with another school (e.g. "MIT Camp Attendee" in a Colgate
+email), the subject-based school match fires first and wins over the domain match, because the
+domain match is skipped when outer From = Randy's address.
+
+Concrete case: `contact_log fd453e74` — Randy forwarded Rick Brown's Colgate reply. Subject
+"Re: MIT Camp Attendee | 2027 Striker | Finn Almond" → parser matched MIT (low confidence).
+Outer From=Randy → Outbound. Manual fix applied 2026-04-23: school_id=Colgate, direction=Inbound,
+parse_status=non_coach (the actual Colgate/Rick Brown contact already exists in row 628d6317 as
+status=full; marking the forwarded copy non_coach avoids duplication).
+
+Parser fix needed: detect "Forwarded message" in raw_source, extract inner `From:` header domain
+for school matching, and classify direction as Inbound (since the forwarded content is an inbound
+reply). Do not remove the forwarded-message detection logic currently in place — it just needs
+to act on the inner headers, not the outer.
 
 ### Review Queue — Part 5d initial seed outcomes (closed 2026-04-23)
 All 23 manual items from the initial seed run have been resolved (0 pending):
@@ -868,15 +886,11 @@ SCHOOL: Lehigh University
       Thanks,
       
       Finn
-    [2025-11-28] Inbound via Sports Recruits — Will Flannery:
-      Finn,
+    [2025-11-28] Outbound via Sports Recruits — Dean Koski; Ryan Hess; Will Flannery:
+      Hi Coach,
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Lehigh because of its strong engineering college and the competitive style of play in the Patriot League.
       
-      Thank you for your email and for your interest in Lehigh University & our
-      Men’s Soccer program. We will make every effort to attend one of your
-      matches at the upcoming event.
-      
-      In the meantime, please fill out the questionnaire (linked below) to be
-      added to our recruiting database, and see ...
+      I just wrapped up my high school season with 29 goals and 14 assists, ea...
 
 SCHOOL: Middlebury
   Status: Ongoing Conversation
@@ -1032,6 +1046,12 @@ SCHOOL: Stevens Institute of Technology
   RQ Status: Completed
   Videos Sent: Yes
   Contact Log (3 shown):
+    [2026-04-22] Outbound via Sports Recruits — Dale Jordan:
+      Hi Jordan,
+      
+      Thanks for the reply. Unfortunately we won't be in Dallas — Flex is Homegrown Division, and my club (Albion SC Colorado) is in the Academy Division, so our qualifier was in Scottsdale earlier this month. We went 2-2-0 and I scored an Olimpico directly off a corner.
+      
+      We're currently 2n...
     [2026-04-22] Inbound via Sports Recruits — Dale Jordan:
       Thanks for sharing
       
@@ -1040,12 +1060,6 @@ SCHOOL: Stevens Institute of Technology
       Cheers
       
       Dale
-    [2026-04-22] Outbound via Sports Recruits — Dale Jordan:
-      Hi Jordan,
-      
-      Thanks for the reply. Unfortunately we won't be in Dallas — Flex is Homegrown Division, and my club (Albion SC Colorado) is in the Academy Division, so our qualifier was in Scottsdale earlier this month. We went 2-2-0 and I scored an Olimpico directly off a corner.
-      
-      We're currently 2n...
     [2026-04-21] Outbound via Sports Recruits — Dale Jordan; Duncan Swanwick:
       Coach Jordan,
       
@@ -1072,12 +1086,6 @@ SCHOOL: Washington University
       At camp, you will:
       
         *   Train and compete directly in front of the ...
-    [2026-04-02] Outbound via Sports Recruits:
-      Coach Bordelon,
-      
-      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Wash U's position in the UAA — among the top academic D3 programs in the country — is something I've had on my radar for a while.
-      
-      I play an attacking left wingback role. My game is built around makin...
     [2026-04-02] Inbound via Sports Recruits — Jack Mathis:
       Hello,
       
@@ -1085,6 +1093,12 @@ SCHOOL: Washington University
       have left the position as of 1/9/26 and will no longer be responding to
       emails for Wash U in St. Louis. Please reach out to Coach Bordelon for all
       questions regarding Wash U Men's Soccer. His email is bordelon@wust...
+    [2026-04-02] Outbound via Sports Recruits:
+      Coach Bordelon,
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Wash U's position in the UAA — among the top academic D3 programs in the country — is something I've had on my radar for a while.
+      
+      I play an attacking left wingback role. My game is built around makin...
 
 ### Tier C — Exploratory (14 schools)
 
@@ -1162,16 +1176,31 @@ SCHOOL: Bowdoin
       I wanted to follow up after connecting with your staff in Arizona — it was a good interaction and Bowdoin has stayed on my list.
       
       I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. The NESCAC's combination of academic culture and competitive soccer ...
-    [2025-12-04] Outbound via Sports Recruits — Scott Wiercinski:
-      Hi Coach,
+    [2025-12-04] Inbound via Sports Recruits — Scott Wiercinski:
+      Thanks Finn.
       
-       
-      I just completed the recruiting questionnaire. Looking forward to meeting Coach Banadda. Let me know if you need anything else.
+      Good luck.
       
-       
-      Best,
+      Sincerely,
       
-      Finn Almond
+      Scott Wiercinski
+      
+      Head Coach – Men’s Soccer
+      
+      Bowdoin College
+      
+      9000 College Station
+      
+      Brunswick, Maine 04011
+      
+      (O): 207.725.3665
+      
+      (F): 207.725.3019
+      
+      Bowdoin College <http://www.bowdoin.edu/>
+      
+      Bowdoin College Men's Soccer
+      <http://athletics.bowdoin.edu/sports/msoc...
 
 SCHOOL: Caltech
   Status: Ongoing Conversation

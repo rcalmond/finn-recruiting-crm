@@ -499,9 +499,27 @@ Not actionable in the short term.
 - Backfill scope: 17 Gmail partials (\`gmail_message_id IS NOT NULL\`)
 - Rescued: 4 (Caltech x3 — Rockne DeCoster; Colgate x1 — "Rick Brown" matched "Ricky Brown")
 - Post-backfill: 136 partial + 100 full
-- Gmail partials remaining in review queue: 13
+- Gmail partials resolved via review UI: 1 (see forwarded-message bug below)
+- Gmail partials remaining: 0
 - Non-Gmail partials (out of scope): 123
-Math validates end-to-end: event-driven reparse, UI writes, and status transitions are consistent.
+
+**Forwarded-message parser bug (known, not fixed in parser — 2026-04-23):**
+When Randy forwards an inbound coach email to himself/Finn, the Gmail sync ingests it as a
+separate message. The outer \`From\` is Randy → \`direction=Outbound\`. If the original subject
+contains a school name that collides with another school (e.g. "MIT Camp Attendee" in a Colgate
+email), the subject-based school match fires first and wins over the domain match, because the
+domain match is skipped when outer From = Randy's address.
+
+Concrete case: \`contact_log fd453e74\` — Randy forwarded Rick Brown's Colgate reply. Subject
+"Re: MIT Camp Attendee | 2027 Striker | Finn Almond" → parser matched MIT (low confidence).
+Outer From=Randy → Outbound. Manual fix applied 2026-04-23: school_id=Colgate, direction=Inbound,
+parse_status=non_coach (the actual Colgate/Rick Brown contact already exists in row 628d6317 as
+status=full; marking the forwarded copy non_coach avoids duplication).
+
+Parser fix needed: detect "Forwarded message" in raw_source, extract inner \`From:\` header domain
+for school matching, and classify direction as Inbound (since the forwarded content is an inbound
+reply). Do not remove the forwarded-message detection logic currently in place — it just needs
+to act on the inner headers, not the outer.
 
 ### Review Queue — Part 5d initial seed outcomes (closed 2026-04-23)
 All 23 manual items from the initial seed run have been resolved (0 pending):
