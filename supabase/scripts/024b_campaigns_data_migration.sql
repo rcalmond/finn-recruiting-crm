@@ -17,8 +17,7 @@
 --   938b5a13-aa2c-4faa-bbc9-d114f9031050  -- MLS NEXT Fest + Recruiting questionaire note
 --   46cbae05-aeb6-409e-b987-9de1af0e1d74  -- Update RQ, due 2026-05-29 (Mines, outlier)
 --
--- If any of these IDs appear in the WINGBACK or RQ UUID arrays below, STOP —
--- the script was misconfigured. They are not referenced in either array.
+-- None of these appear in the wingback_ids or rq_ids arrays below.
 -- ─────────────────────────────────────────────────────────────────────────────
 --
 -- Expected outcome:
@@ -26,175 +25,29 @@
 --   campaigns:          2 rows (both status='draft')
 --   campaign_schools:   78 rows total
 --     wingback:         40 rows (~20 sent, ~20 pending based on contact_log matches)
---     rq:              38 rows (all pending — RQ sends have not gone out yet)
+--     rq:               38 rows (all pending — RQ sends have not gone out yet)
 --   action_items:       4 rows remaining (the 4 protected one-offs above)
 -- ─────────────────────────────────────────────────────────────────────────────
 
 begin;
 
--- ── Fixed IDs (declared as CTEs for readability) ─────────────────────────────
--- Using stable UUIDs so the script is reviewable and the IDs are predictable.
-
 do $$
 declare
-  wb_tmpl_id    uuid := 'c4mp0001-0000-4000-8000-000000000001';
-  rq_tmpl_id    uuid := 'c4mp0001-0000-4000-8000-000000000002';
-  wb_camp_id    uuid := 'c4mp0002-0000-4000-8000-000000000001';
-  rq_camp_id    uuid := 'c4mp0002-0000-4000-8000-000000000002';
+  wb_tmpl_id   uuid;
+  rq_tmpl_id   uuid;
+  wb_camp_id   uuid;
+  rq_camp_id   uuid;
 
-  wb_sent       int;
-  wb_pending    int;
-  rq_pending    int;
-  ai_remaining  int;
+  wb_sent      int;
+  wb_pending   int;
+  rq_pending   int;
+  ai_remaining int;
 
-begin
-
-  -- ── 1. Templates ────────────────────────────────────────────────────────────
-  --
-  -- Wingback template synthesized from ~20 full sends in contact_log (Apr 2026).
-  -- Common structure: personalized salutation → core intro with position/club →
-  -- school-specific detail → closer. School-specific text replaced with
-  -- placeholders; Finn should personalize each draft before sending.
-  --
-  -- RQ template is a TODO placeholder — no sufficient historical RQ sends were
-  -- found in contact_log to synthesize from (Finn has not sent RQ update emails
-  -- yet; the 38 action_items are the planned sends). Finn must author the RQ
-  -- body in the campaign UI before activating.
-
-  insert into campaign_templates (id, name, body, created_at, updated_at) values
-  (
-    wb_tmpl_id,
-    'Wingback update — April 2026 v1',
-    E'Coach {{coach_last_name}},\n\nI wanted to follow up and share an update heading into the spring.\n\nI''m Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy — one of the top U19 MLS NEXT academies in the country. {{school_name}}''s program is one I''ve had on my list, and I''m continuing to follow your season closely.\n\n[Finn: add school-specific note — prior meeting, program detail, or specific reason for interest]\n\nA quick update on my season:\n- Starting left wingback for Albion SC Colorado MLS NEXT U19\n- [Finn: add current stats, highlights, or recent results]\n\nI''d love to stay on your radar as you build your 2027 class. Happy to share video or answer any questions you have.\n\nFinn Almond\nClass of 2027 | Left Wingback\nAlbion SC Colorado MLS NEXT Academy\nfinnalmond08@gmail.com',
-    now(),
-    now()
-  ),
-  (
-    rq_tmpl_id,
-    'RQ update — spring 2026 v1',
-    E'TODO: Finn to author RQ template before activating.\n\nMigration found insufficient historical sends to synthesize from — the 38 action_items in this campaign represent planned outbound sends, not completed ones.\n\nSuggested structure:\n\nCoach {{coach_last_name}},\n\nI wanted to follow up — I''ve completed {{school_name}}''s recruiting questionnaire and wanted to make sure you received it.\n\n[Finn: add any specific details about the RQ submission or program interest]\n\nFinn Almond\nClass of 2027 | Left Wingback\nAlbion SC Colorado MLS NEXT Academy\nfinnalmond08@gmail.com',
-    now(),
-    now()
-  );
-
-  -- ── 2. Campaigns ────────────────────────────────────────────────────────────
-
-  insert into campaigns (id, name, template_id, status, tier_scope, throttle_days, created_at) values
-  (
-    wb_camp_id,
-    'Wingback update — April 2026',
-    wb_tmpl_id,
-    'draft',
-    array['A','B'],
-    7,
-    now()
-  ),
-  (
-    rq_camp_id,
-    'RQ update — spring 2026',
-    rq_tmpl_id,
-    'draft',
-    array['A','B'],
-    7,
-    now()
-  );
-
-  -- ── 3. Wingback campaign_schools ────────────────────────────────────────────
-  --
-  -- For each of the 40 wingback action_item school_ids:
-  --   - Find the most recent matching outbound contact_log entry within 60 days
-  --     (school_id match + direction=Outbound + summary ilike '%wingback%').
-  --     Partial sends (gmail_message_id IS NULL) are valid matches.
-  --   - If matched: status='sent', sent_at=contact_log.date, contact_log_id=row id.
-  --   - If not matched: status='pending', sent_at=null, contact_log_id=null.
-  --   - coach_id: current primary coach (is_primary=true), or null if none.
-
-  insert into campaign_schools
-    (campaign_id, school_id, coach_id, status, sent_at, contact_log_id)
-  with
-    wingback_action_schools as (
-      select school_id
-      from action_items
-      where action ilike '%wingback%'
-    ),
-    wb_sends as (
-      -- Most recent matching outbound per school (includes gmail_message_id IS NULL)
-      select distinct on (cl.school_id)
-        cl.school_id,
-        cl.id           as contact_log_id,
-        cl.date::timestamptz as sent_at
-      from contact_log cl
-      where cl.school_id in (select school_id from wingback_action_schools)
-        and cl.direction = 'Outbound'
-        and cl.summary ilike '%wingback%'
-        and cl.date >= (current_date - interval '60 days')
-      order by cl.school_id, cl.date desc
-    ),
-    primary_coaches as (
-      select distinct on (c.school_id)
-        c.school_id,
-        c.id as coach_id
-      from coaches c
-      where c.is_primary = true
-        and c.school_id in (select school_id from wingback_action_schools)
-      order by c.school_id, c.sort_order asc nulls last, c.created_at asc
-    )
-  select
-    wb_camp_id,
-    was.school_id,
-    pc.coach_id,
-    case when wbs.contact_log_id is not null then 'sent' else 'pending' end,
-    wbs.sent_at,
-    wbs.contact_log_id
-  from wingback_action_schools was
-  left join wb_sends   wbs on was.school_id = wbs.school_id
-  left join primary_coaches pc on was.school_id = pc.school_id;
-
-  -- ── 4. RQ campaign_schools ──────────────────────────────────────────────────
-  --
-  -- All 38 RQ schools land as pending. No matching outbound RQ sends were found
-  -- in contact_log within the 60-day window — Finn has not sent these emails yet.
-  -- The 38 action_items were the planned sends; this campaign now tracks them.
-  --
-  -- The May 29 outlier (46cbae05) is excluded — it stays in action_items.
-
-  insert into campaign_schools
-    (campaign_id, school_id, coach_id, status, sent_at, contact_log_id)
-  with
-    rq_action_schools as (
-      select school_id
-      from action_items
-      where (action ilike '%RQ%' or action ilike '%recruiting questionnaire%')
-        and id <> '46cbae05-aeb6-409e-b987-9de1af0e1d74'
-    ),
-    primary_coaches as (
-      select distinct on (c.school_id)
-        c.school_id,
-        c.id as coach_id
-      from coaches c
-      where c.is_primary = true
-        and c.school_id in (select school_id from rq_action_schools)
-      order by c.school_id, c.sort_order asc nulls last, c.created_at asc
-    )
-  select
-    rq_camp_id,
-    ras.school_id,
-    pc.coach_id,
-    'pending',
-    null::timestamptz,
-    null::uuid
-  from rq_action_schools ras
-  left join primary_coaches pc on ras.school_id = pc.school_id;
-
-  -- ── 5. Delete migrated action_items ─────────────────────────────────────────
-  --
-  -- Explicit UUID arrays — no regex. Generated at migration-authoring time
-  -- from: select id from action_items where action ilike '%wingback%' order by created_at;
-  -- and:  select id from action_items where (action ilike '%RQ%'...) and id <> '46cbae05...'
-  --
-  -- WINGBACK (40 rows):
-
-  delete from action_items where id = any(array[
+  -- Explicit UUID arrays — same arrays used for both school-set CTEs and DELETE.
+  -- Both operations derive from the same source; no drift risk.
+  -- Generated at authoring time from:
+  --   select id from action_items where action ilike '%wingback%' order by created_at;
+  wingback_ids uuid[] := array[
     '595fb00b-7652-4354-be82-06487f55baee',
     '9c4a7003-f9e0-4d86-8e86-20554d36235c',
     '4eedd2ac-9409-4c89-8d54-b3d0faaa4945',
@@ -235,11 +88,14 @@ begin
     '85422bee-4e4f-4f77-acb0-abdd7b72fb1e',
     '18b5a724-92c6-4d75-8651-acf234097385',
     '2db8a41a-8cdd-415b-9e70-d1d205bf382f'
-  ]::uuid[]);
+  ]::uuid[];
 
-  -- RQ (38 rows):
-
-  delete from action_items where id = any(array[
+  -- Generated at authoring time from:
+  --   select id from action_items
+  --   where (action ilike '%RQ%' or action ilike '%recruiting questionnaire%')
+  --     and id <> '46cbae05-aeb6-409e-b987-9de1af0e1d74'
+  --   order by due_date, id;
+  rq_ids uuid[] := array[
     '27df010a-3e66-4d45-8bbd-395bcd7cb82f',
     '061f102f-4c08-4f21-82af-eb90bc036458',
     '0e63edc8-c6d6-4018-bb88-5b035f104bae',
@@ -278,7 +134,139 @@ begin
     'dd2216b8-0a16-4c54-ae3a-0c85ac33403f',
     'bfb780d7-4902-4368-b36e-286085c31d7b',
     'fd19fd12-72c5-45e5-9202-92e997997167'
-  ]::uuid[]);
+  ]::uuid[];
+
+begin
+
+  -- ── 1. Templates ────────────────────────────────────────────────────────────
+  --
+  -- Wingback template synthesized from ~20 full sends in contact_log (Apr 2026).
+  -- Common structure: personalized salutation → core intro with position/club →
+  -- school-specific detail → closer. Finn should personalize each draft before
+  -- sending via the draft review UI.
+  --
+  -- RQ template is a TODO placeholder — no sufficient historical RQ sends were
+  -- found in contact_log to synthesize from. Finn must author the RQ body in the
+  -- campaign UI before activating.
+
+  insert into campaign_templates (name, body, created_at, updated_at)
+  values (
+    'Wingback update — April 2026 v1',
+    E'Coach {{coach_last_name}},\n\nI wanted to follow up and share an update heading into the spring.\n\nI''m Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy — one of the top U19 MLS NEXT academies in the country. {{school_name}}''s program is one I''ve had on my list, and I''m continuing to follow your season closely.\n\n[Finn: add school-specific note — prior meeting, program detail, or specific reason for interest]\n\nA quick update on my season:\n- Starting left wingback for Albion SC Colorado MLS NEXT U19\n- [Finn: add current stats, highlights, or recent results]\n\nI''d love to stay on your radar as you build your 2027 class. Happy to share video or answer any questions you have.\n\nFinn Almond\nClass of 2027 | Left Wingback\nAlbion SC Colorado MLS NEXT Academy\nfinnalmond08@gmail.com',
+    now(),
+    now()
+  )
+  returning id into wb_tmpl_id;
+
+  insert into campaign_templates (name, body, created_at, updated_at)
+  values (
+    'RQ update — spring 2026 v1',
+    E'TODO: Finn to author RQ template before activating.\n\nMigration found insufficient historical sends to synthesize from — the 38 action_items in this campaign represent planned outbound sends, not completed ones.\n\nSuggested structure:\n\nCoach {{coach_last_name}},\n\nI wanted to follow up — I''ve completed {{school_name}}''s recruiting questionnaire and wanted to make sure you received it.\n\n[Finn: add any specific details about the RQ submission or program interest]\n\nFinn Almond\nClass of 2027 | Left Wingback\nAlbion SC Colorado MLS NEXT Academy\nfinnalmond08@gmail.com',
+    now(),
+    now()
+  )
+  returning id into rq_tmpl_id;
+
+  -- ── 2. Campaigns ────────────────────────────────────────────────────────────
+
+  insert into campaigns (name, template_id, status, tier_scope, throttle_days, created_at)
+  values ('Wingback update — April 2026', wb_tmpl_id, 'draft', array['A','B'], 7, now())
+  returning id into wb_camp_id;
+
+  insert into campaigns (name, template_id, status, tier_scope, throttle_days, created_at)
+  values ('RQ update — spring 2026', rq_tmpl_id, 'draft', array['A','B'], 7, now())
+  returning id into rq_camp_id;
+
+  -- ── 3. Wingback campaign_schools ────────────────────────────────────────────
+  --
+  -- School set derived from wingback_ids — same array as the delete step.
+  -- For each school:
+  --   - Find the most recent matching outbound contact_log entry within 60 days
+  --     (school_id match + direction=Outbound + summary ilike '%wingback%').
+  --     Partial sends (gmail_message_id IS NULL) are valid matches.
+  --   - If matched: status='sent', sent_at=contact_log.date, contact_log_id=row id.
+  --   - If not matched: status='pending'.
+  --   - coach_id: current primary coach (is_primary=true), or null if none.
+
+  insert into campaign_schools
+    (campaign_id, school_id, coach_id, status, sent_at, contact_log_id)
+  with
+    wingback_action_schools as (
+      select school_id
+      from action_items
+      where id = any(wingback_ids)
+    ),
+    wb_sends as (
+      select distinct on (cl.school_id)
+        cl.school_id,
+        cl.id                as contact_log_id,
+        cl.date::timestamptz as sent_at
+      from contact_log cl
+      where cl.school_id in (select school_id from wingback_action_schools)
+        and cl.direction = 'Outbound'
+        and cl.summary ilike '%wingback%'
+        and cl.date >= (current_date - interval '60 days')
+      order by cl.school_id, cl.date desc
+    ),
+    primary_coaches as (
+      select distinct on (c.school_id)
+        c.school_id,
+        c.id as coach_id
+      from coaches c
+      where c.is_primary = true
+        and c.school_id in (select school_id from wingback_action_schools)
+      order by c.school_id, c.sort_order asc nulls last, c.created_at asc
+    )
+  select
+    wb_camp_id,
+    was.school_id,
+    pc.coach_id,
+    case when wbs.contact_log_id is not null then 'sent' else 'pending' end,
+    wbs.sent_at,
+    wbs.contact_log_id
+  from wingback_action_schools was
+  left join wb_sends      wbs on was.school_id = wbs.school_id
+  left join primary_coaches pc on was.school_id = pc.school_id;
+
+  -- ── 4. RQ campaign_schools ──────────────────────────────────────────────────
+  --
+  -- School set derived from rq_ids — same array as the delete step.
+  -- All 38 land as pending — Finn has not sent RQ update emails yet.
+
+  insert into campaign_schools
+    (campaign_id, school_id, coach_id, status, sent_at, contact_log_id)
+  with
+    rq_action_schools as (
+      select school_id
+      from action_items
+      where id = any(rq_ids)
+    ),
+    primary_coaches as (
+      select distinct on (c.school_id)
+        c.school_id,
+        c.id as coach_id
+      from coaches c
+      where c.is_primary = true
+        and c.school_id in (select school_id from rq_action_schools)
+      order by c.school_id, c.sort_order asc nulls last, c.created_at asc
+    )
+  select
+    rq_camp_id,
+    ras.school_id,
+    pc.coach_id,
+    'pending',
+    null::timestamptz,
+    null::uuid
+  from rq_action_schools ras
+  left join primary_coaches pc on ras.school_id = pc.school_id;
+
+  -- ── 5. Delete migrated action_items ─────────────────────────────────────────
+  --
+  -- Uses the same wingback_ids and rq_ids arrays declared above —
+  -- guaranteed to match the school-set CTEs in steps 3 and 4.
+
+  delete from action_items where id = any(wingback_ids);
+  delete from action_items where id = any(rq_ids);
 
   -- ── 6. Sanity checks ─────────────────────────────────────────────────────────
 
@@ -299,11 +287,11 @@ begin
   raise notice '─────────────────────────────────────────────────────────────';
   raise notice 'Phase 2a data migration complete';
   raise notice '─────────────────────────────────────────────────────────────';
-  raise notice 'Wingback campaign (c4mp0002-...-0001):';
+  raise notice 'Wingback campaign:';
   raise notice '  sent:    %', wb_sent;
   raise notice '  pending: %', wb_pending;
   raise notice '  total:   %', wb_sent + wb_pending;
-  raise notice 'RQ campaign (c4mp0002-...-0002):';
+  raise notice 'RQ campaign:';
   raise notice '  pending: %', rq_pending;
   raise notice 'action_items remaining: % (expected: 4)', ai_remaining;
   raise notice '─────────────────────────────────────────────────────────────';
@@ -328,21 +316,13 @@ commit;
 -- ── Post-commit output (visible in Results tab) ───────────────────────────────
 
 select
-  'wingback' as campaign,
-  status,
-  count(*) as count
-from campaign_schools
-where campaign_id = 'c4mp0002-0000-4000-8000-000000000001'
-group by status
-union all
-select
-  'rq' as campaign,
-  status,
-  count(*) as count
-from campaign_schools
-where campaign_id = 'c4mp0002-0000-4000-8000-000000000002'
-group by status
-order by campaign, status;
+  c.name    as campaign,
+  cs.status,
+  count(*)  as count
+from campaign_schools cs
+join campaigns c on c.id = cs.campaign_id
+group by c.name, cs.status
+order by c.name, cs.status;
 
 select count(*) as action_items_remaining from action_items;
 -- expected: 4
