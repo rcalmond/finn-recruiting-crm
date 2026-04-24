@@ -326,6 +326,17 @@ for school matching, and classify direction as Inbound (since the forwarded cont
 reply). Do not remove the forwarded-message detection logic currently in place — it just needs
 to act on the inner headers, not the outer.
 
+**SendGrid webhook parse_status vocabulary fix (2026-04-24):**
+The SendGrid inbound webhook previously wrote `parse_status='partial'` for non-recruiting inbound
+(non-SR emails) and for SR notifications where no school could be matched — both cases where
+`school_id IS NULL`. This violated Phase 5b vocabulary (`partial` = school known, coach unknown;
+`orphan` = school unknown). 21 historical rows were relabeled to `'orphan'` on 2026-04-24; the
+source-level fix was applied in the same session. Going forward:
+- Non-SR notifications → `'orphan'` (school_id=null, no classification hook)
+- SR notifications with no school match → `'orphan'` (school_id=null, no classification hook)
+- Outbound CC fallback (parseSRPaste fails) → `'orphan'` (school_id=null)
+- Classification (Haiku) only fires when `school_id IS NOT NULL` in both the live hooks and backfill
+
 ### Inbound Classification — Phase 1 (migration 023, shipped 2026-04-23)
 
 **Two-axis model:** Every inbound `contact_log` row gets classified on two independent axes:
@@ -334,9 +345,12 @@ to act on the inner headers, not the outer.
 
 **Classifier:** `src/lib/classify-inbound.ts` — Claude Haiku (`claude-haiku-4-5-20251001`), fire-and-forget.
 - Exports `classifyInbound(input)` and `classifyAndUpdate(admin, rowId, input)`
-- Truncates body to 1500 chars for cost control
+- Truncates body to 2000 chars for cost control (2000 captures signature blocks with coach title/role)
 - Fallback: `{unknown, unknown, low, "classifier parse error..."}` on any failure
 - Never throws — all errors are logged and swallowed
+- Prompt updated 2026-04-24: stricter confidence rubric + Example 7 (recruiting-template pattern).
+  Rule: when email has both a pleasantry ("keep us updated") AND concrete action links (forms, camps),
+  classify as `requires_action` — concrete asks take priority over conversational framing.
 
 **Live hooks:** Both `/api/cron/gmail-sync` and `/api/webhooks/sendgrid-inbound` fire `classifyAndUpdate`
 as a dynamic import after every successful Inbound insert. Uses `dynamic import().then().catch()` so
@@ -360,6 +374,38 @@ Filtered OUT once classified:
 **Tier selector:** School detail page (`SchoolDetailClient.tsx`) now shows a dropdown to change
 `schools.category` (A/B/C/Nope) inline. Uses existing `useSchools().updateSchool()` — no new API endpoint.
 No migration needed (category column already existed).
+
+**Empirical calibration results (2026-04-24, 70-row backfill):**
+- Distribution: 40 requires_action (57%), 8 requires_reply (11%), 9 acknowledgement (13%), 8 informational (11%), 2 decline (3%), 1 staff_non_coach×informational, 2 team_automated×requires_action
+- Confidence: 67 high / 3 medium / 0 low
+- Today "Awaiting your reply" after filter: 3 rows in 90-day window (Dale Jordan/Stevens, Teren Schuster/SD Mines, Rob Harrington/MSOE)
+
+### Tech Debt and Open Questions (Phase 1 — 2026-04-24)
+
+**Decline context staleness:**
+Declines may become outdated when underlying circumstances change. Two current examples:
+- CO School of Mines: declined Finn as striker (Feb 2026 via Ben Fredrickson); Finn now plays
+  wingback; HC position also in transition. Mines stays Tier A.
+- Carnegie Mellon: declined Finn as striker (Oct 2025 via Ross Macklin); Finn now plays wingback.
+  CMU stays Tier A.
+Future consideration: declines should carry context (evaluated position, evaluating coach) so the
+system can flag "this decline may be stale given position change X or coach departure Y."
+
+**Non-recruiting email pollution in contact_log:**
+Some contact_log rows are not recruiting contacts at all:
+- 21 SendGrid-webhook rows (newsletters, webinar invites, news articles) — relabeled to
+  parse_status='orphan' and excluded from classification via school_id IS NOT NULL filter.
+- Row 3840cbd3 was Randy's own forwarded email to Finn (about Colgate/MIT Camp context), ingested
+  via thread-tracking — manually relabeled parse_status='non_coach', authored_by/intent='unknown'.
+Systemic issue: ingestion pipeline doesn't distinguish thread participants. When a thread starts
+as Finn→Coach, subsequent messages from non-coach participants (Randy, family, forwarded content)
+get ingested as if they were coach replies. Future fix: filter inbound rows where sender email
+matches known family addresses (rcalmond@*, etc.); exclude from contact_log ingestion at source.
+
+**MIT recruiting contact may be missing:**
+The Colgate/MIT Camp thread context suggests someone at MIT is in active recruiting conversation
+with Finn. Current MIT coach list in DB may be incomplete. Worth spot-check against MIT men's
+soccer staff page next time the scraper runs.
 
 ### Review Queue — Part 5d initial seed outcomes (closed 2026-04-23)
 All 23 manual items from the initial seed run have been resolved (0 pending):
@@ -924,15 +970,11 @@ SCHOOL: Lehigh University
       Thanks,
       
       Finn
-    [2025-11-28] Inbound via Sports Recruits — Will Flannery:
-      Finn,
+    [2025-11-28] Outbound via Sports Recruits — Dean Koski; Ryan Hess; Will Flannery:
+      Hi Coach,
+      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Lehigh because of its strong engineering college and the competitive style of play in the Patriot League.
       
-      Thank you for your email and for your interest in Lehigh University & our
-      Men’s Soccer program. We will make every effort to attend one of your
-      matches at the upcoming event.
-      
-      In the meantime, please fill out the questionnaire (linked below) to be
-      added to our recruiting database, and see ...
+      I just wrapped up my high school season with 29 goals and 14 assists, ea...
 
 SCHOOL: Middlebury
   Status: Ongoing Conversation
@@ -1088,6 +1130,12 @@ SCHOOL: Stevens Institute of Technology
   RQ Status: Completed
   Videos Sent: Yes
   Contact Log (3 shown):
+    [2026-04-22] Outbound via Sports Recruits — Dale Jordan:
+      Hi Jordan,
+      
+      Thanks for the reply. Unfortunately we won't be in Dallas — Flex is Homegrown Division, and my club (Albion SC Colorado) is in the Academy Division, so our qualifier was in Scottsdale earlier this month. We went 2-2-0 and I scored an Olimpico directly off a corner.
+      
+      We're currently 2n...
     [2026-04-22] Inbound via Sports Recruits — Dale Jordan:
       Thanks for sharing
       
@@ -1096,12 +1144,6 @@ SCHOOL: Stevens Institute of Technology
       Cheers
       
       Dale
-    [2026-04-22] Outbound via Sports Recruits — Dale Jordan:
-      Hi Jordan,
-      
-      Thanks for the reply. Unfortunately we won't be in Dallas — Flex is Homegrown Division, and my club (Albion SC Colorado) is in the Academy Division, so our qualifier was in Scottsdale earlier this month. We went 2-2-0 and I scored an Olimpico directly off a corner.
-      
-      We're currently 2n...
     [2026-04-21] Outbound via Sports Recruits — Dale Jordan; Duncan Swanwick:
       Coach Jordan,
       
@@ -1218,31 +1260,16 @@ SCHOOL: Bowdoin
       I wanted to follow up after connecting with your staff in Arizona — it was a good interaction and Bowdoin has stayed on my list.
       
       I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. The NESCAC's combination of academic culture and competitive soccer ...
-    [2025-12-04] Inbound via Sports Recruits — Scott Wiercinski:
-      Thanks Finn.
+    [2025-12-04] Outbound via Sports Recruits — Scott Wiercinski:
+      Hi Coach,
       
-      Good luck.
+       
+      I just completed the recruiting questionnaire. Looking forward to meeting Coach Banadda. Let me know if you need anything else.
       
-      Sincerely,
+       
+      Best,
       
-      Scott Wiercinski
-      
-      Head Coach – Men’s Soccer
-      
-      Bowdoin College
-      
-      9000 College Station
-      
-      Brunswick, Maine 04011
-      
-      (O): 207.725.3665
-      
-      (F): 207.725.3019
-      
-      Bowdoin College <http://www.bowdoin.edu/>
-      
-      Bowdoin College Men's Soccer
-      <http://athletics.bowdoin.edu/sports/msoc...
+      Finn Almond
 
 SCHOOL: Caltech
   Status: Ongoing Conversation
@@ -1502,20 +1529,20 @@ Coached your team on day 1 of MIT Camp
       We've been in touch over email from our work together at the MIT Camp in late July. I'm moving over to SportsRecruits for all of my soccer conversations. I wanted to update you on my high school season and invite you to see my games at MLS NEXT Fest next week.
       
       I wrapped up my ...
-    [2025-08-09] Outbound via Email:
-      Hi Coach Appleby,
+    [2025-08-09] Inbound via Email:
+      I'm happy to hear that Finn, we are looking forward to working with you!! Keep us posted with you soccer and academic updates!
       
-      I've just completed the recruiting questionnaire, and I've signed up for
-      the October SAT timeslot.
+      Hopkins Men's Soccer
       
-      Best,
-      Finn Almond (#30 at MIT Camp)
-      Striker/Winger
-      Class of 2027
-      Dawson School / Albion SC Boulder
-      720.687.8982
-      finnalmond08@gmail.com
-      Highlight Reel <https://www.youtube.com/wat...
+      Head Coach: Craig Appleby
+      Assistant Coach: William Vanzela
+      
+      
+      [new JHU logo]
+      
+      
+      Recruiting questionnaire:
+      https://questionnaires.armssoftware.com/a6f...
 
 SCHOOL: Northwestern
   Status: Ongoing Conversation

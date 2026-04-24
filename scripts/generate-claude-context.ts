@@ -521,6 +521,17 @@ for school matching, and classify direction as Inbound (since the forwarded cont
 reply). Do not remove the forwarded-message detection logic currently in place — it just needs
 to act on the inner headers, not the outer.
 
+**SendGrid webhook parse_status vocabulary fix (2026-04-24):**
+The SendGrid inbound webhook previously wrote \`parse_status='partial'\` for non-recruiting inbound
+(non-SR emails) and for SR notifications where no school could be matched — both cases where
+\`school_id IS NULL\`. This violated Phase 5b vocabulary (\`partial\` = school known, coach unknown;
+\`orphan\` = school unknown). 21 historical rows were relabeled to \`'orphan'\` on 2026-04-24; the
+source-level fix was applied in the same session. Going forward:
+- Non-SR notifications → \`'orphan'\` (school_id=null, no classification hook)
+- SR notifications with no school match → \`'orphan'\` (school_id=null, no classification hook)
+- Outbound CC fallback (parseSRPaste fails) → \`'orphan'\` (school_id=null)
+- Classification (Haiku) only fires when \`school_id IS NOT NULL\` in both the live hooks and backfill
+
 ### Inbound Classification — Phase 1 (migration 023, shipped 2026-04-23)
 
 **Two-axis model:** Every inbound \`contact_log\` row gets classified on two independent axes:
@@ -529,9 +540,12 @@ to act on the inner headers, not the outer.
 
 **Classifier:** \`src/lib/classify-inbound.ts\` — Claude Haiku (\`claude-haiku-4-5-20251001\`), fire-and-forget.
 - Exports \`classifyInbound(input)\` and \`classifyAndUpdate(admin, rowId, input)\`
-- Truncates body to 1500 chars for cost control
+- Truncates body to 2000 chars for cost control (2000 captures signature blocks with coach title/role)
 - Fallback: \`{unknown, unknown, low, "classifier parse error..."}\` on any failure
 - Never throws — all errors are logged and swallowed
+- Prompt updated 2026-04-24: stricter confidence rubric + Example 7 (recruiting-template pattern).
+  Rule: when email has both a pleasantry ("keep us updated") AND concrete action links (forms, camps),
+  classify as \`requires_action\` — concrete asks take priority over conversational framing.
 
 **Live hooks:** Both \`/api/cron/gmail-sync\` and \`/api/webhooks/sendgrid-inbound\` fire \`classifyAndUpdate\`
 as a dynamic import after every successful Inbound insert. Uses \`dynamic import().then().catch()\` so
@@ -555,6 +569,38 @@ Filtered OUT once classified:
 **Tier selector:** School detail page (\`SchoolDetailClient.tsx\`) now shows a dropdown to change
 \`schools.category\` (A/B/C/Nope) inline. Uses existing \`useSchools().updateSchool()\` — no new API endpoint.
 No migration needed (category column already existed).
+
+**Empirical calibration results (2026-04-24, 70-row backfill):**
+- Distribution: 40 requires_action (57%), 8 requires_reply (11%), 9 acknowledgement (13%), 8 informational (11%), 2 decline (3%), 1 staff_non_coach×informational, 2 team_automated×requires_action
+- Confidence: 67 high / 3 medium / 0 low
+- Today "Awaiting your reply" after filter: 3 rows in 90-day window (Dale Jordan/Stevens, Teren Schuster/SD Mines, Rob Harrington/MSOE)
+
+### Tech Debt and Open Questions (Phase 1 — 2026-04-24)
+
+**Decline context staleness:**
+Declines may become outdated when underlying circumstances change. Two current examples:
+- CO School of Mines: declined Finn as striker (Feb 2026 via Ben Fredrickson); Finn now plays
+  wingback; HC position also in transition. Mines stays Tier A.
+- Carnegie Mellon: declined Finn as striker (Oct 2025 via Ross Macklin); Finn now plays wingback.
+  CMU stays Tier A.
+Future consideration: declines should carry context (evaluated position, evaluating coach) so the
+system can flag "this decline may be stale given position change X or coach departure Y."
+
+**Non-recruiting email pollution in contact_log:**
+Some contact_log rows are not recruiting contacts at all:
+- 21 SendGrid-webhook rows (newsletters, webinar invites, news articles) — relabeled to
+  parse_status='orphan' and excluded from classification via school_id IS NOT NULL filter.
+- Row 3840cbd3 was Randy's own forwarded email to Finn (about Colgate/MIT Camp context), ingested
+  via thread-tracking — manually relabeled parse_status='non_coach', authored_by/intent='unknown'.
+Systemic issue: ingestion pipeline doesn't distinguish thread participants. When a thread starts
+as Finn→Coach, subsequent messages from non-coach participants (Randy, family, forwarded content)
+get ingested as if they were coach replies. Future fix: filter inbound rows where sender email
+matches known family addresses (rcalmond@*, etc.); exclude from contact_log ingestion at source.
+
+**MIT recruiting contact may be missing:**
+The Colgate/MIT Camp thread context suggests someone at MIT is in active recruiting conversation
+with Finn. Current MIT coach list in DB may be incomplete. Worth spot-check against MIT men's
+soccer staff page next time the scraper runs.
 
 ### Review Queue — Part 5d initial seed outcomes (closed 2026-04-23)
 All 23 manual items from the initial seed run have been resolved (0 pending):

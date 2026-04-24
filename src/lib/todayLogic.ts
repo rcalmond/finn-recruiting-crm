@@ -110,25 +110,19 @@ export function getThisWeekItems(actionItems: ActionItem[], today: string): Acti
  * so nothing disappears before the backfill or live-hook has run.
  *
  * Filtered OUT:
- *   - team_automated or staff_non_coach authors (regardless of intent)
- *   - informational, acknowledgement, or decline intent
- *   - requires_action intent (camp invites, questionnaire requests — not a reply)
+ * Positive whitelist (once classified):
+ *   authored_by IN (coach_personal, coach_via_platform) AND intent = requires_reply
+ * Unclassified rows (classified_at IS NULL) included conservatively until classification fires.
  */
 function isActionableReply(e: ContactLogEntry): boolean {
-  if (!e.classified_at) return true   // unclassified: include conservatively
+  // Not yet classified (live hook hasn't fired or backfill hasn't run): include conservatively
+  if (!e.classified_at) return true
 
-  const { authored_by, intent } = e
-
-  // Non-coach/non-human senders never need a reply
-  if (authored_by === 'team_automated' || authored_by === 'staff_non_coach') return false
-
-  // These intents never require Finn to write back
-  if (intent === 'informational' || intent === 'acknowledgement' || intent === 'decline') return false
-
-  // Camp invites, questionnaire requests, etc. are handled via action items
-  if (intent === 'requires_action') return false
-
-  return true
+  // Positive whitelist — only coach-authored requires_reply messages surface
+  return (
+    (e.authored_by === 'coach_personal' || e.authored_by === 'coach_via_platform') &&
+    e.intent === 'requires_reply'
+  )
 }
 
 // ─── Filtered awaiting replies (for Section 2 display) ───────────────────────
@@ -136,7 +130,7 @@ function isActionableReply(e: ContactLogEntry): boolean {
 /**
  * Returns unreplied inbounds filtered for display in the Awaiting section.
  * Noise-reduction rules:
- *   - Phase 1 classification filter: exclude non-actionable rows (see isActionableReply)
+ *   - Phase 1 classification filter: positive whitelist (coach_personal|coach_via_platform) × requires_reply
  *   - Always include: inbound within last 30 days (any category)
  *   - Include: A/B school inbounds up to 90 days old
  *   - Exclude: anything older than 90 days

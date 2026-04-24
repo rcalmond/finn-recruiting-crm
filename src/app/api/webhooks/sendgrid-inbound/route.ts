@@ -447,8 +447,8 @@ async function handleOutboundCC(
       summary:           messageBody || srSubject || subject,
       raw_source:        rawText,
       source_message_id: sourceMessageId,
-      parse_status:      'partial',
-      parse_notes:       'Outbound CC: parseSRPaste found no outbound message — manual review needed',
+      parse_status:      'orphan',
+      parse_notes:       'Outbound CC: parseSRPaste found no outbound message — no school match possible',
       created_by:        null,
     })
     return
@@ -625,9 +625,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  // 6. Non-SR detection — write a partial entry and return
+  // 6. Non-SR detection — write an orphan entry (no school known) and return
   if (!isSRNotification(subject, innerBody)) {
-    console.log(`[sg-inbound] ${receivedAt} — not an SR notification, writing partial entry`)
+    console.log(`[sg-inbound] ${receivedAt} — not an SR notification, writing orphan entry`)
     await admin.from('contact_log').insert({
       school_id:        null,
       date:             new Date().toISOString().split('T')[0],
@@ -637,8 +637,8 @@ export async function POST(req: NextRequest) {
       summary:          `Non-SR email: ${subject || '(no subject)'}`,
       raw_source:       fullBodyText,
       source_message_id: sourceMessageId,
-      parse_status:     'partial',
-      parse_notes:      'Not a SportsRecruits notification; manual review needed',
+      parse_status:     'orphan',
+      parse_notes:      'Not a SportsRecruits notification; no school match possible',
       created_by:       null,
     })
     return NextResponse.json({ ok: true })
@@ -673,7 +673,7 @@ export async function POST(req: NextRequest) {
 
   if (!parsedSchoolName) {
     notes.push('Could not extract school name from SR notification')
-    parseStatus = 'partial'
+    parseStatus = 'orphan'
   } else {
     const { school, matchType } = await matchSchool(admin, parsedSchoolName)
     if (school) {
@@ -683,7 +683,7 @@ export async function POST(req: NextRequest) {
       }
     } else {
       notes.push(`No school match for parsed name "${parsedSchoolName}"`)
-      parseStatus = 'partial'
+      parseStatus = 'orphan'
     }
   }
 
@@ -738,8 +738,8 @@ export async function POST(req: NextRequest) {
   )
   if (parseNotes) console.log(`[sg-inbound] notes: ${parseNotes}`)
 
-  // Fire-and-forget inbound classification
-  if (insertedRow?.id) {
+  // Fire-and-forget inbound classification — only for rows with a matched school
+  if (insertedRow?.id && schoolId) {
     const rowId = insertedRow.id
     const classifyInput = {
       summary,

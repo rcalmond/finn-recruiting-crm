@@ -66,6 +66,7 @@ async function main() {
     .from('contact_log')
     .select('id, school_id, coach_name, summary, raw_source, channel')
     .eq('direction', 'Inbound')
+    .not('school_id', 'is', null)   // orphan rows have no school context; skip classification
 
   if (!RECLASSIFY_ALL) {
     query = query.is('classified_at', null)

@@ -283,8 +283,8 @@ export async function GET(req: NextRequest) {
       stats.inserted++
       if (parseStatus === 'partial') stats.partial++
 
-      // 6f. Fire-and-forget inbound classification
-      if (parsed.direction === 'Inbound' && insertedRow?.id) {
+      // 6f. Fire-and-forget inbound classification — only for rows with a matched school
+      if (parsed.direction === 'Inbound' && insertedRow?.id && schoolId) {
         const rowId = insertedRow.id
         const classifyInput = {
           summary:    parsed.body || parsed.snippet,
