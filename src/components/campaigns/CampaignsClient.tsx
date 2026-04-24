@@ -133,7 +133,7 @@ export default function CampaignsClient() {
             borderBottom: `1px solid ${C.border}`,
             background: C.paper,
           }}>
-            {['Campaign', 'Status', 'Pend.', 'Sent', 'Skip', 'Created'].map(h => (
+            {['Campaign', 'Status', 'Pend.', 'Sent', 'Dimsd.', 'Created'].map(h => (
               <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.inkLo, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 {h}
               </div>
