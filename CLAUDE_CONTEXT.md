@@ -269,6 +269,45 @@ and are legacy — note this in contact log if surfaced.
   in the Gmail partials UI. Backfill script: `scripts/backfill-reparse-partials.ts`.
   Initial backfill (2026-04-23): 17 partials checked, 4 rescued (Caltech x3, Colgate x1). 13 remain.
 
+### Gmail Partials — Part 5b (migration 022, shipped 2026-04-23)
+
+**Scope filter (architectural note):**
+`/settings/gmail-partials` and `scripts/backfill-reparse-partials.ts` filter on
+`gmail_message_id IS NOT NULL`. This intentionally scopes the review UI to Gmail-sourced partials,
+where rescue means matching a sender name to a coach record. Non-Gmail partials (Sports Recruits
+webhook, bulk importer) are excluded — they require a different resolution strategy
+(name-matching against a different signal set, not email-matching). Do not remove this filter
+without also building SR/bulk resolution logic, or the UI will surface rows it cannot resolve.
+
+**SR/bulk partials gap (technical debt, ~123 rows as of backfill):**
+Sports Recruits and bulk-importer partials have `school_id` set but no `coach_id` and no
+`gmail_message_id`, so they have no resolution path through the current UI. They are mostly
+historical rows from pre-scraper imports — not a growing problem. Future options:
+- Separate SR-partials review UI (mirrors gmail-partials but matches on `coach_name` string)
+- Bulk name-matching pass against `coaches.name`, similar to `reparse-orphan-domains.ts`
+- Enrich SR webhook payloads with stronger coach identifiers before the row hits `contact_log`
+Not urgent. Revisit if the queue grows or if a name-matching pass is built for another reason.
+
+**coaches.source column — current state and expected evolution:**
+Immediately after migration 022, all 236 existing coaches have `source='manual'` (the column
+default). No retroactive backfill of `'scraped'` was performed — distinguishing scraper-inserted
+coaches from manually-seeded ones via `coach_changes` history was ambiguous. Going forward:
+- Scraper apply path writes `source='scraped'`
+- Create-and-link in `/settings/gmail-partials` writes `source='from_gmail'`
+- Manual inserts (seed scripts, direct SQL) default to `'manual'`
+The column becomes a useful diagnostic over time. After several months of operation,
+`select source, count(*) from coaches group by source` will show where coaches enter the system.
+Not actionable in the short term.
+
+**Backfill math (for audit / future verification):**
+- Pre-deploy: 140 partial + 96 full
+- Backfill scope: 17 Gmail partials (`gmail_message_id IS NOT NULL`)
+- Rescued: 4 (Caltech x3 — Rockne DeCoster; Colgate x1 — "Rick Brown" matched "Ricky Brown")
+- Post-backfill: 136 partial + 100 full
+- Gmail partials remaining in review queue: 13
+- Non-Gmail partials (out of scope): 123
+Math validates end-to-end: event-driven reparse, UI writes, and status transitions are consistent.
+
 ### Review Queue — Part 5d initial seed outcomes (closed 2026-04-23)
 All 23 manual items from the initial seed run have been resolved (0 pending):
 - 13 coach_departed — applied (real departures)
