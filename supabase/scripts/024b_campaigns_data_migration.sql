@@ -324,3 +324,25 @@ end;
 $$;
 
 commit;
+
+-- ── Post-commit output (visible in Results tab) ───────────────────────────────
+
+select
+  'wingback' as campaign,
+  status,
+  count(*) as count
+from campaign_schools
+where campaign_id = 'c4mp0002-0000-4000-8000-000000000001'
+group by status
+union all
+select
+  'rq' as campaign,
+  status,
+  count(*) as count
+from campaign_schools
+where campaign_id = 'c4mp0002-0000-4000-8000-000000000002'
+group by status
+order by campaign, status;
+
+select count(*) as action_items_remaining from action_items;
+-- expected: 4
