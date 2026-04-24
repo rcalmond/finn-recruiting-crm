@@ -559,12 +559,22 @@ Groups by school. Per-card: authored_by + intent chips, Haiku notes, snippet wit
 "Save override" (sets confidence=high, removes from queue) and "Mark unknown" buttons.
 Low-confidence count badge appears in sidebar nav ("Email Review" link).
 
-**Today filter (\`src/lib/todayLogic.ts\` — \`isActionableReply\`):**
-Unclassified rows (\`classified_at IS NULL\`) are conservatively included.
-Filtered OUT once classified:
-- \`team_automated\` or \`staff_non_coach\` authors (regardless of intent)
-- \`informational\`, \`acknowledgement\`, or \`decline\` intent
-- \`requires_action\` intent (camp invites, questionnaire requests — handled via action items)
+**Today filter (\`src/lib/todayLogic.ts\` — \`isActionableReply\` + \`getFilteredAwaitingReplies\`):**
+Positive whitelist (once classified): \`authored_by IN (coach_personal, coach_via_platform)\` AND \`intent = requires_reply\`.
+Unclassified rows (\`classified_at IS NULL\`) are conservatively included until the live hook fires.
+Window: 180 days. No tier gate. Null school_id rows excluded at the unreplied-detection layer.
+
+**Tier does NOT gate Today's Awaiting Reply.** Classification + thread state + 180-day window are
+the only filters. A Tier-Nope school with an unreplied coach question still appears in Awaiting Reply.
+
+Rationale: if a coach asked a direct question, Finn owes a reply regardless of the school's current
+tier. Finn can re-tier the school after replying. The tier gate was originally on the extended-window
+logic but was removed during Phase 1 close-out — it would have hidden genuine unreplied asks from
+NC State and MIT (both currently Tier Nope) that Finn should still respond to.
+
+Implementation note: tier filtering, if ever added back, should apply to proactive outbound surfaces
+(campaigns, action items for follow-ups), NOT to reactive reply-needs surfaced from inbound coach
+questions.
 
 **Tier selector:** School detail page (\`SchoolDetailClient.tsx\`) now shows a dropdown to change
 \`schools.category\` (A/B/C/Nope) inline. Uses existing \`useSchools().updateSchool()\` — no new API endpoint.
@@ -685,6 +695,7 @@ const STATIC_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-24 | Phase 1 close-out: 180-day window + no tier gate + null-school guard in Today filter; strict confidence rubric + Example 7 in classifier; full 70-row reclassification ($0.16 total, 100% high confidence, 57% requires_action); 27→4 Awaiting Reply (21 orphans cleaned up, row 68 manual override applied); two bugs fixed (positive whitelist, null-school leakage) | Bug fix |
 | 2026-04-23 | Phase 1: Inbound classification — migration 023 (authored_by × intent two-axis model, Haiku classifier, fire-and-forget live hook, /settings/classification-review UI, Today filter, tier selector on school detail) | Schema + Feature |
 | 2026-04-23 | Part 5b: Gmail partials review UI — migration 022 (parse_status full/partial/non_coach/orphan, coaches.source), /settings/gmail-partials UI, reparsePartialsForSchool, backfill rescued 4 rows | Schema + Feature |
 | 2026-04-23 | Part 5 complete: SPA skip (Notre Dame), ND coaches seeded, 18 queue items applied, 5 resolved (4 rejected team-inbox/false-positive, 1 accepted Emory 7-char convention) | Schema + Feature |
