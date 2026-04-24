@@ -154,8 +154,10 @@ export async function classifyInbound(input: ClassificationInput): Promise<Class
     const schoolLine  = input.school_name ? `School: ${input.school_name}` : null
     const channelLine = input.channel ? `Channel: ${input.channel}` : null
 
-    // Truncate body to ~1500 chars to control token cost
-    const body = (input.summary ?? '').slice(0, 1500)
+    // Truncate body to ~2000 chars to control token cost
+    // 2000 chars captures signature blocks (e.g. coach title/role) that appear
+    // past 1500 chars and carry authored_by signal.
+    const body = (input.summary ?? '').slice(0, 2000)
 
     const parts = [
       fromLine,

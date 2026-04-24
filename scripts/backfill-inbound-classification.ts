@@ -10,7 +10,8 @@
  *   npx tsx scripts/backfill-inbound-classification.ts
  *   npx tsx scripts/backfill-inbound-classification.ts --reclassify-all
  *
- * Cost target: <$0.10 for ~100 rows (Haiku pricing ~$0.00025/1K input tokens).
+ * Rows to classify: ~90 inbound rows (~20 sec runtime at 5 calls/sec).
+ * Expected cost: $0.02–$0.05 (Haiku pricing ~$0.00085/row at 2000-char truncation).
  * Throttles to 5 calls/sec to avoid Anthropic rate limits.
  */
 
@@ -46,7 +47,7 @@ const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: fa
 const DRY_RUN        = process.argv.includes('--dry-run')
 const RECLASSIFY_ALL = process.argv.includes('--reclassify-all')
 const RATE_LIMIT_MS  = 200   // 5 calls/sec
-const BODY_TRUNCATE  = 1500  // chars — already enforced in classifier, belt+suspenders
+const BODY_TRUNCATE  = 2000  // chars — matches classifier truncation; captures signature blocks
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 
