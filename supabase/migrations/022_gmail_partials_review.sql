@@ -1,11 +1,14 @@
 -- Migration 022: Gmail partials review infrastructure
+-- Apply manually via Supabase dashboard → SQL editor → Run.
+-- This project does not use automated migration tooling.
 --
 -- Changes:
 --   a. Rename parse_status values in contact_log:
 --        'parsed'  → 'full'    (both school_id + coach_id resolved, high confidence)
 --        'partial' → 'partial' (school_id known, coach_id null — needs review)
---        'failed'  → 'orphan'  (neither school nor coach resolved)
 --      Add new value 'non_coach' (user-marked: sender is admin/bot/recruiter).
+--      Add new value 'orphan'    (neither school nor coach resolved).
+--      Note: no 'failed' rows existed at time of migration; no data rename needed.
 --
 --   b. Drop old check constraint and add new one with updated values.
 --      Drop and recreate the parse_status partial index.
@@ -18,13 +21,12 @@
 --      ambiguous. All existing coaches default to 'manual'; scraper and Gmail UI
 --      will set the correct value going forward.
 
--- ── a + b. Rename values and update check constraint ──────────────────────────
-
-update public.contact_log set parse_status = 'full'   where parse_status = 'parsed';
-update public.contact_log set parse_status = 'orphan' where parse_status = 'failed';
+-- ── a + b. Drop constraint first, then rename values, then add new constraint ──
 
 alter table public.contact_log
   drop constraint contact_log_parse_status_check;
+
+update public.contact_log set parse_status = 'full' where parse_status = 'parsed';
 
 alter table public.contact_log
   add constraint contact_log_parse_status_check

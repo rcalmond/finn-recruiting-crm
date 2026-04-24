@@ -281,15 +281,22 @@ created_at  timestamptz
 
 ### Table: \`contact_log\`
 \`\`\`
-id          uuid PK
-school_id   uuid FK → schools.id (cascade delete)
-date        date
-channel     'Email' | 'Phone' | 'In Person' | 'Text' | 'Sports Recruits'
-direction   'Outbound' | 'Inbound'
-coach_name  text
-summary     text
-created_by  uuid FK → auth.users.id
-created_at  timestamptz
+id                uuid PK
+school_id         uuid FK → schools.id (cascade delete)
+coach_id          uuid FK → coaches.id (on delete set null)
+date              date
+channel           'Email' | 'Phone' | 'In Person' | 'Text' | 'Sports Recruits'
+direction         'Outbound' | 'Inbound'
+coach_name        text          -- raw sender display name (from Gmail parse)
+summary           text
+gmail_message_id  text          -- non-null = ingested from Gmail
+parse_status      'full' | 'partial' | 'non_coach' | 'orphan'
+                  -- full: school+coach resolved; partial: school known, coach unknown (review queue)
+                  -- non_coach: user-marked (sender is admin/bot/recruiter)
+                  -- orphan: school unknown
+parse_notes       text
+created_by        uuid FK → auth.users.id
+created_at        timestamptz
 \`\`\`
 
 ### Table: \`assets\`
@@ -358,6 +365,7 @@ is_primary   boolean                -- true = designated contact for this school
 needs_review boolean                -- true = flagged for human review (coach_departed applies this)
 sort_order   integer
 notes        text                   -- used for endowed chair titles, misc
+source       text not null          -- 'manual' (default) | 'scraped' (roster scraper) | 'from_gmail' (Gmail partials UI)
 created_at   timestamptz
 updated_at   timestamptz
 \`\`\`
@@ -451,8 +459,10 @@ and are legacy — note this in contact log if surfaced.
 - **Email ambiguity**: If a school uses a shared team inbox (e.g., \`mensoccer@calpoly.edu\`),
   the scraper suppresses it (shared email detection). Coaches at that school will have null email.
 - **Shared domains**: Some schools share CDN-hosted sites — rate limiting (2s delay) mitigates this.
-- **Gmail partial re-linking**: Some contact_log rows may lack coach_id FK if the coach email
-  wasn't in the DB at parse time. Re-parsing script not yet built.
+- **Gmail partial re-linking**: Handled by \`reparsePartialsForSchool()\` in \`src/lib/gmail-resolve.ts\`.
+  Fires automatically after every coach_added event (coach-changes review) and after create-and-link
+  in the Gmail partials UI. Backfill script: \`scripts/backfill-reparse-partials.ts\`.
+  Initial backfill (2026-04-23): 17 partials checked, 4 rescued (Caltech x3, Colgate x1). 13 remain.
 
 ### Review Queue — Part 5d initial seed outcomes (closed 2026-04-23)
 All 23 manual items from the initial seed run have been resolved (0 pending):
@@ -503,6 +513,7 @@ const STATIC_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-23 | Part 5b: Gmail partials review UI — migration 022 (parse_status full/partial/non_coach/orphan, coaches.source), /settings/gmail-partials UI, reparsePartialsForSchool, backfill rescued 4 rows | Schema + Feature |
 | 2026-04-23 | Part 5 complete: SPA skip (Notre Dame), ND coaches seeded, 18 queue items applied, 5 resolved (4 rejected team-inbox/false-positive, 1 accepted Emory 7-char convention) | Schema + Feature |
 | 2026-04-23 | Part 5d: Coach Roster Scraper — migration 020, scraper with Claude Haiku 4.5, URL discovery, initial seed (6 new coaches), Sun+Wed cron, /settings/coach-changes review UI, Today view callout | Feature |
 | 2026-04-23 | Part 5a: schools.domains[] infrastructure — migration 019, auto-learn script, parser Strategy 1b, reparse-orphan-domains.ts rescued 11 rows (Hopkins + Tufts) | Schema + Feature |

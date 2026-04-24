@@ -86,15 +86,22 @@ created_at  timestamptz
 
 ### Table: `contact_log`
 ```
-id          uuid PK
-school_id   uuid FK → schools.id (cascade delete)
-date        date
-channel     'Email' | 'Phone' | 'In Person' | 'Text' | 'Sports Recruits'
-direction   'Outbound' | 'Inbound'
-coach_name  text
-summary     text
-created_by  uuid FK → auth.users.id
-created_at  timestamptz
+id                uuid PK
+school_id         uuid FK → schools.id (cascade delete)
+coach_id          uuid FK → coaches.id (on delete set null)
+date              date
+channel           'Email' | 'Phone' | 'In Person' | 'Text' | 'Sports Recruits'
+direction         'Outbound' | 'Inbound'
+coach_name        text          -- raw sender display name (from Gmail parse)
+summary           text
+gmail_message_id  text          -- non-null = ingested from Gmail
+parse_status      'full' | 'partial' | 'non_coach' | 'orphan'
+                  -- full: school+coach resolved; partial: school known, coach unknown (review queue)
+                  -- non_coach: user-marked (sender is admin/bot/recruiter)
+                  -- orphan: school unknown
+parse_notes       text
+created_by        uuid FK → auth.users.id
+created_at        timestamptz
 ```
 
 ### Table: `assets`
@@ -163,6 +170,7 @@ is_primary   boolean                -- true = designated contact for this school
 needs_review boolean                -- true = flagged for human review (coach_departed applies this)
 sort_order   integer
 notes        text                   -- used for endowed chair titles, misc
+source       text not null          -- 'manual' (default) | 'scraped' (roster scraper) | 'from_gmail' (Gmail partials UI)
 created_at   timestamptz
 updated_at   timestamptz
 ```
@@ -256,8 +264,10 @@ and are legacy — note this in contact log if surfaced.
 - **Email ambiguity**: If a school uses a shared team inbox (e.g., `mensoccer@calpoly.edu`),
   the scraper suppresses it (shared email detection). Coaches at that school will have null email.
 - **Shared domains**: Some schools share CDN-hosted sites — rate limiting (2s delay) mitigates this.
-- **Gmail partial re-linking**: Some contact_log rows may lack coach_id FK if the coach email
-  wasn't in the DB at parse time. Re-parsing script not yet built.
+- **Gmail partial re-linking**: Handled by `reparsePartialsForSchool()` in `src/lib/gmail-resolve.ts`.
+  Fires automatically after every coach_added event (coach-changes review) and after create-and-link
+  in the Gmail partials UI. Backfill script: `scripts/backfill-reparse-partials.ts`.
+  Initial backfill (2026-04-23): 17 partials checked, 4 rescued (Caltech x3, Colgate x1). 13 remain.
 
 ### Review Queue — Part 5d initial seed outcomes (closed 2026-04-23)
 All 23 manual items from the initial seed run have been resolved (0 pending):
@@ -296,7 +306,7 @@ If an existing Head Coach gets re-classified to a lower role AND no new Head Coa
 
 ## 11. Live Pipeline — Generated April 23, 2026
 
-**Active schools: 34** | Overdue actions: 26
+**Active schools: 34** | Overdue actions: 27
 (Category Nope and status Inactive excluded)
 
 ### Tier A — Highest Priority (8 schools)
@@ -664,13 +674,6 @@ Strong Mental Game
       Good to see you in Phoenix — I appreciated the conversation and wanted to follow up.
       
       I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. The things your staff emphasized — high press, strong mental game — are central to how I play. I'm a defender who wa...
-    [2025-12-03] Inbound via Sports Recruits — Dave Brandt:
-      *Finn-appreciate you reaching out; we are now at the point where we will
-      begin to look closely at 27’s, so good to hear from you. A ton of very
-      relevant and specific info below on both Bucknell and all aspects of what
-      is a unique and successful program culture.*
-      
-      1. first, we will look closely at...
     [2025-12-03] Outbound via Sports Recruits — Dave Brandt:
       Hi Coach,
       
@@ -681,6 +684,13 @@ Strong Mental Game
       Thanks,
       
       Finn
+    [2025-12-03] Inbound via Sports Recruits — Dave Brandt:
+      *Finn-appreciate you reaching out; we are now at the point where we will
+      begin to look closely at 27’s, so good to hear from you. A ton of very
+      relevant and specific info below on both Bucknell and all aspects of what
+      is a unique and successful program culture.*
+      
+      1. first, we will look closely at...
 
 SCHOOL: Cal Poly Pomona
   Status: Intro Sent
@@ -819,11 +829,15 @@ SCHOOL: Lehigh University
       Thanks,
       
       Finn
-    [2025-11-28] Outbound via Sports Recruits — Dean Koski; Ryan Hess; Will Flannery:
-      Hi Coach,
-      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Lehigh because of its strong engineering college and the competitive style of play in the Patriot League.
+    [2025-11-28] Inbound via Sports Recruits — Will Flannery:
+      Finn,
       
-      I just wrapped up my high school season with 29 goals and 14 assists, ea...
+      Thank you for your email and for your interest in Lehigh University & our
+      Men’s Soccer program. We will make every effort to attend one of your
+      matches at the upcoming event.
+      
+      In the meantime, please fill out the questionnaire (linked below) to be
+      added to our recruiting database, and see ...
 
 SCHOOL: Middlebury
   Status: Ongoing Conversation
@@ -979,12 +993,6 @@ SCHOOL: Stevens Institute of Technology
   RQ Status: Completed
   Videos Sent: Yes
   Contact Log (3 shown):
-    [2026-04-22] Outbound via Sports Recruits — Dale Jordan:
-      Hi Jordan,
-      
-      Thanks for the reply. Unfortunately we won't be in Dallas — Flex is Homegrown Division, and my club (Albion SC Colorado) is in the Academy Division, so our qualifier was in Scottsdale earlier this month. We went 2-2-0 and I scored an Olimpico directly off a corner.
-      
-      We're currently 2n...
     [2026-04-22] Inbound via Sports Recruits — Dale Jordan:
       Thanks for sharing
       
@@ -993,6 +1001,12 @@ SCHOOL: Stevens Institute of Technology
       Cheers
       
       Dale
+    [2026-04-22] Outbound via Sports Recruits — Dale Jordan:
+      Hi Jordan,
+      
+      Thanks for the reply. Unfortunately we won't be in Dallas — Flex is Homegrown Division, and my club (Albion SC Colorado) is in the Academy Division, so our qualifier was in Scottsdale earlier this month. We went 2-2-0 and I scored an Olimpico directly off a corner.
+      
+      We're currently 2n...
     [2026-04-21] Outbound via Sports Recruits — Dale Jordan; Duncan Swanwick:
       Coach Jordan,
       
@@ -1019,6 +1033,12 @@ SCHOOL: Washington University
       At camp, you will:
       
         *   Train and compete directly in front of the ...
+    [2026-04-02] Outbound via Sports Recruits:
+      Coach Bordelon,
+      
+      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Wash U's position in the UAA — among the top academic D3 programs in the country — is something I've had on my radar for a while.
+      
+      I play an attacking left wingback role. My game is built around makin...
     [2026-04-02] Inbound via Sports Recruits — Jack Mathis:
       Hello,
       
@@ -1026,12 +1046,6 @@ SCHOOL: Washington University
       have left the position as of 1/9/26 and will no longer be responding to
       emails for Wash U in St. Louis. Please reach out to Coach Bordelon for all
       questions regarding Wash U Men's Soccer. His email is bordelon@wust...
-    [2026-04-02] Outbound via Sports Recruits:
-      Coach Bordelon,
-      
-      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Wash U's position in the UAA — among the top academic D3 programs in the country — is something I've had on my radar for a while.
-      
-      I play an attacking left wingback role. My game is built around makin...
 
 ### Tier C — Exploratory (14 schools)
 
@@ -1109,31 +1123,16 @@ SCHOOL: Bowdoin
       I wanted to follow up after connecting with your staff in Arizona — it was a good interaction and Bowdoin has stayed on my list.
       
       I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. The NESCAC's combination of academic culture and competitive soccer ...
-    [2025-12-04] Inbound via Sports Recruits — Scott Wiercinski:
-      Thanks Finn.
+    [2025-12-04] Outbound via Sports Recruits — Scott Wiercinski:
+      Hi Coach,
       
-      Good luck.
+       
+      I just completed the recruiting questionnaire. Looking forward to meeting Coach Banadda. Let me know if you need anything else.
       
-      Sincerely,
+       
+      Best,
       
-      Scott Wiercinski
-      
-      Head Coach – Men’s Soccer
-      
-      Bowdoin College
-      
-      9000 College Station
-      
-      Brunswick, Maine 04011
-      
-      (O): 207.725.3665
-      
-      (F): 207.725.3019
-      
-      Bowdoin College <http://www.bowdoin.edu/>
-      
-      Bowdoin College Men's Soccer
-      <http://athletics.bowdoin.edu/sports/msoc...
+      Finn Almond
 
 SCHOOL: Caltech
   Status: Ongoing Conversation
@@ -1472,13 +1471,6 @@ Events
 Not in Arizona
   Next Action: Update RQ (Finn) — due 2026-04-27
   Contact Log (3 shown):
-    [2025-11-28] Inbound via Sports Recruits — Steve Totten:
-      Finn,
-      
-      Thanks for your email and interest in Princeton Soccer.  Hopefully we are
-      able to watch more this year.  We just wrapped up a very successful season
-      and we are doing our best to turn our attention towards recruiting, though
-      it will take us some time to catch up on things.  We have had a bu...
     [2025-11-28] Outbound via Sports Recruits — Steve Totten:
       Hi Coach,
       
@@ -1489,6 +1481,13 @@ Not in Arizona
       Best,
       
       Finn Almond
+    [2025-11-28] Inbound via Sports Recruits — Steve Totten:
+      Finn,
+      
+      Thanks for your email and interest in Princeton Soccer.  Hopefully we are
+      able to watch more this year.  We just wrapped up a very successful season
+      and we are doing our best to turn our attention towards recruiting, though
+      it will take us some time to catch up on things.  We have had a bu...
     [2025-11-27] Outbound via Sports Recruits — Steve Totten; Jim Barlow; Sam Maira:
       Hi Coach,
       My name is Finn Almond, a 2027 striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in Princeton for its combination of top-tier engineering and a strong soccer program that develops attacking players well.
@@ -1620,6 +1619,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-23 | Part 5b: Gmail partials review UI — migration 022 (parse_status full/partial/non_coach/orphan, coaches.source), /settings/gmail-partials UI, reparsePartialsForSchool, backfill rescued 4 rows | Schema + Feature |
 | 2026-04-23 | Part 5 complete: SPA skip (Notre Dame), ND coaches seeded, 18 queue items applied, 5 resolved (4 rejected team-inbox/false-positive, 1 accepted Emory 7-char convention) | Schema + Feature |
 | 2026-04-23 | Part 5d: Coach Roster Scraper — migration 020, scraper with Claude Haiku 4.5, URL discovery, initial seed (6 new coaches), Sun+Wed cron, /settings/coach-changes review UI, Today view callout | Feature |
 | 2026-04-23 | Part 5a: schools.domains[] infrastructure — migration 019, auto-learn script, parser Strategy 1b, reparse-orphan-domains.ts rescued 11 rows (Hopkins + Tufts) | Schema + Feature |
