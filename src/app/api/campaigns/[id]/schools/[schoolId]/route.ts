@@ -40,7 +40,7 @@ export async function PATCH(
   // Fetch the campaign_schools row
   const { data: cs } = await db
     .from('campaign_schools')
-    .select('id, school_id, status')
+    .select('id, school_id, coach_id, status')
     .eq('campaign_id', campaignId)
     .eq('school_id', schoolId)
     .single()
@@ -55,13 +55,19 @@ export async function PATCH(
     }
 
     const channel = body.channel === 'gmail' ? 'Email' : 'Sports Recruits'
-    const summary = (body.renderedBody ?? '').slice(0, 140) || `Campaign outbound — ${channel}`
+    const summaryBase = (body.renderedBody ?? '').trim().slice(0, 140)
+    let summary = summaryBase
+    if (!summary) {
+      const { data: camp } = await db.from('campaigns').select('name').eq('id', campaignId).single()
+      summary = camp?.name ?? `Campaign outbound — ${channel}`
+    }
 
     // Insert contact_log row
     const { data: logRow, error: logErr } = await db
       .from('contact_log')
       .insert({
         school_id:  schoolId,
+        coach_id:   cs.coach_id ?? null,
         date:       now.split('T')[0],
         channel,
         direction:  'Outbound',

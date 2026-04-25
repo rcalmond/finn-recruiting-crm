@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Campaign, CampaignSchool, CampaignSchoolStatus, School } from '@/lib/types'
+import DraftReviewModal from './DraftReviewModal'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -132,9 +133,23 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
   const [transitioning, setTransition]  = useState(false)
   const [error, setError]               = useState<string | null>(null)
 
-  // draftSchool: set when user clicks "Draft →" — populated for Milestone 3 modal
   const [draftSchool, setDraftSchool] = useState<CampaignSchool | null>(null)
-  void draftSchool // used in Milestone 3
+
+  function handleSent(schoolId: string) {
+    const now = new Date().toISOString()
+    setSchools(ss => ss.map(s =>
+      s.school_id === schoolId ? { ...s, status: 'sent' as CampaignSchoolStatus, sent_at: now } : s
+    ))
+    setDraftSchool(null)
+  }
+
+  function handleDismissedFromModal(schoolId: string) {
+    const now = new Date().toISOString()
+    setSchools(ss => ss.map(s =>
+      s.school_id === schoolId ? { ...s, status: 'dismissed' as CampaignSchoolStatus, dismissed_at: now } : s
+    ))
+    setDraftSchool(null)
+  }
 
   const [showAddModal, setShowAddModal] = useState(false)
 
@@ -589,8 +604,16 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
         />
       )}
 
-      {/* DraftReviewModal — Milestone 3 */}
-      {/* When draftSchool is set, render <DraftReviewModal cs={draftSchool} campaign={campaign} onClose={() => setDraftSchool(null)} onSent={...} /> */}
+      {draftSchool && (
+        <DraftReviewModal
+          cs={draftSchool}
+          campaign={campaign}
+          lastInbound={lastInboundBySchool[draftSchool.school_id]}
+          onSent={handleSent}
+          onDismissed={handleDismissedFromModal}
+          onClose={() => setDraftSchool(null)}
+        />
+      )}
     </div>
   )
 }
