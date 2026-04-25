@@ -188,6 +188,90 @@ export function buildUserPrompt(params: {
   return lines.join('\n')
 }
 
+// ─── Campaign personalization ─────────────────────────────────────────────────
+
+export const CAMPAIGN_PERSONALIZE_SYSTEM_PROMPT = `You are personalizing a recruiting email from Finn Almond to a college soccer coach.
+
+=== FINN'S PROFILE ===
+Name: Finn Almond | Class of 2027 | Left Wingback
+Club: Albion SC Colorado, MLS NEXT Academy (U19)
+High School: Alexander Dawson School, Lafayette, CO
+GPA: 3.78 weighted / 3.57 unweighted | SAT: 1340
+Academic interest: Mechanical or Aerospace Engineering
+Recent highlights:
+  - April 2026: MLS NEXT Cup Qualifiers, Scottsdale AZ — scored an Olimpico (direct corner kick goal)
+  - 2024 HS Season: 29 goals, 14 assists in 16 games
+  - 2024 HS Awards: 2nd Team All-State, 1st Team All-Conference, Team MVP
+
+=== YOUR TASK ===
+The email below contains "[Finn: add ...]" placeholders where school-specific or stats-specific content should go.
+Fill each one with specific, concrete content from the context provided.
+
+Rules:
+- ONLY fill "[Finn: ...]" brackets — do NOT rewrite, restructure, or reword any other part of the email
+- Do NOT invent facts, statistics, or experiences not supported by the context provided
+- If a bracket cannot be confidently filled from the context, replace it with "[TODO: <original instruction>]" so Finn knows to revisit it
+- Keep the surrounding voice intact — confident, direct, genuine, specific
+- Return ONLY the complete filled-in email body — no subject line, no explanation, no markdown fences
+- Keep it under 200 words total`
+
+export interface CampaignPersonalizeParams {
+  renderedBody: string
+  schoolName: string
+  division: string
+  conference: string | null
+  location: string | null
+  category: string
+  notes: string | null
+  coachName: string | null
+  coachRole: string | null
+  recentInbounds: Array<{
+    date: string
+    channel: string
+    authored_by: string | null
+    summary: string
+  }>
+}
+
+export function buildCampaignPersonalizePrompt(p: CampaignPersonalizeParams): string {
+  const lines: string[] = []
+
+  lines.push(`SCHOOL: ${p.schoolName}`)
+  lines.push(`Division: ${p.division}${p.conference ? ` — ${p.conference}` : ''}`)
+  if (p.location) lines.push(`Location: ${p.location}`)
+  lines.push(`Tier: ${p.category} (A = highest priority, C = lower)`)
+  if (p.notes) lines.push(`Notes: ${p.notes}`)
+  lines.push('')
+
+  if (p.coachName) {
+    lines.push(`COACH: ${p.coachName}${p.coachRole ? ` (${p.coachRole})` : ''}`)
+    lines.push('')
+  }
+
+  if (p.recentInbounds.length > 0) {
+    lines.push(`RECENT INBOUND CONTACT (most recent first — use this to understand relationship state):`)
+    for (const e of p.recentInbounds) {
+      const source = e.authored_by === 'coach_personal' ? 'coach personally'
+        : e.authored_by === 'coach_via_platform' ? 'coach via platform'
+        : e.authored_by ?? 'unknown source'
+      lines.push(`  [${e.date}] Inbound via ${e.channel} (${source}): ${e.summary.slice(0, 200)}`)
+    }
+    lines.push('')
+  } else {
+    lines.push(`CONTACT HISTORY: None — cold outreach.`)
+    lines.push('')
+  }
+
+  lines.push(`EMAIL TO PERSONALIZE:`)
+  lines.push(`---`)
+  lines.push(p.renderedBody)
+  lines.push(`---`)
+  lines.push('')
+  lines.push(`Fill in all "[Finn: ...]" brackets with specific content from the context above. Return only the completed email body.`)
+
+  return lines.join('\n')
+}
+
 // ─── Prep for call ────────────────────────────────────────────────────────────
 
 export const PREP_SYSTEM_PROMPT = `You are a college soccer recruiting advisor helping Finn Almond (Class of 2027, left wingback) prepare for a conversation with a college coach.

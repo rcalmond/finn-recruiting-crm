@@ -80,6 +80,7 @@ export default function DraftReviewModal({ cs, campaign, lastInbound, onSent, on
   const [step, setStep]               = useState<Step>('main')
   const [gmailMsgId, setGmailMsgId]   = useState('')
   const [sending, setSending]         = useState<'gmail' | 'sr' | 'dismiss' | null>(null)
+  const [generating, setGenerating]   = useState(false)
   const [error, setError]             = useState<string | null>(null)
 
   // ── Channel recommendation ───────────────────────────────────────────────
@@ -132,6 +133,48 @@ export default function DraftReviewModal({ cs, campaign, lastInbound, onSent, on
     }
   }
 
+  async function handleGenerate() {
+    const savedBody = editedBody
+    setGenerating(true)
+    setError(null)
+    setEditedBody('')  // clear so streaming fills from blank
+    try {
+      const res = await fetch('/api/campaigns/personalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolId:     cs.school_id,
+          coachId:      cs.coach_id,
+          renderedBody: savedBody,
+        }),
+      })
+      if (!res.ok) {
+        // Error response is JSON even though success is text/plain
+        const json = await res.json()
+        setEditedBody(savedBody)  // restore on error
+        setError(json.error ?? 'Generation failed')
+        return
+      }
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        accumulated += decoder.decode(value, { stream: true })
+        setEditedBody(accumulated)
+      }
+      // Flush any remaining buffered bytes
+      accumulated += decoder.decode()
+      if (accumulated !== editedBody) setEditedBody(accumulated)
+    } catch (e) {
+      setEditedBody(savedBody)  // restore on network error
+      setError(e instanceof Error ? e.message : 'Generation failed')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(editedBody)
@@ -142,7 +185,7 @@ export default function DraftReviewModal({ cs, campaign, lastInbound, onSent, on
     }
   }
 
-  const busy = sending !== null
+  const busy = sending !== null || generating
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -204,18 +247,40 @@ export default function DraftReviewModal({ cs, campaign, lastInbound, onSent, on
 
         {/* ── Body editor ─────────────────────────────────────────────────── */}
         <div style={{ padding: '14px 20px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.inkLo, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-            Message — editable (per-school only, does not update template)
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: T.inkLo, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+              Message — editable (per-school only, does not update template)
+            </div>
+            <button
+              onClick={handleGenerate}
+              disabled={busy}
+              title="Fill [Finn: ...] placeholders with AI-generated content specific to this school and coach"
+              style={{
+                padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                cursor: busy ? 'not-allowed' : 'pointer',
+                border: `1px solid ${T.border}`,
+                background: generating ? T.paper : T.white,
+                color: generating ? T.inkLo : T.ink,
+                opacity: busy && !generating ? 0.45 : 1,
+                transition: 'background 0.15s',
+                flexShrink: 0,
+              }}
+            >
+              {generating ? 'Generating…' : 'Personalize with AI'}
+            </button>
           </div>
           <textarea
             value={editedBody}
-            onChange={e => setEditedBody(e.target.value)}
+            onChange={e => !generating && setEditedBody(e.target.value)}
+            readOnly={generating}
+            placeholder={generating ? 'Generating personalized content…' : ''}
             style={{
               width: '100%', boxSizing: 'border-box',
               minHeight: 260, padding: '10px 12px', borderRadius: 7,
-              border: `1px solid ${T.border}`, fontSize: 13,
+              border: `1px solid ${generating ? T.inkLo : T.border}`, fontSize: 13,
               fontFamily: 'Georgia, serif', lineHeight: 1.65,
-              resize: 'vertical', outline: 'none', color: '#1F1F1F',
+              resize: generating ? 'none' : 'vertical',
+              outline: 'none', color: generating ? T.inkLo : '#1F1F1F',
               flex: 1,
             }}
           />
