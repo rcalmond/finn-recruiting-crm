@@ -65,11 +65,19 @@ export default async function CampaignDetailPage({ params }: Props) {
     }
   }
 
+  // All non-Nope schools for the Add School modal (excludes schools already in campaign client-side)
+  const { data: allSchools } = await db
+    .from('schools')
+    .select('id, name, short_name, category')
+    .neq('category', 'Nope')
+    .order('name')
+
   return (
     <CampaignDetailClient
       campaign={campaign as Campaign}
       schools={(schools ?? []) as unknown as CampaignSchool[]}
       lastInboundBySchool={lastInboundBySchool}
+      allSchools={(allSchools ?? []) as unknown as import('@/lib/types').School[]}
     />
   )
 }

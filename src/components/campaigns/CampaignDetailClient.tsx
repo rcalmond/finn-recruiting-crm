@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Campaign, CampaignSchool, CampaignSchoolStatus } from '@/lib/types'
+import type { Campaign, CampaignSchool, CampaignSchoolStatus, School } from '@/lib/types'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -30,6 +30,7 @@ interface Props {
   campaign: Campaign
   schools: CampaignSchool[]
   lastInboundBySchool: Record<string, LastInbound>
+  allSchools: Pick<School, 'id' | 'name' | 'short_name' | 'category'>[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -120,7 +121,7 @@ function SectionHeader({ label, count }: { label: string; count: number }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function CampaignDetailClient({ campaign: init, schools: initSchools, lastInboundBySchool }: Props) {
+export default function CampaignDetailClient({ campaign: init, schools: initSchools, lastInboundBySchool, allSchools }: Props) {
   const router = useRouter()
 
   const [campaign, setCampaign]         = useState(init)
@@ -134,6 +135,15 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
   // draftSchool: set when user clicks "Draft →" — populated for Milestone 3 modal
   const [draftSchool, setDraftSchool] = useState<CampaignSchool | null>(null)
   void draftSchool // used in Milestone 3
+
+  const [showAddModal, setShowAddModal] = useState(false)
+
+  // School IDs currently in this campaign — recomputed when schools state changes
+  const inCampaignIds = new Set(schools.map(s => s.school_id))
+
+  function handleSchoolAdded(cs: CampaignSchool) {
+    setSchools(prev => [...prev, cs])
+  }
 
   // ── Grouped schools ─────────────────────────────────────────────────────────
 
@@ -373,12 +383,26 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
         marginTop: 28, background: C.white,
         border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden',
       }}>
+        {/* Card header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '10px 16px', borderBottom: `1px solid ${C.border}`, background: C.paper,
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: C.inkLo, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Schools
+          </span>
+          {campaign.status !== 'completed' && (
+            <button onClick={() => setShowAddModal(true)} style={btn('ghost', false, true)}>
+              + Add school
+            </button>
+          )}
+        </div>
 
         {/* Pending */}
         {pending.length > 0 && (
           <>
             <SectionHeader label="Pending" count={pending.length} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 44px 160px 72px 90px', padding: '8px 16px 4px', borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 44px 140px 90px 155px', padding: '8px 16px 4px', borderBottom: `1px solid ${C.border}` }}>
               {['School', 'Tier', 'Coach', 'Channel', ''].map(h => (
                 <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.inkLo, textTransform: 'uppercase', letterSpacing: 0.4, paddingBottom: 4 }}>
                   {h}
@@ -394,7 +418,7 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
                 <div
                   key={cs.id}
                   style={{
-                    display: 'grid', gridTemplateColumns: '1fr 44px 160px 72px 90px',
+                    display: 'grid', gridTemplateColumns: '1fr 44px 140px 90px 155px',
                     padding: '10px 16px', alignItems: 'center',
                     borderBottom: i < pending.length - 1 ? `1px solid ${C.border}` : 'none',
                   }}
@@ -554,8 +578,160 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
         )}
       </div>
 
+      {showAddModal && (
+        <AddSchoolModal
+          allSchools={allSchools}
+          excludeIds={inCampaignIds}
+          tierScope={campaign.tier_scope}
+          campaignId={campaign.id}
+          onAdd={handleSchoolAdded}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
+
       {/* DraftReviewModal — Milestone 3 */}
       {/* When draftSchool is set, render <DraftReviewModal cs={draftSchool} campaign={campaign} onClose={() => setDraftSchool(null)} onSent={...} /> */}
     </div>
+  )
+}
+
+// ── Add School Modal ──────────────────────────────────────────────────────────
+
+interface AddSchoolModalProps {
+  allSchools: Pick<School, 'id' | 'name' | 'short_name' | 'category'>[]
+  excludeIds: Set<string>
+  tierScope: string[]
+  campaignId: string
+  onAdd: (cs: CampaignSchool) => void
+  onClose: () => void
+}
+
+function AddSchoolModal({ allSchools, excludeIds, tierScope, campaignId, onAdd, onClose }: AddSchoolModalProps) {
+  const [search, setSearch]        = useState('')
+  const [showAllTiers, setShowAll] = useState(false)
+  const [adding, setAdding]        = useState<string | null>(null)
+  const [error, setError]          = useState<string | null>(null)
+
+  const available = allSchools.filter(s => !excludeIds.has(s.id))
+  const filtered  = available.filter(s => {
+    const tierOk = showAllTiers || tierScope.includes(s.category)
+    const term   = search.toLowerCase()
+    const nameOk = !term || s.name.toLowerCase().includes(term) || (s.short_name ?? '').toLowerCase().includes(term)
+    return tierOk && nameOk
+  })
+
+  async function handleAdd(school: Pick<School, 'id' | 'name' | 'short_name' | 'category'>) {
+    if (adding) return
+    setAdding(school.id)
+    setError(null)
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/schools`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schoolId: school.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Failed to add school'); return }
+      onAdd(json.cs as CampaignSchool)
+      onClose()
+    } finally {
+      setAdding(null)
+    }
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.28)', zIndex: 50 }}
+      />
+
+      {/* Modal */}
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 460, maxHeight: '68vh',
+        background: C.white, borderRadius: 10,
+        border: `1px solid ${C.border}`,
+        boxShadow: '0 20px 48px rgba(0,0,0,0.16)',
+        zIndex: 51, display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+      }}>
+
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '14px 18px', borderBottom: `1px solid ${C.border}`, flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>Add school</span>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: C.inkLo, lineHeight: 1, padding: 0 }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Search + tier toggle */}
+        <div style={{
+          padding: '10px 18px', borderBottom: `1px solid ${C.border}`,
+          display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0,
+        }}>
+          <input
+            autoFocus
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search schools…"
+            style={{
+              flex: 1, padding: '7px 10px', borderRadius: 6,
+              border: `1px solid ${C.border}`, fontSize: 13,
+              outline: 'none', fontFamily: 'inherit',
+            }}
+          />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: C.inkLo, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <input type="checkbox" checked={showAllTiers} onChange={e => setShowAll(e.target.checked)} />
+            All tiers
+          </label>
+        </div>
+
+        {error && (
+          <div style={{ padding: '8px 18px', fontSize: 12, color: C.red, background: '#FEF2F2', flexShrink: 0 }}>
+            {error}
+          </div>
+        )}
+
+        {/* School list */}
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding: '36px 18px', textAlign: 'center', fontSize: 13, color: C.inkLo }}>
+              {available.length === 0 ? 'All schools are already in this campaign.' : 'No matches.'}
+            </div>
+          ) : (
+            filtered.map((s, i) => (
+              <div
+                key={s.id}
+                onClick={() => handleAdd(s)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 18px',
+                  borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : 'none',
+                  cursor: adding ? 'default' : 'pointer',
+                  opacity: adding && adding !== s.id ? 0.5 : 1,
+                }}
+                onMouseEnter={e => { if (!adding) e.currentTarget.style.background = C.paper }}
+                onMouseLeave={e => { e.currentTarget.style.background = '' }}
+              >
+                <span style={{ flex: 1, fontSize: 13, color: C.ink }}>{s.name}</span>
+                <TierBadge tier={s.category} />
+                {adding === s.id && (
+                  <span style={{ fontSize: 11, color: C.inkLo }}>Adding…</span>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </>
   )
 }
