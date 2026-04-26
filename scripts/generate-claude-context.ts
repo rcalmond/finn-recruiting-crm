@@ -1,8 +1,10 @@
 /**
  * generate-claude-context.ts
  *
- * Regenerates the dynamic pipeline section of CLAUDE_CONTEXT.md from live Supabase data.
- * Static sections (athlete profile, philosophy, tech stack) are preserved as-is.
+ * Regenerates ONLY Section 11 (Live Pipeline) of CLAUDE_CONTEXT.md from live Supabase data.
+ * All other sections — including the manually-maintained Recent Changes table — are
+ * preserved in place from the existing file. Falls back to hardcoded static content
+ * if the existing file is missing or malformed (no Section 11/12 markers).
  *
  * Usage:
  *   npx tsx scripts/generate-claude-context.ts
@@ -192,8 +194,39 @@ function formatSchoolBlock(school: School, logs: ContactLogEntry[], actions: Act
   return lines.join('\n')
 }
 
-// ─── Static content ───────────────────────────────────────────────────────────
-const STATIC_HEADER = `# Finn Almond — College Soccer Recruiting App: Claude Context File
+// ─── Existing file parsing ───────────────────────────────────────────────────
+const SECTION_11_MARKER = '## 11. Live Pipeline'
+const SECTION_12_MARKER = '## 12. Recent Changes'
+
+/**
+ * Parse the existing CLAUDE_CONTEXT.md to extract the header (everything before
+ * Section 11) and footer (everything from Section 12 onward). This preserves
+ * manually-edited content like the Recent Changes table.
+ *
+ * Returns null if the file is missing or malformed (no markers found).
+ */
+function parseExistingFile(filePath: string): { header: string; footer: string } | null {
+  if (!fs.existsSync(filePath)) return null
+
+  const content = fs.readFileSync(filePath, 'utf8')
+  const s11Idx = content.indexOf(SECTION_11_MARKER)
+  const s12Idx = content.indexOf(SECTION_12_MARKER)
+
+  if (s11Idx === -1 || s12Idx === -1 || s12Idx <= s11Idx) return null
+
+  // Header = everything up to (but not including) the Section 11 heading.
+  // We trim trailing newlines from the header, then add a consistent separator.
+  const header = content.slice(0, s11Idx).replace(/\n+$/, '\n\n')
+
+  // Footer = everything from Section 12 onward. We prepend a section divider
+  // so the generated Section 11 is cleanly separated.
+  const footer = '\n---\n\n' + content.slice(s12Idx)
+
+  return { header, footer }
+}
+
+// ─── Fallback static content (used only when existing file is missing/malformed)
+const FALLBACK_HEADER = `# Finn Almond — College Soccer Recruiting App: Claude Context File
 
 > **How to use:** Drop this file in the root of the repo. At the start of a Claude Code session,
 > say: "Read CLAUDE_CONTEXT.md before we start."
@@ -683,7 +716,7 @@ If an existing Head Coach gets re-classified to a lower role AND no new Head Coa
 
 `
 
-const STATIC_FOOTER = `
+const FALLBACK_FOOTER = `
 ---
 
 ## 12. Recent Changes
@@ -873,8 +906,24 @@ async function main() {
     }
   }
 
-  const output = STATIC_HEADER + pipelineLines.join('\n') + STATIC_FOOTER
   const outputPath = path.resolve(process.cwd(), 'CLAUDE_CONTEXT.md')
+
+  // Try to preserve existing header/footer (Recent Changes, etc.) from the file
+  const existing = parseExistingFile(outputPath)
+  let header: string
+  let footer: string
+
+  if (existing) {
+    header = existing.header
+    footer = existing.footer
+  } else {
+    console.warn('⚠️  Existing CLAUDE_CONTEXT.md missing or malformed (no Section 11/12 markers).')
+    console.warn('    Falling back to hardcoded static content.')
+    header = FALLBACK_HEADER
+    footer = FALLBACK_FOOTER
+  }
+
+  const output = header + pipelineLines.join('\n') + footer
   fs.writeFileSync(outputPath, output, 'utf8')
 
   console.log('')
