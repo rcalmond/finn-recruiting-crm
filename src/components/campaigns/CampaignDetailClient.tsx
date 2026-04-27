@@ -492,8 +492,8 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
         {sent.length > 0 && (
           <>
             <SectionHeader label="Sent" count={sent.length} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 44px 160px 120px', padding: '8px 16px 4px', borderBottom: `1px solid ${C.border}` }}>
-              {['School', 'Tier', 'Coach', 'Sent'].map(h => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 44px 160px 90px 100px', padding: '8px 16px 4px', borderBottom: `1px solid ${C.border}` }}>
+              {['School', 'Tier', 'Coach', 'Sent', 'Capture'].map(h => (
                 <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.inkLo, textTransform: 'uppercase', letterSpacing: 0.4, paddingBottom: 4 }}>
                   {h}
                 </div>
@@ -503,7 +503,7 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
               <div
                 key={cs.id}
                 style={{
-                  display: 'grid', gridTemplateColumns: '1fr 44px 160px 120px',
+                  display: 'grid', gridTemplateColumns: '1fr 44px 160px 90px 100px',
                   padding: '10px 16px', alignItems: 'center',
                   borderBottom: i < sent.length - 1 ? `1px solid ${C.border}` : 'none',
                 }}
@@ -517,6 +517,13 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
                 </div>
                 <div style={{ fontSize: 12, color: C.inkLo }}>
                   {fmtDate(cs.sent_at, { month: 'short', day: 'numeric' })}
+                </div>
+                <div style={{ fontSize: 11 }}>
+                  {cs.contact_log_id ? (
+                    <span style={{ color: C.green, fontWeight: 600 }}>Captured</span>
+                  ) : (
+                    <span style={{ color: C.inkLo, fontStyle: 'italic' }}>Pending capture</span>
+                  )}
                 </div>
               </div>
             ))}

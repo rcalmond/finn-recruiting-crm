@@ -30,8 +30,6 @@ export async function PATCH(
   const body = await req.json() as {
     action: 'mark_sent' | 'dismiss' | 'restore' | 'update_coach'
     channel?: 'gmail' | 'sr'
-    gmailMessageId?: string
-    renderedBody?: string   // first 140 chars used as contact_log summary
     coachId?: string
   }
 
@@ -54,52 +52,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'School is not in pending status' }, { status: 400 })
     }
 
-    const channel = body.channel === 'gmail' ? 'Email' : 'Sports Recruits'
-
-    // Resolve coach name for contact_log
-    let coachName: string | null = null
-    if (cs.coach_id) {
-      const { data: coach } = await db
-        .from('coaches')
-        .select('name')
-        .eq('id', cs.coach_id)
-        .single()
-      coachName = coach?.name ?? null
-    }
-
-    // Resolve campaign name for summary fallback + parse_notes traceability
-    const { data: camp } = await db.from('campaigns').select('name').eq('id', campaignId).single()
-    const campaignName = camp?.name ?? 'Unknown campaign'
-
-    const summaryBase = (body.renderedBody ?? '').trim().slice(0, 140)
-    const summary = summaryBase || campaignName
-
-    // Insert contact_log row
-    const { data: logRow, error: logErr } = await db
-      .from('contact_log')
-      .insert({
-        school_id:        schoolId,
-        coach_id:         cs.coach_id ?? null,
-        date:             now.split('T')[0],
-        channel,
-        direction:        'Outbound',
-        coach_name:       coachName,
-        summary,
-        parse_status:     'full',
-        parse_notes:      `campaign send: ${campaignName}`,
-        created_by:       user.id,
-        ...(body.channel === 'gmail' && body.gmailMessageId
-          ? { gmail_message_id: body.gmailMessageId }
-          : {}),
-      })
-      .select('id')
-      .single()
-
-    if (logErr) return NextResponse.json({ error: logErr.message }, { status: 500 })
-
+    // Mark the campaign_schools row as sent. No contact_log row is created here —
+    // the real outbound body is captured by the CC-based ingestion pipeline
+    // (SR CC → sendgrid-inbound, or Gmail sent scan → gmail-sync cron).
+    // Part 3's linking logic populates contact_log_id after capture.
     const { error } = await db
       .from('campaign_schools')
-      .update({ status: 'sent', sent_at: now, contact_log_id: logRow.id })
+      .update({ status: 'sent', sent_at: now })
       .eq('id', cs.id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

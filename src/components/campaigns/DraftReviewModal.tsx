@@ -49,8 +49,6 @@ interface Props {
   onClose: () => void
 }
 
-type Step = 'main' | 'gmail-id'
-
 // ── Micro-components ──────────────────────────────────────────────────────────
 
 function TierBadge({ tier }: { tier: string }) {
@@ -77,8 +75,6 @@ export default function DraftReviewModal({ cs, campaign, lastInbound, onSent, on
 
   const [editedBody, setEditedBody]   = useState(initialBody)
   const [copied, setCopied]           = useState(false)
-  const [step, setStep]               = useState<Step>('main')
-  const [gmailMsgId, setGmailMsgId]   = useState('')
   const [sending, setSending]         = useState<'gmail' | 'sr' | 'dismiss' | null>(null)
   const [generating, setGenerating]   = useState(false)
   const [error, setError]             = useState<string | null>(null)
@@ -95,19 +91,14 @@ export default function DraftReviewModal({ cs, campaign, lastInbound, onSent, on
 
   // ── API helpers ──────────────────────────────────────────────────────────
 
-  async function markSent(channel: 'gmail' | 'sr', msgId?: string) {
+  async function markSent(channel: 'gmail' | 'sr') {
     setSending(channel)
     setError(null)
     try {
       const res = await fetch(`/api/campaigns/${campaign.id}/schools/${cs.school_id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action:       'mark_sent',
-          channel,
-          renderedBody: editedBody,
-          ...(channel === 'gmail' && msgId ? { gmailMessageId: msgId } : {}),
-        }),
+        body: JSON.stringify({ action: 'mark_sent', channel }),
       })
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? 'Failed'); return }
@@ -301,168 +292,108 @@ export default function DraftReviewModal({ cs, campaign, lastInbound, onSent, on
             </div>
           )}
 
-          {/* ── Main step ─────────────────────────────────────────────────── */}
-          {step === 'main' && (
-            <>
-              {/* Clipboard */}
-              <div>
-                <button
-                  onClick={handleCopy}
-                  style={{
-                    padding: '7px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
-                    cursor: 'pointer', border: `1px solid ${T.border}`,
-                    background: copied ? '#DCFCE7' : T.white,
-                    color: copied ? '#166534' : T.inkLo,
-                    transition: 'background 0.15s, color 0.15s',
-                  }}
-                >
-                  {copied ? 'Copied!' : 'Copy to clipboard'}
-                </button>
-              </div>
+          {/* Clipboard */}
+          <div>
+            <button
+              onClick={handleCopy}
+              style={{
+                padding: '7px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', border: `1px solid ${T.border}`,
+                background: copied ? '#DCFCE7' : T.white,
+                color: copied ? '#166534' : T.inkLo,
+                transition: 'background 0.15s, color 0.15s',
+              }}
+            >
+              {copied ? 'Copied!' : 'Copy to clipboard'}
+            </button>
+          </div>
 
-              {/* CC reminder */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '7px 12px', borderRadius: 6,
-                background: '#F0F4FF', border: '1px solid #C7D2FE',
-                fontSize: 12, color: '#4338CA', lineHeight: 1.4,
-              }}>
-                <span style={{ fontSize: 14, flexShrink: 0 }}>✉</span>
-                <span>
-                  CC{' '}
-                  <code
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText('finn@in.finnsoccer.com')
-                        setCcCopied(true)
-                        setTimeout(() => setCcCopied(false), 2000)
-                      } catch { /* noop */ }
-                    }}
-                    title="Click to copy"
-                    style={{
-                      background: ccCopied ? '#DCFCE7' : '#E0E7FF',
-                      padding: '1px 5px', borderRadius: 3,
-                      fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-                      fontSize: 11.5, cursor: 'pointer',
-                      transition: 'background 0.15s',
-                    }}
-                  >
-                    {ccCopied ? 'copied!' : 'finn@in.finnsoccer.com'}
-                  </code>
-                  {' '}so the CRM captures the actual sent body
-                </span>
-              </div>
+          {/* CC reminder */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '7px 12px', borderRadius: 6,
+            background: '#F0F4FF', border: '1px solid #C7D2FE',
+            fontSize: 12, color: '#4338CA', lineHeight: 1.4,
+          }}>
+            <span style={{ fontSize: 14, flexShrink: 0 }}>✉</span>
+            <span>
+              CC{' '}
+              <code
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText('finn@in.finnsoccer.com')
+                    setCcCopied(true)
+                    setTimeout(() => setCcCopied(false), 2000)
+                  } catch { /* noop */ }
+                }}
+                title="Click to copy"
+                style={{
+                  background: ccCopied ? '#DCFCE7' : '#E0E7FF',
+                  padding: '1px 5px', borderRadius: 3,
+                  fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+                  fontSize: 11.5, cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+              >
+                {ccCopied ? 'copied!' : 'finn@in.finnsoccer.com'}
+              </code>
+              {' '}so the CRM captures the actual sent body
+            </span>
+          </div>
 
-              {/* Send buttons */}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={() => setStep('gmail-id')}
-                  disabled={busy}
-                  style={{
-                    padding: '9px 18px', borderRadius: 7, fontSize: 13, fontWeight: 600,
-                    cursor: busy ? 'not-allowed' : 'pointer',
-                    border: 'none', background: T.ink, color: T.white,
-                    opacity: busy ? 0.5 : 1,
-                  }}
-                >
-                  Mark as sent via Gmail
-                </button>
-                <button
-                  onClick={() => markSent('sr')}
-                  disabled={busy}
-                  style={{
-                    padding: '9px 18px', borderRadius: 7, fontSize: 13, fontWeight: 600,
-                    cursor: busy ? 'not-allowed' : 'pointer',
-                    border: `1px solid ${T.border}`, background: T.white, color: T.ink,
-                    opacity: busy ? 0.5 : 1,
-                  }}
-                >
-                  {sending === 'sr' ? 'Sending…' : 'Mark as sent via SR'}
-                </button>
-              </div>
+          {/* Send buttons */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => markSent('gmail')}
+              disabled={busy}
+              style={{
+                padding: '9px 18px', borderRadius: 7, fontSize: 13, fontWeight: 600,
+                cursor: busy ? 'not-allowed' : 'pointer',
+                border: 'none', background: T.ink, color: T.white,
+                opacity: busy ? 0.5 : 1,
+              }}
+            >
+              {sending === 'gmail' ? 'Sending…' : 'Mark as sent via Gmail'}
+            </button>
+            <button
+              onClick={() => markSent('sr')}
+              disabled={busy}
+              style={{
+                padding: '9px 18px', borderRadius: 7, fontSize: 13, fontWeight: 600,
+                cursor: busy ? 'not-allowed' : 'pointer',
+                border: `1px solid ${T.border}`, background: T.white, color: T.ink,
+                opacity: busy ? 0.5 : 1,
+              }}
+            >
+              {sending === 'sr' ? 'Sending…' : 'Mark as sent via SR'}
+            </button>
+          </div>
 
-              {/* Dismiss + Cancel */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <button
-                  onClick={handleDismiss}
-                  disabled={busy}
-                  style={{
-                    padding: '7px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
-                    cursor: busy ? 'not-allowed' : 'pointer',
-                    border: `1px solid #FCA5A5`, background: '#FEF2F2', color: T.red,
-                    opacity: busy ? 0.5 : 1,
-                  }}
-                >
-                  {sending === 'dismiss' ? 'Dismissing…' : 'Dismiss from this campaign'}
-                </button>
-                <button
-                  onClick={onClose}
-                  style={{
-                    padding: '7px 14px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                    cursor: 'pointer', border: `1px solid ${T.border}`,
-                    background: T.white, color: T.inkLo,
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </>
-          )}
-
-          {/* ── Gmail message ID step ────────────────────────────────────── */}
-          {step === 'gmail-id' && (
-            <>
-              <div>
-                <label style={{
-                  display: 'block', fontSize: 11, fontWeight: 700, color: T.inkLo,
-                  textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6,
-                }}>
-                  Gmail message ID{' '}
-                  <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
-                    (optional — paste from Gmail URL, e.g. msg-a:r123…)
-                  </span>
-                </label>
-                <input
-                  autoFocus
-                  value={gmailMsgId}
-                  onChange={e => setGmailMsgId(e.target.value)}
-                  placeholder="Leave blank to skip"
-                  style={{
-                    width: '100%', boxSizing: 'border-box',
-                    padding: '8px 10px', borderRadius: 6,
-                    border: `1px solid ${T.border}`, fontSize: 13,
-                    outline: 'none', fontFamily: 'inherit',
-                  }}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={() => markSent('gmail', gmailMsgId.trim() || undefined)}
-                  disabled={busy}
-                  style={{
-                    padding: '9px 18px', borderRadius: 7, fontSize: 13, fontWeight: 600,
-                    cursor: busy ? 'not-allowed' : 'pointer',
-                    border: 'none', background: T.ink, color: T.white,
-                    opacity: busy ? 0.5 : 1,
-                  }}
-                >
-                  {sending === 'gmail' ? 'Sending…' : 'Confirm — mark sent via Gmail'}
-                </button>
-                <button
-                  onClick={() => { setStep('main'); setError(null) }}
-                  disabled={busy}
-                  style={{
-                    padding: '9px 14px', borderRadius: 7, fontSize: 13, fontWeight: 500,
-                    cursor: busy ? 'not-allowed' : 'pointer',
-                    border: `1px solid ${T.border}`, background: T.white, color: T.inkLo,
-                    opacity: busy ? 0.5 : 1,
-                  }}
-                >
-                  Back
-                </button>
-              </div>
-            </>
-          )}
+          {/* Dismiss + Cancel */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <button
+              onClick={handleDismiss}
+              disabled={busy}
+              style={{
+                padding: '7px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                cursor: busy ? 'not-allowed' : 'pointer',
+                border: `1px solid #FCA5A5`, background: '#FEF2F2', color: T.red,
+                opacity: busy ? 0.5 : 1,
+              }}
+            >
+              {sending === 'dismiss' ? 'Dismissing…' : 'Dismiss from this campaign'}
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                padding: '7px 14px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+                cursor: 'pointer', border: `1px solid ${T.border}`,
+                background: T.white, color: T.inkLo,
+              }}
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     </>
