@@ -535,7 +535,7 @@ async function handleOutboundCC(
 
   // 10. Insert
   const parseNotes = notes.length > 0 ? notes.join('; ') : null
-  const { error: insertError } = await admin.from('contact_log').insert({
+  const { data: insertedRow, error: insertError } = await admin.from('contact_log').insert({
     school_id:         schoolId,
     date:              isoDate,
     channel:           'Sports Recruits',
@@ -550,11 +550,18 @@ async function handleOutboundCC(
     parse_notes:       parseNotes,
     content_hash:      contentHash,
     created_by:        null,
-  })
+  }).select('id').single()
 
   if (insertError) {
     console.error(`[sg-inbound] ${receivedAt} — outbound CC insert error: ${insertError.message}`)
     return
+  }
+
+  // 10a. Fire-and-forget: link outbound to campaign_schools if applicable
+  if (insertedRow?.id && schoolId) {
+    import('@/lib/campaigns').then(({ linkOutboundToCampaign }) =>
+      linkOutboundToCampaign(admin, insertedRow.id)
+    ).catch(err => console.error(`[sg-inbound] campaign-link import failed:`, err))
   }
 
   console.log(

@@ -297,6 +297,13 @@ export async function GET(req: NextRequest) {
         ).catch(err => console.error(`[gmail-sync] classify import failed for ${messageId}:`, err))
       }
 
+      // 6g. Fire-and-forget: link outbound to campaign_schools if applicable
+      if (parsed.direction === 'Outbound' && insertedRow?.id && schoolId) {
+        import('@/lib/campaigns').then(({ linkOutboundToCampaign }) =>
+          linkOutboundToCampaign(admin, insertedRow.id)
+        ).catch(err => console.error(`[gmail-sync] campaign-link import failed for ${messageId}:`, err))
+      }
+
       console.log(
         `[gmail-sync] ${startedAt} — ${parsed.direction} | ${parsed.isoDate} | ` +
         `school=${schoolId ? schoolId.slice(0, 8) + '…' : 'null'} | ` +
