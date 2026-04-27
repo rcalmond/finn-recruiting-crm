@@ -462,10 +462,23 @@ No migration needed (category column already existed).
 - Confidence: 67 high / 3 medium / 0 low
 - Today "Awaiting your reply" after filter: 3 rows in 90-day window (Dale Jordan/Stevens, Teren Schuster/SD Mines, Rob Harrington/MSOE)
 
-### Phase 2a — Campaigns Foundation (migration 024 + 024b, shipped locally not yet deployed)
+### Phase 2a — Campaigns Foundation (migration 024 + 024b, deployed to production 2026-04-27)
 
-**Status:** All 7 Phase 2a commits live on local main, NOT yet pushed to origin. Production
-deploy gated on Milestone 3.5 dry-run review (AI-drafted personalization output validation).
+**Status:** Phase 2a is fully deployed to production. Migrations 024 + 024b applied in
+production. The body of work spans Milestones 0–3.5 (schema, wizard, detail view, add-school,
+draft review modal, AI personalization) plus post-milestone fixes (CC reminder, mark-as-sent
+refactor, outbound auto-linking forward and reverse, optimistic concurrency).
+
+**Campaign outcomes:**
+- **Wingback campaign (April 2026):** Completed — all 40 schools either sent or dismissed.
+  Status = `completed`.
+- **RQ campaign (spring 2026):** Retired — status = `completed`, zero sends made. The RQ
+  "campaign" was not actually a messaging campaign; it was a personal checklist for updating
+  Finn's position in each school's recruiting questionnaire. The data migration (024b) grouped
+  it with wingback because both originated as recurring action_items, but RQ was a task list
+  that Finn worked through directly outside the campaigns system. When the template builder hit
+  "insufficient historical sends to synthesize from," that was the system signaling "this isn't
+  a campaign" — the signal was missed at migration time.
 
 **Schema (migration 024):** Three new tables — `campaign_templates`, `campaigns`,
 `campaign_schools` — see Section 4 for column definitions. RLS pattern matches action_items
@@ -552,10 +565,8 @@ once campaigns are active.
 A completed campaign's per-school edits could be the seed for the next campaign's template
 (common patterns Finn types repeatedly).
 
-**RQ template body remains TODO:** The RQ campaign cannot be activated meaningfully until
-Finn authors the template body. The current placeholder text starts with "TODO:" and
-includes a soft warning on the Activate button (when active, this might surface a
-confirmation dialog — TBD if implemented).
+**RQ template body — moot (campaign retired):** The RQ campaign was retired without sends.
+See "Campaign outcomes" above for context. The TODO placeholder template is vestigial.
 
 **needs_review flag not surfaced in AI personalization context (identified 2026-04-26):**
 When `campaign_schools.coach_id` points to a coach with `needs_review=true`, the AI
@@ -642,7 +653,11 @@ Tech debt carried to Phase 2:
   "keep us updated" pleasantries when classifying intent.
 - MIT assistant coach email coverage gap (2 of 4 assistants lack emails in coaches table).
 
-Phase 2 (campaigns) and Phase 3 (Today redesign) build on this foundation.
+Phase 2 (campaigns) builds on this foundation. A "Phase 3 (Today redesign)" was referenced
+during planning but never scoped; the Today-related items (campaign cards, reply linking)
+are tracked under Phase 2b. Note: "Phase 3a/3b/3c" in the Recent Changes table refers to
+the 2026-04-19 UI redesign (schools list, school detail, library) — a different numbering
+from the unscoped "Phase 3 (Today redesign)" mentioned here.
 
 ### Review Queue — Part 5d initial seed outcomes (closed 2026-04-23)
 All 23 manual items from the initial seed run have been resolved (0 pending):
@@ -1946,6 +1961,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-27 | Phase 2a deployed to production; wingback campaign completed (40 schools sent/dismissed); RQ campaign retired (not a messaging campaign — was a checklist worked outside the system) | Milestone |
 | 2026-04-26 | Phase 2a Part 3b: symmetric outbound linking (linkCampaignToOutbound for the send-then-mark workflow ordering) | Bug fix |
 | 2026-04-26 | Phase 2a Milestone 3.5: AI personalization in draft review modal — Haiku 4.5, streaming, school + coach + inbound context, stats hallucination guard, no-coach-quote rule | Feature |
 | 2026-04-26 | Phase 2a Milestone 3: draft review modal with copy/mark-sent-Gmail/mark-sent-SR/dismiss; channel value mapping (gmail/sr wire → Email/Sports Recruits DB) | Feature |
@@ -2009,8 +2025,9 @@ SCHOOL: Williams
 
 ## 14. "Copy for Claude" Export (strategy sessions in Claude.ai)
 
-The app has (or will have) a "Copy for Claude" button that copies a formatted plaintext
-pipeline summary to the clipboard for pasting into Claude.ai strategy sessions.
+The app has a "Copy for Claude" button on the `/pipeline` page (`src/components/DashboardClient.tsx`)
+that copies a formatted plaintext pipeline summary to the clipboard for pasting into Claude.ai
+strategy sessions.
 
 Format per school:
 ```
