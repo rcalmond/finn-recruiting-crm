@@ -557,13 +557,6 @@ Finn authors the template body. The current placeholder text starts with "TODO:"
 includes a soft warning on the Activate button (when active, this might surface a
 confirmation dialog — TBD if implemented).
 
-**Outbound linking only handles forward-order workflow (identified 2026-04-26):**
-`linkOutboundToCampaign` only links when Mark as sent is clicked BEFORE the SR/Gmail send
-completes. If Finn sends first and marks later (reverse order), the contact_log INSERT fires
-while `campaign_schools.status` is still `'pending'` — no match. No second attempt fires from
-the Mark-as-sent side. Reverse-order sends result in unlinked `campaign_schools.contact_log_id`
-requiring manual SQL. Symmetric windowing + mark-as-sent-side hook deferred to Phase 2b.
-
 **needs_review flag not surfaced in AI personalization context (identified 2026-04-26):**
 When `campaign_schools.coach_id` points to a coach with `needs_review=true`, the AI
 personalization prompt receives the coach name without any warning. Example: Cornell's
@@ -1934,6 +1927,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-26 | Phase 2a Part 3b: symmetric outbound linking (linkCampaignToOutbound for the send-then-mark workflow ordering) | Bug fix |
 | 2026-04-26 | Phase 2a Milestone 3.5: AI personalization in draft review modal — Haiku 4.5, streaming, school + coach + inbound context, stats hallucination guard, no-coach-quote rule | Feature |
 | 2026-04-26 | Phase 2a Milestone 3: draft review modal with copy/mark-sent-Gmail/mark-sent-SR/dismiss; channel value mapping (gmail/sr wire → Email/Sports Recruits DB) | Feature |
 | 2026-04-26 | Phase 2a Milestone 2.5: "+ Add school" action with tier filter + search; channel column width fix | Feature |

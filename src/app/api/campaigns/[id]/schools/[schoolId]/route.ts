@@ -55,13 +55,19 @@ export async function PATCH(
     // Mark the campaign_schools row as sent. No contact_log row is created here —
     // the real outbound body is captured by the CC-based ingestion pipeline
     // (SR CC → sendgrid-inbound, or Gmail sent scan → gmail-sync cron).
-    // Part 3's linking logic populates contact_log_id after capture.
+    // Linking logic (both forward and reverse order) populates contact_log_id.
     const { error } = await db
       .from('campaign_schools')
       .update({ status: 'sent', sent_at: now })
       .eq('id', cs.id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Fire-and-forget: attempt reverse-order linking (send happened before mark)
+    import('@/lib/campaigns').then(({ linkCampaignToOutbound }) =>
+      linkCampaignToOutbound(db, cs.id)
+    ).catch(err => console.error(`[mark_sent] campaign-link-rev import failed:`, err))
+
     return NextResponse.json({ ok: true })
   }
 
