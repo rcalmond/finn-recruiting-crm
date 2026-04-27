@@ -353,7 +353,7 @@ export default function DraftReviewModal({ cs, campaign, lastInbound, onSent, on
                 opacity: busy ? 0.5 : 1,
               }}
             >
-              {sending === 'gmail' ? 'Sending…' : 'Mark as sent via Gmail'}
+              {sending === 'gmail' ? 'Marking…' : 'Mark as sent via Gmail'}
             </button>
             <button
               onClick={() => markSent('sr')}
@@ -365,7 +365,7 @@ export default function DraftReviewModal({ cs, campaign, lastInbound, onSent, on
                 opacity: busy ? 0.5 : 1,
               }}
             >
-              {sending === 'sr' ? 'Sending…' : 'Mark as sent via SR'}
+              {sending === 'sr' ? 'Marking…' : 'Mark as sent via SR'}
             </button>
           </div>
 
