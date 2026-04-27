@@ -564,6 +564,25 @@ John Smith (HC, `needs_review=true`) — the AI confidently addresses "Coach Smi
 hedging. Phase 2b should pass `needs_review` into the prompt context and instruct the AI
 to use a generic salutation ("Coach," or "Coaching Staff,") when the flag is set.
 
+**SR notification school-name aliases incomplete (identified 2026-04-27):**
+SR's outbound CC notifications use full school names ("University of Michigan") while the
+`schools` table uses shorter names ("U Michigan" / short_name "Michigan"). When the SR parser
+can't match the long form, the row becomes `parse_status='partial'` with `school_id=null`,
+and the campaign linker silently skips it (no school_id = no link attempt). Michigan example
+(2026-04-27): contact_log row `61f5ceb6` created as partial+orphan, `campaign_schools` left
+with "Pending capture", required manual rescue.
+
+Mitigation pattern: when this happens, add the long-form name as an alias to the affected
+school's `aliases` column, then manually rescue the contact_log row + link the campaign_schools
+row.
+
+Future improvement candidates:
+1. Surface partial contact_log rows tied to recent campaign sends in the UI — currently
+   invisible until manually queried
+2. Backfill SR-style aliases for all schools in active campaigns proactively
+3. Add a "Pending capture" → "Capture failed (orphan)" state transition in the campaign
+   detail view after some timeout, with a link to the partial contact_log row for diagnosis
+
 ### Tech Debt and Open Questions (Phase 1 — 2026-04-24)
 
 **Decline context staleness:**
