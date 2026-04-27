@@ -557,6 +557,13 @@ Finn authors the template body. The current placeholder text starts with "TODO:"
 includes a soft warning on the Activate button (when active, this might surface a
 confirmation dialog — TBD if implemented).
 
+**Outbound linking only handles forward-order workflow (identified 2026-04-26):**
+`linkOutboundToCampaign` only links when Mark as sent is clicked BEFORE the SR/Gmail send
+completes. If Finn sends first and marks later (reverse order), the contact_log INSERT fires
+while `campaign_schools.status` is still `'pending'` — no match. No second attempt fires from
+the Mark-as-sent side. Reverse-order sends result in unlinked `campaign_schools.contact_log_id`
+requiring manual SQL. Symmetric windowing + mark-as-sent-side hook deferred to Phase 2b.
+
 **needs_review flag not surfaced in AI personalization context (identified 2026-04-26):**
 When `campaign_schools.coach_id` points to a coach with `needs_review=true`, the AI
 personalization prompt receives the coach name without any warning. Example: Cornell's

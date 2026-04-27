@@ -30,6 +30,16 @@ const LINKING_WINDOW_MINUTES = 60
  * If multiple campaign_schools rows match (same school across campaigns),
  * the most recently sent one wins (highest sent_at).
  *
+ * ORDERING ASSUMPTION: This function only links when sent_at <= created_at,
+ * i.e., when "Mark as sent" is clicked BEFORE the actual SR/Gmail send
+ * completes and the webhook captures the contact_log row. If Finn sends
+ * first and marks later (reverse order), the link attempt fires from the
+ * contact_log INSERT side while campaign_schools is still status='pending'
+ * — no match is found. No second attempt fires from the Mark-as-sent side.
+ * Reverse-order sends result in unlinked contact_log_id requiring manual
+ * SQL: `UPDATE campaign_schools SET contact_log_id = '<id>' WHERE ...`.
+ * Symmetric windowing + mark-as-sent-side hook deferred to Phase 2b.
+ *
  * Fire-and-forget — never throws. Logs errors and returns silently.
  */
 export async function linkOutboundToCampaign(
@@ -110,10 +120,13 @@ export async function linkOutboundToCampaign(
       ? `${existingNotes}; ${campaignNote}`
       : campaignNote
 
-    await admin
+    const { error: notesErr } = await admin
       .from('contact_log')
       .update({ parse_notes: newNotes })
       .eq('id', contactLogRowId)
+    if (notesErr) {
+      console.error(`[campaign-link] Failed to update parse_notes:`, notesErr.message)
+    }
 
     console.log(
       `[campaign-link] Linked contact_log ${contactLogRowId.slice(0, 8)}… → ` +
