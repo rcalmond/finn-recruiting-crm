@@ -211,6 +211,9 @@ Rules:
 - ONLY fill "[Finn: ...]" brackets — do NOT rewrite, restructure, or reword any other part of the email
 - Do NOT invent facts, statistics, or experiences not supported by the context provided
 - If a bracket cannot be confidently filled from the context, replace it with "[TODO: <original instruction>]" so Finn knows to revisit it
+- Any "[TODO: ...]" bracket already in the email MUST be passed through unchanged — never fill, rewrite, or remove a TODO
+- Never assert future commitments, plans, or intentions on Finn's behalf — do not claim Finn will attend a camp, visit campus, register for an event, or take any forward action unless the input context explicitly states he has already decided to do so. "Coach invited Finn to camp" does NOT mean Finn plans to attend.
+- Never quote, paraphrase, or closely mirror the coach's prior messages back at them — reference the relationship state without echoing their words
 - Keep the surrounding voice intact — confident, direct, genuine, specific
 - Return ONLY the complete filled-in email body — no subject line, no explanation, no markdown fences
 - Keep it under 200 words total`
@@ -234,6 +237,15 @@ export interface CampaignPersonalizeParams {
 }
 
 export function buildCampaignPersonalizePrompt(p: CampaignPersonalizeParams): string {
+  // ── Stats hallucination guard (code-level, deterministic) ──────────────────
+  // Replace stats/highlights brackets with [TODO: stats] BEFORE the model sees
+  // them. The system has no canonical stats source — old stats from contact_log
+  // are stale by definition. Finn fills these in manually during review.
+  const guardedBody = p.renderedBody.replace(
+    /\[Finn:[^\]]*(?:stats|highlights|recent results)[^\]]*\]/gi,
+    '[TODO: stats — Finn fills in current stats manually]'
+  )
+
   const lines: string[] = []
 
   lines.push(`SCHOOL: ${p.schoolName}`)
@@ -264,7 +276,7 @@ export function buildCampaignPersonalizePrompt(p: CampaignPersonalizeParams): st
 
   lines.push(`EMAIL TO PERSONALIZE:`)
   lines.push(`---`)
-  lines.push(p.renderedBody)
+  lines.push(guardedBody)
   lines.push(`---`)
   lines.push('')
   lines.push(`Fill in all "[Finn: ...]" brackets with specific content from the context above. Return only the completed email body.`)

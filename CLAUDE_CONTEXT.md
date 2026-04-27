@@ -84,6 +84,14 @@ sort_order  integer   -- persistent manual priority order
 created_at  timestamptz
 ```
 
+**Phase 2a note:** As of migration 024b, action_items contains only genuine one-offs.
+The 40 wingback + 38 RQ recurring outreach tasks were migrated into the campaigns
+system (campaign_schools rows). 4 protected one-offs remain:
+- `debcecec-b39a-4a70-b0f0-bc055734c5e3` — Check for new HC (Mines)
+- `47b69e2e-2e01-43bf-b4f7-f9d2f3b2490d` — Reply to "Let's connect in May" (MSOE)
+- `938b5a13-aa2c-4faa-bbc9-d114f9031050` — MLS NEXT Fest follow-up (Case Western)
+- `46cbae05-aeb6-409e-b987-9de1af0e1d74` — Update RQ May 29 (Mines, distinct from batch)
+
 ### Table: `contact_log`
 ```
 id                uuid PK
@@ -103,6 +111,62 @@ parse_notes       text
 created_by        uuid FK → auth.users.id
 created_at        timestamptz
 ```
+
+**Channel value mapping (campaigns send flow):** The campaign draft review modal accepts
+wire values `'gmail'` and `'sr'` from the client, but writes the canonical DB values
+`'Email'` and `'Sports Recruits'` respectively. Conversion happens in
+`/api/campaigns/[id]/schools/[schoolId]/route.ts` at the mark_sent action handler.
+This matches the existing convention used by gmail-sync, sendgrid webhook, bulk-import,
+and ContactLogPanel — all of which write `'Email'` and `'Sports Recruits'` directly.
+No rows in the DB use `'gmail'` or `'sr'` — those are display/wire-only values.
+
+### Table: `campaign_templates` (added in migration 024)
+```
+id          uuid PK
+name        text
+body        text                    -- Mustache-style placeholders
+created_at  timestamptz
+updated_at  timestamptz
+```
+
+Supported placeholders: `{{coach_last_name}}`, `{{coach_first_name}}`, `{{school_name}}`,
+`{{coach_role}}`. Templates are first-class objects; one template can back multiple
+campaigns in later phases (in 2a, each campaign has its own template).
+
+### Table: `campaigns` (added in migration 024)
+```
+id             uuid PK
+name           text
+template_id    uuid FK → campaign_templates.id
+status         'draft' | 'active' | 'paused' | 'completed'
+tier_scope     text[]                  -- default ['A','B'], advisory only
+throttle_days  int                     -- default 7, NOT enforced in 2a
+created_at     timestamptz
+activated_at   timestamptz
+completed_at   timestamptz
+```
+
+`tier_scope` pre-populates the school checklist when creating a new campaign; Finn can
+add C-tier schools manually via the "+ Add school" action on the detail view.
+`throttle_days` is stored for Phase 2b; no code reads it in 2a.
+
+### Table: `campaign_schools` (added in migration 024)
+```
+id              uuid PK
+campaign_id     uuid FK → campaigns.id (cascade delete)
+school_id       uuid FK → schools.id
+coach_id        uuid FK → coaches.id (nullable)
+status          'pending' | 'sent' | 'dismissed' | 'bounced'
+sent_at         timestamptz
+contact_log_id  uuid FK → contact_log.id (set when status='sent')
+dismissed_at    timestamptz
+created_at      timestamptz
+unique (campaign_id, school_id)
+```
+
+`coach_id` is the recommended primary recipient at draft time; updated to current primary
+coach when Finn opens the draft review modal. `dismiss` removes from THIS campaign only —
+the school remains eligible for future campaigns. Sent rows are terminal in 2a (no un-send).
 
 ### Table: `assets`
 ```
@@ -248,10 +312,18 @@ and are legacy — note this in contact log if surfaced.
 - **Styling**: Tailwind CSS
 - **Deployment**: Vercel
 - **Key paths**:
-  - `src/lib/types.ts` — TypeScript types (School, ContactLogEntry, ActionItem, etc.)
+  - `src/lib/types.ts` — TypeScript types (School, ContactLogEntry, ActionItem, Campaign, CampaignSchool, etc.)
   - `src/lib/supabase.ts` — Supabase client initialization
-  - `supabase/migrations/` — schema (001) and seed (002) files
+  - `supabase/migrations/` — schema migrations (numbered, applied via Supabase dashboard)
+  - `supabase/scripts/` — data migrations and one-shot scripts (committed)
+  - `supabase/scratch/` — investigation queries (gitignored)
   - `scripts/generate-claude-context.ts` — this script
+
+**SQL execution convention:** All psql commands run as `psql -f <path>` against files
+on disk. No inline `-c "..."` SQL — that pattern triggers Claude Code's brace-quote
+approval warnings on JSON-shaped strings. Schema migrations are pasted into the Supabase
+dashboard SQL editor (Randy runs them); investigation queries can run via TS scripts
+over the Supabase JS client (read-only).
 
 ---
 
@@ -389,6 +461,108 @@ No migration needed (category column already existed).
 - Distribution: 40 requires_action (57%), 8 requires_reply (11%), 9 acknowledgement (13%), 8 informational (11%), 2 decline (3%), 1 staff_non_coach×informational, 2 team_automated×requires_action
 - Confidence: 67 high / 3 medium / 0 low
 - Today "Awaiting your reply" after filter: 3 rows in 90-day window (Dale Jordan/Stevens, Teren Schuster/SD Mines, Rob Harrington/MSOE)
+
+### Phase 2a — Campaigns Foundation (migration 024 + 024b, shipped locally not yet deployed)
+
+**Status:** All 7 Phase 2a commits live on local main, NOT yet pushed to origin. Production
+deploy gated on Milestone 3.5 dry-run review (AI-drafted personalization output validation).
+
+**Schema (migration 024):** Three new tables — `campaign_templates`, `campaigns`,
+`campaign_schools` — see Section 4 for column definitions. RLS pattern matches action_items
+(authenticated users full access). Realtime publication enabled on all three tables for
+reactive UI updates.
+
+**Data migration (024b):** Migrated 40 wingback + 38 RQ recurring outreach tasks from
+action_items into campaign_schools rows. 4 protected one-offs preserved in action_items
+(IDs documented in Section 4 under action_items).
+
+Reconciliation results:
+- **Wingback campaign — April 2026:** 40 schools total, 20 status='sent' (matched to
+  contact_log rows from prior outreach, 60-day window with `summary ilike '%wingback%'`),
+  20 status='pending'. Status remains 'draft' — Finn will review template before activating.
+- **RQ campaign — spring 2026:** 38 schools total, all status='pending'. No matching
+  contact_log entries found (RQ outreach hasn't started yet — these were planned, not sent).
+  Template body is a TODO PLACEHOLDER — Finn must author the body text before activating.
+
+**UI (Milestones 1 through 3.5):**
+
+Routes:
+- `/campaigns` — list view with name, status, pending/sent/dimsd counts, created date
+- `/campaigns/new` — 3-step wizard (name + template, school checklist, throttle)
+- `/campaigns/[id]` — detail view with header, template section (read-only with edit),
+  schools table grouped by status, status transition buttons, "+ Add school" action
+- Draft review modal (opens from "Draft →" button on a pending row)
+
+Send flow: copy-paste model only — no actual sending. Finn copies the rendered body to
+clipboard, sends via his Gmail or SR account manually, then clicks "Mark as sent via
+Gmail" or "Mark as sent via SR" in the modal. Modal creates a contact_log row with
+`channel='Email'` (Gmail) or `'Sports Recruits'` (SR), `direction='Outbound'`, summary =
+first 140 chars of rendered body (falls back to campaign name if body is empty).
+
+**Channel recommendation logic:** The Channel column in the Pending section reads the
+school's most recent inbound's `authored_by`. `coach_personal` → recommend Gmail.
+`coach_via_platform` → recommend SR. `team_automated`, `staff_non_coach`, `unknown`,
+or no inbound → no recommendation, displayed as "—".
+
+**Add School action (Milestone 2.5):** Schools can be added to a campaign after creation
+via a search modal on the detail view. Default list shows only schools matching
+`campaigns.tier_scope` (A+B); "All tiers" toggle includes C-tier. Schools already in the
+campaign (regardless of status — pending, sent, or dismissed) are excluded from the list.
+Dismissed schools are restored via the Dismissed section, not re-added.
+
+**Personalize with AI (Milestone 3.5):** Button in the draft review modal calls Anthropic
+API (Haiku 4.5) to fill in the template's bracketed placeholders (`[Finn: add school-
+specific note...]`, `[Finn: add current stats...]`) using:
+- School context (name, tier, division, conference, location, notes)
+- Coach context (name, role)
+- Recent inbound history (last 2-3 inbound contact_log rows for this school, with
+  authored_by + summary + date)
+- Finn's player profile (Section 2 of this file)
+
+System prompt explicitly instructs:
+- Avoid quoting or paraphrasing the coach's prior message back at them (mirror-y
+  responses are off-putting)
+- Stats hallucination guard: the `[Finn: add current stats, highlights, or recent
+  results]` bracket is replaced with `[TODO: stats]` rather than filled, since the
+  system has no durable stats source. Finn fills this manually.
+- Other brackets that can't be confidently filled get `[TODO: <description>]`.
+
+Streaming token-by-token into the textarea. Send/dismiss buttons disabled during stream.
+Generated content is editable — Finn always reviews before clicking Mark as sent.
+Per-school edits do NOT modify the campaign template.
+
+### Phase 2a Tech Debt and Open Questions
+
+**Cross-campaign throttle enforcement (deferred to Phase 2b):**
+`campaigns.throttle_days` column exists (default 7) but no code reads it in 2a. In 2b,
+the system should prevent a school from receiving a campaign send if it received any
+campaign send within the last `throttle_days` days, regardless of which campaign.
+
+**Reply linking (deferred to Phase 2b):**
+When a coach replies to a campaign email, the inbound contact_log row should link back
+to the originating `campaign_schools` row (primary match by Gmail thread_id, fallback by
+school_id within 14-day window). This enables "campaign reply rate" metrics and surfaces
+reply expectations on the Today screen.
+
+**Today screen campaign cards (deferred to Phase 2b):**
+The Today view should surface campaign-driven action ("3 wingback drafts ready to send")
+once campaigns are active.
+
+**Save-as-template from completed campaign (deferred to Phase 2c):**
+A completed campaign's per-school edits could be the seed for the next campaign's template
+(common patterns Finn types repeatedly).
+
+**RQ template body remains TODO:** The RQ campaign cannot be activated meaningfully until
+Finn authors the template body. The current placeholder text starts with "TODO:" and
+includes a soft warning on the Activate button (when active, this might surface a
+confirmation dialog — TBD if implemented).
+
+**needs_review flag not surfaced in AI personalization context (identified 2026-04-26):**
+When `campaign_schools.coach_id` points to a coach with `needs_review=true`, the AI
+personalization prompt receives the coach name without any warning. Example: Cornell's
+John Smith (HC, `needs_review=true`) — the AI confidently addresses "Coach Smith" without
+hedging. Phase 2b should pass `needs_review` into the prompt context and instruct the AI
+to use a generic salutation ("Coach," or "Coaching Staff,") when the flag is set.
 
 ### Tech Debt and Open Questions (Phase 1 — 2026-04-24)
 
