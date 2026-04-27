@@ -82,6 +82,7 @@ export default function DraftReviewModal({ cs, campaign, lastInbound, onSent, on
   const [sending, setSending]         = useState<'gmail' | 'sr' | 'dismiss' | null>(null)
   const [generating, setGenerating]   = useState(false)
   const [error, setError]             = useState<string | null>(null)
+  const [ccCopied, setCcCopied]       = useState(false)
 
   // ── Channel recommendation ───────────────────────────────────────────────
 
@@ -317,6 +318,39 @@ export default function DraftReviewModal({ cs, campaign, lastInbound, onSent, on
                 >
                   {copied ? 'Copied!' : 'Copy to clipboard'}
                 </button>
+              </div>
+
+              {/* CC reminder */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 12px', borderRadius: 6,
+                background: '#F0F4FF', border: '1px solid #C7D2FE',
+                fontSize: 12, color: '#4338CA', lineHeight: 1.4,
+              }}>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>✉</span>
+                <span>
+                  CC{' '}
+                  <code
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText('finn@in.finnsoccer.com')
+                        setCcCopied(true)
+                        setTimeout(() => setCcCopied(false), 2000)
+                      } catch { /* noop */ }
+                    }}
+                    title="Click to copy"
+                    style={{
+                      background: ccCopied ? '#DCFCE7' : '#E0E7FF',
+                      padding: '1px 5px', borderRadius: 3,
+                      fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+                      fontSize: 11.5, cursor: 'pointer',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    {ccCopied ? 'copied!' : 'finn@in.finnsoccer.com'}
+                  </code>
+                  {' '}so the CRM captures the actual sent body
+                </span>
               </div>
 
               {/* Send buttons */}
