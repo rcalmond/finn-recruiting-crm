@@ -117,16 +117,19 @@ export async function linkOutboundToCampaign(
 
     const campaignName = campaign?.name ?? 'Unknown campaign'
 
-    // 5. Link: set contact_log_id on campaign_schools
-    const { error: linkErr } = await admin
+    // 5. Link: set contact_log_id on campaign_schools (optimistic concurrency —
+    //    only succeeds if still unlinked, preventing race with linkCampaignToOutbound)
+    const { error: linkErr, count: linkCount } = await admin
       .from('campaign_schools')
       .update({ contact_log_id: contactLogRowId })
       .eq('id', match.id)
+      .is('contact_log_id', null)
 
     if (linkErr) {
       console.error(`[campaign-link] Failed to link campaign_schools ${match.id}:`, linkErr.message)
       return
     }
+    if (linkCount === 0) return // already linked by the other linker — no-op
 
     // 6. Append campaign reference to parse_notes
     await appendCampaignNote(admin, contactLogRowId, campaignName)
@@ -225,16 +228,19 @@ export async function linkCampaignToOutbound(
 
     const campaignName = campaign?.name ?? 'Unknown campaign'
 
-    // 6. Link
-    const { error: linkErr } = await admin
+    // 6. Link (optimistic concurrency — only succeeds if still unlinked,
+    //    preventing race with linkOutboundToCampaign)
+    const { error: linkErr, count: linkCount } = await admin
       .from('campaign_schools')
       .update({ contact_log_id: matchId })
       .eq('id', cs.id)
+      .is('contact_log_id', null)
 
     if (linkErr) {
       console.error(`[campaign-link-rev] Failed to link campaign_schools ${cs.id}:`, linkErr.message)
       return
     }
+    if (linkCount === 0) return // already linked by the other linker — no-op
 
     // 7. Append campaign reference to parse_notes
     await appendCampaignNote(admin, matchId, campaignName)
