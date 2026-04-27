@@ -121,7 +121,7 @@ export async function linkOutboundToCampaign(
     //    only succeeds if still unlinked, preventing race with linkCampaignToOutbound)
     const { error: linkErr, count: linkCount } = await admin
       .from('campaign_schools')
-      .update({ contact_log_id: contactLogRowId })
+      .update({ contact_log_id: contactLogRowId }, { count: 'exact' })
       .eq('id', match.id)
       .is('contact_log_id', null)
 
@@ -232,7 +232,7 @@ export async function linkCampaignToOutbound(
     //    preventing race with linkOutboundToCampaign)
     const { error: linkErr, count: linkCount } = await admin
       .from('campaign_schools')
-      .update({ contact_log_id: matchId })
+      .update({ contact_log_id: matchId }, { count: 'exact' })
       .eq('id', cs.id)
       .is('contact_log_id', null)
 
