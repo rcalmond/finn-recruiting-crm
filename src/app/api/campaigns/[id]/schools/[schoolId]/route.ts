@@ -55,24 +55,39 @@ export async function PATCH(
     }
 
     const channel = body.channel === 'gmail' ? 'Email' : 'Sports Recruits'
-    const summaryBase = (body.renderedBody ?? '').trim().slice(0, 140)
-    let summary = summaryBase
-    if (!summary) {
-      const { data: camp } = await db.from('campaigns').select('name').eq('id', campaignId).single()
-      summary = camp?.name ?? `Campaign outbound — ${channel}`
+
+    // Resolve coach name for contact_log
+    let coachName: string | null = null
+    if (cs.coach_id) {
+      const { data: coach } = await db
+        .from('coaches')
+        .select('name')
+        .eq('id', cs.coach_id)
+        .single()
+      coachName = coach?.name ?? null
     }
+
+    // Resolve campaign name for summary fallback + parse_notes traceability
+    const { data: camp } = await db.from('campaigns').select('name').eq('id', campaignId).single()
+    const campaignName = camp?.name ?? 'Unknown campaign'
+
+    const summaryBase = (body.renderedBody ?? '').trim().slice(0, 140)
+    const summary = summaryBase || campaignName
 
     // Insert contact_log row
     const { data: logRow, error: logErr } = await db
       .from('contact_log')
       .insert({
-        school_id:  schoolId,
-        coach_id:   cs.coach_id ?? null,
-        date:       now.split('T')[0],
+        school_id:        schoolId,
+        coach_id:         cs.coach_id ?? null,
+        date:             now.split('T')[0],
         channel,
-        direction:  'Outbound',
+        direction:        'Outbound',
+        coach_name:       coachName,
         summary,
-        created_by: user.id,
+        parse_status:     'full',
+        parse_notes:      `campaign send: ${campaignName}`,
+        created_by:       user.id,
         ...(body.channel === 'gmail' && body.gmailMessageId
           ? { gmail_message_id: body.gmailMessageId }
           : {}),
