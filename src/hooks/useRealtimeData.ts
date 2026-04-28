@@ -122,6 +122,12 @@ export function useContactLog(schoolId?: string) {
     return error
   }, [supabase])
 
+  const updateEntry = useCallback(async (id: string, updates: Partial<ContactLogEntry>) => {
+    const { error } = await supabase.from('contact_log').update(updates).eq('id', id)
+    if (!error) setEntries(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e))
+    return error
+  }, [supabase])
+
   const snoozeEntry = useCallback(async (id: string, days = 7) => {
     const until = new Date()
     until.setDate(until.getDate() + days)
@@ -156,7 +162,7 @@ export function useContactLog(schoolId?: string) {
     return error
   }, [supabase])
 
-  return { entries, loading, insertContact, insertContacts, deleteEntry, snoozeEntry, dismissEntry, undoEntry, refetch: fetchEntries }
+  return { entries, loading, insertContact, insertContacts, updateEntry, deleteEntry, snoozeEntry, dismissEntry, undoEntry, refetch: fetchEntries }
 }
 
 // ─── Action Items ─────────────────────────────────────────────────────────────

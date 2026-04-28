@@ -4,10 +4,12 @@ import { daysBetween, todayStr } from './utils'
 
 // ─── Unreplied inbound detection ─────────────────────────────────────────────
 
-/** Returns false for inbounds that are currently snoozed or permanently dismissed. */
+/** Returns false for inbounds that are not actionable (snoozed, dismissed, or non-email channel). */
 function isActiveInbound(entry: ContactLogEntry): boolean {
   if (entry.dismissed_at) return false
   if (entry.snoozed_until && entry.snoozed_until > new Date().toISOString()) return false
+  // Only email-channel inbounds trigger "awaiting reply" — phone, text, in-person don't
+  if (entry.channel !== 'Email' && entry.channel !== 'Sports Recruits') return false
   return true
 }
 

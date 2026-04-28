@@ -439,7 +439,7 @@ function ChannelPill({ channel }: { channel: string }) {
 
 function Timeline({
   contactLog, actionItems, school, coaches, today, userId,
-  onDraft, onComplete, onSnooze, onDismiss, onUndo, onLogEntry,
+  onDraft, onComplete, onSnooze, onDismiss, onUndo, onLogEntry, onEditEntry,
 }: {
   contactLog: ContactLogEntry[]
   actionItems: ActionItem[]
@@ -457,6 +457,11 @@ function Timeline({
     channel: ContactChannel; direction: ContactDirection; date: string
     sent_at: string; summary: string; source: string; parse_status: string
     parse_notes: string; authored_by: null; intent: null; created_by: string
+  }) => Promise<void>
+  onEditEntry: (id: string, updates: {
+    coach_id: string | null; coach_name: string | null
+    channel: ContactChannel; direction: ContactDirection; date: string
+    sent_at: string; summary: string
   }) => Promise<void>
 }) {
   const router = useRouter()
@@ -484,6 +489,7 @@ function Timeline({
     contactLog
       .filter(e =>
         e.direction === 'Inbound' &&
+        (e.channel === 'Email' || e.channel === 'Sports Recruits') &&
         !e.dismissed_at &&
         !(e.snoozed_until && e.snoozed_until > nowIso)
       )
@@ -521,6 +527,7 @@ function Timeline({
   }
 
   const [logFormOpen, setLogFormOpen] = useState(false)
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
 
   const sectionHeader = (
     <div style={{
@@ -622,7 +629,21 @@ function Timeline({
                   borderLeft: `3px solid ${isInbound ? SD.teal : SD.ink}`,
                   borderRadius: '0 10px 10px 0',
                   padding: '12px 14px',
+                  position: 'relative',
                 }}>
+                  {/* Edit pencil for manual entries */}
+                  {entry.parse_notes === 'Manual log entry' && editingEntryId !== entry.id && (
+                    <button
+                      onClick={() => setEditingEntryId(entry.id)}
+                      title="Edit this entry"
+                      style={{
+                        position: 'absolute', top: 8, right: 8,
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        fontSize: 12, color: SD.inkLo, padding: 2, lineHeight: 1,
+                        opacity: 0.6,
+                      }}
+                    >&#9998;</button>
+                  )}
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
                     marginBottom: entry.summary ? 8 : 0,
@@ -637,12 +658,34 @@ function Timeline({
                     )}
                     <ChannelPill channel={entry.channel} />
                   </div>
-                  {entry.summary && (
+                  {editingEntryId !== entry.id && entry.summary && (
                     <div style={{
                       fontSize: 13, color: SD.inkSoft, lineHeight: 1.55,
                       marginBottom: hasActions ? 10 : 0,
                       overflowWrap: 'anywhere', wordBreak: 'break-word', maxWidth: '100%',
                     }}>{entry.summary}</div>
+                  )}
+                  {/* Inline edit form for manual entries */}
+                  {editingEntryId === entry.id && (
+                    <LogEntryForm
+                      school={school}
+                      coaches={coaches}
+                      userId={userId}
+                      initial={entry}
+                      onSave={async (updated) => {
+                        await onEditEntry(entry.id, {
+                          coach_id: updated.coach_id,
+                          coach_name: updated.coach_name,
+                          channel: updated.channel,
+                          direction: updated.direction,
+                          date: updated.date,
+                          sent_at: updated.sent_at,
+                          summary: updated.summary,
+                        })
+                        setEditingEntryId(null)
+                      }}
+                      onCancel={() => setEditingEntryId(null)}
+                    />
                   )}
                   {/* Action buttons — unreplied inbounds only */}
                   {isUnreplied && (
@@ -856,10 +899,11 @@ function SidebarCard({ label, children }: { label: string; children: ReactNode }
   )
 }
 
-function LogEntryForm({ school, coaches, userId, onSave, onCancel }: {
+function LogEntryForm({ school, coaches, userId, initial, onSave, onCancel }: {
   school: School
   coaches: Coach[]
   userId: string
+  initial?: ContactLogEntry
   onSave: (entry: {
     school_id: string; coach_id: string | null; coach_name: string | null
     channel: ContactChannel; direction: ContactDirection; date: string
@@ -868,12 +912,16 @@ function LogEntryForm({ school, coaches, userId, onSave, onCancel }: {
   }) => Promise<void>
   onCancel: () => void
 }) {
-  const [direction, setDirection] = useState<ContactDirection>('Inbound')
-  const [channel, setChannel] = useState<ContactChannel>('Phone')
-  const [coachId, setCoachId] = useState<string>('')
-  const [date, setDate] = useState(todayStr())
-  const [time, setTime] = useState('')
-  const [summary, setSummary] = useState('')
+  const [direction, setDirection] = useState<ContactDirection>(initial?.direction ?? 'Inbound')
+  const [channel, setChannel] = useState<ContactChannel>(initial?.channel ?? 'Phone')
+  const [coachId, setCoachId] = useState<string>(initial?.coach_id ?? '')
+  const [date, setDate] = useState(initial?.date ?? todayStr())
+  const [time, setTime] = useState(() => {
+    if (!initial?.sent_at) return ''
+    // Extract Mountain time from sent_at for pre-population
+    return new Date(initial.sent_at).toLocaleTimeString('en-GB', { timeZone: 'America/Denver', hour: '2-digit', minute: '2-digit', hour12: false })
+  })
+  const [summary, setSummary] = useState(initial?.summary ?? '')
   const [saving, setSaving] = useState(false)
 
   async function handleSave() {
@@ -1481,7 +1529,7 @@ export default function SchoolDetailClient({
 
   // ── Realtime subscriptions ─────────────────────────────────────────────────
   const { schools, loading: schoolsLoading, updateSchool } = useSchools()
-  const { entries: contactLog, loading: logLoading, insertContact, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
+  const { entries: contactLog, loading: logLoading, insertContact, updateEntry, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
   const { items: actionItems, completedItems, loading: actionsLoading, completeItem, insertItem } = useActionItems(initialSchool.id)
   const { coaches, setPrimary } = useCoaches(initialSchool.id)
 
@@ -1572,6 +1620,7 @@ export default function SchoolDetailClient({
           onDismiss={async (id) => { await dismissEntry(id) }}
           onUndo={async (id) => { await undoEntry(id) }}
           onLogEntry={async (entry) => { await insertContact(entry as Parameters<typeof insertContact>[0]) }}
+          onEditEntry={async (id, updates) => { await updateEntry(id, updates) }}
         />
         <Sidebar
           school={school}
