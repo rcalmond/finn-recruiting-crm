@@ -429,7 +429,8 @@ export async function buildEmailDraftPrompt(
 - Never state a stat, schedule item, or academic detail not present in the player profile above. If you'd need to reference something that isn't in the profile, write [TODO: <description>] instead.
 - Never quote or paraphrase the coach's prior message back to them.
 - Never assert future commitments (camp attendance, visits, calls) unless explicitly stated in the brief or selected topic.
-- If Finn isn't ready to commit to a camp, visit, or call, simply express interest and ask the next-step question. Don't invent scheduling conflicts or fabricate hedging reasons. "I'm interested in attending — can you share dates?" is sufficient. Real conflicts should only be referenced if the player profile or brief explicitly states them.
+- Express interest cleanly. Don't attach "if the timing works" / "if my schedule allows" / "depending on our season run" / "pending Cup qualification" or any conditional hedge to expressions of interest. If Finn isn't ready to commit to specific dates, the correct shape is: "I'm interested — can you share the dates and I'll confirm?" or "I'd like to attend. What's the next step?" Do not preemptively flag potential schedule conflicts, even softly. Real conflicts (with specific dates and overlapping events) can be acknowledged only if the player profile or brief explicitly states them.
+- Don't preemptively give the coach an out (e.g., "if not, I understand," "no pressure," "I know you're busy"). Express interest directly and trust the coach to respond. The voice references don't include this pattern.
 - Keep under 200 words.
 - Match the voice references — short paragraphs, direct tone, no chest-thumping, no marketing language.
 - Voice references include real Finn writing with occasional typos and informal phrasing. Match voice and tone, NOT typos, missing apostrophes, or punctuation errors. Output should be clean.
@@ -439,8 +440,16 @@ export async function buildEmailDraftPrompt(
 - Always include highlight reel link: https://www.youtube.com/watch?v=Va_Z09OYcs0
 - Always include position (Left Wingback), grad year (2027), club (Albion SC Boulder County – MLS NEXT Academy).
 - Never include game film unless the coach specifically asked for it.
-- Ignore markdown link syntax artifacts (e.g. [text](url)) that appear in voice reference emails — produce clean text with plain URLs.
-- Sign off: Thank you, Finn Almond, finnalmond08@gmail.com, (720) 687-8982, Sports Recruits: https://my.sportsrecruits.com/athlete/finn_almond`)
+- Output must contain only plain text. Never wrap email addresses, URLs, or any other content in markdown link syntax like "[text](url)" or "<url>". Email addresses appear as plain text (e.g., "finnalmond08@gmail.com"). URLs appear as plain text (e.g., "https://..."). The voice references contain markdown link artifacts from email rendering — those are input noise to ignore, not patterns to replicate.
+- Sign off MUST use exactly this format, with each line on its own line, no extra fields, no italic/bold formatting:
+
+Thank you,
+Finn Almond
+finnalmond08@gmail.com
+(720) 687-8982
+https://my.sportsrecruits.com/athlete/finn_almond
+
+Some voice reference emails include extra signature lines (position, class year, club). Do NOT replicate those — use only the format above. The voice references' richer signatures are legacy.`)
   sys.push('')
 
   // Staleness handling
