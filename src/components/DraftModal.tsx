@@ -8,12 +8,16 @@ type DraftModalMode =
   | { kind: 'fresh'; schoolId: string; coachId: string; schoolName: string; coachName?: string }
   | { kind: 'reply'; schoolId: string; coachId: string; schoolName: string; coachName?: string;
       replyToContactLogId: string; inboundChannel?: string }
+  | { kind: 'campaign'; schoolId: string; coachId: string; schoolName: string; coachName?: string;
+      coachRole?: string; schoolTier?: string; campaignId: string;
+      renderedBody: string; channelRec?: 'gmail' | 'sr' | null }
 
 interface DraftModalProps {
   mode: DraftModalMode
   userId: string
   onClose: () => void
   onSent?: () => void
+  onDismissed?: () => void  // campaign mode only
 }
 
 // ─── Stages ──────────────────────────────────────────────────────────────────
@@ -26,20 +30,23 @@ type Stage =
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function DraftModal({ mode, userId, onClose, onSent }: DraftModalProps) {
-  const [stage, setStage] = useState<Stage>('suggest')
+export default function DraftModal({ mode, userId, onClose, onSent, onDismissed }: DraftModalProps) {
+  const isCampaign = mode.kind === 'campaign'
+  const isReply = mode.kind === 'reply'
+  const isFresh = mode.kind === 'fresh'
+
+  const [stage, setStage] = useState<Stage>(isCampaign ? 'review' : 'suggest')
   const [topics, setTopics] = useState<string[]>([])
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
   const [brief, setBrief] = useState('')
   const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('')
+  const [body, setBody] = useState(isCampaign ? mode.renderedBody : '')
   const [error, setError] = useState<string | null>(null)
   const [copiedBody, setCopiedBody] = useState(false)
   const [copiedSubject, setCopiedSubject] = useState(false)
   const [ccCopied, setCcCopied] = useState(false)
-
-  const isReply = mode.kind === 'reply'
-  const isFresh = mode.kind === 'fresh'
+  const [generating, setGenerating] = useState(false)
+  const [sending, setSending] = useState<string | null>(null)
 
   // ── Stage 1: fetch topic suggestions on mount ─────────────────────────────
 
@@ -65,7 +72,7 @@ export default function DraftModal({ mode, userId, onClose, onSent }: DraftModal
     }
   }, [mode.schoolId, mode.coachId])
 
-  useEffect(() => { fetchTopics() }, [fetchTopics])
+  useEffect(() => { if (!isCampaign) fetchTopics() }, [fetchTopics, isCampaign])
 
   // ── Stage 2: generate email ───────────────────────────────────────────────
 
@@ -109,11 +116,89 @@ export default function DraftModal({ mode, userId, onClose, onSent }: DraftModal
     })
   }
 
-  function handleMarkSent() {
-    // Fresh + reply modes: no DB write. CC pipeline captures the real send.
-    // Just close and notify parent.
-    onSent?.()
-    onClose()
+  async function handleMarkSent(channel: 'gmail' | 'sr') {
+    if (isCampaign) {
+      // Campaign mode: PATCH campaign_schools status to 'sent'
+      setSending(channel)
+      setError(null)
+      try {
+        const res = await fetch(`/api/campaigns/${mode.campaignId}/schools/${mode.schoolId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'mark_sent', channel }),
+        })
+        const json = await res.json()
+        if (!res.ok) { setError(json.error ?? 'Failed'); return }
+        onSent?.()
+        onClose()
+      } finally {
+        setSending(null)
+      }
+    } else {
+      // Fresh + reply modes: no DB write. CC pipeline captures the real send.
+      onSent?.()
+      onClose()
+    }
+  }
+
+  async function handleDismiss() {
+    if (!isCampaign) return
+    setSending('dismiss')
+    setError(null)
+    try {
+      const res = await fetch(`/api/campaigns/${mode.campaignId}/schools/${mode.schoolId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'dismiss' }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Failed'); return }
+      onDismissed?.()
+      onClose()
+    } finally {
+      setSending(null)
+    }
+  }
+
+  async function handleCampaignPersonalize() {
+    if (!isCampaign) return
+    const savedBody = body
+    setGenerating(true)
+    setError(null)
+    setBody('')
+    try {
+      const res = await fetch('/api/campaigns/personalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolId: mode.schoolId,
+          coachId: mode.coachId,
+          renderedBody: savedBody,
+        }),
+      })
+      if (!res.ok) {
+        const json = await res.json()
+        setBody(savedBody)
+        setError(json.error ?? 'Generation failed')
+        return
+      }
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        accumulated += decoder.decode(value, { stream: true })
+        setBody(accumulated)
+      }
+      accumulated += decoder.decode()
+      setBody(accumulated)
+    } catch (e) {
+      setBody(savedBody)
+      setError(e instanceof Error ? e.message : 'Generation failed')
+    } finally {
+      setGenerating(false)
+    }
   }
 
   async function handleRegenerate() {
@@ -153,11 +238,20 @@ export default function DraftModal({ mode, userId, onClose, onSent }: DraftModal
         }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
-              {isReply ? 'Draft Reply' : 'Draft Email'}
+              {isCampaign ? 'Campaign Draft' : isReply ? 'Draft Reply' : 'Draft Email'}
             </h3>
             <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
-              {mode.schoolName}
-              {mode.coachName && ` — ${mode.coachName}`}
+              <span>{mode.schoolName}</span>
+              {isCampaign && mode.schoolTier && (
+                <span style={{
+                  marginLeft: 6, padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700,
+                  background: mode.schoolTier === 'A' ? '#FEE2E2' : mode.schoolTier === 'B' ? '#DBEAFE' : '#F3F4F6',
+                  color: mode.schoolTier === 'A' ? '#991B1B' : mode.schoolTier === 'B' ? '#1E40AF' : '#374151',
+                }}>{mode.schoolTier}</span>
+              )}
+              {mode.coachName && (
+                <span> — {mode.coachName}{isCampaign && mode.coachRole ? ` (${mode.coachRole})` : ''}</span>
+              )}
             </div>
             {isReply && mode.inboundChannel && (
               <div style={{
@@ -328,26 +422,58 @@ export default function DraftModal({ mode, userId, onClose, onSent }: DraftModal
                 <span>so it shows up in your school timeline</span>
               </div>
 
+              {/* Channel recommendation (campaign only) */}
+              {isCampaign && mode.channelRec && (
+                <div style={{
+                  padding: '6px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                  background: mode.channelRec === 'gmail' ? '#DCFCE7' : mode.channelRec === 'sr' ? '#DBEAFE' : '#f8fafc',
+                  color: mode.channelRec === 'gmail' ? '#16A34A' : mode.channelRec === 'sr' ? '#0369A1' : '#7A7570',
+                }}>
+                  {mode.channelRec === 'gmail' ? 'Recommended: Gmail' : mode.channelRec === 'sr' ? 'Recommended: SR' : 'No recommendation'}
+                </div>
+              )}
+
               {/* Body */}
               <div>
                 <div style={{
                   display: 'flex', justifyContent: 'space-between',
                   alignItems: 'center', marginBottom: 4,
                 }}>
-                  <Label>Body</Label>
-                  <button
-                    onClick={() => copyToClipboard(body, setCopiedBody)}
-                    style={copyBtnStyle(copiedBody)}
-                  >
-                    {copiedBody ? 'Copied!' : 'Copy'}
-                  </button>
+                  <Label>
+                    {isCampaign ? 'Message — editable (per-school only, does not update template)' : 'Body'}
+                  </Label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {isCampaign && (
+                      <button
+                        onClick={handleCampaignPersonalize}
+                        disabled={generating || sending !== null}
+                        title="Fill [Finn: ...] placeholders with AI-generated content"
+                        style={{
+                          ...copyBtnStyle(false),
+                          opacity: generating || sending !== null ? 0.5 : 1,
+                          cursor: generating || sending !== null ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {generating ? 'Generating...' : 'Personalize with AI'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => copyToClipboard(body, setCopiedBody)}
+                      style={copyBtnStyle(copiedBody)}
+                    >
+                      {copiedBody ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
                 </div>
                 <textarea
                   value={body}
-                  onChange={e => setBody(e.target.value)}
+                  onChange={e => !generating && setBody(e.target.value)}
+                  readOnly={generating}
                   rows={12}
                   style={{
-                    ...fieldStyle, resize: 'vertical', lineHeight: 1.6,
+                    ...fieldStyle, resize: generating ? 'none' : 'vertical',
+                    lineHeight: 1.6,
+                    color: generating ? '#94a3b8' : '#0f172a',
                   }}
                 />
               </div>
@@ -356,14 +482,46 @@ export default function DraftModal({ mode, userId, onClose, onSent }: DraftModal
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {/* Mark as sent */}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button onClick={handleMarkSent} style={actionBtn('#059669', '#fff')}>
-                    Mark as sent via Gmail
+                  <button
+                    onClick={() => handleMarkSent('gmail')}
+                    disabled={sending !== null || generating}
+                    style={{
+                      ...actionBtn('#059669', '#fff'),
+                      opacity: sending !== null || generating ? 0.5 : 1,
+                      cursor: sending !== null || generating ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {sending === 'gmail' ? 'Marking...' : 'Mark as sent via Gmail'}
                   </button>
-                  <button onClick={handleMarkSent} style={actionBtn('#2563eb', '#fff')}>
-                    Mark as sent via SR
+                  <button
+                    onClick={() => handleMarkSent('sr')}
+                    disabled={sending !== null || generating}
+                    style={{
+                      ...actionBtn('#2563eb', '#fff'),
+                      opacity: sending !== null || generating ? 0.5 : 1,
+                      cursor: sending !== null || generating ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {sending === 'sr' ? 'Marking...' : 'Mark as sent via SR'}
                   </button>
                 </div>
 
+                {/* Dismiss (campaign only) */}
+                {isCampaign && (
+                  <button
+                    onClick={handleDismiss}
+                    disabled={sending !== null || generating}
+                    style={{
+                      padding: '7px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                      cursor: sending !== null || generating ? 'not-allowed' : 'pointer',
+                      border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#C8102E',
+                      opacity: sending !== null || generating ? 0.5 : 1,
+                      alignSelf: 'flex-start',
+                    }}
+                  >
+                    {sending === 'dismiss' ? 'Dismissing...' : 'Dismiss from this campaign'}
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -390,7 +548,7 @@ export default function DraftModal({ mode, userId, onClose, onSent }: DraftModal
             </button>
           )}
 
-          {stage === 'review' && (
+          {stage === 'review' && !isCampaign && (
             <button
               onClick={handleRegenerate}
               style={{ ...generateBtnStyle, background: '#475569' }}

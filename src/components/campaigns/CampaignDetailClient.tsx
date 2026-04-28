@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Campaign, CampaignSchool, CampaignSchoolStatus, School } from '@/lib/types'
-import DraftReviewModal from './DraftReviewModal'
+import DraftModal from '@/components/DraftModal'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -39,6 +39,21 @@ interface Props {
 function fmtDate(iso: string | null, opts?: Intl.DateTimeFormatOptions): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-US', opts ?? { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function renderTemplate(
+  body: string,
+  schoolName: string,
+  coach: { name?: string; role?: string } | null | undefined
+): string {
+  const parts     = (coach?.name ?? '').trim().split(/\s+/)
+  const firstName = parts[0] ?? ''
+  const lastName  = parts.length > 1 ? parts[parts.length - 1] : parts[0] ?? ''
+  return body
+    .replace(/\{\{coach_last_name\}\}/g,  lastName  || '[Coach]')
+    .replace(/\{\{coach_first_name\}\}/g, firstName || '[Coach]')
+    .replace(/\{\{school_name\}\}/g,      schoolName || '[School]')
+    .replace(/\{\{coach_role\}\}/g,       coach?.role ?? '[Role]')
 }
 
 function channelRec(authored_by: string | null): { label: string; style: React.CSSProperties } | null {
@@ -611,16 +626,33 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
         />
       )}
 
-      {draftSchool && (
-        <DraftReviewModal
-          cs={draftSchool}
-          campaign={campaign}
-          lastInbound={lastInboundBySchool[draftSchool.school_id]}
-          onSent={handleSent}
-          onDismissed={handleDismissedFromModal}
-          onClose={() => setDraftSchool(null)}
-        />
-      )}
+      {draftSchool && (() => {
+        const schoolName = draftSchool.school?.name ?? draftSchool.school_id
+        const inbound = lastInboundBySchool[draftSchool.school_id]
+        const chRec = inbound?.authored_by === 'coach_personal' ? 'gmail' as const
+          : inbound?.authored_by === 'coach_via_platform' ? 'sr' as const
+          : null
+        return (
+          <DraftModal
+            mode={{
+              kind: 'campaign',
+              schoolId: draftSchool.school_id,
+              coachId: draftSchool.coach_id ?? draftSchool.school_id, // fallback shouldn't happen
+              schoolName,
+              coachName: draftSchool.coach?.name ?? undefined,
+              coachRole: draftSchool.coach?.role ?? undefined,
+              schoolTier: draftSchool.school?.category ?? undefined,
+              campaignId: campaign.id,
+              renderedBody: renderTemplate(campaign.template?.body ?? '', schoolName, draftSchool.coach ?? null),
+              channelRec: chRec,
+            }}
+            userId=""
+            onClose={() => setDraftSchool(null)}
+            onSent={() => handleSent(draftSchool.school_id)}
+            onDismissed={() => handleDismissedFromModal(draftSchool.school_id)}
+          />
+        )
+      })()}
     </div>
   )
 }
