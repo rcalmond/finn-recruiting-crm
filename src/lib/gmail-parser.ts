@@ -11,6 +11,7 @@
  */
 
 import { USER_TIMEZONE } from './sr-paste-parser'
+import { resolveSentAt } from './sent-at'
 import type { GmailMessageDetails } from './gmail-client'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ export interface ParsedGmailEntry {
   // Content
   subject:     string | null
   isoDate:     string         // YYYY-MM-DD in Denver (USER_TIMEZONE)
+  sentAt:      string         // full ISO timestamp for sent_at column (always populated)
   rawDate:     string | null  // original Date header
   dateSource:  'header' | 'internalDate' | 'now'  // provenance for debugging
   body:        string         // cleaned body text
@@ -115,6 +117,7 @@ export function parseGmailMessage(msg: GmailMessageDetails): ParsedGmailEntry {
   // the next UTC day.
 
   let isoDate: string
+  let sentAt: string = ''
   let rawDate: string | null = null
   let dateSource: ParsedGmailEntry['dateSource'] = 'now'
 
@@ -123,6 +126,7 @@ export function parseGmailMessage(msg: GmailMessageDetails): ParsedGmailEntry {
     const parsed = new Date(dateHeader)
     if (!isNaN(parsed.getTime())) {
       isoDate    = localDateString(parsed)
+      sentAt     = parsed.toISOString()
       rawDate    = dateHeader
       dateSource = 'header'
     } else {
@@ -134,6 +138,7 @@ export function parseGmailMessage(msg: GmailMessageDetails): ParsedGmailEntry {
     const parsed = new Date(Number(msg.internalDate))
     if (!isNaN(parsed.getTime())) {
       isoDate    = localDateString(parsed)
+      sentAt     = parsed.toISOString()
       rawDate    = new Date(Number(msg.internalDate)).toISOString()
       dateSource = 'internalDate'
       if (!dateHeader) notes.push('No Date header — using Gmail internalDate')
@@ -142,6 +147,8 @@ export function parseGmailMessage(msg: GmailMessageDetails): ParsedGmailEntry {
 
   if (dateSource === 'now') {
     isoDate = localDateString(new Date())
+    // Approximate: combine calendar date with current time-of-day (same as migration 026 backfill)
+    sentAt  = resolveSentAt(null, null, isoDate)
     notes.push('Could not parse any date — using today; review needed')
   }
 
@@ -202,6 +209,7 @@ export function parseGmailMessage(msg: GmailMessageDetails): ParsedGmailEntry {
     recipientRaw:    toHeader,
     subject,
     isoDate:         isoDate!,
+    sentAt,
     rawDate,
     dateSource,
     body,

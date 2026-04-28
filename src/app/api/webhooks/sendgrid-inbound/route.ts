@@ -8,6 +8,7 @@ import {
   cleanBody,
   USER_TIMEZONE,
 } from '@/lib/sr-paste-parser'
+import { resolveSentAt } from '@/lib/sent-at'
 
 // SendGrid Inbound Parse webhook — Sports Recruits notification ingestion
 // URL: /api/webhooks/sendgrid-inbound?key=<SENDGRID_INBOUND_SECRET>
@@ -201,22 +202,23 @@ function parseGmailDate(raw: string): Date {
 function parseMessageDate(
   forwardDate: string | null,
   headers: string
-): { date: string; isEstimated: boolean } {
+): { date: string; sentAt: string; isEstimated: boolean } {
   // Preamble date first: this is the original SR send time, preserved inside the
   // Gmail forward body. The email headers Date is when Gmail *forwarded* the message
   // (correct for live auto-forwards; wrong for manually forwarded old emails).
   if (forwardDate) {
     const d = parseGmailDate(forwardDate)
-    if (!isNaN(d.getTime())) return { date: d.toISOString().split('T')[0], isEstimated: false }
+    if (!isNaN(d.getTime())) return { date: d.toISOString().split('T')[0], sentAt: d.toISOString(), isEstimated: false }
   }
   // Fall back to email headers Date (correct for live auto-forwards, ~seconds off)
   const headerMatch = headers.match(/^Date:\s*(.+)$/m)
   if (headerMatch) {
     const d = new Date(headerMatch[1].trim())
-    if (!isNaN(d.getTime())) return { date: d.toISOString().split('T')[0], isEstimated: false }
+    if (!isNaN(d.getTime())) return { date: d.toISOString().split('T')[0], sentAt: d.toISOString(), isEstimated: false }
   }
-  // Last resort — flag as partial so we know the date is unreliable
-  return { date: new Date().toISOString().split('T')[0], isEstimated: true }
+  // Last resort — approximate: today's date + current time-of-day (same as backfill pattern)
+  const today = new Date().toISOString().split('T')[0]
+  return { date: today, sentAt: resolveSentAt(null, null, today), isEstimated: true }
 }
 
 // ── School & coach matching ───────────────────────────────────────────────────
@@ -370,7 +372,9 @@ function extractCCBody(body: string): { srSubject: string | null; messageBody: s
   return { srSubject, messageBody: cleanBody(afterSubject) }
 }
 
-// Parse the email Date header into a JS Date object
+// Parse the email Date header into a JS Date object.
+// Falls back to now() if header is missing/unparseable (getEmailDate is used
+// where a Date object is needed for formatDateForParser).
 function getEmailDate(headers: string): Date {
   const m = headers.match(/^Date:\s*(.+)$/m)
   if (m) {
@@ -379,6 +383,19 @@ function getEmailDate(headers: string): Date {
   }
   return new Date()
 }
+
+// Resolve sent_at for orphan paths that don't go through parseMessageDate.
+// Uses the shared resolveSentAt helper for consistent fallback behavior.
+function resolveOrphanSentAt(headers: string): { date: string; sentAt: string } {
+  const m = headers.match(/^Date:\s*(.+)$/m)
+  if (m) {
+    const d = new Date(m[1].trim())
+    if (!isNaN(d.getTime())) return { date: d.toISOString().split('T')[0], sentAt: d.toISOString() }
+  }
+  const today = new Date().toISOString().split('T')[0]
+  return { date: today, sentAt: resolveSentAt(null, null, today) }
+}
+
 
 // Format a Date as "Apr 19, 2026 at 11:23 AM" in USER_TIMEZONE.
 // This exact format is what parseSRPaste's date parser expects — it will
@@ -438,9 +455,11 @@ async function handleOutboundCC(
 
   if (!outboundMsg) {
     console.error(`[sg-inbound] ${receivedAt} — outbound CC: parser returned no outbound message`)
+    const { date: orphanDate, sentAt: orphanSentAt } = resolveOrphanSentAt(headers)
     await admin.from('contact_log').insert({
       school_id:         null,
-      date:              new Date().toISOString().split('T')[0],
+      date:              orphanDate,
+      sent_at:           orphanSentAt,
       channel:           'Sports Recruits',
       direction:         'Outbound',
       coach_name:        coachNames.join('; ') || null,
@@ -455,6 +474,7 @@ async function handleOutboundCC(
   }
 
   const isoDate: string = outboundMsg.isoDate ?? new Date().toISOString().split('T')[0]
+  const ccSentAt: string = resolveSentAt(headers, null, isoDate)
   const notes: string[] = []
   let parseStatus: 'full' | 'partial' = 'full'
 
@@ -538,6 +558,7 @@ async function handleOutboundCC(
   const { data: insertedRow, error: insertError } = await admin.from('contact_log').insert({
     school_id:         schoolId,
     date:              isoDate,
+    sent_at:           ccSentAt,
     channel:           'Sports Recruits',
     direction:         'Outbound',
     coach_name:        coachNameJoined || null,
@@ -635,9 +656,11 @@ export async function POST(req: NextRequest) {
   // 6. Non-SR detection — write an orphan entry (no school known) and return
   if (!isSRNotification(subject, innerBody)) {
     console.log(`[sg-inbound] ${receivedAt} — not an SR notification, writing orphan entry`)
+    const { date: nonSrDate, sentAt: nonSrSentAt } = resolveOrphanSentAt(headers)
     await admin.from('contact_log').insert({
       school_id:        null,
-      date:             new Date().toISOString().split('T')[0],
+      date:             nonSrDate,
+      sent_at:          nonSrSentAt,
       channel:          'Email',
       direction:        'Inbound',
       coach_name:       null,
@@ -656,7 +679,7 @@ export async function POST(req: NextRequest) {
   const { schoolName: parsedSchoolName, coachName: parsedCoachName, srSubject } =
     extractSchoolAndCoach(subject, innerBody)
   const messageBody = extractMessageBody(innerBody)
-  const { date: messageDate, isEstimated: dateEstimated } =
+  const { date: messageDate, sentAt: messageSentAt, isEstimated: dateEstimated } =
     parseMessageDate(forwardDate, headers)
 
   // 8. Deduplication — skip if we've already stored this exact message
@@ -718,6 +741,7 @@ export async function POST(req: NextRequest) {
   const { data: insertedRow, error: insertError } = await admin.from('contact_log').insert({
     school_id:        schoolId,
     date:             messageDate,
+    sent_at:          messageSentAt,
     channel:          'Sports Recruits',
     direction:        'Inbound',
     coach_name:       parsedCoachName ?? null,

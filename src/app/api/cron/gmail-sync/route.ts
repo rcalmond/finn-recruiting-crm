@@ -260,6 +260,7 @@ export async function GET(req: NextRequest) {
       const { data: insertedRow, error: insertErr } = await admin.from('contact_log').insert({
         school_id:         schoolId,
         date:              parsed.isoDate,
+        sent_at:           parsed.sentAt,
         channel:           'Email',
         direction:         parsed.direction,
         coach_name:        coachName,
