@@ -280,8 +280,29 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed 
             <div style={{
               fontSize: 12.5, color: '#dc2626', background: '#fef2f2',
               borderRadius: 6, padding: '10px 14px', border: '1px solid #fecaca',
+              display: 'flex', alignItems: 'center', gap: 10,
             }}>
-              {error}
+              <span style={{ flex: 1 }}>Generation failed.</span>
+              <button
+                onClick={() => { setError(null); handleGenerate() }}
+                style={{
+                  padding: '3px 10px', borderRadius: 5, border: 'none', cursor: 'pointer',
+                  fontSize: 11, fontWeight: 600, fontFamily: 'inherit',
+                  background: '#dc2626', color: '#fff',
+                }}
+              >
+                Retry
+              </button>
+              <button
+                onClick={() => setError(null)}
+                style={{
+                  padding: '3px 10px', borderRadius: 5, border: '1px solid #fecaca',
+                  cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'inherit',
+                  background: '#fff', color: '#dc2626',
+                }}
+              >
+                Dismiss
+              </button>
             </div>
           )}
 
