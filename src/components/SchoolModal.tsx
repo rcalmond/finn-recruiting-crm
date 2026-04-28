@@ -62,7 +62,7 @@ export default function SchoolModal(props: Props) {
   const [preppingCall, setPreppingCall] = useState(false)
 
   // Action items (edit mode only)
-  const { items: actionItems, insertItem, updateItem, deleteItem: deleteActionItem } = useActionItems(s?.id)
+  const { items: actionItems, insertItem, updateItem, completeItem: completeActionItem } = useActionItems(s?.id)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<{ action: string; owner: string; due_date: string }>({ action: '', owner: '', due_date: '' })
   const [addingNew, setAddingNew] = useState(false)
@@ -438,7 +438,7 @@ export default function SchoolModal(props: Props) {
                             <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>{formatDate(item.due_date)}</span>
                           )}
                           <button type="button" onClick={() => startEditItem(item)} style={{ ...actionBtnStyle('#f1f5f9', '#475569'), fontSize: 11 }}>Edit</button>
-                          <button type="button" onClick={() => deleteActionItem(item.id)} style={{ ...actionBtnStyle('#fef2f2', '#dc2626'), fontSize: 11 }}>✕</button>
+                          <button type="button" onClick={() => completeActionItem(item.id)} style={{ ...actionBtnStyle('#fef2f2', '#dc2626'), fontSize: 11 }}>✓</button>
                         </div>
                       )
                     ))}

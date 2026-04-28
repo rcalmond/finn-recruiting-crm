@@ -163,18 +163,33 @@ export function useContactLog(schoolId?: string) {
 
 export function useActionItems(schoolId?: string) {
   const [items, setItems] = useState<ActionItem[]>([])
+  const [completedItems, setCompletedItems] = useState<ActionItem[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = useMemo(() => createClient(), [])
 
   const fetchItems = useCallback(async () => {
+    // Active items (completed_at is null)
     let query = supabase
       .from('action_items')
       .select('*, school:schools(id, name, short_name, category, status)')
+      .is('completed_at', null)
       .order('sort_order', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
     if (schoolId) query = query.eq('school_id', schoolId)
     const { data, error } = await query
     if (!error && data) setItems(data as ActionItem[])
+
+    // Last 5 completed items (per school if scoped)
+    let cQuery = supabase
+      .from('action_items')
+      .select('*, school:schools(id, name, short_name, category, status)')
+      .not('completed_at', 'is', null)
+      .order('completed_at', { ascending: false })
+      .limit(5)
+    if (schoolId) cQuery = cQuery.eq('school_id', schoolId)
+    const { data: cData } = await cQuery
+    if (cData) setCompletedItems(cData as ActionItem[])
+
     setLoading(false)
   }, [supabase, schoolId])
 
@@ -187,11 +202,12 @@ export function useActionItems(schoolId?: string) {
     return () => { supabase.removeChannel(channel) }
   }, [fetchItems, supabase, schoolId])
 
-  const insertItem = useCallback(async (item: Omit<ActionItem, 'id' | 'created_at' | 'school' | 'sort_order'>) => {
-    // Place new items at the end by fetching the current max sort_order globally
+  const insertItem = useCallback(async (item: Omit<ActionItem, 'id' | 'created_at' | 'school' | 'sort_order' | 'completed_at'>) => {
+    // Place new items at the end by fetching the current max sort_order for active items
     const { data: maxData } = await supabase
       .from('action_items')
       .select('sort_order')
+      .is('completed_at', null)
       .order('sort_order', { ascending: false, nullsFirst: false })
       .limit(1)
       .single()
@@ -212,9 +228,30 @@ export function useActionItems(schoolId?: string) {
     return error
   }, [supabase])
 
+  const completeItem = useCallback(async (id: string) => {
+    const now = new Date().toISOString()
+    const { error } = await supabase.from('action_items').update({ completed_at: now }).eq('id', id)
+    if (error) {
+      console.error('[action-items] completeItem failed:', error.message)
+    } else {
+      // Move from active to completed in local state (only on success — no drift)
+      setItems(prev => {
+        const completed = prev.find(i => i.id === id)
+        if (completed) {
+          setCompletedItems(cp => [{ ...completed, completed_at: now }, ...cp].slice(0, 5))
+        }
+        return prev.filter(i => i.id !== id)
+      })
+    }
+    return error
+  }, [supabase])
+
   const deleteItem = useCallback(async (id: string) => {
     const { error } = await supabase.from('action_items').delete().eq('id', id)
-    if (!error) setItems(prev => prev.filter(i => i.id !== id))
+    if (!error) {
+      setItems(prev => prev.filter(i => i.id !== id))
+      setCompletedItems(prev => prev.filter(i => i.id !== id))
+    }
     return error
   }, [supabase])
 
@@ -237,7 +274,7 @@ export function useActionItems(schoolId?: string) {
     )
   }, [supabase])
 
-  return { items, loading, insertItem, updateItem, deleteItem, reorderItems, refetch: fetchItems }
+  return { items, completedItems, loading, insertItem, updateItem, completeItem, deleteItem, reorderItems, refetch: fetchItems }
 }
 
 // ─── Assets ───────────────────────────────────────────────────────────────────

@@ -78,6 +78,7 @@ export interface ActionItem {
   owner: 'Finn' | 'Randy' | null
   due_date: string | null  // YYYY-MM-DD
   sort_order: number | null
+  completed_at: string | null  // timestamptz; null = active, non-null = completed
   created_at: string
   // joined
   school?: Pick<School, 'id' | 'name' | 'short_name' | 'category' | 'status'>

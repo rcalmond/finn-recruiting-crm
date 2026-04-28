@@ -41,7 +41,7 @@ export default function TodayClient({
   const today = todayStr()
   const { schools, loading: schoolsLoading } = useSchools()
   const { entries: contactLog, loading: logLoading, snoozeEntry, dismissEntry } = useContactLog()
-  const { items: actionItems, loading: actionsLoading, updateItem, deleteItem } = useActionItems()
+  const { items: actionItems, loading: actionsLoading, updateItem, completeItem } = useActionItems()
 
   const loading = schoolsLoading || logLoading || actionsLoading
 
@@ -113,7 +113,7 @@ export default function TodayClient({
   }
 
   async function handleComplete(actionItemId?: string) {
-    if (actionItemId) await deleteItem(actionItemId)
+    if (actionItemId) await completeItem(actionItemId)
     setHeroCompleted(true)
   }
 

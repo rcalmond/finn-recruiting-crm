@@ -620,6 +620,10 @@ Use sent_at for all sort and comparison operations. The date column still holds 
 day (YYYY-MM-DD) and is used for display labels and days-waiting calculations. Do not remove
 — it remains useful as a simple date reference. Just don't sort by it.
 
+**Action item owner field is hardcoded dropdown (Finn/Randy):**
+Future: text input with autocomplete from prior owners, or proper user/owner reference table.
+Not blocking — realistic owner set is Finn + Randy for now.
+
 **New campaign authoring flow uses legacy {{placeholder}} template model:**
 Could be redesigned to leverage the same AI generation flow as individual emails (intent
 description → AI-suggested template → refine → save). Phase 2b/2c candidate, depends on

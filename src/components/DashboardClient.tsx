@@ -22,7 +22,7 @@ export default function DashboardClient({ user }: { user: User }) {
   const supabase = createClient()
   const { schools, loading, updateSchool, insertSchool, deleteSchool, reorderSchools } = useSchools()
   const { entries: contactLog } = useContactLog()
-  const { items: actionItems, deleteItem: deleteActionItem, reorderItems: reorderActionItems } = useActionItems()
+  const { items: actionItems, completeItem: completeActionItem, reorderItems: reorderActionItems } = useActionItems()
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams.get('tab')
     return (t === 'actions' || t === 'pipeline' || t === 'log' || t === 'questions') ? t : 'dashboard'
@@ -239,7 +239,7 @@ export default function DashboardClient({ user }: { user: User }) {
             actionItems={activeActionItems}
             schools={schools}
             onSelectSchool={setSelectedSchool}
-            onDeleteItem={deleteActionItem}
+            onDeleteItem={completeActionItem}
             onReorderItems={reorderActionItems}
           />
         )}

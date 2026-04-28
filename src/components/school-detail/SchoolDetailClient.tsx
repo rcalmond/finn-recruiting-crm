@@ -826,6 +826,113 @@ function SidebarCard({ label, children }: { label: string; children: ReactNode }
   )
 }
 
+function AddActionForm({ onAdd }: { onAdd: (action: string, dueDate: string, owner: string) => Promise<void> }) {
+  const [open, setOpen] = useState(false)
+  const [action, setAction] = useState('')
+  const [dueDate, setDueDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 7)
+    return d.toISOString().split('T')[0]
+  })
+  const [owner, setOwner] = useState('Finn')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    if (!action.trim()) return
+    setSaving(true)
+    await onAdd(action.trim(), dueDate, owner)
+    setAction('')
+    setDueDate(() => {
+      const d = new Date()
+      d.setDate(d.getDate() + 7)
+      return d.toISOString().split('T')[0]
+    })
+    setOwner('Finn')
+    setSaving(false)
+    setOpen(false)
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          marginTop: 10, padding: '5px 0', background: 'none', border: 'none',
+          cursor: 'pointer', fontSize: 11, fontWeight: 700, color: SD.tealDeep,
+          fontFamily: 'inherit', textAlign: 'left',
+        }}
+      >+ Add action item</button>
+    )
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 10, padding: 12, borderRadius: 8,
+        border: `1px solid ${SD.line}`, background: SD.paperDeep,
+        display: 'flex', flexDirection: 'column', gap: 8,
+      }}
+    >
+      <input
+        autoFocus
+        value={action}
+        onChange={e => setAction(e.target.value)}
+        placeholder="Action item..."
+        onKeyDown={e => { if (e.key === 'Escape') setOpen(false); if (e.key === 'Enter' && action.trim()) handleSave() }}
+        style={{
+          width: '100%', padding: '6px 8px', border: `1px solid ${SD.line}`,
+          borderRadius: 6, fontSize: 12, fontFamily: 'inherit',
+          background: '#fff', outline: 'none', boxSizing: 'border-box',
+        }}
+      />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          type="date"
+          value={dueDate}
+          onChange={e => setDueDate(e.target.value)}
+          style={{
+            flex: 1, padding: '5px 6px', border: `1px solid ${SD.line}`,
+            borderRadius: 6, fontSize: 11, fontFamily: 'inherit',
+            background: '#fff', outline: 'none',
+          }}
+        />
+        <select
+          value={owner}
+          onChange={e => setOwner(e.target.value)}
+          style={{
+            padding: '5px 6px', border: `1px solid ${SD.line}`,
+            borderRadius: 6, fontSize: 11, fontFamily: 'inherit',
+            background: '#fff', outline: 'none',
+          }}
+        >
+          <option value="Finn">Finn</option>
+          <option value="Randy">Randy</option>
+        </select>
+      </div>
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+        <button
+          onClick={() => setOpen(false)}
+          style={{
+            padding: '4px 10px', borderRadius: 6, border: `1px solid ${SD.line}`,
+            background: '#fff', fontSize: 11, fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'inherit', color: SD.inkLo,
+          }}
+        >Cancel</button>
+        <button
+          onClick={handleSave}
+          disabled={!action.trim() || saving}
+          style={{
+            padding: '4px 10px', borderRadius: 6, border: 'none',
+            background: SD.ink, color: '#fff', fontSize: 11, fontWeight: 600,
+            cursor: !action.trim() || saving ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit', opacity: !action.trim() || saving ? 0.5 : 1,
+          }}
+        >{saving ? 'Saving...' : 'Save'}</button>
+      </div>
+    </div>
+  )
+}
+
 function AboutRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{
@@ -842,13 +949,15 @@ function AboutRow({ label, value }: { label: string; value: string }) {
 }
 
 function Sidebar({
-  school, coaches, actionItems, today, onComplete, onDraft, onPrepForCall, onSetPrimary,
+  school, coaches, actionItems, completedItems, today, onComplete, onAddAction, onDraft, onPrepForCall, onSetPrimary,
 }: {
   school: School
   coaches: Coach[]
   actionItems: ActionItem[]
+  completedItems: ActionItem[]
   today: string
   onComplete: (id: string) => Promise<void>
+  onAddAction: (action: string, dueDate: string, owner: string) => Promise<void>
   onDraft: (kind: 'fresh' | 'reply') => void
   onPrepForCall: () => void
   onSetPrimary: (id: string) => Promise<unknown>
@@ -1101,6 +1210,37 @@ function Sidebar({
             })}
           </div>
         )}
+
+        {/* Add action inline form */}
+        <AddActionForm onAdd={onAddAction} />
+
+        {/* Recently completed */}
+        {completedItems.length > 0 && (
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${SD.line}` }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700, color: SD.inkLo,
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+              marginBottom: 8,
+            }}>Recently completed</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {completedItems.map(item => (
+                <div key={item.id}>
+                  <div style={{
+                    fontSize: 12, color: SD.inkLo,
+                    textDecoration: 'line-through', lineHeight: 1.4,
+                  }}>{item.action}</div>
+                  <div style={{
+                    fontSize: 10, color: SD.inkMute, marginTop: 1,
+                  }}>
+                    Completed {item.completed_at
+                      ? new Date(item.completed_at).toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' })
+                      : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </SidebarCard>
     </div>
   )
@@ -1128,7 +1268,7 @@ export default function SchoolDetailClient({
   // ── Realtime subscriptions ─────────────────────────────────────────────────
   const { schools, loading: schoolsLoading, updateSchool } = useSchools()
   const { entries: contactLog, loading: logLoading, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
-  const { items: actionItems, loading: actionsLoading, deleteItem } = useActionItems(initialSchool.id)
+  const { items: actionItems, completedItems, loading: actionsLoading, completeItem, insertItem } = useActionItems(initialSchool.id)
   const { coaches, setPrimary } = useCoaches(initialSchool.id)
 
   const loading = schoolsLoading || logLoading || actionsLoading
@@ -1192,7 +1332,7 @@ export default function SchoolDetailClient({
         contactLog={contactLog}
         today={today}
         onDraft={(kind, entryId, channel) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel })}
-        onComplete={async (id) => { await deleteItem(id) }}
+        onComplete={async (id) => { await completeItem(id) }}
       />
 
       {/* ── Content: timeline (left) + sidebar placeholder (right) ── */}
@@ -1211,7 +1351,7 @@ export default function SchoolDetailClient({
           school={school}
           today={today}
           onDraft={(kind, entryId, channel) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel })}
-          onComplete={async (id) => { await deleteItem(id) }}
+          onComplete={async (id) => { await completeItem(id) }}
           onSnooze={async (id) => { await snoozeEntry(id) }}
           onDismiss={async (id) => { await dismissEntry(id) }}
           onUndo={async (id) => { await undoEntry(id) }}
@@ -1220,8 +1360,12 @@ export default function SchoolDetailClient({
           school={school}
           coaches={coaches}
           actionItems={actionItems}
+          completedItems={completedItems}
           today={today}
-          onComplete={async (id) => { await deleteItem(id) }}
+          onComplete={async (id) => { await completeItem(id) }}
+          onAddAction={async (action, dueDate, owner) => {
+            await insertItem({ school_id: school.id, action, owner: owner as 'Finn' | 'Randy', due_date: dueDate })
+          }}
           onDraft={(kind) => setDraftTarget({ kind })}
           onPrepForCall={() => setPrepOpen(true)}
           onSetPrimary={setPrimary}
