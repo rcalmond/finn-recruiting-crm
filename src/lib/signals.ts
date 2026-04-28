@@ -65,7 +65,7 @@ export function deriveSignal(
     // are historical noise and shouldn't drive the day count.
     const mostRecent = unreplied
       .slice()
-      .sort((a, b) => toDateStr(b.date).localeCompare(toDateStr(a.date)))[0]
+      .sort((a, b) => b.sent_at.localeCompare(a.sent_at))[0]
     const days = daysBetween(toDateStr(mostRecent.date))
 
     // Priority 1: Going cold — 5+ days, A or B only
@@ -86,7 +86,7 @@ export function deriveSignal(
       // Sort all entries by date desc to find the most recent contact.
       const last = schoolLog
         .slice()
-        .sort((a, b) => toDateStr(b.date).localeCompare(toDateStr(a.date)))[0]
+        .sort((a, b) => b.sent_at.localeCompare(a.sent_at))[0]
 
       if (last.direction === 'Outbound' && daysBetween(toDateStr(last.date)) <= 14) {
         return { kind: 'active', text: 'Active' }

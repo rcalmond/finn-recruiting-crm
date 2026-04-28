@@ -29,13 +29,13 @@ export function getUnrepliedInbounds(log: ContactLogEntry[]): ContactLogEntry[] 
   Array.from(bySchool.values()).forEach(entries => {
     entries.filter(e => e.direction === 'Inbound' && isActiveInbound(e)).forEach(inbound => {
       const hasOutboundAfter = entries.some(
-        e => e.direction === 'Outbound' && e.date > inbound.date
+        e => e.direction === 'Outbound' && e.sent_at > inbound.sent_at
       )
       if (!hasOutboundAfter) unreplied.push(inbound)
     })
   })
 
-  return unreplied.sort((a, b) => a.date.localeCompare(b.date))
+  return unreplied.sort((a, b) => a.sent_at.localeCompare(b.sent_at))
 }
 
 // ─── Going cold detection ────────────────────────────────────────────────────
@@ -227,7 +227,7 @@ export function getRankedFeaturedAction(
 
   if (p1.length > 0) {
     // Most recent inbound date first — warmest lead wins ties
-    p1.sort((a, b) => b.inbound.date.localeCompare(a.inbound.date))
+    p1.sort((a, b) => b.inbound.sent_at.localeCompare(a.inbound.sent_at))
     const { item, inbound, school } = p1[0]
     const overdueDays = daysBetween(item.due_date!)
     return {
@@ -271,11 +271,11 @@ export function getRankedFeaturedAction(
       const school = schoolMap.get(e.school_id)
       return school && ['A', 'B'].includes(school.category) && daysBetween(e.date) >= 5
     })
-    .sort((a, b) => b.date.localeCompare(a.date))
+    .sort((a, b) => b.sent_at.localeCompare(a.sent_at))
 
   for (const e of p3) {
     const school = schoolMap.get(e.school_id)!
-    const days = daysBetween(e.date)
+    const days = daysBetween(e.date)  // days-waiting uses calendar date — correct
     return {
       type: 'going_cold',
       title: `Follow up with ${schoolLabel(school)}.`,

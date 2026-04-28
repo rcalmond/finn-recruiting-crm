@@ -131,7 +131,9 @@ function ContactEntryRow({ entry, schoolName, onDelete }: { entry: ContactLogEnt
           {entry.coach_name && <span style={{ fontSize: 12, color: '#64748b' }}>{entry.coach_name}</span>}
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(entry.date)}</span>
+          <span style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap' }}>{
+            new Date(entry.sent_at).toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric', year: 'numeric' })
+          }</span>
           <button onClick={() => setExpanded(!expanded)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>{expanded ? '▲' : '▼'}</button>
           <button onClick={onDelete} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>×</button>
         </div>
@@ -166,7 +168,8 @@ function PasteEmailForm({ schools, userId, onSave, onCancel }: {
   async function handleSave() {
     if (!schoolId || !rawEmail) return
     setSaving(true)
-    await onSave({ school_id: schoolId, date, channel: 'Email', direction, coach_name: coachName || null, summary: rawEmail, created_by: userId })
+    const nowTime = new Date().toISOString().split('T')[1]
+    await onSave({ school_id: schoolId, date, sent_at: new Date(`${date}T${nowTime}`).toISOString(), channel: 'Email', direction, coach_name: coachName || null, summary: rawEmail, created_by: userId })
     setSaving(false)
   }
 
@@ -248,9 +251,11 @@ function PasteSRForm({ schools, userId, onSave, onCancel }: {
     setSaving(true)
     // Each paste becomes one entry; split on blank lines for multi-message
     const messages = rawText.split(/\n{3,}/).filter(m => m.trim())
+    const nowTime = new Date().toISOString().split('T')[1]
+    const sentAt = new Date(`${date}T${nowTime}`).toISOString()
     const entries = messages.length > 1
-      ? messages.map(m => ({ school_id: schoolId, date, channel: 'Sports Recruits' as ContactChannel, direction: 'Inbound' as ContactDirection, coach_name: null, summary: m.trim(), created_by: userId }))
-      : [{ school_id: schoolId, date, channel: 'Sports Recruits' as ContactChannel, direction: 'Inbound' as ContactDirection, coach_name: null, summary: rawText.trim(), created_by: userId }]
+      ? messages.map(m => ({ school_id: schoolId, date, sent_at: sentAt, channel: 'Sports Recruits' as ContactChannel, direction: 'Inbound' as ContactDirection, coach_name: null, summary: m.trim(), created_by: userId }))
+      : [{ school_id: schoolId, date, sent_at: sentAt, channel: 'Sports Recruits' as ContactChannel, direction: 'Inbound' as ContactDirection, coach_name: null, summary: rawText.trim(), created_by: userId }]
     await onSave(entries)
     setSaving(false)
   }
@@ -358,9 +363,11 @@ function PasteSROutboundForm({ schools, userId, onSave, onCancel }: {
   async function handleSave() {
     if (!schoolId || !parsed) return
     setSaving(true)
+    const nowTime = new Date().toISOString().split('T')[1]
     await onSave({
       school_id: schoolId,
       date: parsed.date,
+      sent_at: new Date(`${parsed.date}T${nowTime}`).toISOString(),
       channel: 'Sports Recruits',
       direction: 'Outbound',
       coach_name: parsed.coachName || null,

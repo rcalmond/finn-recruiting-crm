@@ -20,7 +20,7 @@ export default async function ClassificationReviewPage() {
     .eq('direction', 'Inbound')
     .eq('classification_confidence', 'low')
     .not('classified_at', 'is', null)
-    .order('date', { ascending: false })
+    .order('sent_at', { ascending: false })
 
   type ReviewRow = {
     id: string

@@ -97,7 +97,8 @@ system (campaign_schools rows). 4 protected one-offs remain:
 id                uuid PK
 school_id         uuid FK → schools.id (cascade delete)
 coach_id          uuid FK → coaches.id (on delete set null)
-date              date
+date              date              -- calendar day (deprecated for ordering — use sent_at)
+sent_at           timestamptz NOT NULL  -- actual or approximate send time (migration 026)
 channel           'Email' | 'Phone' | 'In Person' | 'Text' | 'Sports Recruits'
 direction         'Outbound' | 'Inbound'
 coach_name        text          -- raw sender display name (from Gmail parse)
@@ -607,6 +608,17 @@ No UI for capturing off-channel coach interactions (phone calls, ID camp meeting
 visits). Currently these have to be logged via direct SQL or admin. Future: dedicated "Log
 contact" action on school detail page that creates a contact_log row without requiring an
 email body. Phase 2c candidate.
+
+**contact_log.sent_at backfill is approximate for historical rows (pre-2026-04-29):**
+Stable ordering within day, correct dates, but absolute times reflect ingestion time-of-day,
+not actual send time. Future fix: parse raw_source for actual Date headers (gmail_message_id
+rows can re-fetch from Gmail API) to recover real send times. Estimated half a day of work;
+deferred until accuracy matters.
+
+**contact_log.date column is deprecated for ordering:**
+Use sent_at for all sort and comparison operations. The date column still holds the calendar
+day (YYYY-MM-DD) and is used for display labels and days-waiting calculations. Do not remove
+— it remains useful as a simple date reference. Just don't sort by it.
 
 **New campaign authoring flow uses legacy {{placeholder}} template model:**
 Could be redesigned to leverage the same AI generation flow as individual emails (intent

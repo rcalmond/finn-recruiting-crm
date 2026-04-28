@@ -43,7 +43,8 @@ export interface School {
 export interface ContactLogEntry {
   id: string
   school_id: string
-  date: string                       // ISO date string YYYY-MM-DD
+  date: string                       // ISO date string YYYY-MM-DD (deprecated — use sent_at for ordering)
+  sent_at: string                    // ISO timestamptz — actual or approximate send time (migration 026)
   channel: ContactChannel
   direction: ContactDirection
   coach_name: string | null

@@ -401,10 +401,15 @@ function ActionBar({
 // ─── Timeline ─────────────────────────────────────────────────────────────────
 
 type TLEntry =
-  | { kind: 'contact'; entry: ContactLogEntry; sortDate: string }
-  | { kind: 'action';  item: ActionItem;       sortDate: string }
+  | { kind: 'contact'; entry: ContactLogEntry; sortDate: string; sortKey: string }
+  | { kind: 'action';  item: ActionItem;       sortDate: string; sortKey: string }
 
 function toDateStr(raw: string): string { return raw.slice(0, 10) }
+
+/** Extract YYYY-MM-DD in Mountain time from an ISO timestamp. */
+function sentAtToMountainDate(sentAt: string): string {
+  return new Date(sentAt).toLocaleDateString('en-CA', { timeZone: 'America/Denver' })
+}
 
 function fmtShortDate(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -475,21 +480,24 @@ function Timeline({
         !(e.snoozed_until && e.snoozed_until > nowIso)
       )
       .forEach(e => {
-        const d = toDateStr(e.date)
-        if (!outbounds.some(o => toDateStr(o.date) > d)) ids.add(e.id)
+        if (!outbounds.some(o => o.sent_at > e.sent_at)) ids.add(e.id)
       })
     return ids
   }, [contactLog])
 
-  // Merge contact log + action items, sort newest first
+  // Merge contact log + action items, sort newest first by sent_at / due_date
   const merged = useMemo((): TLEntry[] => {
     const contacts: TLEntry[] = contactLog.map(e => ({
-      kind: 'contact', entry: e, sortDate: toDateStr(e.date),
+      kind: 'contact', entry: e,
+      sortDate: sentAtToMountainDate(e.sent_at),  // YYYY-MM-DD Mountain for date grouping
+      sortKey: e.sent_at,                          // full ISO for precise within-day ordering
     }))
     const actions: TLEntry[] = actionItems.map(item => ({
-      kind: 'action', item, sortDate: toDateStr(item.due_date ?? item.created_at),
+      kind: 'action', item,
+      sortDate: toDateStr(item.due_date ?? item.created_at),
+      sortKey: item.due_date ?? item.created_at,
     }))
-    return [...contacts, ...actions].sort((a, b) => b.sortDate.localeCompare(a.sortDate))
+    return [...contacts, ...actions].sort((a, b) => b.sortKey.localeCompare(a.sortKey))
   }, [contactLog, actionItems])
 
   function tlId(te: TLEntry): string {

@@ -336,9 +336,13 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Insert ──
-  const insertPayload = toInsert.map(({ row, resolvedCoachIds, primaryCoachId, parseStatus, contentHash }) => ({
+  const insertPayload = toInsert.map(({ row, resolvedCoachIds, primaryCoachId, parseStatus, contentHash }) => {
+    // Approximate sent_at: combine parsed date with current time-of-day
+    const nowTime = new Date().toISOString().split('T')[1]
+    return {
     school_id:         row.schoolId,
     date:              row.isoDate,
+    sent_at:           new Date(`${row.isoDate}T${nowTime}`).toISOString(),
     channel:           'Sports Recruits' as const,
     direction:         'Outbound' as const,
     coach_name:        row.coachName || null,
@@ -353,7 +357,8 @@ export async function POST(req: NextRequest) {
                          ? `${row.coachName.split(/;\s*/).filter(Boolean).length - resolvedCoachIds.length} coach(es) unmatched — review needed`
                          : null,
     content_hash:      contentHash,
-  }))
+  }
+  })
 
   const { error: insertError } = await admin.from('contact_log').insert(insertPayload)
 

@@ -88,7 +88,7 @@ export function useContactLog(schoolId?: string) {
     let query = supabase
       .from('contact_log')
       .select('*, school:schools(id, name, short_name)')
-      .order('date', { ascending: false })
+      .order('sent_at', { ascending: false })
     if (schoolId) query = query.eq('school_id', schoolId)
     const { data, error } = await query
     if (!error && data) setEntries(data as ContactLogEntry[])

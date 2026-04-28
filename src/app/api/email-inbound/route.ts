@@ -93,9 +93,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, warning: `School not matched: ${schoolName}` })
   }
 
+  const nowTime = new Date().toISOString().split('T')[1]
   const { error } = await supabase.from('contact_log').insert({
     school_id:  school.id,
     date,
+    sent_at:    new Date(`${date}T${nowTime}`).toISOString(),
     channel:    'Sports Recruits',
     direction:  'Inbound',
     coach_name: coachName,

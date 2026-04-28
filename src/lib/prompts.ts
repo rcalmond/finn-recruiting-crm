@@ -306,6 +306,7 @@ interface VoiceRef {
 
 interface ContactRow {
   date: string
+  sent_at: string
   direction: string
   channel: string
   coach_name: string | null
@@ -352,17 +353,17 @@ export async function buildEmailDraftPrompt(
       : Promise.resolve({ data: null }),
     // 4. Last 5 contact_log rows for this school (both directions)
     admin.from('contact_log')
-      .select('date, direction, channel, coach_name, summary, authored_by, intent')
+      .select('date, sent_at, direction, channel, coach_name, summary, authored_by, intent')
       .eq('school_id', input.schoolId)
       .not('parse_status', 'in', '("orphan","non_coach")')
-      .order('date', { ascending: false })
+      .order('sent_at', { ascending: false })
       .limit(5),
     // 5. Voice reference emails (15 most recent substantive outbounds post-wingback)
     admin.rpc('get_voice_references').then(r => r) as unknown as Promise<{ data: VoiceRef[] | null }>,
     // 6. Reply-to contact_log row (when replying)
     input.replyToContactLogId
       ? admin.from('contact_log')
-          .select('date, channel, coach_name, summary')
+          .select('date, sent_at, channel, coach_name, summary')
           .eq('id', input.replyToContactLogId)
           .single()
       : Promise.resolve({ data: null }),
@@ -378,7 +379,7 @@ export async function buildEmailDraftPrompt(
   let stalenessDays = 0
   if (recentInbound) {
     stalenessDays = Math.floor(
-      (Date.now() - new Date(recentInbound.date).getTime()) / (1000 * 60 * 60 * 24)
+      (Date.now() - new Date(recentInbound.sent_at).getTime()) / (1000 * 60 * 60 * 24)
     )
     stalenessLabel = stalenessDays <= 30 ? 'Recent'
       : stalenessDays <= 90 ? 'Cooling'
@@ -593,10 +594,10 @@ export async function buildTopicSuggestPrompt(
       ? admin.from('coaches').select('name, role, needs_review').eq('id', coachId).single()
       : Promise.resolve({ data: null }),
     admin.from('contact_log')
-      .select('date, direction, channel, coach_name, summary, authored_by, intent')
+      .select('date, sent_at, direction, channel, coach_name, summary, authored_by, intent')
       .eq('school_id', schoolId)
       .not('parse_status', 'in', '("orphan","non_coach")')
-      .order('date', { ascending: false })
+      .order('sent_at', { ascending: false })
       .limit(5),
     admin.from('action_items')
       .select('action, owner, due_date')
@@ -615,7 +616,7 @@ export async function buildTopicSuggestPrompt(
   let stalenessDays = 0
   if (recentInbound) {
     stalenessDays = Math.floor(
-      (Date.now() - new Date(recentInbound.date).getTime()) / (1000 * 60 * 60 * 24)
+      (Date.now() - new Date(recentInbound.sent_at).getTime()) / (1000 * 60 * 60 * 24)
     )
     stalenessLabel = stalenessDays <= 30 ? 'Recent'
       : stalenessDays <= 90 ? 'Cooling'

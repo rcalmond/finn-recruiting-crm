@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       .select('date, channel, authored_by, summary')
       .eq('school_id', schoolId)
       .eq('direction', 'Inbound')
-      .order('date', { ascending: false })
+      .order('sent_at', { ascending: false })
       .limit(3)
 
     const userPrompt = buildCampaignPersonalizePrompt({

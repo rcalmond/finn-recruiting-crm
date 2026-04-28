@@ -242,6 +242,7 @@ export async function POST(req: NextRequest) {
             const { error: insertErr } = await admin.from('contact_log').insert({
               school_id:         schoolId,
               date:              parsed.isoDate,
+              sent_at:           parsed.sentAt,
               channel:           'Email',
               direction:         parsed.direction,
               coach_name:        coachName,
