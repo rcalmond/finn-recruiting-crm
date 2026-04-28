@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, type ReactNode } from 'react'
+import { useState, useMemo, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
@@ -439,7 +439,7 @@ function ChannelPill({ channel }: { channel: string }) {
 
 function Timeline({
   contactLog, actionItems, school, coaches, today, userId,
-  onDraft, onComplete, onSnooze, onDismiss, onUndo, onLogEntry, onEditEntry,
+  onDraft, onComplete, onSnooze, onDismiss, onUndo, onLogEntry, onEditEntry, onDeleteEntry,
 }: {
   contactLog: ContactLogEntry[]
   actionItems: ActionItem[]
@@ -463,6 +463,7 @@ function Timeline({
     channel: ContactChannel; direction: ContactDirection; date: string
     sent_at: string; summary: string
   }) => Promise<void>
+  onDeleteEntry: (id: string) => Promise<void>
 }) {
   const router = useRouter()
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -684,6 +685,10 @@ function Timeline({
                         })
                         setEditingEntryId(null)
                       }}
+                      onDelete={async () => {
+                        await onDeleteEntry(entry.id)
+                        setEditingEntryId(null)
+                      }}
                       onCancel={() => setEditingEntryId(null)}
                     />
                   )}
@@ -899,11 +904,12 @@ function SidebarCard({ label, children }: { label: string; children: ReactNode }
   )
 }
 
-function LogEntryForm({ school, coaches, userId, initial, onSave, onCancel }: {
+function LogEntryForm({ school, coaches, userId, initial, onSave, onCancel, onDelete }: {
   school: School
   coaches: Coach[]
   userId: string
   initial?: ContactLogEntry
+  onDelete?: () => Promise<void>
   onSave: (entry: {
     school_id: string; coach_id: string | null; coach_name: string | null
     channel: ContactChannel; direction: ContactDirection; date: string
@@ -1064,27 +1070,60 @@ function LogEntryForm({ school, coaches, userId, initial, onSave, onCancel }: {
       />
 
       {/* Row 4: Buttons */}
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button
-          onClick={onCancel}
-          style={{
-            padding: '6px 14px', borderRadius: 6, border: `1px solid ${SD.line}`,
-            background: '#fff', fontSize: 11, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit', color: SD.inkLo,
-          }}
-        >Cancel</button>
-        <button
-          onClick={handleSave}
-          disabled={!summary.trim() || saving}
-          style={{
-            padding: '6px 14px', borderRadius: 6, border: 'none',
-            background: SD.ink, color: '#fff', fontSize: 11, fontWeight: 600,
-            cursor: !summary.trim() || saving ? 'not-allowed' : 'pointer',
-            fontFamily: 'inherit', opacity: !summary.trim() || saving ? 0.5 : 1,
-          }}
-        >{saving ? 'Saving...' : 'Save'}</button>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Delete (edit mode only) */}
+        {initial && onDelete ? <DeleteButton onConfirm={onDelete} /> : <div />}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: '6px 14px', borderRadius: 6, border: `1px solid ${SD.line}`,
+              background: '#fff', fontSize: 11, fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit', color: SD.inkLo,
+            }}
+          >Cancel</button>
+          <button
+            onClick={handleSave}
+            disabled={!summary.trim() || saving}
+            style={{
+              padding: '6px 14px', borderRadius: 6, border: 'none',
+              background: SD.ink, color: '#fff', fontSize: 11, fontWeight: 600,
+              cursor: !summary.trim() || saving ? 'not-allowed' : 'pointer',
+              fontFamily: 'inherit', opacity: !summary.trim() || saving ? 0.5 : 1,
+            }}
+          >{saving ? 'Saving...' : 'Save'}</button>
+        </div>
       </div>
     </div>
+  )
+}
+
+function DeleteButton({ onConfirm }: { onConfirm: () => Promise<void> }) {
+  const [confirming, setConfirming] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function handleClick() {
+    if (confirming) {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      onConfirm()
+    } else {
+      setConfirming(true)
+      timerRef.current = setTimeout(() => setConfirming(false), 3000)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      style={{
+        padding: '6px 12px', borderRadius: 6,
+        border: confirming ? '1px solid #FCA5A5' : `1px solid ${SD.line}`,
+        background: confirming ? '#FEF2F2' : '#fff',
+        fontSize: 11, fontWeight: 600,
+        cursor: 'pointer', fontFamily: 'inherit',
+        color: confirming ? '#DC2626' : SD.inkLo,
+      }}
+    >{confirming ? 'Click again to confirm' : 'Delete entry'}</button>
   )
 }
 
@@ -1529,7 +1568,7 @@ export default function SchoolDetailClient({
 
   // ── Realtime subscriptions ─────────────────────────────────────────────────
   const { schools, loading: schoolsLoading, updateSchool } = useSchools()
-  const { entries: contactLog, loading: logLoading, insertContact, updateEntry, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
+  const { entries: contactLog, loading: logLoading, insertContact, updateEntry, deleteEntry, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
   const { items: actionItems, completedItems, loading: actionsLoading, completeItem, insertItem } = useActionItems(initialSchool.id)
   const { coaches, setPrimary } = useCoaches(initialSchool.id)
 
@@ -1621,6 +1660,7 @@ export default function SchoolDetailClient({
           onUndo={async (id) => { await undoEntry(id) }}
           onLogEntry={async (entry) => { await insertContact(entry as Parameters<typeof insertContact>[0]) }}
           onEditEntry={async (id, updates) => { await updateEntry(id, updates) }}
+          onDeleteEntry={async (id) => { await deleteEntry(id) }}
         />
         <Sidebar
           school={school}
