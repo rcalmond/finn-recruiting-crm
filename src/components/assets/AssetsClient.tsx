@@ -32,6 +32,7 @@ type Modal =
 export default function AssetsClient({ user }: { user: User }) {
   const { assets, loading, insertLink, updateAsset, archiveAsset, removeAsset, getSignedUrl } = useAssets()
   const [modal, setModal] = useState<Modal | null>(null)
+  const [reparsingId, setReparsingId] = useState<string | null>(null)
 
   const current = assets.filter(a => a.is_current)
   const archived = assets.filter(a => !a.is_current)
@@ -54,6 +55,21 @@ export default function AssetsClient({ user }: { user: User }) {
   async function handleReplaced(oldAsset: Asset, newAsset: Asset) {
     await archiveAsset(oldAsset.id, newAsset.id)
     await updateAsset(newAsset.id, { version: oldAsset.version + 1 })
+  }
+
+  async function handleReparse(asset: Asset) {
+    setReparsingId(asset.id)
+    try {
+      const res = await fetch('/api/assets/reparse-resume', { method: 'POST' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('[reparse]', err.error)
+      }
+    } catch (err) {
+      console.error('[reparse]', err)
+    } finally {
+      setReparsingId(null)
+    }
   }
 
   async function handleSaveLink(data: { name: string; type: AssetType; url: string; description: string }) {
@@ -129,6 +145,8 @@ export default function AssetsClient({ user }: { user: User }) {
                     onReplace={asset => setModal({ kind: 'replace', asset })}
                     onEdit={asset => asset.category === 'link' ? setModal({ kind: 'edit-link', asset }) : undefined}
                     onDelete={handleDelete}
+                    onReparse={handleReparse}
+                    reparsing={reparsingId === a.id}
                   />
                 ))}
               </div>

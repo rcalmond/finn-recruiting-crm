@@ -232,6 +232,20 @@ export interface CampaignSchool {
   coach?: Pick<Coach, 'id' | 'name' | 'role' | 'email'> | null
 }
 
+// ─── Player profile (singleton) ──────────────────────────────────────────────
+
+export interface PlayerProfile {
+  id: string
+  current_stats: string | null
+  upcoming_schedule: string | null
+  highlights: string | null
+  academic_summary: string | null
+  last_parsed_at: string | null
+  source_asset_id: string | null
+  created_at: string
+  updated_at: string
+}
+
 // ─── Filter state ─────────────────────────────────────────────────────────────
 
 export interface PipelineFilters {

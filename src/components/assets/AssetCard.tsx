@@ -48,9 +48,11 @@ interface Props {
   onReplace: (asset: Asset) => void
   onEdit: (asset: Asset) => void
   onDelete: (asset: Asset) => void
+  onReparse?: (asset: Asset) => void
+  reparsing?: boolean
 }
 
-export default function AssetCard({ asset, onPreview, onReplace, onEdit, onDelete }: Props) {
+export default function AssetCard({ asset, onPreview, onReplace, onEdit, onDelete, onReparse, reparsing }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const colors = TYPE_COLORS[asset.type] ?? { bg: LV.paper, text: LV.inkMute }
   const label = TYPE_LABELS[asset.type] ?? asset.type
@@ -123,6 +125,19 @@ export default function AssetCard({ asset, onPreview, onReplace, onEdit, onDelet
             )}
             {asset.category === 'link' && (
               <button onClick={() => onEdit(asset)} style={btn(LV.paper, LV.inkMid)}>Edit</button>
+            )}
+            {asset.type === 'resume' && onReparse && (
+              <button
+                onClick={() => onReparse(asset)}
+                disabled={reparsing}
+                style={{
+                  ...btn(LV.paper, LV.inkMid),
+                  opacity: reparsing ? 0.5 : 1,
+                  cursor: reparsing ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {reparsing ? 'Parsing...' : 'Re-parse'}
+              </button>
             )}
             <button onClick={() => onReplace(asset)} style={btn(LV.paper, LV.inkMid)}>Replace</button>
             <button onClick={() => setConfirmDelete(true)} style={btn('#FAD9D9', LV.red)}>✕</button>

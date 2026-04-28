@@ -85,5 +85,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: dbError.message }, { status: 500 })
   }
 
+  // Fire-and-forget: parse resume into player_profile if this is a resume upload
+  if (type === 'resume' && asset) {
+    import('@/lib/asset-parsers')
+      .then(m => m.parseAndUpsertResume(asset.id, storagePath))
+      .catch(err => console.error('[upload] Resume parse fire-and-forget failed:', err))
+  }
+
   return NextResponse.json({ asset }, { status: 201 })
 }

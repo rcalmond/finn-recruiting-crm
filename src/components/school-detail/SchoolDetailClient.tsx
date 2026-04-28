@@ -5,12 +5,11 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import type { School, ContactLogEntry, ActionItem, Coach } from '@/lib/types'
-import type { EmailType } from '@/lib/prompts'
 import { useSchools, useContactLog, useActionItems, useCoaches } from '@/hooks/useRealtimeData'
 import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
 import { getRankedFeaturedAction } from '@/lib/todayLogic'
 import { todayStr } from '@/lib/utils'
-import DraftEmailModal from '@/components/DraftEmailModal'
+import DraftModal from '@/components/DraftModal'
 import PrepForCallModal from '@/components/PrepForCallModal'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -252,7 +251,7 @@ function ActionBar({
   actionItems: ActionItem[]
   contactLog: ContactLogEntry[]
   today: string
-  onDraft: (emailType: EmailType, coachMessage?: string) => void
+  onDraft: (kind: 'fresh' | 'reply', entryId?: string, channel?: string) => void
   onComplete: (id: string) => Promise<void>
 }) {
   const featured = getRankedFeaturedAction(actionItems, contactLog, [school], today)
@@ -276,7 +275,7 @@ function ActionBar({
           </div>
         </div>
         <button
-          onClick={() => onDraft('follow_up')}
+          onClick={() => onDraft('fresh')}
           style={{
             padding: '8px 16px', background: SD.tealDeep, color: '#fff',
             border: 'none', borderRadius: 999, fontSize: 13, fontWeight: 650,
@@ -302,7 +301,11 @@ function ActionBar({
     if (featured.type === 'action_item' && featured.actionItem) {
       await onComplete(featured.actionItem.id)
     } else {
-      onDraft(featured.emailType, featured.inboundEntry?.summary ?? '')
+      if (featured.inboundEntry) {
+        onDraft('reply', featured.inboundEntry.id, featured.inboundEntry.channel)
+      } else {
+        onDraft('fresh')
+      }
     }
   }
 
@@ -437,7 +440,7 @@ function Timeline({
   actionItems: ActionItem[]
   school: School
   today: string
-  onDraft: (emailType: EmailType, coachMessage?: string) => void
+  onDraft: (kind: 'fresh' | 'reply', entryId?: string, channel?: string) => void
   onComplete: (id: string) => Promise<void>
   onSnooze: (id: string) => Promise<void>
   onDismiss: (id: string) => Promise<void>
@@ -535,7 +538,7 @@ function Timeline({
             No conversation yet.
           </div>
           <button
-            onClick={() => onDraft('follow_up')}
+            onClick={() => onDraft('fresh')}
             style={{
               padding: '8px 18px', background: SD.ink, color: '#fff',
               border: 'none', borderRadius: 999, fontSize: 13, fontWeight: 700,
@@ -607,7 +610,7 @@ function Timeline({
                   {isUnreplied && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                       <button
-                        onClick={() => onDraft('follow_up', entry.summary ?? '')}
+                        onClick={() => onDraft('reply', entry.id, entry.channel)}
                         style={{
                           padding: '4px 12px', background: SD.teal, color: '#fff',
                           border: 'none', borderRadius: 999,
@@ -838,7 +841,7 @@ function Sidebar({
   actionItems: ActionItem[]
   today: string
   onComplete: (id: string) => Promise<void>
-  onDraft: (emailType: EmailType) => void
+  onDraft: (kind: 'fresh' | 'reply') => void
   onPrepForCall: () => void
   onSetPrimary: (id: string) => Promise<unknown>
 }) {
@@ -940,7 +943,7 @@ function Sidebar({
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
               <button
-                onClick={() => onDraft('follow_up')}
+                onClick={() => onDraft('fresh')}
                 style={{
                   width: '100%', padding: '8px 0',
                   background: SD.ink, color: '#fff', border: 'none',
@@ -1000,7 +1003,7 @@ function Sidebar({
             ))}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
               <button
-                onClick={() => onDraft('follow_up')}
+                onClick={() => onDraft('fresh')}
                 style={{
                   width: '100%', padding: '8px 0',
                   background: SD.ink, color: '#fff', border: 'none',
@@ -1098,8 +1101,9 @@ function Sidebar({
 // ─── Main client component ────────────────────────────────────────────────────
 
 interface DraftTarget {
-  emailType: EmailType
-  coachMessage?: string
+  kind: 'fresh' | 'reply'
+  replyToContactLogId?: string
+  inboundChannel?: string
 }
 
 export default function SchoolDetailClient({
@@ -1179,7 +1183,7 @@ export default function SchoolDetailClient({
         actionItems={actionItems}
         contactLog={contactLog}
         today={today}
-        onDraft={(emailType, coachMessage) => setDraftTarget({ emailType, coachMessage })}
+        onDraft={(kind, entryId, channel) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel })}
         onComplete={async (id) => { await deleteItem(id) }}
       />
 
@@ -1198,7 +1202,7 @@ export default function SchoolDetailClient({
           actionItems={actionItems}
           school={school}
           today={today}
-          onDraft={(emailType, coachMessage) => setDraftTarget({ emailType, coachMessage })}
+          onDraft={(kind, entryId, channel) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel })}
           onComplete={async (id) => { await deleteItem(id) }}
           onSnooze={async (id) => { await snoozeEntry(id) }}
           onDismiss={async (id) => { await dismissEntry(id) }}
@@ -1210,7 +1214,7 @@ export default function SchoolDetailClient({
           actionItems={actionItems}
           today={today}
           onComplete={async (id) => { await deleteItem(id) }}
-          onDraft={(emailType) => setDraftTarget({ emailType })}
+          onDraft={(kind) => setDraftTarget({ kind })}
           onPrepForCall={() => setPrepOpen(true)}
           onSetPrimary={setPrimary}
         />
@@ -1222,13 +1226,27 @@ export default function SchoolDetailClient({
       `}</style>
 
       {/* ── Modals ── */}
-      {draftTarget && (
-        <DraftEmailModal
-          school={school}
+      {draftTarget && primaryCoach && (
+        <DraftModal
+          mode={draftTarget.kind === 'reply' && draftTarget.replyToContactLogId
+            ? {
+                kind: 'reply',
+                schoolId: school.id,
+                coachId: primaryCoach.id,
+                schoolName: school.name,
+                coachName: primaryCoach.name,
+                replyToContactLogId: draftTarget.replyToContactLogId,
+                inboundChannel: draftTarget.inboundChannel,
+              }
+            : {
+                kind: 'fresh',
+                schoolId: school.id,
+                coachId: primaryCoach.id,
+                schoolName: school.name,
+                coachName: primaryCoach.name,
+              }
+          }
           userId={user.id}
-          initialEmailType={draftTarget.emailType}
-          initialCoachMessage={draftTarget.coachMessage}
-          primaryCoach={primaryCoach}
           onClose={() => setDraftTarget(null)}
         />
       )}

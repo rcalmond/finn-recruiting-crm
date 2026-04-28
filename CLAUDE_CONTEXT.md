@@ -594,6 +594,13 @@ Future improvement candidates:
 3. Add a "Pending capture" → "Capture failed (orphan)" state transition in the campaign
    detail view after some timeout, with a link to the partial contact_log row for diagnosis
 
+**DraftEmailModal logs subject in summary instead of body (pre-existing bug):**
+`handleLogOutreach` in `DraftEmailModal.tsx` writes `summary: draft.subject` when logging
+to contact_log. Should write first 140 chars of `draft.body`, falling back to subject only
+if body is empty. Affects historical rows manually logged via the per-school AI draft modal.
+Does not affect campaign sends (those use the CC ingestion pipeline). Not blocking; fix when
+convenient.
+
 ### Tech Debt and Open Questions (Phase 1 — 2026-04-24)
 
 **Decline context staleness:**

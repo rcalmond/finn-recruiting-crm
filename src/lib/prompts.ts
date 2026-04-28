@@ -294,6 +294,7 @@ export interface EmailDraftInput {
   selectedTopic?: string
   context: 'individual' | 'campaign'
   campaignTemplate?: string
+  replyToContactLogId?: string  // when set, output is body-only (no subject)
 }
 
 interface VoiceRef {
@@ -325,12 +326,15 @@ export async function buildEmailDraftPrompt(
   input: EmailDraftInput
 ): Promise<{ system: string; user: string }> {
   // ── Parallel data fetches ──────────────────────────────────────────────────
+  const isReply = !!input.replyToContactLogId
+
   const [
     { data: profile },
     { data: school },
     { data: coach },
     { data: contactRows },
     { data: voiceRefs },
+    { data: replyToRow },
   ] = await Promise.all([
     // 1. Player profile (singleton)
     admin.from('player_profile').select('*').limit(1).single(),
@@ -355,6 +359,13 @@ export async function buildEmailDraftPrompt(
       .limit(5),
     // 5. Voice reference emails (15 most recent substantive outbounds post-wingback)
     admin.rpc('get_voice_references').then(r => r) as unknown as Promise<{ data: VoiceRef[] | null }>,
+    // 6. Reply-to contact_log row (when replying)
+    input.replyToContactLogId
+      ? admin.from('contact_log')
+          .select('date, channel, coach_name, summary')
+          .eq('id', input.replyToContactLogId)
+          .single()
+      : Promise.resolve({ data: null }),
   ])
 
   // ── Staleness calculation ──────────────────────────────────────────────────
@@ -445,13 +456,13 @@ export async function buildEmailDraftPrompt(
   sys.push('')
 
   // Output format
-  if (input.context === 'individual') {
+  if (input.context === 'individual' && !isReply) {
     sys.push(`OUTPUT FORMAT:
 Respond ONLY with valid JSON. No preamble, no markdown fences.
 { "subject": "Finn Almond | Left Wingback | Class of 2027 | [School Name]", "body": "..." }
-Exception: if this is a reply (brief or topic indicates replying), match the existing thread subject.
 Body uses plain line breaks between paragraphs, no HTML.`)
   } else {
+    // Reply mode and campaign mode both return body-only
     sys.push(`OUTPUT FORMAT:
 Return ONLY the complete email body — no subject line, no explanation, no markdown fences.
 Body uses plain line breaks between paragraphs, no HTML.`)
@@ -501,6 +512,16 @@ Body uses plain line breaks between paragraphs, no HTML.`)
   }
   usr.push('')
 
+  // Reply context (when replying to a specific inbound)
+  if (isReply && replyToRow) {
+    usr.push(`REPLYING TO this inbound message:`)
+    usr.push(`  [${replyToRow.date}] via ${replyToRow.channel}${replyToRow.coach_name ? ` — ${replyToRow.coach_name}` : ''}:`)
+    usr.push(`  ${(replyToRow.summary ?? '').slice(0, 500)}`)
+    usr.push('')
+    usr.push(`This is a reply. Continue the conversation naturally. Address what the coach said or asked. Move the conversation forward with one clear next step.`)
+    usr.push('')
+  }
+
   // Brief or topic
   if (input.brief) {
     usr.push(`Finn's brief: ${input.brief}`)
@@ -524,8 +545,10 @@ Body uses plain line breaks between paragraphs, no HTML.`)
     usr.push(`---`)
     usr.push('')
     usr.push(`Fill in all "[Finn: ...]" brackets with specific content from the context above. Any "[TODO: ...]" bracket already in the template MUST be passed through unchanged. Return only the completed email body.`)
+  } else if (input.context === 'individual' && !isReply) {
+    usr.push(`Generate the email. Return only the JSON. Use [TODO: x] for any content that requires Finn input not in the profile.`)
   } else {
-    usr.push(`Generate the email. Return only the ${input.context === 'individual' ? 'JSON' : 'body'}. Use [TODO: x] for any content that requires Finn input not in the profile.`)
+    usr.push(`Generate the email body. Return only the body text, no JSON wrapper. Use [TODO: x] for any content that requires Finn input not in the profile.`)
   }
 
   return {
