@@ -67,7 +67,11 @@ head_coach          text
 coach_email         text
 admit_likelihood    'Likely' | 'Target' | 'Reach' | 'Far Reach'
 rq_status           text   -- e.g. "Completed", "To Do", "Updated"
-videos_sent         boolean
+rq_updated_at       timestamptz       -- set when rq_status transitions to "Completed"
+videos_sent         boolean           -- legacy; prefer last_video_url IS NOT NULL
+last_video_url      text              -- most recent YouTube URL Finn sent to this school
+last_video_title    text              -- fetched via YouTube oEmbed
+last_video_sent_at  timestamptz       -- sent_at of the contact_log row containing the URL
 notes               text
 created_at          timestamptz
 updated_at          timestamptz
@@ -75,13 +79,14 @@ updated_at          timestamptz
 
 ### Table: `action_items`
 ```
-id          uuid PK
-school_id   uuid FK → schools.id (cascade delete)
-action      text
-owner       'Finn' | 'Randy' | null
-due_date    date
-sort_order  integer   -- persistent manual priority order
-created_at  timestamptz
+id            uuid PK
+school_id     uuid FK → schools.id (cascade delete)
+action        text
+owner         'Finn' | 'Randy' | null
+due_date      date
+sort_order    integer       -- persistent manual priority order
+completed_at  timestamptz   -- NULL = active, NOT NULL = completed (migration 027)
+created_at    timestamptz
 ```
 
 **Phase 2a note:** As of migration 024b, action_items contains only genuine one-offs.
@@ -99,7 +104,7 @@ school_id         uuid FK → schools.id (cascade delete)
 coach_id          uuid FK → coaches.id (on delete set null)
 date              date              -- calendar day (deprecated for ordering — use sent_at)
 sent_at           timestamptz NOT NULL  -- actual or approximate send time (migration 026)
-channel           'Email' | 'Phone' | 'In Person' | 'Text' | 'Sports Recruits'
+channel           'Email' | 'Phone' | 'In Person' | 'Text' | 'Sports Recruits' | 'Other'
 direction         'Outbound' | 'Inbound'
 coach_name        text          -- raw sender display name (from Gmail parse)
 summary           text
@@ -595,13 +600,11 @@ Future improvement candidates:
 3. Add a "Pending capture" → "Capture failed (orphan)" state transition in the campaign
    detail view after some timeout, with a link to the partial contact_log row for diagnosis
 
-**DraftEmailModal logs subject in summary instead of body (pre-existing bug):**
-`handleLogOutreach` in `DraftEmailModal.tsx` writes `summary: draft.subject` when logging
-to contact_log. Should write first 140 chars of `draft.body`, falling back to subject only
-if body is empty. Affects historical rows manually logged via the per-school AI draft modal.
-Does not affect campaign sends (those use the CC ingestion pipeline). Not blocking; fix when
-convenient. Note: the "Log this outreach" button was removed from the unified DraftModal in
-Email Generation v2 — the CC ingestion pipeline is the canonical capture path now.
+**DraftEmailModal subject-in-summary bug — RESOLVED:**
+The old DraftEmailModal and its "Log this outreach" button were deleted in Email Gen v2.
+The unified DraftModal has no manual contact_log write — CC ingestion pipeline handles it.
+Historical rows logged via the old modal still have subject in summary; not worth fixing
+retroactively (affects ~5 rows total).
 
 **Phone-call / in-person contact logging:**
 No UI for capturing off-channel coach interactions (phone calls, ID camp meetings, campus
@@ -628,6 +631,21 @@ Not blocking — realistic owner set is Finn + Randy for now.
 Could be redesigned to leverage the same AI generation flow as individual emails (intent
 description → AI-suggested template → refine → save). Phase 2b/2c candidate, depends on
 Finn driving a real new campaign that exercises the use case.
+
+**30 schools have null rq_updated_at despite rq_status='Completed':**
+These existed before migration 028 added the column. Date populates going forward on any
+status change to Completed. Historical completion dates are unrecoverable.
+
+**30 schools show old striker reel (PFdDT5YVHQc) as last video sent:**
+Future feature: identify schools where last_video_url != current_reel_url AND last_contact
+>= 30 days to trigger reel-refresh outreach. The data is there; the feature just needs a
+"stale reel" signal surface.
+
+**YouTube oEmbed not triggered on real-time contact_log inserts:**
+Backfill script populated last_video_* for existing rows. New contact_log inserts with
+YouTube URLs don't auto-update schools.last_video_*. Future: add a post-insert hook or
+database trigger. Low urgency — Finn sends videos infrequently enough that manual re-run
+of the backfill script covers it.
 
 ### Tech Debt and Open Questions (Phase 1 — 2026-04-24)
 
@@ -658,6 +676,26 @@ Not surfacing as a problem currently; flag if future inbound from these coaches 
 to match. (Earlier note suggesting MIT coach list is incomplete was based on a misread of row
 3840cbd3 — Randy's forwarded email, not a coach message. Gerard Miniaci is in the DB with a
 valid email.)
+
+### Phase 2b — School Detail Two-Way (shipped 2026-04-29)
+
+**Group A — Data correctness:**
+- Migration 026: `sent_at` timestamptz NOT NULL on contact_log. Backfill of 289 rows.
+  Shared `resolveSentAt()` helper. All four ingestion paths write sent_at from email Date
+  headers. Timeline sorts by sent_at. Staleness calculation uses sent_at. Fixed Stevens
+  Apr 22 inbound/outbound ordering bug.
+
+**Group B — Capabilities:**
+- Migration 027: action_items `completed_at`. Non-destructive completion, "+ Add action item"
+  inline form, "Recently completed" section (last 5 per school).
+- Manual contact log entry: inline form on school detail conversation section. Direction,
+  channel (Phone/Text/In Person/Email/Other), coach dropdown, date, time, summary. Edit and
+  delete for source='manual' rows. Timezone-correct sent_at via Mountain offset calculation.
+- Migration 028: `rq_updated_at`, `last_video_url`, `last_video_title`, `last_video_sent_at`
+  on schools. Video backfill: 44 schools populated via YouTube oEmbed.
+- Migration 029: rq_status enum cleanup (collapsed legacy values).
+- Right-rail polish: editable notes (inline textarea), RQ status (click-to-edit dropdown
+  with rq_updated_at tracking), video display (hyperlinked title + sent date).
 
 ### Phase 1 Complete (2026-04-24)
 
@@ -1996,6 +2034,12 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-29 | Right-rail polish: editable notes (inline textarea), RQ status (click-to-edit dropdown + rq_updated_at tracking), video tracking display (last_video_url/title/sent_at with hyperlinked title) | Feature |
+| 2026-04-29 | Migration 029: rq_status enum cleanup — collapsed legacy "(no email yet)" values into Completed | Data |
+| 2026-04-29 | Migration 028: schools.rq_updated_at, last_video_url, last_video_title, last_video_sent_at + backfill 44 schools via YouTube oEmbed | Schema |
+| 2026-04-29 | Manual contact log entry: inline form on school detail (direction, channel, coach, date, time, summary) with edit/delete for source='manual' rows | Feature |
+| 2026-04-29 | Action items two-way: migration 027 (completed_at), non-destructive complete, "+ Add action item" inline form, "Recently completed" section (last 5) | Feature |
+| 2026-04-29 | Timeline sent_at ordering: migration 026, shared resolveSentAt helper, all ingestion paths write sent_at, timeline sorts by sent_at DESC, staleness uses sent_at | Bug fix + Schema |
 | 2026-04-27 | Phase 2a deployed to production; wingback campaign completed (40 schools sent/dismissed); RQ campaign retired (not a messaging campaign — was a checklist worked outside the system) | Milestone |
 | 2026-04-26 | Phase 2a Part 3b: symmetric outbound linking (linkCampaignToOutbound for the send-then-mark workflow ordering) | Bug fix |
 | 2026-04-26 | Phase 2a Milestone 3.5: AI personalization in draft review modal — Haiku 4.5, streaming, school + coach + inbound context, stats hallucination guard, no-coach-quote rule | Feature |
