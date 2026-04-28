@@ -28,7 +28,7 @@ account, Sports Recruits profile management).
 | Grad Year | 2027 |
 | DOB | November 15, 2008 |
 | Position | **Left Wingback** (primary) — transitioned from Striker/Winger in Nov 2025 |
-| Club | Albion SC Colorado MLS NEXT Academy (U19) |
+| Club | Albion SC Boulder County – MLS NEXT Academy U19 |
 | High School | Alexander Dawson School, Lafayette, CO |
 | GPA | 3.78 weighted / 3.57 unweighted |
 | SAT | 1340 |

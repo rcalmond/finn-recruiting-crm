@@ -1,4 +1,5 @@
-import type { School, ContactLogEntry, Asset, Question } from '@/lib/types'
+import type { School, ContactLogEntry, Asset, Question, PlayerProfile } from '@/lib/types'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const SYSTEM_PROMPT = `You are a college soccer recruiting assistant helping draft emails from Finn Almond to college coaches. You write in Finn's voice — confident, direct, genuine, and specific. Never generic. Never fluff.
 
@@ -9,7 +10,7 @@ Grad Year: Class of 2027
 Position: Left Wingback (PRIMARY — always lead with this)
   - Transitioned from Striker/Winger to Left Wingback in November 2025
   - Two-way wingback: overlapping runs, set piece delivery, 1v1 defending, pressing, transition
-Club: Albion SC Colorado, MLS NEXT Academy (U19)
+Club: Albion SC Boulder County – MLS NEXT Academy U19
 High School: Alexander Dawson School, Lafayette, CO
 Email: finnalmond08@gmail.com
 Phone: (720) 687-8982
@@ -194,7 +195,7 @@ export const CAMPAIGN_PERSONALIZE_SYSTEM_PROMPT = `You are personalizing a recru
 
 === FINN'S PROFILE ===
 Name: Finn Almond | Class of 2027 | Left Wingback
-Club: Albion SC Colorado, MLS NEXT Academy (U19)
+Club: Albion SC Boulder County – MLS NEXT Academy U19
 High School: Alexander Dawson School, Lafayette, CO
 GPA: 3.78 weighted / 3.57 unweighted | SAT: 1340
 Academic interest: Mechanical or Aerospace Engineering
@@ -284,13 +285,375 @@ export function buildCampaignPersonalizePrompt(p: CampaignPersonalizeParams): st
   return lines.join('\n')
 }
 
+// ─── Email Draft v2 — shared prompt builder ─────────────────────────────────
+
+export interface EmailDraftInput {
+  schoolId: string
+  coachId: string | null
+  brief?: string
+  selectedTopic?: string
+  context: 'individual' | 'campaign'
+  campaignTemplate?: string
+}
+
+interface VoiceRef {
+  summary: string
+  date: string
+  school_name: string
+  coach_name: string | null
+}
+
+interface ContactRow {
+  date: string
+  direction: string
+  channel: string
+  coach_name: string | null
+  summary: string | null
+  authored_by: string | null
+  intent: string | null
+}
+
+/**
+ * Shared prompt builder for all email draft paths.
+ * Pulls player_profile, school/coach context, contact history,
+ * classification, staleness, and voice references from DB.
+ *
+ * Returns { system, user } strings for the Anthropic API call.
+ */
+export async function buildEmailDraftPrompt(
+  admin: SupabaseClient,
+  input: EmailDraftInput
+): Promise<{ system: string; user: string }> {
+  // ── Parallel data fetches ──────────────────────────────────────────────────
+  const [
+    { data: profile },
+    { data: school },
+    { data: coach },
+    { data: contactRows },
+    { data: voiceRefs },
+  ] = await Promise.all([
+    // 1. Player profile (singleton)
+    admin.from('player_profile').select('*').limit(1).single(),
+    // 2. School details
+    admin.from('schools')
+      .select('name, short_name, category, division, conference, location, notes, status')
+      .eq('id', input.schoolId)
+      .single(),
+    // 3. Coach details (if provided)
+    input.coachId
+      ? admin.from('coaches')
+          .select('name, role, email, needs_review')
+          .eq('id', input.coachId)
+          .single()
+      : Promise.resolve({ data: null }),
+    // 4. Last 5 contact_log rows for this school (both directions)
+    admin.from('contact_log')
+      .select('date, direction, channel, coach_name, summary, authored_by, intent')
+      .eq('school_id', input.schoolId)
+      .not('parse_status', 'in', '("orphan","non_coach")')
+      .order('date', { ascending: false })
+      .limit(5),
+    // 5. Voice reference emails (15 most recent substantive outbounds post-wingback)
+    admin.rpc('get_voice_references').then(r => r) as unknown as Promise<{ data: VoiceRef[] | null }>,
+  ])
+
+  // ── Staleness calculation ──────────────────────────────────────────────────
+  const recentInbound = (contactRows ?? []).find(
+    (r: ContactRow) => r.direction === 'Inbound' &&
+      r.authored_by !== 'team_automated' &&
+      r.authored_by !== 'staff_non_coach'
+  )
+  let stalenessLabel = 'No prior inbound'
+  let stalenessDays = 0
+  if (recentInbound) {
+    stalenessDays = Math.floor(
+      (Date.now() - new Date(recentInbound.date).getTime()) / (1000 * 60 * 60 * 24)
+    )
+    stalenessLabel = stalenessDays <= 30 ? 'Recent'
+      : stalenessDays <= 90 ? 'Cooling'
+      : 'Stale'
+  }
+
+  // ── Most recent inbound classification ─────────────────────────────────────
+  const classifiedInbound = (contactRows ?? []).find(
+    (r: ContactRow) => r.direction === 'Inbound' && r.authored_by
+  )
+
+  // ── Build system prompt ────────────────────────────────────────────────────
+  const sys: string[] = []
+
+  sys.push(`You are drafting an email from Finn Almond, a 2027 left wingback at Albion SC Boulder County – MLS NEXT Academy U19, to a college soccer coach.`)
+  sys.push('')
+
+  // Voice references
+  // Voice references contain legacy "Albion SC Colorado" from MLS NEXT Fest
+  // December 2025 materials. Mask to current canonical name at prompt build
+  // time so voice exemplars don't conflict with the identity statement.
+  const refs = voiceRefs ?? []
+  if (refs.length > 0) {
+    sys.push(`STYLE REFERENCE — Finn's recent writing voice (use these to match tone, structure, phrasing patterns):`)
+    for (const ref of refs) {
+      const sig = stripSignature(ref.summary)
+        .replace(/Albion SC Colorado/g, 'Albion SC Boulder County')
+      sys.push(`--- [${ref.date}] to ${ref.school_name}${ref.coach_name ? ` (${ref.coach_name})` : ''} ---`)
+      sys.push(sig)
+      sys.push('')
+    }
+  }
+
+  // Player profile
+  sys.push(`PLAYER PROFILE — the ONLY authoritative source for stats, schedule, and academic claims:`)
+  if (profile) {
+    sys.push(`Current stats: ${profile.current_stats ?? '[not available — use [TODO: stats] if needed]'}`)
+    sys.push(`Upcoming schedule: ${profile.upcoming_schedule ?? '[not available — use [TODO: schedule] if needed]'}`)
+    sys.push(`Highlights: ${profile.highlights ?? '[not available — use [TODO: highlights] if needed]'}`)
+    sys.push(`Academic: ${profile.academic_summary ?? '[not available — use [TODO: academic info] if needed]'}`)
+  } else {
+    sys.push(`[No player profile parsed yet. Use [TODO: <description>] for any stats, schedule, or academic claims.]`)
+  }
+  sys.push('')
+
+  // Hard rules
+  sys.push(`HARD RULES:
+- Never state a stat, schedule item, or academic detail not present in the player profile above. If you'd need to reference something that isn't in the profile, write [TODO: <description>] instead.
+- Never quote or paraphrase the coach's prior message back to them.
+- Never assert future commitments (camp attendance, visits, calls) unless explicitly stated in the brief or selected topic.
+- Keep under 200 words.
+- Match the voice references — short paragraphs, direct tone, no chest-thumping, no marketing language.
+- Voice references include real Finn writing with occasional typos and informal phrasing. Match voice and tone, NOT typos, missing apostrophes, or punctuation errors. Output should be clean.
+- No bullet points in the email body — short paragraphs only.
+- No more than one exclamation point per email.
+- Never open with "I hope this email finds you well" or any filler.
+- Always include highlight reel link: https://www.youtube.com/watch?v=Va_Z09OYcs0
+- Always include position (Left Wingback), grad year (2027), club (Albion SC Boulder County – MLS NEXT Academy).
+- Never include game film unless the coach specifically asked for it.
+- Ignore markdown link syntax artifacts (e.g. [text](url)) that appear in voice reference emails — produce clean text with plain URLs.
+- Sign off: Thank you, Finn Almond, finnalmond08@gmail.com, (720) 687-8982, Sports Recruits: https://my.sportsrecruits.com/athlete/finn_almond`)
+  sys.push('')
+
+  // Staleness handling
+  sys.push(`STALENESS HANDLING:
+- Recent (<=30 days): Continue the conversation naturally. Reference last contact if relevant.
+- Cooling (31-90 days): Acknowledge gap briefly. Lead with what's new since last contact.
+- Stale (>90 days): Reintroduce. Don't assume coach remembers specifics. Reference position transition (striker to wingback, Nov 2025) since that's a meaningful change since most stale threads.
+- No prior inbound: This is a cold or follow-up outreach. Lead with who Finn is and why this school.`)
+  sys.push('')
+
+  // Coach hedging
+  sys.push(`COACH HEDGING:
+- If the coach has needs_review=true, use a generic professional salutation ("Coach,") rather than confidently addressing them by name — they may have departed.`)
+  sys.push('')
+
+  // Output format
+  if (input.context === 'individual') {
+    sys.push(`OUTPUT FORMAT:
+Respond ONLY with valid JSON. No preamble, no markdown fences.
+{ "subject": "Finn Almond | Left Wingback | Class of 2027 | [School Name]", "body": "..." }
+Exception: if this is a reply (brief or topic indicates replying), match the existing thread subject.
+Body uses plain line breaks between paragraphs, no HTML.`)
+  } else {
+    sys.push(`OUTPUT FORMAT:
+Return ONLY the complete email body — no subject line, no explanation, no markdown fences.
+Body uses plain line breaks between paragraphs, no HTML.`)
+  }
+
+  // ── Build user prompt ──────────────────────────────────────────────────────
+  const usr: string[] = []
+
+  usr.push(`Drafting an email to:`)
+  if (school) {
+    usr.push(`School: ${school.name} (Tier ${school.category}, ${school.division}${school.conference ? ` — ${school.conference}` : ''}, ${school.location ?? 'location unknown'})`)
+    if (school.notes) usr.push(`School notes: ${school.notes}`)
+  }
+  if (coach) {
+    usr.push(`Coach: ${coach.name} (${coach.role ?? 'role unknown'})${coach.needs_review ? ' — needs_review=true, may have departed' : ''}`)
+  }
+  usr.push('')
+
+  // Contact history
+  const history = contactRows ?? []
+  if (history.length > 0) {
+    usr.push(`Recent conversation (${history.length} entries, most recent first):`)
+    for (const row of history as ContactRow[]) {
+      const summary = stripSignature(row.summary ?? '')
+      usr.push(`  [${row.date}] ${row.direction} via ${row.channel}${row.coach_name ? ` — ${row.coach_name}` : ''}:`)
+      usr.push(`    ${summary.slice(0, 300)}`)
+    }
+    usr.push('')
+  } else {
+    usr.push(`Contact history: None — cold outreach.`)
+    usr.push('')
+  }
+
+  // Classification
+  if (classifiedInbound) {
+    usr.push(`Most recent inbound classification:`)
+    usr.push(`  authored_by: ${classifiedInbound.authored_by ?? 'unknown'}`)
+    usr.push(`  intent: ${classifiedInbound.intent ?? 'unknown'}`)
+    usr.push('')
+  }
+
+  // Staleness
+  if (recentInbound) {
+    usr.push(`Conversation staleness: ${stalenessLabel} (${stalenessDays} days since last meaningful inbound)`)
+  } else {
+    usr.push(`Conversation staleness: No prior inbound`)
+  }
+  usr.push('')
+
+  // Brief or topic
+  if (input.brief) {
+    usr.push(`Finn's brief: ${input.brief}`)
+    usr.push('')
+  }
+  if (input.selectedTopic) {
+    usr.push(`Selected topic: ${input.selectedTopic}`)
+    usr.push('')
+  }
+
+  // Campaign template (if applicable)
+  if (input.context === 'campaign' && input.campaignTemplate) {
+    // Stats hallucination guard — same as existing campaign personalize
+    const guarded = input.campaignTemplate.replace(
+      /\[Finn:[^\]]*(?:stats|highlights|recent results)[^\]]*\]/gi,
+      '[TODO: stats — Finn fills in current stats manually]'
+    )
+    usr.push(`Campaign template (preserve overall structure, fill placeholders):`)
+    usr.push(`---`)
+    usr.push(guarded)
+    usr.push(`---`)
+    usr.push('')
+    usr.push(`Fill in all "[Finn: ...]" brackets with specific content from the context above. Any "[TODO: ...]" bracket already in the template MUST be passed through unchanged. Return only the completed email body.`)
+  } else {
+    usr.push(`Generate the email. Return only the ${input.context === 'individual' ? 'JSON' : 'body'}. Use [TODO: x] for any content that requires Finn input not in the profile.`)
+  }
+
+  return {
+    system: sys.join('\n'),
+    user: usr.join('\n'),
+  }
+}
+
+/**
+ * Topic suggestion: returns 2-3 suggested email topics for a school.
+ * Uses the same context as buildEmailDraftPrompt but with a lighter prompt.
+ */
+export async function buildTopicSuggestPrompt(
+  admin: SupabaseClient,
+  schoolId: string,
+  coachId: string | null
+): Promise<{ system: string; user: string }> {
+  // Parallel fetches (subset of full prompt builder)
+  const [
+    { data: profile },
+    { data: school },
+    { data: coach },
+    { data: contactRows },
+    { data: actionItems },
+  ] = await Promise.all([
+    admin.from('player_profile').select('current_stats, upcoming_schedule, highlights').limit(1).single(),
+    admin.from('schools')
+      .select('name, category, division, conference, location, notes, status')
+      .eq('id', schoolId)
+      .single(),
+    coachId
+      ? admin.from('coaches').select('name, role, needs_review').eq('id', coachId).single()
+      : Promise.resolve({ data: null }),
+    admin.from('contact_log')
+      .select('date, direction, channel, coach_name, summary, authored_by, intent')
+      .eq('school_id', schoolId)
+      .not('parse_status', 'in', '("orphan","non_coach")')
+      .order('date', { ascending: false })
+      .limit(5),
+    admin.from('action_items')
+      .select('action, owner, due_date')
+      .eq('school_id', schoolId)
+      .order('sort_order')
+      .limit(3),
+  ])
+
+  // Staleness
+  const recentInbound = (contactRows ?? []).find(
+    (r: ContactRow) => r.direction === 'Inbound' &&
+      r.authored_by !== 'team_automated' &&
+      r.authored_by !== 'staff_non_coach'
+  )
+  let stalenessLabel = 'No prior inbound'
+  let stalenessDays = 0
+  if (recentInbound) {
+    stalenessDays = Math.floor(
+      (Date.now() - new Date(recentInbound.date).getTime()) / (1000 * 60 * 60 * 24)
+    )
+    stalenessLabel = stalenessDays <= 30 ? 'Recent'
+      : stalenessDays <= 90 ? 'Cooling'
+      : 'Stale'
+  }
+
+  const system = `Given the conversation history and player context below, suggest 2-3 short topic strings (under 12 words each) for the next email Finn could send to this coach. Topics should be specific to this thread and player situation, not generic.
+
+Surface from these signals (in priority order):
+1. Last inbound from coach — did they ask, request, or invite?
+2. Pending action items for this school — what's Finn already planning?
+3. Recent Finn news worth sharing (only if not already shared in recent outbound)
+4. Conversation staleness — if stale, "reintroduce + position change" is a valid topic
+
+Skip "share recent news" if the conversation is highly transactional (coach asked a yes/no question, requested a form). Match the topic to the request shape.
+
+Return a JSON array of 2-3 strings. No preamble.`
+
+  const usr: string[] = []
+  if (school) {
+    usr.push(`School: ${school.name} (Tier ${school.category}, ${school.division}${school.conference ? ` — ${school.conference}` : ''})`)
+    usr.push(`Status: ${school.status}`)
+    if (school.notes) usr.push(`Notes: ${school.notes}`)
+  }
+  if (coach) {
+    usr.push(`Coach: ${coach.name} (${coach.role ?? 'unknown role'})${coach.needs_review ? ' — may have departed' : ''}`)
+  }
+  usr.push('')
+
+  const history = contactRows ?? []
+  if (history.length > 0) {
+    usr.push(`Recent conversation:`)
+    for (const row of history as ContactRow[]) {
+      usr.push(`  [${row.date}] ${row.direction} via ${row.channel}${row.coach_name ? ` — ${row.coach_name}` : ''}: ${(row.summary ?? '').slice(0, 200)}`)
+    }
+    usr.push('')
+  }
+
+  const actions = actionItems ?? []
+  if (actions.length > 0) {
+    usr.push(`Pending action items:`)
+    for (const a of actions as Array<{ action: string; owner: string; due_date: string | null }>) {
+      usr.push(`  - ${a.action} (${a.owner}${a.due_date ? `, due ${a.due_date}` : ''})`)
+    }
+    usr.push('')
+  }
+
+  if (profile) {
+    const news: string[] = []
+    if (profile.current_stats) news.push(`Stats: ${profile.current_stats}`)
+    if (profile.upcoming_schedule) news.push(`Schedule: ${profile.upcoming_schedule}`)
+    if (profile.highlights) news.push(`Highlights: ${profile.highlights}`)
+    if (news.length > 0) {
+      usr.push(`Player news available:`)
+      news.forEach(n => usr.push(`  ${n}`))
+      usr.push('')
+    }
+  }
+
+  usr.push(`Staleness: ${stalenessLabel}${recentInbound ? ` (${stalenessDays} days)` : ''}`)
+
+  return { system, user: usr.join('\n') }
+}
+
 // ─── Prep for call ────────────────────────────────────────────────────────────
 
 export const PREP_SYSTEM_PROMPT = `You are a college soccer recruiting advisor helping Finn Almond (Class of 2027, left wingback) prepare for a conversation with a college coach.
 
 Finn's profile:
 - Position: Left Wingback (transitioned from striker Nov 2025)
-- Club: Albion SC Colorado MLS NEXT Academy U19
+- Club: Albion SC Boulder County – MLS NEXT Academy U19
 - GPA: 3.78W / 3.57UW | SAT: 1340
 - Academic interest: Mechanical or Aerospace Engineering
 - Highlight reel: https://www.youtube.com/watch?v=Va_Z09OYcs0
