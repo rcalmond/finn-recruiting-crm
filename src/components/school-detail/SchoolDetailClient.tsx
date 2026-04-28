@@ -4,7 +4,7 @@ import { useState, useMemo, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
-import type { School, ContactLogEntry, ActionItem, Coach } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection } from '@/lib/types'
 import { useSchools, useContactLog, useActionItems, useCoaches } from '@/hooks/useRealtimeData'
 import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
 import { getRankedFeaturedAction } from '@/lib/todayLogic'
@@ -438,18 +438,26 @@ function ChannelPill({ channel }: { channel: string }) {
 }
 
 function Timeline({
-  contactLog, actionItems, school, today,
-  onDraft, onComplete, onSnooze, onDismiss, onUndo,
+  contactLog, actionItems, school, coaches, today, userId,
+  onDraft, onComplete, onSnooze, onDismiss, onUndo, onLogEntry,
 }: {
   contactLog: ContactLogEntry[]
   actionItems: ActionItem[]
   school: School
+  coaches: Coach[]
   today: string
+  userId: string
   onDraft: (kind: 'fresh' | 'reply', entryId?: string, channel?: string) => void
   onComplete: (id: string) => Promise<void>
   onSnooze: (id: string) => Promise<void>
   onDismiss: (id: string) => Promise<void>
   onUndo: (id: string) => Promise<void>
+  onLogEntry: (entry: {
+    school_id: string; coach_id: string | null; coach_name: string | null
+    channel: ContactChannel; direction: ContactDirection; date: string
+    sent_at: string; summary: string; source: string; parse_status: string
+    parse_notes: string; authored_by: null; intent: null; created_by: string
+  }) => Promise<void>
 }) {
   const router = useRouter()
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -512,6 +520,8 @@ function Timeline({
     })
   }
 
+  const [logFormOpen, setLogFormOpen] = useState(false)
+
   const sectionHeader = (
     <div style={{
       display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
@@ -521,15 +531,17 @@ function Timeline({
         margin: 0, fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
         letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
       }}>Conversation.</h2>
-      <button
-        onClick={() => router.push(`/pipeline?school=${school.id}`)}
-        style={{
-          padding: '5px 12px', background: 'transparent',
-          border: `1.3px solid ${SD.line2}`, borderRadius: 999,
-          fontSize: 11, fontWeight: 700, color: SD.inkMid,
-          cursor: 'pointer', letterSpacing: -0.1, fontFamily: 'inherit',
-        }}
-      >+ Log entry</button>
+      {!logFormOpen && (
+        <button
+          onClick={() => setLogFormOpen(true)}
+          style={{
+            padding: '5px 12px', background: 'transparent',
+            border: `1.3px solid ${SD.line2}`, borderRadius: 999,
+            fontSize: 11, fontWeight: 700, color: SD.inkMid,
+            cursor: 'pointer', letterSpacing: -0.1, fontFamily: 'inherit',
+          }}
+        >+ Log entry</button>
+      )}
     </div>
   )
 
@@ -537,6 +549,15 @@ function Timeline({
     return (
       <section style={{ minWidth: 0 }}>
         {sectionHeader}
+        {logFormOpen && (
+          <LogEntryForm
+            school={school}
+            coaches={coaches}
+            userId={userId}
+            onSave={async (entry) => { await onLogEntry(entry); setLogFormOpen(false) }}
+            onCancel={() => setLogFormOpen(false)}
+          />
+        )}
         <div style={{
           padding: '40px 24px', textAlign: 'center',
           background: SD.paperDeep, borderRadius: 14,
@@ -561,6 +582,15 @@ function Timeline({
   return (
     <section style={{ minWidth: 0 }}>
       {sectionHeader}
+      {logFormOpen && (
+        <LogEntryForm
+          school={school}
+          coaches={coaches}
+          userId={userId}
+          onSave={async (entry) => { await onLogEntry(entry); setLogFormOpen(false) }}
+          onCancel={() => setLogFormOpen(false)}
+        />
+      )}
       {merged.map((te, i) => {
         const id  = tlId(te)
         const exp = i < 5 || expandedIds.has(id)
@@ -822,6 +852,190 @@ function SidebarCard({ label, children }: { label: string; children: ReactNode }
         textTransform: 'uppercase', color: SD.inkLo, marginBottom: 14,
       }}>{label}</div>
       {children}
+    </div>
+  )
+}
+
+function LogEntryForm({ school, coaches, userId, onSave, onCancel }: {
+  school: School
+  coaches: Coach[]
+  userId: string
+  onSave: (entry: {
+    school_id: string; coach_id: string | null; coach_name: string | null
+    channel: ContactChannel; direction: ContactDirection; date: string
+    sent_at: string; summary: string; source: string; parse_status: string
+    parse_notes: string; authored_by: null; intent: null; created_by: string
+  }) => Promise<void>
+  onCancel: () => void
+}) {
+  const [direction, setDirection] = useState<ContactDirection>('Inbound')
+  const [channel, setChannel] = useState<ContactChannel>('Phone')
+  const [coachId, setCoachId] = useState<string>('')
+  const [date, setDate] = useState(todayStr())
+  const [time, setTime] = useState('')
+  const [summary, setSummary] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    if (!summary.trim()) return
+    setSaving(true)
+
+    // Resolve sent_at: interpret date+time as Mountain Time (America/Denver).
+    // Works regardless of user's browser timezone.
+    const timeStr = time
+      ? `${time}:00`
+      : new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Denver', hour12: false })
+    // Create as UTC to avoid browser-local interpretation
+    const asUTC = new Date(`${date}T${timeStr}Z`)
+    // Determine Mountain offset for this specific date (handles DST transitions)
+    const fmtOpts: Intl.DateTimeFormatOptions = {
+      timeZone: 'America/Denver', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }
+    const mtParts = new Intl.DateTimeFormat('en-CA', fmtOpts).formatToParts(asUTC)
+    const g = (t: string) => mtParts.find(p => p.type === t)?.value ?? '00'
+    const mtReconstructed = new Date(`${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}:${g('second')}Z`)
+    const offsetMs = asUTC.getTime() - mtReconstructed.getTime()
+    // User typed time meaning Mountain → add offset to get correct UTC
+    const sentAt = new Date(asUTC.getTime() + offsetMs).toISOString()
+
+    // Resolve coach name from ID
+    const coach = coaches.find(c => c.id === coachId)
+
+    await onSave({
+      school_id: school.id,
+      coach_id: coachId || null,
+      coach_name: coach?.name ?? null,
+      channel,
+      direction,
+      date,
+      sent_at: sentAt,
+      summary: summary.trim(),
+      source: 'manual',
+      parse_status: 'full',
+      parse_notes: 'Manual log entry',
+      authored_by: null,
+      intent: null,
+      created_by: userId,
+    })
+    setSaving(false)
+  }
+
+  return (
+    <div
+      style={{
+        marginBottom: 18, padding: 16, borderRadius: 10,
+        border: `1px solid ${SD.line}`, background: SD.paperDeep,
+        display: 'flex', flexDirection: 'column', gap: 12,
+      }}
+      onKeyDown={e => { if (e.key === 'Escape') onCancel() }}
+    >
+      {/* Row 1: Direction toggle + Channel */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 0, borderRadius: 6, overflow: 'hidden', border: `1px solid ${SD.line}` }}>
+          {(['Inbound', 'Outbound'] as const).map(dir => (
+            <button
+              key={dir}
+              onClick={() => setDirection(dir)}
+              style={{
+                padding: '5px 12px', border: 'none', cursor: 'pointer',
+                fontSize: 11, fontWeight: 700, fontFamily: 'inherit',
+                background: direction === dir ? (dir === 'Inbound' ? SD.tealSoft : SD.ink) : '#fff',
+                color: direction === dir ? (dir === 'Inbound' ? SD.tealDeep : '#fff') : SD.inkLo,
+              }}
+            >{dir}</button>
+          ))}
+        </div>
+        <select
+          value={channel}
+          onChange={e => setChannel(e.target.value as ContactChannel)}
+          style={{
+            padding: '5px 8px', border: `1px solid ${SD.line}`, borderRadius: 6,
+            fontSize: 11, fontFamily: 'inherit', background: '#fff', outline: 'none',
+          }}
+        >
+          <option value="Phone">Phone</option>
+          <option value="Text">Text</option>
+          <option value="In Person">In Person</option>
+          <option value="Email">Email</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      {/* Row 2: Coach + Date + Time */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <select
+          value={coachId}
+          onChange={e => setCoachId(e.target.value)}
+          style={{
+            flex: 1, minWidth: 120, padding: '5px 8px',
+            border: `1px solid ${SD.line}`, borderRadius: 6,
+            fontSize: 11, fontFamily: 'inherit', background: '#fff', outline: 'none',
+          }}
+        >
+          <option value="">No specific coach</option>
+          {coaches.map(c => (
+            <option key={c.id} value={c.id}>{c.name} ({c.role})</option>
+          ))}
+        </select>
+        <input
+          type="date"
+          value={date}
+          onChange={e => setDate(e.target.value)}
+          style={{
+            padding: '5px 6px', border: `1px solid ${SD.line}`, borderRadius: 6,
+            fontSize: 11, fontFamily: 'inherit', background: '#fff', outline: 'none',
+          }}
+        />
+        <input
+          type="time"
+          value={time}
+          onChange={e => setTime(e.target.value)}
+          placeholder="Time (optional)"
+          style={{
+            padding: '5px 6px', border: `1px solid ${SD.line}`, borderRadius: 6,
+            fontSize: 11, fontFamily: 'inherit', background: '#fff', outline: 'none',
+            width: 90,
+          }}
+        />
+      </div>
+
+      {/* Row 3: Summary */}
+      <textarea
+        autoFocus
+        value={summary}
+        onChange={e => setSummary(e.target.value)}
+        placeholder="What happened? What was said? What's next?"
+        rows={3}
+        style={{
+          width: '100%', padding: '8px 10px', border: `1px solid ${SD.line}`,
+          borderRadius: 6, fontSize: 12, fontFamily: 'inherit',
+          background: '#fff', outline: 'none', resize: 'vertical',
+          lineHeight: 1.5, boxSizing: 'border-box',
+        }}
+      />
+
+      {/* Row 4: Buttons */}
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button
+          onClick={onCancel}
+          style={{
+            padding: '6px 14px', borderRadius: 6, border: `1px solid ${SD.line}`,
+            background: '#fff', fontSize: 11, fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'inherit', color: SD.inkLo,
+          }}
+        >Cancel</button>
+        <button
+          onClick={handleSave}
+          disabled={!summary.trim() || saving}
+          style={{
+            padding: '6px 14px', borderRadius: 6, border: 'none',
+            background: SD.ink, color: '#fff', fontSize: 11, fontWeight: 600,
+            cursor: !summary.trim() || saving ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit', opacity: !summary.trim() || saving ? 0.5 : 1,
+          }}
+        >{saving ? 'Saving...' : 'Save'}</button>
+      </div>
     </div>
   )
 }
@@ -1267,7 +1481,7 @@ export default function SchoolDetailClient({
 
   // ── Realtime subscriptions ─────────────────────────────────────────────────
   const { schools, loading: schoolsLoading, updateSchool } = useSchools()
-  const { entries: contactLog, loading: logLoading, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
+  const { entries: contactLog, loading: logLoading, insertContact, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
   const { items: actionItems, completedItems, loading: actionsLoading, completeItem, insertItem } = useActionItems(initialSchool.id)
   const { coaches, setPrimary } = useCoaches(initialSchool.id)
 
@@ -1349,12 +1563,15 @@ export default function SchoolDetailClient({
           contactLog={contactLog}
           actionItems={actionItems}
           school={school}
+          coaches={coaches}
           today={today}
+          userId={user.id}
           onDraft={(kind, entryId, channel) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel })}
           onComplete={async (id) => { await completeItem(id) }}
           onSnooze={async (id) => { await snoozeEntry(id) }}
           onDismiss={async (id) => { await dismissEntry(id) }}
           onUndo={async (id) => { await undoEntry(id) }}
+          onLogEntry={async (entry) => { await insertContact(entry as Parameters<typeof insertContact>[0]) }}
         />
         <Sidebar
           school={school}

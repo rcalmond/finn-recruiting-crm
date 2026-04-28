@@ -10,7 +10,7 @@ export type Status =
   | 'Offer'
   | 'Inactive'
 export type AdmitLikelihood = 'Likely' | 'Target' | 'Reach' | 'Far Reach'
-export type ContactChannel = 'Email' | 'Phone' | 'In Person' | 'Text' | 'Sports Recruits'
+export type ContactChannel = 'Email' | 'Phone' | 'In Person' | 'Text' | 'Sports Recruits' | 'Other'
 export type ContactDirection = 'Outbound' | 'Inbound'
 export type ActionOwner = 'Finn' | 'Randy' | ''
 
