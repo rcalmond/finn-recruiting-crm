@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { todayStr } from '@/lib/utils'
 
 // ─── Mode types ──────────────────────────────────────────────────────────────
 
@@ -38,7 +36,7 @@ export default function DraftModal({ mode, userId, onClose, onSent }: DraftModal
   const [error, setError] = useState<string | null>(null)
   const [copiedBody, setCopiedBody] = useState(false)
   const [copiedSubject, setCopiedSubject] = useState(false)
-  const [logState, setLogState] = useState<'idle' | 'logging' | 'logged'>('idle')
+  const [ccCopied, setCcCopied] = useState(false)
 
   const isReply = mode.kind === 'reply'
   const isFresh = mode.kind === 'fresh'
@@ -116,25 +114,6 @@ export default function DraftModal({ mode, userId, onClose, onSent }: DraftModal
     // Just close and notify parent.
     onSent?.()
     onClose()
-  }
-
-  async function handleLogOutreach() {
-    if (!body) return
-    setLogState('logging')
-    const supabase = createClient()
-    // Fix pre-existing bug: write body (first 140 chars), not subject
-    const summaryText = body.length > 140 ? body.slice(0, 140) + '...' : body
-    await supabase.from('contact_log').insert({
-      school_id: mode.schoolId,
-      date: todayStr(),
-      channel: 'Email',
-      direction: 'Outbound',
-      summary: summaryText,
-      coach_name: mode.coachName ?? null,
-      created_by: userId,
-    })
-    setLogState('logged')
-    onSent?.()
   }
 
   async function handleRegenerate() {
@@ -319,6 +298,36 @@ export default function DraftModal({ mode, userId, onClose, onSent }: DraftModal
                 </div>
               )}
 
+              {/* CC reminder */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 12px', borderRadius: 6,
+                background: '#F0F4FF', border: '1px solid #C7D2FE',
+                fontSize: 12, color: '#4338CA', lineHeight: 1.4,
+              }}>
+                <span style={{ flexShrink: 0 }}>CC</span>
+                <code
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText('finn@in.finnsoccer.com')
+                      setCcCopied(true)
+                      setTimeout(() => setCcCopied(false), 2000)
+                    } catch { /* noop */ }
+                  }}
+                  title="Click to copy"
+                  style={{
+                    background: ccCopied ? '#DCFCE7' : '#E0E7FF',
+                    padding: '1px 5px', borderRadius: 3,
+                    fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+                    fontSize: 11.5, cursor: 'pointer',
+                    transition: 'background 0.15s',
+                  }}
+                >
+                  {ccCopied ? 'copied!' : 'finn@in.finnsoccer.com'}
+                </code>
+                <span>so it shows up in your school timeline</span>
+              </div>
+
               {/* Body */}
               <div>
                 <div style={{
@@ -355,26 +364,6 @@ export default function DraftModal({ mode, userId, onClose, onSent }: DraftModal
                   </button>
                 </div>
 
-                {/* Log outreach */}
-                {logState === 'logged' ? (
-                  <div style={{ fontSize: 12.5, color: '#059669', fontWeight: 600 }}>
-                    Logged to contact log.
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleLogOutreach}
-                    disabled={logState === 'logging'}
-                    style={{
-                      padding: '6px 14px', borderRadius: 6, border: '1px solid #e2e8f0',
-                      background: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                      fontFamily: 'inherit', color: '#475569',
-                      opacity: logState === 'logging' ? 0.5 : 1,
-                      alignSelf: 'flex-start',
-                    }}
-                  >
-                    {logState === 'logging' ? 'Logging...' : 'Log this outreach'}
-                  </button>
-                )}
               </div>
             </>
           )}

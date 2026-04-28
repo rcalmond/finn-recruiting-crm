@@ -429,6 +429,7 @@ export async function buildEmailDraftPrompt(
 - Never state a stat, schedule item, or academic detail not present in the player profile above. If you'd need to reference something that isn't in the profile, write [TODO: <description>] instead.
 - Never quote or paraphrase the coach's prior message back to them.
 - Never assert future commitments (camp attendance, visits, calls) unless explicitly stated in the brief or selected topic.
+- If Finn isn't ready to commit to a camp, visit, or call, simply express interest and ask the next-step question. Don't invent scheduling conflicts or fabricate hedging reasons. "I'm interested in attending — can you share dates?" is sufficient. Real conflicts should only be referenced if the player profile or brief explicitly states them.
 - Keep under 200 words.
 - Match the voice references — short paragraphs, direct tone, no chest-thumping, no marketing language.
 - Voice references include real Finn writing with occasional typos and informal phrasing. Match voice and tone, NOT typos, missing apostrophes, or punctuation errors. Output should be clean.

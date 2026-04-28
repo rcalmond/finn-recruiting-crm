@@ -599,7 +599,14 @@ Future improvement candidates:
 to contact_log. Should write first 140 chars of `draft.body`, falling back to subject only
 if body is empty. Affects historical rows manually logged via the per-school AI draft modal.
 Does not affect campaign sends (those use the CC ingestion pipeline). Not blocking; fix when
-convenient.
+convenient. Note: the "Log this outreach" button was removed from the unified DraftModal in
+Email Generation v2 — the CC ingestion pipeline is the canonical capture path now.
+
+**Phone-call / in-person contact logging:**
+No UI for capturing off-channel coach interactions (phone calls, ID camp meetings, campus
+visits). Currently these have to be logged via direct SQL or admin. Future: dedicated "Log
+contact" action on school detail page that creates a contact_log row without requiring an
+email body. Phase 2c candidate.
 
 ### Tech Debt and Open Questions (Phase 1 — 2026-04-24)
 
