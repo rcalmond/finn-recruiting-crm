@@ -1250,7 +1250,7 @@ function AboutRow({ label, value }: { label: string; value: string }) {
 }
 
 function Sidebar({
-  school, coaches, actionItems, completedItems, today, onComplete, onAddAction, onDraft, onPrepForCall, onSetPrimary,
+  school, coaches, actionItems, completedItems, today, onComplete, onAddAction, onUpdateSchool, onDraft, onPrepForCall, onSetPrimary,
 }: {
   school: School
   coaches: Coach[]
@@ -1259,10 +1259,14 @@ function Sidebar({
   today: string
   onComplete: (id: string) => Promise<void>
   onAddAction: (action: string, dueDate: string, owner: string) => Promise<void>
+  onUpdateSchool: (updates: Partial<School>) => Promise<void>
   onDraft: (kind: 'fresh' | 'reply') => void
   onPrepForCall: () => void
   onSetPrimary: (id: string) => Promise<unknown>
 }) {
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [notesText, setNotesText] = useState(school.notes ?? '')
+  const [editingRQ, setEditingRQ] = useState(false)
   // ── About rows — only non-null values ────────────────────────────────────────
   const aboutRows: [string, string][] = [
     ['Division',     school.division                                                            ],
@@ -1272,8 +1276,6 @@ function Sidebar({
     ['Admit',        school.admit_likelihood                                   ?? ''],
     ['Status',       school.status                                                              ],
     ['Last contact', school.last_contact ? fmtShortDate(school.last_contact)  : '' ],
-    ['RQ status',    school.rq_status                                          ?? ''],
-    ['Videos sent',  school.videos_sent ? 'Yes' : 'No'                                        ],
   ].filter(([, v]) => v !== '') as [string, string][]
 
   return (
@@ -1451,19 +1453,100 @@ function Sidebar({
           {aboutRows.map(([label, value]) => (
             <AboutRow key={label} label={label} value={value} />
           ))}
-          {school.notes && (
-            <div style={{
-              marginTop: 6, paddingTop: 10,
-              borderTop: `1px solid ${SD.line}`,
-            }}>
-              <div style={{
-                fontSize: 11, fontWeight: 600, color: SD.inkLo, marginBottom: 6,
-              }}>Notes</div>
-              <div style={{
-                fontSize: 12, color: SD.inkMid, lineHeight: 1.55,
-              }}>{school.notes}</div>
+
+          {/* RQ Status — editable */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, flexShrink: 0 }}>RQ status</div>
+            {editingRQ ? (
+              <select
+                autoFocus
+                value={school.rq_status ?? ''}
+                onChange={async (e) => {
+                  const newStatus = e.target.value || null
+                  const updates: Partial<School> = { rq_status: newStatus }
+                  if (newStatus === 'Completed') updates.rq_updated_at = new Date().toISOString()
+                  await onUpdateSchool(updates)
+                  setEditingRQ(false)
+                }}
+                onBlur={() => setEditingRQ(false)}
+                style={{ fontSize: 12, padding: '2px 4px', border: `1px solid ${SD.line}`, borderRadius: 4, outline: 'none' }}
+              >
+                <option value="">—</option>
+                <option value="To Do">To Do</option>
+                <option value="Updated">Updated</option>
+                <option value="Completed">Completed</option>
+              </select>
+            ) : (
+              <div style={{ textAlign: 'right', cursor: 'pointer' }} onClick={() => setEditingRQ(true)}>
+                <div style={{ fontSize: 12, color: SD.ink, fontWeight: 500 }}>{school.rq_status ?? '—'}</div>
+                {school.rq_updated_at && school.rq_status === 'Completed' && (
+                  <div style={{ fontSize: 10, color: SD.inkLo, marginTop: 1 }}>
+                    Last updated: {new Date(school.rq_updated_at).toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Videos sent — with title + link */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, flexShrink: 0 }}>Videos sent</div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 12, color: SD.ink, fontWeight: 500 }}>
+                {school.last_video_url ? 'Yes' : 'No'}
+              </div>
+              {school.last_video_sent_at && (
+                <div style={{ fontSize: 10, color: SD.inkLo, marginTop: 1 }}>
+                  Last sent: {new Date(school.last_video_sent_at).toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' })}
+                  {school.last_video_title && school.last_video_url && (
+                    <> — <a href={school.last_video_url} target="_blank" rel="noopener noreferrer" style={{ color: SD.tealDeep, textDecoration: 'none' }}>{school.last_video_title}</a></>
+                  )}
+                  {!school.last_video_title && school.last_video_url && (
+                    <> — <a href={school.last_video_url} target="_blank" rel="noopener noreferrer" style={{ color: SD.tealDeep, textDecoration: 'none' }}>link</a></>
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Notes — editable */}
+          <div style={{ marginTop: 6, paddingTop: 10, borderTop: `1px solid ${SD.line}`, position: 'relative' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo }}>Notes</div>
+              {!editingNotes && (
+                <button
+                  onClick={() => { setNotesText(school.notes ?? ''); setEditingNotes(true) }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: SD.inkLo, padding: 0, opacity: 0.6 }}
+                >&#9998;</button>
+              )}
+            </div>
+            {editingNotes ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <textarea
+                  autoFocus
+                  value={notesText}
+                  onChange={e => setNotesText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Escape') setEditingNotes(false) }}
+                  rows={4}
+                  style={{
+                    width: '100%', padding: '6px 8px', border: `1px solid ${SD.line}`,
+                    borderRadius: 6, fontSize: 12, fontFamily: 'inherit',
+                    background: '#fff', outline: 'none', resize: 'vertical',
+                    lineHeight: 1.5, boxSizing: 'border-box',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <button onClick={() => setEditingNotes(false)} style={{ padding: '3px 8px', borderRadius: 4, border: `1px solid ${SD.line}`, background: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: SD.inkLo }}>Cancel</button>
+                  <button onClick={async () => { await onUpdateSchool({ notes: notesText.trim() || null }); setEditingNotes(false) }} style={{ padding: '3px 8px', borderRadius: 4, border: 'none', background: SD.ink, color: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Save</button>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => { setNotesText(school.notes ?? ''); setEditingNotes(true) }}
+                style={{ fontSize: 12, color: school.notes ? SD.inkMid : SD.inkLo, lineHeight: 1.55, cursor: 'pointer', fontStyle: school.notes ? 'normal' : 'italic' }}
+              >{school.notes || 'Add a note'}</div>
+            )}
+          </div>
         </div>
       </SidebarCard>
 
@@ -1672,6 +1755,7 @@ export default function SchoolDetailClient({
           onAddAction={async (action, dueDate, owner) => {
             await insertItem({ school_id: school.id, action, owner: owner as 'Finn' | 'Randy', due_date: dueDate })
           }}
+          onUpdateSchool={async (updates) => { await updateSchool(school.id, updates) }}
           onDraft={(kind) => setDraftTarget({ kind })}
           onPrepForCall={() => setPrepOpen(true)}
           onSetPrimary={setPrimary}

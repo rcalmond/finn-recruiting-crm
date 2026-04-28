@@ -28,7 +28,11 @@ export interface School {
   coach_email: string | null
   admit_likelihood: AdmitLikelihood | null
   rq_status: string | null           // "Completed", "To Do", "Updated", etc.
+  rq_updated_at: string | null       // timestamptz — when rq_status was last set to "Completed"
   videos_sent: boolean
+  last_video_url: string | null
+  last_video_title: string | null
+  last_video_sent_at: string | null
   notes: string | null
   generic_team_email: string | null
   aliases: string[]
