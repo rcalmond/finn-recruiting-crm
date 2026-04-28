@@ -608,6 +608,11 @@ visits). Currently these have to be logged via direct SQL or admin. Future: dedi
 contact" action on school detail page that creates a contact_log row without requiring an
 email body. Phase 2c candidate.
 
+**New campaign authoring flow uses legacy {{placeholder}} template model:**
+Could be redesigned to leverage the same AI generation flow as individual emails (intent
+description → AI-suggested template → refine → save). Phase 2b/2c candidate, depends on
+Finn driving a real new campaign that exercises the use case.
+
 ### Tech Debt and Open Questions (Phase 1 — 2026-04-24)
 
 **Decline context staleness:**

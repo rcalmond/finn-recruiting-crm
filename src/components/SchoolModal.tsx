@@ -5,7 +5,7 @@ import type { School, Division, Status, AdmitLikelihood, Category, ActionOwner, 
 import { useContactLog, useActionItems, useCoaches } from '@/hooks/useRealtimeData'
 import { STATUS_COLORS, ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate } from '@/lib/utils'
 import ContactLogPanel from './ContactLogPanel'
-import DraftEmailModal from './DraftEmailModal'
+import DraftModal from './DraftModal'
 import PrepForCallModal from './PrepForCallModal'
 
 const STATUSES: Status[] = ['Not Contacted', 'Intro Sent', 'Ongoing Conversation', 'Visit Scheduled', 'Offer', 'Inactive']
@@ -470,14 +470,22 @@ export default function SchoolModal(props: Props) {
           )}
         </div>
 
-        {draftingEmail && isEdit && (
-          <DraftEmailModal
-            school={s!}
-            userId={props.userId}
-            primaryCoach={coaches.find(c => c.is_primary) ?? null}
-            onClose={() => setDraftingEmail(false)}
-          />
-        )}
+        {draftingEmail && isEdit && (() => {
+          const pc = coaches.find(c => c.is_primary) ?? coaches[0] ?? null
+          return pc ? (
+            <DraftModal
+              mode={{
+                kind: 'fresh',
+                schoolId: s!.id,
+                coachId: pc.id,
+                schoolName: s!.name,
+                coachName: pc.name,
+              }}
+              userId={props.userId}
+              onClose={() => setDraftingEmail(false)}
+            />
+          ) : null
+        })()}
         {preppingCall && isEdit && (
           <PrepForCallModal
             school={s!}

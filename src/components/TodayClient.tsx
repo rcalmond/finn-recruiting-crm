@@ -3,21 +3,24 @@
 import { useState, useEffect } from 'react'
 import type { User } from '@supabase/supabase-js'
 import type { School } from '@/lib/types'
-import type { EmailType } from '@/lib/prompts'
-import { useSchools, useContactLog, useActionItems } from '@/hooks/useRealtimeData'
+import type { ContactLogEntry } from '@/lib/types'
+import { useSchools, useContactLog, useActionItems, useCoaches } from '@/hooks/useRealtimeData'
 import { getRankedFeaturedAction, getUnrepliedInbounds, getFilteredAwaitingReplies, getGoingColdSchools, getThisWeekItems } from '@/lib/todayLogic'
 import { todayStr } from '@/lib/utils'
-import DraftEmailModal from './DraftEmailModal'
+import DraftModal from './DraftModal'
 import HeroSection from './today/HeroSection'
 import AwaitSection from './today/AwaitSection'
 import WeekSection from './today/WeekSection'
 import ColdSection from './today/ColdSection'
 
 interface DraftTarget {
+  kind: 'fresh' | 'reply'
   school: School
-  emailType: EmailType
-  coachMessage?: string
-  onOutreachLogged?: () => void
+  coachId?: string
+  coachName?: string
+  replyToContactLogId?: string
+  inboundChannel?: string
+  onSent?: () => void
 }
 
 const LV = {
@@ -86,8 +89,21 @@ export default function TodayClient({
     )
   }
 
-  function openDraft(school: School, emailType: EmailType, coachMessage?: string, onOutreachLogged?: () => void) {
-    setDraftTarget({ school, emailType, coachMessage, onOutreachLogged })
+  function openFreshDraft(school: School, onSent?: () => void) {
+    // Find primary coach for this school from contact_log context
+    // We don't have coaches loaded globally on Today — pass school info and let the modal resolve
+    setDraftTarget({ kind: 'fresh', school, onSent })
+  }
+
+  function openReplyDraft(school: School, entry: ContactLogEntry) {
+    setDraftTarget({
+      kind: 'reply',
+      school,
+      coachId: entry.coach_id ?? undefined,
+      coachName: entry.coach_name ?? undefined,
+      replyToContactLogId: entry.id,
+      inboundChannel: entry.channel,
+    })
   }
 
   async function handleSnooze(actionItemId: string) {
@@ -195,18 +211,20 @@ export default function TodayClient({
         heroCompleted={heroCompleted}
         onComplete={handleComplete}
         onSnooze={handleSnooze}
-        onDraft={(school, emailType, coachMessage) =>
-          openDraft(school, emailType, coachMessage, () => setHeroCompleted(true))
-        }
+        onDraft={(school, entry) => {
+          if (entry) {
+            openReplyDraft(school, entry)
+          } else {
+            openFreshDraft(school, () => setHeroCompleted(true))
+          }
+        }}
       />
 
       {/* Section 2 — Awaiting reply */}
       <AwaitSection
         unreplied={filteredUnreplied}
         schools={schools}
-        onDraft={(school, emailType, coachMessage) =>
-          openDraft(school, emailType, coachMessage)
-        }
+        onDraft={(school, entry) => openReplyDraft(school, entry)}
         onSnooze={async (id) => { await snoozeEntry(id) }}
         onDismiss={async (id) => { await dismissEntry(id) }}
       />
@@ -217,20 +235,33 @@ export default function TodayClient({
       {/* Section 4 — Don't let these go cold */}
       <ColdSection
         cold={cold}
-        onDraft={(school, emailType, coachMessage) =>
-          openDraft(school, emailType, coachMessage)
-        }
+        onDraft={(school) => openFreshDraft(school)}
       />
 
-      {/* Draft email modal */}
+      {/* Draft modal */}
       {draftTarget && (
-        <DraftEmailModal
-          school={draftTarget.school}
+        <DraftModal
+          mode={draftTarget.kind === 'reply' && draftTarget.replyToContactLogId
+            ? {
+                kind: 'reply',
+                schoolId: draftTarget.school.id,
+                coachId: draftTarget.coachId ?? draftTarget.school.id,
+                schoolName: draftTarget.school.name,
+                coachName: draftTarget.coachName,
+                replyToContactLogId: draftTarget.replyToContactLogId,
+                inboundChannel: draftTarget.inboundChannel,
+              }
+            : {
+                kind: 'fresh',
+                schoolId: draftTarget.school.id,
+                coachId: draftTarget.coachId ?? draftTarget.school.id,
+                schoolName: draftTarget.school.name,
+                coachName: draftTarget.coachName,
+              }
+          }
           userId={user.id}
-          initialEmailType={draftTarget.emailType}
-          initialCoachMessage={draftTarget.coachMessage}
-          onOutreachLogged={draftTarget.onOutreachLogged}
           onClose={() => setDraftTarget(null)}
+          onSent={draftTarget.onSent}
         />
       )}
     </div>

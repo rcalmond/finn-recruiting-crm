@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ContactLogEntry, School } from '@/lib/types'
-import type { EmailType } from '@/lib/prompts'
 import { daysBetween } from '@/lib/utils'
 
 const INITIAL_LIMIT = 10
@@ -11,7 +10,7 @@ const INITIAL_LIMIT = 10
 interface Props {
   unreplied: ContactLogEntry[]
   schools: School[]
-  onDraft: (school: School, emailType: EmailType, coachMessage?: string) => void
+  onDraft: (school: School, entry: ContactLogEntry) => void
   onSnooze: (id: string) => Promise<void>
   onDismiss: (id: string) => Promise<void>
 }
@@ -147,7 +146,7 @@ export default function AwaitSection({ unreplied, schools, onDraft, onSnooze, on
                     alignItems: 'flex-end', gap: 7, flexShrink: 0,
                   }}>
                     <button
-                      onClick={(e) => { e.stopPropagation(); onDraft(school, 'reply', entry.summary) }}
+                      onClick={(e) => { e.stopPropagation(); onDraft(school, entry) }}
                       style={{
                         padding: 'clamp(9px, 1.5vw, 11px) clamp(13px, 2vw, 18px)',
                         background: LV.tealDeep, color: '#fff',

@@ -2,15 +2,14 @@
 
 import { useRouter } from 'next/navigation'
 import type { FeaturedAction } from '@/lib/todayLogic'
-import type { School } from '@/lib/types'
-import type { EmailType } from '@/lib/prompts'
+import type { School, ContactLogEntry } from '@/lib/types'
 
 interface Props {
   featured: FeaturedAction | null
   heroCompleted: boolean
   onComplete: (actionItemId?: string) => void
   onSnooze: (actionItemId: string) => void
-  onDraft: (school: School, emailType: EmailType, coachMessage?: string) => void
+  onDraft: (school: School, entry?: ContactLogEntry) => void
 }
 
 const LV = {
@@ -104,8 +103,7 @@ export default function HeroSection({ featured, heroCompleted, onComplete, onSno
       onComplete(actionItem?.id)
     } else {
       // inbound_reply or going_cold → open draft modal
-      const msg = inboundEntry?.summary ?? ''
-      onDraft(school, emailType, msg)
+      onDraft(school, inboundEntry ?? undefined)
     }
   }
 

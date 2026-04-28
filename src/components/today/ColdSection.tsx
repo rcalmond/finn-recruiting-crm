@@ -3,11 +3,10 @@
 import { useRouter } from 'next/navigation'
 import type { ColdCandidate } from '@/lib/todayLogic'
 import type { School } from '@/lib/types'
-import type { EmailType } from '@/lib/prompts'
 
 interface Props {
   cold: ColdCandidate[]
-  onDraft: (school: School, emailType: EmailType, coachMessage?: string) => void
+  onDraft: (school: School) => void
 }
 
 const LV = {
@@ -126,7 +125,7 @@ export default function ColdSection({ cold, onDraft }: Props) {
                   {meta}
                 </div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); onDraft(school, 'follow_up', inbound.summary) }}
+                  onClick={(e) => { e.stopPropagation(); onDraft(school) }}
                   style={{
                     background: LV.ink, color: '#fff',
                     border: 'none', borderRadius: 999,
