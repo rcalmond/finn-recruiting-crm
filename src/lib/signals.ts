@@ -1,23 +1,19 @@
 import type { School, ContactLogEntry } from './types'
 import { daysBetween } from './utils'
+import { isAwaitingReply, isTargetTier } from './awaiting-reply'
 
 export interface Signal {
   kind: 'awaiting' | 'cold' | 'active'
   text: string
+  // Optional metadata for scoring/display (populated for awaiting/cold)
+  intent?: ContactLogEntry['intent']
+  authored_by?: ContactLogEntry['authored_by']
+  daysWaiting?: number
 }
 
-/** Normalise any date string to YYYY-MM-DD so timestamp variants don't
- *  corrupt string comparisons (e.g. "2025-04-15T14:30:00" > "2025-04-15"
- *  evaluates to true in JS even though they represent the same day). */
-function toDateStr(raw: string): string {
-  return raw.slice(0, 10)
-}
-
-/** Returns false for inbounds that are currently snoozed or permanently dismissed. */
-function isActiveInbound(entry: ContactLogEntry): boolean {
-  if (entry.dismissed_at) return false
-  if (entry.snoozed_until && entry.snoozed_until > new Date().toISOString()) return false
-  return true
+/** Convert sent_at ISO timestamp to Mountain time YYYY-MM-DD for daysBetween display. */
+function sentAtToMountainDate(sentAt: string): string {
+  return new Date(sentAt).toLocaleDateString('en-CA', { timeZone: 'America/Denver' })
 }
 
 /**
@@ -27,68 +23,65 @@ function isActiveInbound(entry: ContactLogEntry): boolean {
  *
  * 1. "Going cold · Xd" (gold)
  *    — unreplied inbound ≥ 5 days old, category A or B only.
- *    "Unreplied" means no outbound exists with a strictly later date.
  *
  * 2. "Awaiting reply · Xd" (teal)
- *    — any other unreplied inbound (any age, any category).
+ *    — any other unreplied inbound (any age, category A/B/C).
  *
  * 3. "Active" (teal)
  *    — only if there are ZERO unreplied inbounds AND:
- *      · the chronologically last contact is an outbound (we responded)
+ *      · the chronologically last email-channel contact is an outbound
  *      · that outbound is within 14 days
  *      · at least one inbound exists (back-and-forth confirmed)
  *      · category A or B only.
  *
- * Returns null if none of the above conditions are met.
+ * Returns null if none of the above conditions are met, or if school is Nope tier.
  */
 export function deriveSignal(
   school: Pick<School, 'id' | 'category'>,
   contactLog: ContactLogEntry[]
 ): Signal | null {
+  if (!isTargetTier(school)) return null
+
   const schoolLog = contactLog.filter(e => e.school_id === school.id)
   if (schoolLog.length === 0) return null
 
-  const inbounds  = schoolLog.filter(e => e.direction === 'Inbound' && isActiveInbound(e))
-  const outbounds = schoolLog.filter(e => e.direction === 'Outbound')
-
-  // ── Unreplied inbound detection ──────────────────────────────────────────────
-  // An inbound is unreplied when no outbound has a strictly later date.
-  // Dates are normalised to YYYY-MM-DD before comparison.
-  const unreplied = inbounds.filter(inbound => {
-    const inboundDate = toDateStr(inbound.date)
-    return !outbounds.some(out => toDateStr(out.date) > inboundDate)
-  })
+  // Find unreplied inbounds using the shared helper
+  const unreplied = schoolLog
+    .filter(e => e.direction === 'Inbound' && isAwaitingReply(e, schoolLog))
 
   if (unreplied.length > 0) {
-    // Use the most recent unreplied inbound — that's what Finn actually needs
-    // to respond to. Older unreplied entries (e.g. a coach who wrote months ago)
-    // are historical noise and shouldn't drive the day count.
     const mostRecent = unreplied
       .slice()
       .sort((a, b) => b.sent_at.localeCompare(a.sent_at))[0]
-    const days = daysBetween(toDateStr(mostRecent.date))
+    const days = daysBetween(sentAtToMountainDate(mostRecent.sent_at))
 
     // Priority 1: Going cold — 5+ days, A or B only
     if (days >= 5 && (school.category === 'A' || school.category === 'B')) {
-      return { kind: 'cold', text: `Going cold · ${days}d` }
+      return {
+        kind: 'cold', text: `Going cold · ${days}d`,
+        intent: mostRecent.intent, authored_by: mostRecent.authored_by, daysWaiting: days,
+      }
     }
 
-    // Priority 2: Awaiting reply — any other unreplied inbound
-    return { kind: 'awaiting', text: `Awaiting reply · ${days}d` }
+    // Priority 2: Awaiting reply — any other unreplied inbound (A/B/C)
+    return {
+      kind: 'awaiting', text: `Awaiting reply · ${days}d`,
+      intent: mostRecent.intent, authored_by: mostRecent.authored_by, daysWaiting: days,
+    }
   }
 
   // ── Active check ─────────────────────────────────────────────────────────────
-  // Only reached when there are zero unreplied inbounds.
-  // Requires two-way contact: the last logged entry must be an outbound
-  // (meaning we responded), within 14 days, with at least one inbound on record.
   if (school.category === 'A' || school.category === 'B') {
-    if (inbounds.length > 0 && outbounds.length > 0) {
-      // Sort all entries by date desc to find the most recent contact.
-      const last = schoolLog
+    const emailLog = schoolLog.filter(e => e.channel === 'Email' || e.channel === 'Sports Recruits')
+    const emailInbounds = emailLog.filter(e => e.direction === 'Inbound')
+    const emailOutbounds = emailLog.filter(e => e.direction === 'Outbound')
+
+    if (emailInbounds.length > 0 && emailOutbounds.length > 0) {
+      const last = emailLog
         .slice()
         .sort((a, b) => b.sent_at.localeCompare(a.sent_at))[0]
 
-      if (last.direction === 'Outbound' && daysBetween(toDateStr(last.date)) <= 14) {
+      if (last.direction === 'Outbound' && daysBetween(sentAtToMountainDate(last.sent_at)) <= 14) {
         return { kind: 'active', text: 'Active' }
       }
     }

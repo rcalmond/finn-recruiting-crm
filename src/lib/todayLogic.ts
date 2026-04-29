@@ -1,40 +1,34 @@
 import type { School, ContactLogEntry, ActionItem } from './types'
 import type { EmailType } from './prompts'
 import { daysBetween, todayStr } from './utils'
+import { isAwaitingReply, isTargetTier } from './awaiting-reply'
 
 // ─── Unreplied inbound detection ─────────────────────────────────────────────
 
-/** Returns false for inbounds that are not actionable (snoozed, dismissed, or non-email channel). */
-function isActiveInbound(entry: ContactLogEntry): boolean {
-  if (entry.dismissed_at) return false
-  if (entry.snoozed_until && entry.snoozed_until > new Date().toISOString()) return false
-  // Only email-channel inbounds trigger "awaiting reply" — phone, text, in-person don't
-  if (entry.channel !== 'Email' && entry.channel !== 'Sports Recruits') return false
-  return true
-}
-
 /**
- * Returns all inbound contact_log entries that have no subsequent outbound
- * entry for the same school, excluding snoozed and dismissed entries.
+ * Returns all inbound contact_log entries that are awaiting Finn's reply.
+ * Filters to target-tier schools (A/B/C) and uses the shared isAwaitingReply helper.
  * Sorted oldest first (longest-waiting first).
  */
-export function getUnrepliedInbounds(log: ContactLogEntry[]): ContactLogEntry[] {
+export function getUnrepliedInbounds(log: ContactLogEntry[], schools: School[]): ContactLogEntry[] {
+  const schoolMap = new Map(schools.map(s => [s.id, s]))
+
   // Build per-school lookup — skip rows with no school (orphans, non-recruiting inbound)
   const bySchool = new Map<string, ContactLogEntry[]>()
   for (const e of log) {
     if (!e.school_id) continue
+    // Tier filter: skip non-target schools
+    const school = schoolMap.get(e.school_id)
+    if (!school || !isTargetTier(school)) continue
     if (!bySchool.has(e.school_id)) bySchool.set(e.school_id, [])
     bySchool.get(e.school_id)!.push(e)
   }
 
   const unreplied: ContactLogEntry[] = []
   Array.from(bySchool.values()).forEach(entries => {
-    entries.filter(e => e.direction === 'Inbound' && isActiveInbound(e)).forEach(inbound => {
-      const hasOutboundAfter = entries.some(
-        e => e.direction === 'Outbound' && e.sent_at > inbound.sent_at
-      )
-      if (!hasOutboundAfter) unreplied.push(inbound)
-    })
+    entries
+      .filter(e => e.direction === 'Inbound' && isAwaitingReply(e, entries))
+      .forEach(inbound => unreplied.push(inbound))
   })
 
   return unreplied.sort((a, b) => a.sent_at.localeCompare(b.sent_at))
@@ -57,7 +51,7 @@ export function getGoingColdSchools(
   schools: School[]
 ): ColdCandidate[] {
   const schoolMap = new Map(schools.map(s => [s.id, s]))
-  const unreplied = getUnrepliedInbounds(log)
+  const unreplied = getUnrepliedInbounds(log, schools)
 
   return unreplied
     .filter(e => {
@@ -112,19 +106,21 @@ export function getThisWeekItems(actionItems: ActionItem[], today: string): Acti
  * Conservative: unclassified rows (classified_at == null) are included
  * so nothing disappears before the backfill or live-hook has run.
  *
- * Filtered OUT:
  * Positive whitelist (once classified):
- *   authored_by IN (coach_personal, coach_via_platform) AND intent = requires_reply
- * Unclassified rows (classified_at IS NULL) included conservatively until classification fires.
+ *   authored_by IN (coach_personal, coach_via_platform)
+ *   AND intent IN (requires_reply, requires_action)
+ *
+ * Both intents are included because the classifier doesn't reliably
+ * distinguish between them — a camp invite (requires_action) still
+ * warrants Finn's response, same as a direct question (requires_reply).
  */
 function isActionableReply(e: ContactLogEntry): boolean {
   // Not yet classified (live hook hasn't fired or backfill hasn't run): include conservatively
   if (!e.classified_at) return true
 
-  // Positive whitelist — only coach-authored requires_reply messages surface
   return (
     (e.authored_by === 'coach_personal' || e.authored_by === 'coach_via_platform') &&
-    e.intent === 'requires_reply'
+    (e.intent === 'requires_reply' || e.intent === 'requires_action')
   )
 }
 
@@ -133,22 +129,21 @@ function isActionableReply(e: ContactLogEntry): boolean {
 /**
  * Returns unreplied inbounds filtered for display in the Awaiting section.
  *
- * Phase 1 filter (all three gates must pass):
- *   1. Classification: (coach_personal | coach_via_platform) × requires_reply
+ * Four gates must pass:
+ *   1. Tier: A/B/C only (filtered by getUnrepliedInbounds via isTargetTier)
+ *   2. Classification: (coach_personal | coach_via_platform) × (requires_reply | requires_action)
  *      Unclassified rows included conservatively (classified_at IS NULL).
- *   2. Thread-state: no subsequent outbound to same school after this inbound
- *      (handled by getUnrepliedInbounds — school-level proxy for thread state).
- *   3. Window: ≤ 180 days old
+ *   3. Thread-state: no subsequent outbound to same school after this inbound
+ *      (handled by getUnrepliedInbounds via isAwaitingReply).
+ *   4. Window: ≤ 180 days old
  *
- * Tier is NOT gated here — intent classification is the noise filter.
- * A coach asking Finn a direct question warrants a reply regardless of tier.
  * Sorted oldest first.
  */
 export function getFilteredAwaitingReplies(
   log: ContactLogEntry[],
-  _schools?: School[]   // kept for API compatibility; tier no longer gates this filter
+  schools: School[]
 ): ContactLogEntry[] {
-  const unreplied = getUnrepliedInbounds(log)
+  const unreplied = getUnrepliedInbounds(log, schools)
 
   return unreplied.filter(e => {
     if (!isActionableReply(e)) return false
@@ -211,7 +206,7 @@ export function getRankedFeaturedAction(
   const schoolMap = new Map(schools.map(s => [s.id, s]))
   const tomorrow = tomorrowStr(today)
 
-  const unreplied = getUnrepliedInbounds(contactLog)
+  const unreplied = getUnrepliedInbounds(contactLog, schools)
   const unrepliedBySchool = new Map(unreplied.map(e => [e.school_id, e]))
 
   const overdueItems = actionItems.filter(i => i.due_date && i.due_date < today)

@@ -74,7 +74,7 @@ export default function TodayClient({
   useEffect(() => {
     if (!heroSchoolId || heroCompleted || logLoading) return
     if (heroActionType === 'action_item') return
-    const stillUnreplied = getUnrepliedInbounds(contactLog).some(e => e.school_id === heroSchoolId)
+    const stillUnreplied = getUnrepliedInbounds(contactLog, schools).some(e => e.school_id === heroSchoolId)
     if (!stillUnreplied) setHeroCompleted(true)
   }, [contactLog, heroSchoolId, heroCompleted, logLoading, heroActionType])
 
