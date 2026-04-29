@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
-import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood } from '@/lib/types'
 import { useSchools, useContactLog, useActionItems, useCoaches } from '@/hooks/useRealtimeData'
 import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
 import { getRankedFeaturedAction } from '@/lib/todayLogic'
@@ -1267,13 +1267,13 @@ function Sidebar({
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesText, setNotesText] = useState(school.notes ?? '')
   const [editingRQ, setEditingRQ] = useState(false)
+  const [editingTier, setEditingTier] = useState(false)
+  const [editingAdmit, setEditingAdmit] = useState(false)
   // ── About rows — only non-null values ────────────────────────────────────────
   const aboutRows: [string, string][] = [
     ['Division',     school.division                                                            ],
     ['Conference',   school.conference                                         ?? ''],
     ['Location',     school.location                                           ?? ''],
-    ['Tier',         school.category                                                            ],
-    ['Admit',        school.admit_likelihood                                   ?? ''],
     ['Status',       school.status                                                              ],
     ['Last contact', school.last_contact ? fmtShortDate(school.last_contact)  : '' ],
   ].filter(([, v]) => v !== '') as [string, string][]
@@ -1453,6 +1453,61 @@ function Sidebar({
           {aboutRows.map(([label, value]) => (
             <AboutRow key={label} label={label} value={value} />
           ))}
+
+          {/* Tier — editable */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, flexShrink: 0 }}>Tier</div>
+            {editingTier ? (
+              <select
+                autoFocus
+                value={school.category}
+                onChange={async (e) => {
+                  const val = e.target.value as Category
+                  await onUpdateSchool({ category: val })
+                  setEditingTier(false)
+                }}
+                onBlur={() => setEditingTier(false)}
+                style={{ fontSize: 12, padding: '2px 4px', border: `1px solid ${SD.line}`, borderRadius: 4, outline: 'none' }}
+              >
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="Nope">Nope</option>
+              </select>
+            ) : (
+              <div style={{ fontSize: 12, color: SD.ink, fontWeight: 500, cursor: 'pointer' }} onClick={() => setEditingTier(true)}>
+                {school.category}
+              </div>
+            )}
+          </div>
+
+          {/* Admit — editable */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, flexShrink: 0 }}>Admit</div>
+            {editingAdmit ? (
+              <select
+                autoFocus
+                value={school.admit_likelihood ?? ''}
+                onChange={async (e) => {
+                  const val = e.target.value || null
+                  await onUpdateSchool({ admit_likelihood: val as AdmitLikelihood | null })
+                  setEditingAdmit(false)
+                }}
+                onBlur={() => setEditingAdmit(false)}
+                style={{ fontSize: 12, padding: '2px 4px', border: `1px solid ${SD.line}`, borderRadius: 4, outline: 'none' }}
+              >
+                <option value="">—</option>
+                <option value="Likely">Likely</option>
+                <option value="Target">Target</option>
+                <option value="Reach">Reach</option>
+                <option value="Far Reach">Far Reach</option>
+              </select>
+            ) : (
+              <div style={{ fontSize: 12, color: SD.ink, fontWeight: 500, cursor: 'pointer' }} onClick={() => setEditingAdmit(true)}>
+                {school.admit_likelihood ?? '—'}
+              </div>
+            )}
+          </div>
 
           {/* RQ Status — editable */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
