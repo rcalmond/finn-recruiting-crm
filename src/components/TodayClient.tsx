@@ -42,7 +42,7 @@ export default function TodayClient({
   const dayStart = useMemo(() => mountainDayStartUTC(mtToday), [mtToday])
 
   const { schools, loading: schoolsLoading } = useSchools()
-  const { entries: contactLog, loading: logLoading, markHandled, snoozeEntry } = useContactLog()
+  const { entries: contactLog, loading: logLoading, markHandled, markUnhandled, snoozeEntry } = useContactLog()
   const { items: actionItems, loading: actionsLoading, completeItem } = useActionItems()
   const supabase = useMemo(() => createClient(), [])
 
@@ -142,18 +142,7 @@ export default function TodayClient({
   }
 
   async function handleUndo(entryId: string) {
-    // Direct DB update + optimistic local update on contactLog
-    const { error } = await supabase.from('contact_log')
-      .update({ handled_at: null })
-      .eq('id', entryId)
-    if (!error) {
-      // Force contactLog refetch since we bypassed the hook's optimistic path
-      // The realtime subscription will pick this up, but may lag
-      // Trigger immediate re-derive by... the contactLog entries are managed by useContactLog
-      // which has a realtime subscription. The update above will trigger a postgres_changes
-      // event, which calls fetchEntries, which updates the entries state.
-      // This is inherently async — the UI may lag by ~100ms. Acceptable.
-    }
+    await markUnhandled(entryId)
   }
 
   if (loading || !selectionInitialized) {
