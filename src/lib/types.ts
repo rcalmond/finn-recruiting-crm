@@ -58,6 +58,7 @@ export interface ContactLogEntry {
   snoozed_until?: string | null      // ISO timestamp; hides from Awaiting reply until this time
   dismissed_at?: string | null       // ISO timestamp; hides permanently from Awaiting reply
   handled_at?: string | null         // ISO timestamp; "Done" from Today — hides from Today, visible on school detail
+  selected_for_today_at?: string | null  // ISO timestamp; locks item into Today's top 3 for this day
   // source tracking (migration 014) — optional: DB defaults apply; UI inserts omit these
   raw_source?: string | null
   source_thread_id?: string | null
@@ -84,6 +85,7 @@ export interface ActionItem {
   due_date: string | null  // YYYY-MM-DD
   sort_order: number | null
   completed_at: string | null  // timestamptz; null = active, non-null = completed
+  selected_for_today_at: string | null  // ISO timestamp; locks item into Today's top 3
   created_at: string
   // joined
   school?: Pick<School, 'id' | 'name' | 'short_name' | 'category' | 'status'>

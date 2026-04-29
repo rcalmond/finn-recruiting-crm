@@ -1,13 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { User } from '@supabase/supabase-js'
-import type { School } from '@/lib/types'
+import type { School, ContactLogEntry } from '@/lib/types'
 import { useSchools, useContactLog, useActionItems } from '@/hooks/useRealtimeData'
+import { createClient } from '@/lib/supabase/client'
 import { todayStr } from '@/lib/utils'
-import { getTactical3 } from '@/lib/today-scoring'
+import { getTactical3, type TacticalItem } from '@/lib/today-scoring'
+import { mountainTimeToday, mountainDayStartUTC } from '@/lib/today-selection'
 import DraftModal from './DraftModal'
 import TacticalSection from './today/TacticalSection'
+import HandledSection from './today/HandledSection'
 
 interface DraftTarget {
   kind: 'fresh' | 'reply'
@@ -35,18 +38,132 @@ export default function TodayClient({
   pendingGmailPartials?: number
 }) {
   const today = todayStr()
+  const mtToday = mountainTimeToday()
+  const dayStart = useMemo(() => mountainDayStartUTC(mtToday), [mtToday])
+
   const { schools, loading: schoolsLoading } = useSchools()
   const { entries: contactLog, loading: logLoading, markHandled, snoozeEntry } = useContactLog()
   const { items: actionItems, loading: actionsLoading, completeItem } = useActionItems()
+  const supabase = useMemo(() => createClient(), [])
 
   const loading = schoolsLoading || logLoading || actionsLoading
 
   const [draftTarget, setDraftTarget] = useState<DraftTarget | null>(null)
+  const [selectionLocked, setSelectionLocked] = useState(false)
+  const [lockedItems, setLockedItems] = useState<TacticalItem[]>([])
 
-  // Top 3 tactical items
-  const tactical3 = getTactical3(contactLog, schools, actionItems, today)
+  // ── Daily selection logic ──────────────────────────────────────────────────
 
-  if (loading) {
+  const lockSelection = useCallback(async (items: TacticalItem[]) => {
+    const now = new Date().toISOString()
+    // Mark contact_log entries
+    const entryIds = items.filter(i => i.entry).map(i => i.entry!.id)
+    if (entryIds.length > 0) {
+      await supabase.from('contact_log')
+        .update({ selected_for_today_at: now })
+        .in('id', entryIds)
+    }
+    // Mark action items
+    const actionIds = items.filter(i => i.actionItem).map(i => i.actionItem!.id)
+    if (actionIds.length > 0) {
+      await supabase.from('action_items')
+        .update({ selected_for_today_at: now })
+        .in('id', actionIds)
+    }
+  }, [supabase])
+
+  // Check if today's selection exists, or compute fresh
+  useEffect(() => {
+    if (loading || selectionLocked) return
+
+    // Check for already-selected items today
+    const selectedEntryIds = contactLog
+      .filter(e => e.selected_for_today_at && e.selected_for_today_at >= dayStart)
+      .map(e => e.id)
+
+    const selectedActionIds = actionItems
+      .filter(i => i.selected_for_today_at && i.selected_for_today_at >= dayStart)
+      .map(i => i.id)
+
+    if (selectedEntryIds.length > 0 || selectedActionIds.length > 0) {
+      // Reconstruct locked items from previously selected
+      const top3 = getTactical3(contactLog, schools, actionItems, today)
+      const locked = top3.filter(item =>
+        (item.entry && selectedEntryIds.includes(item.entry.id)) ||
+        (item.actionItem && selectedActionIds.includes(item.actionItem.id))
+      )
+      setLockedItems(locked)
+      setSelectionLocked(true)
+    } else {
+      // First visit today — compute and persist
+      const top3 = getTactical3(contactLog, schools, actionItems, today)
+      if (top3.length > 0) {
+        lockSelection(top3).then(() => {
+          setLockedItems(top3)
+          setSelectionLocked(true)
+        })
+      } else {
+        setLockedItems([])
+        setSelectionLocked(true)
+      }
+    }
+  }, [loading, selectionLocked, contactLog, actionItems, schools, today, dayStart, lockSelection])
+
+  // ── Active items (locked minus handled/snoozed) ────────────────────────────
+
+  const activeItems = useMemo(() =>
+    lockedItems.filter(item => {
+      if (item.entry) {
+        if (item.entry.handled_at) return false
+        if (item.entry.snoozed_until && item.entry.snoozed_until > new Date().toISOString()) return false
+      }
+      if (item.actionItem?.completed_at) return false
+      return true
+    }),
+    [lockedItems]
+  )
+
+  // ── Handled today ──────────────────────────────────────────────────────────
+
+  const schoolMap = useMemo(() => new Map(schools.map(s => [s.id, s])), [schools])
+
+  const handledToday = useMemo(() =>
+    contactLog
+      .filter(e => e.handled_at && e.handled_at >= dayStart)
+      .sort((a, b) => (b.handled_at ?? '').localeCompare(a.handled_at ?? ''))
+      .slice(0, 3)
+      .map(entry => ({
+        entry,
+        school: schoolMap.get(entry.school_id) ?? { id: entry.school_id, name: 'Unknown' } as School,
+      })),
+    [contactLog, dayStart, schoolMap]
+  )
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  async function handleDone(entryId: string) {
+    await markHandled(entryId)
+    // Update locked items to reflect handled state
+    setLockedItems(prev => prev.map(item =>
+      item.entry?.id === entryId
+        ? { ...item, entry: { ...item.entry!, handled_at: new Date().toISOString() } }
+        : item
+    ))
+  }
+
+  async function handleUndo(entryId: string) {
+    await supabase.from('contact_log')
+      .update({ handled_at: null })
+      .eq('id', entryId)
+    // Restore in locked items
+    setLockedItems(prev => prev.map(item =>
+      item.entry?.id === entryId
+        ? { ...item, entry: { ...item.entry!, handled_at: undefined } }
+        : item
+    ))
+  }
+
+  if (loading || !selectionLocked) {
     return (
       <div style={{
         minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -135,9 +252,9 @@ export default function TodayClient({
         </div>
       )}
 
-      {/* Tactical top 3 */}
+      {/* Tactical top 3 (locked for the day) */}
       <TacticalSection
-        items={tactical3}
+        items={activeItems}
         onDraftReply={(schoolId, coachName, entryId, channel) => {
           const school = schools.find(s => s.id === schoolId)
           if (!school) return
@@ -156,7 +273,13 @@ export default function TodayClient({
         }}
         onComplete={async (id) => { await completeItem(id) }}
         onSnooze={async (id) => { await snoozeEntry(id) }}
-        onDone={async (id) => { await markHandled(id) }}
+        onDone={handleDone}
+      />
+
+      {/* Recently handled */}
+      <HandledSection
+        items={handledToday}
+        onUndo={handleUndo}
       />
 
       {/* Draft modal */}

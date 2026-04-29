@@ -219,7 +219,7 @@ export function useActionItems(schoolId?: string) {
     return () => { supabase.removeChannel(channel) }
   }, [fetchItems, supabase, schoolId])
 
-  const insertItem = useCallback(async (item: Omit<ActionItem, 'id' | 'created_at' | 'school' | 'sort_order' | 'completed_at'>) => {
+  const insertItem = useCallback(async (item: Omit<ActionItem, 'id' | 'created_at' | 'school' | 'sort_order' | 'completed_at' | 'selected_for_today_at'>) => {
     // Place new items at the end by fetching the current max sort_order for active items
     const { data: maxData } = await supabase
       .from('action_items')
