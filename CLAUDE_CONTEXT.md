@@ -647,6 +647,14 @@ YouTube URLs don't auto-update schools.last_video_*. Future: add a post-insert h
 database trigger. Low urgency — Finn sends videos infrequently enough that manual re-run
 of the backfill script covers it.
 
+**SR notification deduplication gap:**
+SR forwarding can produce notification copies of messages already ingested via Gmail Sync
+(e.g., the Apr 22 Stevens/Stanford rescues were SR notifications for messages Gmail had
+already captured). Currently no cross-source deduplication. Future: ingestion path should
+detect when an SR notification matches an already-ingested message (by school_id + coach_id
++ date window, or by content similarity) and skip the duplicate insert. Low urgency — the
+duplicate rows are harmless in the timeline and can be manually cleaned when spotted.
+
 ### Tech Debt and Open Questions (Phase 1 — 2026-04-24)
 
 **Decline context staleness:**
