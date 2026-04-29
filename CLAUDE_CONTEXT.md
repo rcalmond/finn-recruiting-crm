@@ -86,6 +86,7 @@ owner         'Finn' | 'Randy' | null
 due_date      date
 sort_order    integer       -- persistent manual priority order
 completed_at  timestamptz   -- NULL = active, NOT NULL = completed (migration 027)
+selected_for_today_at timestamptz  -- locks item into Today's top 3 for this day
 created_at    timestamptz
 ```
 
@@ -115,9 +116,15 @@ parse_status      'full' | 'partial' | 'non_coach' | 'orphan'
                   -- orphan: school unknown
 parse_notes       text
 handled_at        timestamptz       -- "Done" from Today; hides from Today, transparent on school detail
+selected_for_today_at timestamptz  -- locks item into Today's top 3 for this Mountain-time day
 created_by        uuid FK → auth.users.id
 created_at        timestamptz
 ```
+
+**Today visibility for inbounds** is gated by ALL of: tier IN (A,B,C), channel IN (Email,
+Sports Recruits), handled_at IS NULL, dismissed_at IS NULL, snoozed_until <= NOW() or NULL,
+classified_at IS NULL or (authored_by IN (coach_personal, coach_via_platform) AND intent IN
+(requires_reply, requires_action)), window <= 180 days.
 
 **Channel value mapping (campaigns send flow):** The campaign draft review modal accepts
 wire values `'gmail'` and `'sr'` from the client, but writes the canonical DB values
@@ -656,13 +663,21 @@ YouTube URLs don't auto-update schools.last_video_*. Future: add a post-insert h
 database trigger. Low urgency — Finn sends videos infrequently enough that manual re-run
 of the backfill script covers it.
 
-**SR notification deduplication gap:**
-SR forwarding can produce notification copies of messages already ingested via Gmail Sync
-(e.g., the Apr 22 Stevens/Stanford rescues were SR notifications for messages Gmail had
-already captured). Currently no cross-source deduplication. Future: ingestion path should
-detect when an SR notification matches an already-ingested message (by school_id + coach_id
-+ date window, or by content similarity) and skip the duplicate insert. Low urgency — the
-duplicate rows are harmless in the timeline and can be manually cleaned when spotted.
+**SR notification deduplication gap — partially addressed:**
+The isSRNotification brand detection bug (missing "SportsRecruits" without .com) was fixed
+2026-04-30 — SR notifications with coach names in subject are now correctly detected.
+Cross-source dedup (Gmail sync vs SR notification for same message) remains unbuilt. Low
+urgency; duplicates are harmless and manually cleaned when spotted.
+
+**Today strategic zone (Phase 3b) not yet built:**
+Dynamic prompts based on pipeline state (reel coverage, RQ status, stale Tier A, ID camp
+planning, pipeline gaps). Each prompt: question + actionable button. Weekly refresh cadence.
+
+**Classifier intent inconsistency (requires_reply vs requires_action):**
+The classifier doesn't reliably distinguish between these two intents. Today's scoring
+includes both as a workaround (both get intent_multiplier=1.0). Future: either merge the
+two intents in the classifier prompt, or add classifier examples that disambiguate them
+more reliably.
 
 ### Tech Debt and Open Questions (Phase 1 — 2026-04-24)
 
@@ -715,6 +730,51 @@ valid email.)
   (dropdown with rq_updated_at), Tier (dropdown A/B/C/Nope), Admit (dropdown with null
   option), video display (hyperlinked title + sent date). School detail is now fully
   two-way: every field is viewable and editable without leaving the page.
+
+### Phase 3a — Today Tactical Zone (shipped 2026-04-30)
+
+**Foundation:**
+- Shared `src/lib/awaiting-reply.ts` with `isAwaitingReply()` and `isTargetTier()` — single
+  source of truth for reply detection, used by both signals.ts and todayLogic.ts
+- Tier filter: Nope excluded from all awaiting/cold signals
+- Channel filter: only Email and Sports Recruits trigger reply expectations
+- sent_at comparisons replace date column for timezone-correct same-day detection
+- Intent whitelist expanded: requires_reply AND requires_action both surface in Today
+  (classifier doesn't reliably distinguish between them)
+
+**Tactical scoring (`src/lib/today-scoring.ts`):**
+- Score = base x tier x intent x decay + days_bonus
+- Base: inbound_awaiting=10, going_cold=8, action_overdue=12, action_due_today=8, action_due_tomorrow=5
+- Tier: A=2.0, B=1.5, C=1.0, Nope=excluded
+- Intent: requires_reply/requires_action=1.0, acknowledgement=0.5, informational=0.3, decline=excluded
+- Decay: 0-30d=1.0, 31-60d=0.7, 61-90d=0.4, 91+=0.2
+- Days bonus: +1/day capped at +20
+- Type categorization: going_cold (A/B + 5+ days), inbound_awaiting (everything else)
+- Tiebreaker: type priority (awaiting > cold > action), then oldest first
+- One item per school: most recent unreplied inbound wins
+
+**UI:**
+- TacticalSection replaces HeroSection, AwaitSection, WeekSection, ColdSection
+- Top 3 cards with type-specific styling (teal=awaiting, gold=cold, neutral=action)
+- One-click actions: inbound→Draft reply modal, cold→Open school, action→checkbox complete
+- Done + Snooze 7d on each card (no Dismiss from Today)
+- HandledSection: up to 3 recently handled items with Undo
+
+**State architecture:**
+- Daily selection locked on first Mountain-time day visit via selected_for_today_at
+- selectedIds Set<string> + derive from live hooks (single source of truth)
+- Symmetric optimistic updates: markHandled/markUnhandled in useContactLog
+
+**Migrations:** 030 (handled_at), 031 (selected_for_today_at on contact_log + action_items)
+
+### Phase 3b — Today Strategic Zone (PENDING)
+
+Planned scope:
+- Dynamic prompts based on current pipeline state
+- Topics: reel coverage, RQ coverage, stale Tier A, ID camp planning, pipeline gaps
+- Each prompt: question + actionable button
+- Weekly refresh cadence
+- Not yet scoped in detail; depends on Phase 3a feedback
 
 ### Phase 1 Complete (2026-04-24)
 
@@ -2053,6 +2113,11 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-30 | Phase 3a shipped: Today tactical zone — scored top 3, locked daily selection, Done/Undo with handled_at, HandledSection, single source of truth state | Feature |
+| 2026-04-30 | Migrations 030+031: handled_at + selected_for_today_at on contact_log and action_items | Schema |
+| 2026-04-30 | Foundation: shared awaiting-reply.ts (isAwaitingReply + isTargetTier), tier/channel/intent filters, sent_at comparisons | Refactor |
+| 2026-04-30 | Fix: SR brand detection in sendgrid webhook (isSRNotification now matches "SportsRecruits" without .com); non-SR orphans dropped at parse time instead of stored | Bug fix |
+| 2026-04-30 | Fix: orphan-drop for non-recruiting emails forwarded from Gmail (newsletters, bank alerts, etc.) — 74 historical orphans deleted | Data |
 | 2026-04-29 | Tier + Admit editable inline dropdowns in right-rail About panel — completes school detail two-way | Feature |
 | 2026-04-29 | Right-rail polish: editable notes (inline textarea), RQ status (click-to-edit dropdown + rq_updated_at tracking), video tracking display (last_video_url/title/sent_at with hyperlinked title) | Feature |
 | 2026-04-29 | Migration 029: rq_status enum cleanup — collapsed legacy "(no email yet)" values into Completed | Data |
