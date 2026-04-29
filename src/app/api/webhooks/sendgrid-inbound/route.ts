@@ -82,11 +82,12 @@ function extractForwardedContent(text: string): { body: string; forwardDate: str
 // ── SR detection ──────────────────────────────────────────────────────────────
 
 function isSRNotification(subject: string, body: string): boolean {
-  const hasSRDomain = body.includes('sportsrecruits.com') || subject.toLowerCase().includes('sportsrecruits')
+  // Check for SportsRecruits presence — both domain URLs and plain text brand name
+  const hasSRBrand = /sportsrecruits/i.test(body) || /sportsrecruits/i.test(subject)
   const hasSRAction = /just sent|replied to|sent you a message/i.test(body)
   const hasSRThread = /messages\/thread\/\d+/.test(body)
   const hasSRSubject = /sent (?:you|finn) a message/i.test(subject)
-  return hasSRDomain && (hasSRAction || hasSRSubject) && (hasSRThread || hasSRSubject)
+  return hasSRBrand && (hasSRAction || hasSRSubject) && (hasSRThread || hasSRSubject)
 }
 
 // ── SR parsing ────────────────────────────────────────────────────────────────
@@ -653,24 +654,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  // 6. Non-SR detection — write an orphan entry (no school known) and return
+  // 6a. SR product notifications (view alerts) — drop silently, no coach content
+  if (/college coach just viewed your/i.test(subject)) {
+    console.log(`[orphan-drop] ${receivedAt} — skipping SR product notification: ${subject}`)
+    return NextResponse.json({ ok: true })
+  }
+
+  // 6b. Non-SR detection — drop silently (non-recruiting email forwarded from Gmail)
   if (!isSRNotification(subject, innerBody)) {
-    console.log(`[sg-inbound] ${receivedAt} — not an SR notification, writing orphan entry`)
-    const { date: nonSrDate, sentAt: nonSrSentAt } = resolveOrphanSentAt(headers)
-    await admin.from('contact_log').insert({
-      school_id:        null,
-      date:             nonSrDate,
-      sent_at:          nonSrSentAt,
-      channel:          'Email',
-      direction:        'Inbound',
-      coach_name:       null,
-      summary:          `Non-SR email: ${subject || '(no subject)'}`,
-      raw_source:       fullBodyText,
-      source_message_id: sourceMessageId,
-      parse_status:     'orphan',
-      parse_notes:      'Not a SportsRecruits notification; no school match possible',
-      created_by:       null,
-    })
+    console.log(`[orphan-drop] ${receivedAt} — skipping non-recruiting email from ${from}: ${subject || '(no subject)'}`)
     return NextResponse.json({ ok: true })
   }
 
