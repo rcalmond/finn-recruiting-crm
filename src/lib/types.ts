@@ -57,6 +57,7 @@ export interface ContactLogEntry {
   created_at: string
   snoozed_until?: string | null      // ISO timestamp; hides from Awaiting reply until this time
   dismissed_at?: string | null       // ISO timestamp; hides permanently from Awaiting reply
+  handled_at?: string | null         // ISO timestamp; "Done" from Today — hides from Today, visible on school detail
   // source tracking (migration 014) — optional: DB defaults apply; UI inserts omit these
   raw_source?: string | null
   source_thread_id?: string | null

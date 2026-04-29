@@ -141,6 +141,17 @@ export function useContactLog(schoolId?: string) {
     return error
   }, [supabase])
 
+  const markHandled = useCallback(async (id: string) => {
+    const now = new Date().toISOString()
+    const { error } = await supabase.from('contact_log')
+      .update({ handled_at: now })
+      .eq('id', id)
+    if (!error) setEntries(prev => prev.map(e =>
+      e.id === id ? { ...e, handled_at: now } : e
+    ))
+    return error
+  }, [supabase])
+
   const dismissEntry = useCallback(async (id: string) => {
     const now = new Date().toISOString()
     const { error } = await supabase.from('contact_log')
@@ -162,7 +173,7 @@ export function useContactLog(schoolId?: string) {
     return error
   }, [supabase])
 
-  return { entries, loading, insertContact, insertContacts, updateEntry, deleteEntry, snoozeEntry, dismissEntry, undoEntry, refetch: fetchEntries }
+  return { entries, loading, insertContact, insertContacts, updateEntry, deleteEntry, markHandled, snoozeEntry, dismissEntry, undoEntry, refetch: fetchEntries }
 }
 
 // ─── Action Items ─────────────────────────────────────────────────────────────

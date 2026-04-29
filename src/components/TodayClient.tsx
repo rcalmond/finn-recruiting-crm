@@ -36,7 +36,7 @@ export default function TodayClient({
 }) {
   const today = todayStr()
   const { schools, loading: schoolsLoading } = useSchools()
-  const { entries: contactLog, loading: logLoading, snoozeEntry, dismissEntry } = useContactLog()
+  const { entries: contactLog, loading: logLoading, markHandled, snoozeEntry } = useContactLog()
   const { items: actionItems, loading: actionsLoading, completeItem } = useActionItems()
 
   const loading = schoolsLoading || logLoading || actionsLoading
@@ -156,7 +156,7 @@ export default function TodayClient({
         }}
         onComplete={async (id) => { await completeItem(id) }}
         onSnooze={async (id) => { await snoozeEntry(id) }}
-        onDismiss={async (id) => { await dismissEntry(id) }}
+        onDone={async (id) => { await markHandled(id) }}
       />
 
       {/* Draft modal */}

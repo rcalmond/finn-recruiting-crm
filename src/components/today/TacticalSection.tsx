@@ -36,11 +36,11 @@ interface Props {
   onDraftFresh: (schoolId: string) => void
   onComplete: (actionItemId: string) => Promise<void>
   onSnooze: (entryId: string) => Promise<void>
-  onDismiss: (entryId: string) => Promise<void>
+  onDone: (entryId: string) => Promise<void>
 }
 
 export default function TacticalSection({
-  items, onDraftReply, onDraftFresh, onComplete, onSnooze, onDismiss,
+  items, onDraftReply, onDraftFresh, onComplete, onSnooze, onDone,
 }: Props) {
   const router = useRouter()
 
@@ -96,7 +96,7 @@ export default function TacticalSection({
             onDraftFresh={onDraftFresh}
             onComplete={onComplete}
             onSnooze={onSnooze}
-            onDismiss={onDismiss}
+            onDone={onDone}
             onNavigate={(schoolId) => router.push(`/schools/${schoolId}`)}
           />
         ))}
@@ -106,7 +106,7 @@ export default function TacticalSection({
 }
 
 function TacticalCard({
-  item, rank, onDraftReply, onDraftFresh, onComplete, onSnooze, onDismiss, onNavigate,
+  item, rank, onDraftReply, onDraftFresh, onComplete, onSnooze, onDone, onNavigate,
 }: {
   item: TacticalItem
   rank: number
@@ -114,7 +114,7 @@ function TacticalCard({
   onDraftFresh: Props['onDraftFresh']
   onComplete: Props['onComplete']
   onSnooze: Props['onSnooze']
-  onDismiss: Props['onDismiss']
+  onDone: Props['onDone']
   onNavigate: (schoolId: string) => void
 }) {
   const isInbound = item.type === 'inbound_awaiting'
@@ -230,8 +230,8 @@ function TacticalCard({
                   cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >Draft reply</button>
+              <button onClick={() => onDone(item.entry!.id)} style={secondaryBtn}>Done</button>
               <button onClick={() => onSnooze(item.entry!.id)} style={secondaryBtn}>Snooze 7d</button>
-              <button onClick={() => onDismiss(item.entry!.id)} style={secondaryBtn}>Dismiss</button>
             </>
           )}
           {isCold && item.entry && (
@@ -244,8 +244,8 @@ function TacticalCard({
                   cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >Open school</button>
+              <button onClick={() => onDone(item.entry!.id)} style={secondaryBtn}>Done</button>
               <button onClick={() => onSnooze(item.entry!.id)} style={secondaryBtn}>Snooze 7d</button>
-              <button onClick={() => onDismiss(item.entry!.id)} style={secondaryBtn}>Dismiss</button>
             </>
           )}
           {isAction && item.actionItem && (

@@ -24,7 +24,8 @@ export function isAwaitingReply(
   // Channel filter: only email-channel inbounds trigger reply expectations
   if (inbound.channel !== 'Email' && inbound.channel !== 'Sports Recruits') return false
 
-  // Dismissed or snoozed
+  // Handled (Done from Today), dismissed, or snoozed
+  if (inbound.handled_at) return false
   if (inbound.dismissed_at) return false
   if (inbound.snoozed_until && inbound.snoozed_until > new Date().toISOString()) return false
 

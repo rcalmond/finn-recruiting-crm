@@ -114,6 +114,7 @@ parse_status      'full' | 'partial' | 'non_coach' | 'orphan'
                   -- non_coach: user-marked (sender is admin/bot/recruiter)
                   -- orphan: school unknown
 parse_notes       text
+handled_at        timestamptz       -- "Done" from Today; hides from Today, transparent on school detail
 created_by        uuid FK → auth.users.id
 created_at        timestamptz
 ```
@@ -442,18 +443,26 @@ Groups by school. Per-card: authored_by + intent chips, Haiku notes, snippet wit
 "Save override" (sets confidence=high, removes from queue) and "Mark unknown" buttons.
 Low-confidence count badge appears in sidebar nav ("Email Review" link).
 
-**Today filter (`src/lib/todayLogic.ts` — `isActionableReply` + `getFilteredAwaitingReplies`):**
-Positive whitelist (once classified): `authored_by IN (coach_personal, coach_via_platform)` AND `intent = requires_reply`.
-Unclassified rows (`classified_at IS NULL`) are conservatively included until the live hook fires.
-Window: 180 days. No tier gate. Null school_id rows excluded at the unreplied-detection layer.
+**Today visibility gates (as of Phase 2b — 2026-04-29):**
 
-**Tier does NOT gate Today's Awaiting Reply.** Classification + thread state + 180-day window are
-the only filters. A Tier-Nope school with an unreplied coach question still appears in Awaiting Reply.
+An inbound contact_log row appears in Today's tactical zone when ALL of:
+1. Tier: school.category IN (A, B, C) — Nope excluded via `isTargetTier()`
+2. Channel: Email or Sports Recruits — phone/text/in-person don't trigger reply expectations
+3. Classification: `authored_by IN (coach_personal, coach_via_platform)` AND
+   `intent IN (requires_reply, requires_action)`. Unclassified rows (classified_at IS NULL)
+   included conservatively.
+4. Thread state: no outbound with later sent_at for the same school (via `isAwaitingReply()`)
+5. Not handled (`handled_at IS NULL`), not dismissed (`dismissed_at IS NULL`), not snoozed
+6. Window: <= 180 days old
 
-Rationale: if a coach asked a direct question, Finn owes a reply regardless of the school's current
-tier. Finn can re-tier the school after replying. The tier gate was originally on the extended-window
-logic but was removed during Phase 1 close-out — it would have hidden genuine unreplied asks from
-NC State and MIT (both currently Tier Nope) that Finn should still respond to.
+**"Done" vs "Dismiss" semantics:**
+- **Done** (handled_at): Finn took action (replied, called, etc.) and wants to clear from Today.
+  The inbound row remains visible on school detail's timeline with no special treatment.
+  Per-row, not per-school — new inbounds from the same school still surface.
+- **Dismiss** (dismissed_at): genuinely doesn't need a reply (FYI, decline, etc.).
+  Row shows "Dismissed · Undo" on school detail timeline. Available on school detail only,
+  not on Today cards.
+- **Snooze** (snoozed_until): temporarily hide for N days. Available on both Today and school detail.
 
 Implementation note: tier filtering, if ever added back, should apply to proactive outbound surfaces
 (campaigns, action items for follow-ups), NOT to reactive reply-needs surfaced from inbound coach
