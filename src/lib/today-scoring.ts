@@ -219,3 +219,50 @@ export function getTactical3(
 
   return items.slice(0, 3)
 }
+
+/**
+ * Rebuild TacticalItem objects for a set of previously-selected IDs.
+ * Unlike getTactical3, this does NOT apply isAwaitingReply or other liveness
+ * filters — it builds items from the raw data so handled/snoozed items retain
+ * their scoring metadata for display purposes. Callers filter active vs handled.
+ */
+export function rebuildSelectedItems(
+  selectedIds: Set<string>,
+  contactLog: ContactLogEntry[],
+  schools: School[],
+  actionItems: ActionItem[],
+  today: string
+): TacticalItem[] {
+  const schoolMap = new Map(schools.map(s => [s.id, s]))
+  const items: TacticalItem[] = []
+
+  // Rebuild from contact_log entries
+  for (const entry of contactLog) {
+    if (!selectedIds.has(entry.id)) continue
+    if (entry.direction !== 'Inbound') continue
+    const school = schoolMap.get(entry.school_id)
+    if (!school) continue
+
+    const days = daysBetween(sentAtToMountainDate(entry.sent_at))
+    const type: TacticalItemType =
+      days >= 5 && (school.category === 'A' || school.category === 'B')
+        ? 'going_cold'
+        : 'inbound_awaiting'
+
+    const scored = scoreInbound(entry, school, type)
+    if (scored) items.push(scored)
+  }
+
+  // Rebuild from action items
+  for (const item of actionItems) {
+    if (!selectedIds.has(item.id)) continue
+    const school = schoolMap.get(item.school_id)
+    if (!school) continue
+    const scored = scoreActionItem(item, school, today)
+    if (scored) items.push(scored)
+  }
+
+  // Sort by score descending (same as getTactical3)
+  items.sort((a, b) => b.score - a.score)
+  return items
+}

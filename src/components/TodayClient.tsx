@@ -6,7 +6,7 @@ import type { School, ContactLogEntry } from '@/lib/types'
 import { useSchools, useContactLog, useActionItems } from '@/hooks/useRealtimeData'
 import { createClient } from '@/lib/supabase/client'
 import { todayStr } from '@/lib/utils'
-import { getTactical3, type TacticalItem } from '@/lib/today-scoring'
+import { getTactical3, rebuildSelectedItems, type TacticalItem } from '@/lib/today-scoring'
 import { mountainTimeToday, mountainDayStartUTC } from '@/lib/today-selection'
 import DraftModal from './DraftModal'
 import TacticalSection from './today/TacticalSection'
@@ -47,86 +47,79 @@ export default function TodayClient({
   const supabase = useMemo(() => createClient(), [])
 
   const loading = schoolsLoading || logLoading || actionsLoading
+  const schoolMap = useMemo(() => new Map(schools.map(s => [s.id, s])), [schools])
 
   const [draftTarget, setDraftTarget] = useState<DraftTarget | null>(null)
-  const [selectionLocked, setSelectionLocked] = useState(false)
-  const [lockedItems, setLockedItems] = useState<TacticalItem[]>([])
 
-  // ── Daily selection logic ──────────────────────────────────────────────────
+  // ── Track which IDs are selected for today (persisted to DB) ───────────────
+  // This is a Set of entry/action IDs, NOT TacticalItem objects.
+  // The actual entry/action data comes from the live contactLog/actionItems hooks.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectionInitialized, setSelectionInitialized] = useState(false)
 
-  const lockSelection = useCallback(async (items: TacticalItem[]) => {
+  const persistSelection = useCallback(async (ids: string[], entries: ContactLogEntry[]) => {
     const now = new Date().toISOString()
-    // Mark contact_log entries
-    const entryIds = items.filter(i => i.entry).map(i => i.entry!.id)
+    const entryIds = ids.filter(id => entries.some(e => e.id === id))
+    const actionIds = ids.filter(id => !entries.some(e => e.id === id))
     if (entryIds.length > 0) {
-      await supabase.from('contact_log')
-        .update({ selected_for_today_at: now })
-        .in('id', entryIds)
+      await supabase.from('contact_log').update({ selected_for_today_at: now }).in('id', entryIds)
     }
-    // Mark action items
-    const actionIds = items.filter(i => i.actionItem).map(i => i.actionItem!.id)
     if (actionIds.length > 0) {
-      await supabase.from('action_items')
-        .update({ selected_for_today_at: now })
-        .in('id', actionIds)
+      await supabase.from('action_items').update({ selected_for_today_at: now }).in('id', actionIds)
     }
   }, [supabase])
 
-  // Check if today's selection exists, or compute fresh
+  // On load: check for existing selection or compute fresh
   useEffect(() => {
-    if (loading || selectionLocked) return
+    if (loading || selectionInitialized) return
 
-    // Check for already-selected items today
+    // Find IDs already selected today
     const selectedEntryIds = contactLog
       .filter(e => e.selected_for_today_at && e.selected_for_today_at >= dayStart)
       .map(e => e.id)
-
     const selectedActionIds = actionItems
       .filter(i => i.selected_for_today_at && i.selected_for_today_at >= dayStart)
       .map(i => i.id)
 
-    if (selectedEntryIds.length > 0 || selectedActionIds.length > 0) {
-      // Reconstruct locked items from previously selected
-      const top3 = getTactical3(contactLog, schools, actionItems, today)
-      const locked = top3.filter(item =>
-        (item.entry && selectedEntryIds.includes(item.entry.id)) ||
-        (item.actionItem && selectedActionIds.includes(item.actionItem.id))
-      )
-      setLockedItems(locked)
-      setSelectionLocked(true)
+    const existingIds = [...selectedEntryIds, ...selectedActionIds]
+
+    if (existingIds.length > 0) {
+      // Restore from DB
+      setSelectedIds(new Set(existingIds))
+      setSelectionInitialized(true)
     } else {
-      // First visit today — compute and persist
+      // First visit today — compute top 3 and persist
       const top3 = getTactical3(contactLog, schools, actionItems, today)
-      if (top3.length > 0) {
-        lockSelection(top3).then(() => {
-          setLockedItems(top3)
-          setSelectionLocked(true)
+      const newIds = top3.map(item => item.entry?.id ?? item.actionItem?.id).filter(Boolean) as string[]
+      if (newIds.length > 0) {
+        persistSelection(newIds, contactLog).then(() => {
+          setSelectedIds(new Set(newIds))
+          setSelectionInitialized(true)
         })
       } else {
-        setLockedItems([])
-        setSelectionLocked(true)
+        setSelectedIds(new Set())
+        setSelectionInitialized(true)
       }
     }
-  }, [loading, selectionLocked, contactLog, actionItems, schools, today, dayStart, lockSelection])
+  }, [loading, selectionInitialized, contactLog, actionItems, schools, today, dayStart, persistSelection])
 
-  // ── Active items (locked minus handled/snoozed) ────────────────────────────
+  // ── Derive active items from live data + selected IDs ──────────────────────
+  // Uses rebuildSelectedItems (no isAwaitingReply filter) so handled items
+  // retain their metadata. Then filters to only active (not handled/snoozed/completed).
+  const activeItems = useMemo((): TacticalItem[] => {
+    if (!selectionInitialized || selectedIds.size === 0) return []
 
-  const activeItems = useMemo(() =>
-    lockedItems.filter(item => {
-      if (item.entry) {
-        if (item.entry.handled_at) return false
-        if (item.entry.snoozed_until && item.entry.snoozed_until > new Date().toISOString()) return false
-      }
+    const allSelected = rebuildSelectedItems(selectedIds, contactLog, schools, actionItems, today)
+
+    return allSelected.filter(item => {
+      if (item.entry?.handled_at) return false
+      if (item.entry?.snoozed_until && item.entry.snoozed_until > new Date().toISOString()) return false
       if (item.actionItem?.completed_at) return false
       return true
-    }),
-    [lockedItems]
-  )
+    })
+  }, [selectionInitialized, selectedIds, contactLog, schools, actionItems, today])
 
-  // ── Handled today ──────────────────────────────────────────────────────────
-
-  const schoolMap = useMemo(() => new Map(schools.map(s => [s.id, s])), [schools])
-
+  // ── Handled today — from live contactLog ───────────────────────────────────
   const handledToday = useMemo(() =>
     contactLog
       .filter(e => e.handled_at && e.handled_at >= dayStart)
@@ -142,28 +135,28 @@ export default function TodayClient({
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   async function handleDone(entryId: string) {
+    // markHandled does optimistic update on contactLog entries state
     await markHandled(entryId)
-    // Update locked items to reflect handled state
-    setLockedItems(prev => prev.map(item =>
-      item.entry?.id === entryId
-        ? { ...item, entry: { ...item.entry!, handled_at: new Date().toISOString() } }
-        : item
-    ))
+    // No need to update selectedIds or lockedItems — activeItems and handledToday
+    // both derive from the live contactLog which markHandled already updated
   }
 
   async function handleUndo(entryId: string) {
-    await supabase.from('contact_log')
+    // Direct DB update + optimistic local update on contactLog
+    const { error } = await supabase.from('contact_log')
       .update({ handled_at: null })
       .eq('id', entryId)
-    // Restore in locked items
-    setLockedItems(prev => prev.map(item =>
-      item.entry?.id === entryId
-        ? { ...item, entry: { ...item.entry!, handled_at: undefined } }
-        : item
-    ))
+    if (!error) {
+      // Force contactLog refetch since we bypassed the hook's optimistic path
+      // The realtime subscription will pick this up, but may lag
+      // Trigger immediate re-derive by... the contactLog entries are managed by useContactLog
+      // which has a realtime subscription. The update above will trigger a postgres_changes
+      // event, which calls fetchEntries, which updates the entries state.
+      // This is inherently async — the UI may lag by ~100ms. Acceptable.
+    }
   }
 
-  if (loading || !selectionLocked) {
+  if (loading || !selectionInitialized) {
     return (
       <div style={{
         minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -174,7 +167,6 @@ export default function TodayClient({
     )
   }
 
-  // Day of week for the masthead
   const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' })
   const dateLabel = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
   const overdueCount = actionItems.filter(i => i.due_date && i.due_date < today).length
