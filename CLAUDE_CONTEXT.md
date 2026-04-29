@@ -694,8 +694,10 @@ valid email.)
 - Migration 028: `rq_updated_at`, `last_video_url`, `last_video_title`, `last_video_sent_at`
   on schools. Video backfill: 44 schools populated via YouTube oEmbed.
 - Migration 029: rq_status enum cleanup (collapsed legacy values).
-- Right-rail polish: editable notes (inline textarea), RQ status (click-to-edit dropdown
-  with rq_updated_at tracking), video display (hyperlinked title + sent date).
+- Right-rail polish: all About panel fields editable inline — notes (textarea), RQ status
+  (dropdown with rq_updated_at), Tier (dropdown A/B/C/Nope), Admit (dropdown with null
+  option), video display (hyperlinked title + sent date). School detail is now fully
+  two-way: every field is viewable and editable without leaving the page.
 
 ### Phase 1 Complete (2026-04-24)
 
@@ -2034,6 +2036,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-29 | Tier + Admit editable inline dropdowns in right-rail About panel — completes school detail two-way | Feature |
 | 2026-04-29 | Right-rail polish: editable notes (inline textarea), RQ status (click-to-edit dropdown + rq_updated_at tracking), video tracking display (last_video_url/title/sent_at with hyperlinked title) | Feature |
 | 2026-04-29 | Migration 029: rq_status enum cleanup — collapsed legacy "(no email yet)" values into Completed | Data |
 | 2026-04-29 | Migration 028: schools.rq_updated_at, last_video_url, last_video_title, last_video_sent_at + backfill 44 schools via YouTube oEmbed | Schema |
