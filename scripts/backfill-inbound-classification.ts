@@ -67,6 +67,7 @@ async function main() {
     .select('id, school_id, coach_name, summary, raw_source, channel')
     .eq('direction', 'Inbound')
     .not('school_id', 'is', null)   // orphan rows have no school context; skip classification
+    .neq('parse_notes', 'Manual log entry')  // manual entries are user-authored, not coach inbounds
 
   if (!RECLASSIFY_ALL) {
     query = query.is('classified_at', null)

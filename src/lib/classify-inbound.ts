@@ -220,6 +220,14 @@ export async function classifyAndUpdate(
   input: ClassificationInput,
 ): Promise<void> {
   try {
+    // Guard: skip manual log entries (user-authored, not coach inbounds)
+    const { data: row } = await admin
+      .from('contact_log')
+      .select('parse_notes')
+      .eq('id', rowId)
+      .single()
+    if (row?.parse_notes === 'Manual log entry') return
+
     const result = await classifyInbound(input)
     const { error } = await admin
       .from('contact_log')
