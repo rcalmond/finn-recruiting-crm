@@ -234,15 +234,19 @@ function TacticalCard({
               <button onClick={() => onDismiss(item.entry!.id)} style={secondaryBtn}>Dismiss</button>
             </>
           )}
-          {isCold && (
-            <button
-              onClick={() => onDraftFresh(item.school.id)}
-              style={{
-                padding: '6px 14px', background: LV.ink, color: '#fff',
-                border: 'none', borderRadius: 999, fontSize: 12, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >Draft check-in</button>
+          {isCold && item.entry && (
+            <>
+              <button
+                onClick={() => onNavigate(item.school.id)}
+                style={{
+                  padding: '6px 14px', background: LV.ink, color: '#fff',
+                  border: 'none', borderRadius: 999, fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >Open school</button>
+              <button onClick={() => onSnooze(item.entry!.id)} style={secondaryBtn}>Snooze 7d</button>
+              <button onClick={() => onDismiss(item.entry!.id)} style={secondaryBtn}>Dismiss</button>
+            </>
           )}
           {isAction && item.actionItem && (
             <label style={{
