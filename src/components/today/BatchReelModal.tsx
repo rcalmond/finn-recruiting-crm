@@ -45,11 +45,9 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
   const sent = listed.filter(s => states.get(s.id) === 'sent')
   const skipped = listed.filter(s => states.get(s.id) === 'skipped')
 
-  function startNext() {
-    const next = pending[0]
-    if (!next) return
-    setStates(prev => new Map(prev).set(next.id, 'drafting'))
-    setDraftingSchoolId(next.id)
+  function startSchool(schoolId: string) {
+    setStates(prev => new Map(prev).set(schoolId, 'drafting'))
+    setDraftingSchoolId(schoolId)
   }
 
   function handleSent(schoolId: string) {
@@ -96,16 +94,26 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
           }}>&times;</button>
         </div>
 
-        {/* School list */}
+        {/* School list — pending rows are clickable */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
           {listed.map(s => {
             const state = states.get(s.id) ?? 'pending'
+            const isPending = state === 'pending'
             return (
-              <div key={s.id} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 20px',
-                opacity: state === 'skipped' ? 0.4 : 1,
-              }}>
+              <div
+                key={s.id}
+                onClick={() => isPending && startSchool(s.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 20px',
+                  opacity: state === 'skipped' ? 0.4 : 1,
+                  cursor: isPending ? 'pointer' : 'default',
+                  background: isPending ? undefined : 'transparent',
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={e => { if (isPending) e.currentTarget.style.background = '#F0EDE4' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+              >
                 {/* Status indicator */}
                 <div style={{
                   width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
@@ -123,7 +131,7 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
                 }}>{s.category}</span>
                 <span style={{
                   fontSize: 13, fontWeight: 600, color: LV.ink, flex: 1,
-                  textDecoration: state === 'sent' ? 'line-through' : state === 'skipped' ? 'line-through' : 'none',
+                  textDecoration: state === 'sent' || state === 'skipped' ? 'line-through' : 'none',
                 }}>
                   {s.short_name || s.name}
                 </span>
@@ -139,7 +147,7 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
           })}
         </div>
 
-        {/* Footer */}
+        {/* Footer — only shows Done when all processed */}
         <div style={{
           padding: '14px 20px', borderTop: `1px solid ${LV.line}`,
           display: 'flex', justifyContent: 'flex-end', gap: 8,
@@ -150,15 +158,11 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
               border: 'none', borderRadius: 999, fontSize: 13, fontWeight: 700,
               cursor: 'pointer', fontFamily: 'inherit',
             }}>Done</button>
-          ) : !draftingSchoolId ? (
-            <button onClick={startNext} style={{
-              padding: '8px 18px', background: LV.ink, color: '#fff',
-              border: 'none', borderRadius: 999, fontSize: 13, fontWeight: 700,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>
-              {sent.length > 0 || skipped.length > 0 ? 'Next school' : 'Start'}
-            </button>
-          ) : null}
+          ) : (
+            <div style={{ fontSize: 11, color: LV.inkMute }}>
+              Click any pending school to draft
+            </div>
+          )}
         </div>
       </div>
 
