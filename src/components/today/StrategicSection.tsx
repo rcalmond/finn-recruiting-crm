@@ -94,21 +94,6 @@ function PromptCard({ prompt, onAction, onSkip }: {
   onAction: () => void
   onSkip: () => void
 }) {
-  if (prompt.resolved) {
-    return (
-      <div style={{
-        padding: '12px 16px', borderRadius: 10,
-        background: LV.tealSoft, border: `1px solid ${LV.tealDeep}22`,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: LV.tealDeep }}>
-          {prompt.summary}
-        </span>
-        <span style={{ fontSize: 11, color: LV.tealDeep, fontWeight: 700 }}>Done</span>
-      </div>
-    )
-  }
-
   return (
     <div style={{
       padding: '14px 18px', borderRadius: 10,

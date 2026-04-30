@@ -175,54 +175,48 @@ export function getStrategicPrompts(
     {
       key: 'reel_coverage',
       question: 'Have your target schools seen your latest reel?',
-      summary: reel.count > 0
-        ? `${reel.total - reel.count} of ${reel.total} Tier A/B schools on latest reel`
-        : 'All Tier A/B schools have your latest reel',
+      summary: `${reel.count} of ${reel.total} Tier A/B schools need your latest reel`,
       actionLabel: 'Send latest reel',
       actionKey: 'batch_reel',
       ...reel,
-      resolved: reel.count === 0,
+      resolved: false,
       skippedThisWeek: skippedKeys.has('reel_coverage'),
     },
     {
       key: 'rq_refresh',
       question: 'Time to update some RQs?',
-      summary: rq.count > 0
-        ? `${rq.count} Tier A/B schools have RQs that need attention`
-        : 'All Tier A/B school RQs are up to date',
+      summary: `${rq.count} Tier A/B schools have RQs that need attention`,
       actionLabel: 'View list',
       actionKey: 'school_list',
       ...rq,
-      resolved: rq.count === 0,
+      resolved: false,
       skippedThisWeek: skippedKeys.has('rq_refresh'),
     },
     {
       key: 'stale_tier_a',
       question: 'Some Tier A schools have gone quiet?',
-      summary: stale.count > 0
-        ? `${stale.count} Tier A school${stale.count !== 1 ? 's' : ''} haven't heard from you in 30+ days`
-        : 'All Tier A schools contacted within 30 days',
+      summary: `${stale.count} Tier A school${stale.count !== 1 ? 's' : ''} haven't heard from you in 30+ days`,
       actionLabel: 'View list',
       actionKey: 'school_list',
       ...stale,
-      resolved: stale.count === 0,
+      resolved: false,
       skippedThisWeek: skippedKeys.has('stale_tier_a'),
     },
     {
       key: 'pipeline_shape',
-      question: 'How is your school list shaped?',
-      summary: `${a} Tier A · ${b} Tier B · ${c} Tier C${pipeline.count > 0 ? ' — light on backups' : ''}`,
+      question: 'Your school list is light on backups',
+      summary: `${a} Tier A · ${b} Tier B · ${c} Tier C`,
       actionLabel: 'Add schools',
       actionKey: 'add_schools',
       ...pipeline,
-      resolved: pipeline.count === 0,
+      resolved: false,
       skippedThisWeek: skippedKeys.has('pipeline_shape'),
     },
   ]
 
-  // Filter out skipped, sort by relevance, take top 3
+  // Only surface prompts with real issues (count > 0, score > 0), not skipped, top 3
   return prompts
-    .filter(p => !p.skippedThisWeek)
+    .filter(p => !p.skippedThisWeek && p.count > 0 && p.relevanceScore > 0)
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
     .slice(0, 3)
 }
