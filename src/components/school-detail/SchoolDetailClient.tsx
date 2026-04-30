@@ -1267,6 +1267,8 @@ function Sidebar({
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesText, setNotesText] = useState(school.notes ?? '')
   const [editingRQ, setEditingRQ] = useState(false)
+  const [editingRqLink, setEditingRqLink] = useState(false)
+  const [rqLinkText, setRqLinkText] = useState(school.rq_link ?? '')
   const [editingTier, setEditingTier] = useState(false)
   const [editingAdmit, setEditingAdmit] = useState(false)
   // ── About rows — only non-null values ────────────────────────────────────────
@@ -1509,38 +1511,78 @@ function Sidebar({
             )}
           </div>
 
-          {/* RQ Status — editable */}
+          {/* RQ Status — editable with link + mark updated */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, flexShrink: 0 }}>RQ status</div>
-            {editingRQ ? (
-              <select
-                autoFocus
-                value={school.rq_status ?? ''}
-                onChange={async (e) => {
-                  const newStatus = e.target.value || null
-                  const updates: Partial<School> = { rq_status: newStatus }
-                  if (newStatus === 'Completed') updates.rq_updated_at = new Date().toISOString()
-                  await onUpdateSchool(updates)
-                  setEditingRQ(false)
-                }}
-                onBlur={() => setEditingRQ(false)}
-                style={{ fontSize: 12, padding: '2px 4px', border: `1px solid ${SD.line}`, borderRadius: 4, outline: 'none' }}
-              >
-                <option value="">—</option>
-                <option value="To Do">To Do</option>
-                <option value="Updated">Updated</option>
-                <option value="Completed">Completed</option>
-              </select>
-            ) : (
-              <div style={{ textAlign: 'right', cursor: 'pointer' }} onClick={() => setEditingRQ(true)}>
-                <div style={{ fontSize: 12, color: SD.ink, fontWeight: 500 }}>{school.rq_status ?? '—'}</div>
-                {school.rq_updated_at && school.rq_status === 'Completed' && (
-                  <div style={{ fontSize: 10, color: SD.inkLo, marginTop: 1 }}>
-                    Last updated: {new Date(school.rq_updated_at).toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' })}
+            <div style={{ textAlign: 'right', flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                {editingRQ ? (
+                  <select
+                    autoFocus
+                    value={school.rq_status ?? ''}
+                    onChange={async (e) => {
+                      const newStatus = e.target.value || null
+                      const updates: Partial<School> = { rq_status: newStatus }
+                      if (newStatus === 'Completed') updates.rq_updated_at = new Date().toISOString()
+                      await onUpdateSchool(updates)
+                      setEditingRQ(false)
+                    }}
+                    onBlur={() => setEditingRQ(false)}
+                    style={{ fontSize: 12, padding: '2px 4px', border: `1px solid ${SD.line}`, borderRadius: 4, outline: 'none' }}
+                  >
+                    <option value="">—</option>
+                    <option value="To Do">To Do</option>
+                    <option value="Updated">Updated</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                ) : (
+                  <span style={{ fontSize: 12, color: SD.ink, fontWeight: 500, cursor: 'pointer' }} onClick={() => setEditingRQ(true)}>
+                    {school.rq_status ?? '—'}
+                  </span>
+                )}
+                <button
+                  onClick={async () => await onUpdateSchool({ rq_updated_at: new Date().toISOString() })}
+                  style={{
+                    background: 'none', border: `1px solid ${SD.line}`, borderRadius: 4,
+                    padding: '1px 6px', fontSize: 9, fontWeight: 600, cursor: 'pointer',
+                    fontFamily: 'inherit', color: SD.tealDeep,
+                  }}
+                >Mark updated</button>
+              </div>
+              {school.rq_updated_at && (
+                <div style={{ fontSize: 10, color: SD.inkLo, marginTop: 2 }}>
+                  Last updated: {new Date(school.rq_updated_at).toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' })}
+                </div>
+              )}
+              {/* RQ link */}
+              <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                {school.rq_link ? (
+                  <a href={school.rq_link} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 10, color: SD.tealDeep, textDecoration: 'none', fontWeight: 600 }}>
+                    Open RQ
+                  </a>
+                ) : null}
+                {editingRqLink ? (
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <input
+                      autoFocus
+                      value={rqLinkText}
+                      onChange={e => setRqLinkText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Escape') setEditingRqLink(false); if (e.key === 'Enter') { onUpdateSchool({ rq_link: rqLinkText.trim() || null }); setEditingRqLink(false) } }}
+                      placeholder="https://..."
+                      style={{ width: 140, padding: '2px 4px', border: `1px solid ${SD.line}`, borderRadius: 4, fontSize: 10, outline: 'none' }}
+                    />
+                    <button onClick={() => { onUpdateSchool({ rq_link: rqLinkText.trim() || null }); setEditingRqLink(false) }}
+                      style={{ background: 'none', border: 'none', fontSize: 10, fontWeight: 600, color: SD.tealDeep, cursor: 'pointer' }}>Save</button>
                   </div>
+                ) : (
+                  <button
+                    onClick={() => { setRqLinkText(school.rq_link ?? ''); setEditingRqLink(true) }}
+                    style={{ background: 'none', border: 'none', fontSize: 10, color: SD.inkMute, cursor: 'pointer', padding: 0 }}
+                  >{school.rq_link ? '✎' : 'Add RQ link'}</button>
                 )}
               </div>
-            )}
+            </div>
           </div>
 
           {/* Videos sent — with title + link */}

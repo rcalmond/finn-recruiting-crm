@@ -8,8 +8,11 @@ import { createClient } from '@/lib/supabase/client'
 import { todayStr } from '@/lib/utils'
 import { getTactical3, rebuildSelectedItems, type TacticalItem } from '@/lib/today-scoring'
 import { mountainTimeToday, mountainDayStartUTC } from '@/lib/today-selection'
+import { getStrategicPrompts, getCurrentWeekStart, type StrategicPrompt } from '@/lib/strategic-prompts'
 import DraftModal from './DraftModal'
 import TacticalSection from './today/TacticalSection'
+import StrategicSection from './today/StrategicSection'
+import BatchReelModal from './today/BatchReelModal'
 import HandledSection from './today/HandledSection'
 
 interface DraftTarget {
@@ -50,6 +53,39 @@ export default function TodayClient({
   const schoolMap = useMemo(() => new Map(schools.map(s => [s.id, s])), [schools])
 
   const [draftTarget, setDraftTarget] = useState<DraftTarget | null>(null)
+  const [batchReelSchoolIds, setBatchReelSchoolIds] = useState<string[] | null>(null)
+
+  // ── Strategic prompts ──────────────────────────────────────────────────────
+  const [skippedKeys, setSkippedKeys] = useState<Set<string>>(new Set())
+  const [skipsLoaded, setSkipsLoaded] = useState(false)
+  const [currentReelUrl, setCurrentReelUrl] = useState<string | null>(null)
+  const [profileLoaded, setProfileLoaded] = useState(false)
+
+  // Load skips and player profile on mount
+  useEffect(() => {
+    const weekStart = getCurrentWeekStart()
+    supabase.from('strategic_skips')
+      .select('prompt_key')
+      .eq('week_start', weekStart)
+      .then(({ data }) => {
+        setSkippedKeys(new Set((data ?? []).map((r: { prompt_key: string }) => r.prompt_key)))
+        setSkipsLoaded(true)
+      })
+    supabase.from('player_profile')
+      .select('current_reel_url')
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        setCurrentReelUrl((data as { current_reel_url: string | null } | null)?.current_reel_url ?? null)
+        setProfileLoaded(true)
+      })
+  }, [supabase])
+
+  async function handleSkipPrompt(key: string) {
+    const weekStart = getCurrentWeekStart()
+    await supabase.from('strategic_skips').insert({ prompt_key: key, week_start: weekStart })
+    setSkippedKeys(prev => new Set(prev).add(key))
+  }
 
   // ── Track which IDs are selected for today (persisted to DB) ───────────────
   // This is a Set of entry/action IDs, NOT TacticalItem objects.
@@ -118,6 +154,23 @@ export default function TodayClient({
       return true
     })
   }, [selectionInitialized, selectedIds, contactLog, schools, actionItems, today])
+
+  // ── Strategic prompts (computed after activeItems to exclude tactical schools) ──
+  const tacticalSchoolIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const e of contactLog) {
+      if (selectedIds.has(e.id)) ids.add(e.school_id)
+    }
+    for (const a of actionItems) {
+      if (selectedIds.has(a.id)) ids.add(a.school_id)
+    }
+    return ids
+  }, [selectedIds, contactLog, actionItems])
+
+  const strategicPrompts = useMemo(() => {
+    if (!skipsLoaded || !profileLoaded) return []
+    return getStrategicPrompts(schools, contactLog, currentReelUrl, skippedKeys, tacticalSchoolIds)
+  }, [schools, contactLog, currentReelUrl, skippedKeys, skipsLoaded, profileLoaded, tacticalSchoolIds])
 
   // ── Handled today — from live contactLog ───────────────────────────────────
   const handledToday = useMemo(() =>
@@ -256,6 +309,24 @@ export default function TodayClient({
         onSnooze={async (id) => { await snoozeEntry(id) }}
         onDone={handleDone}
       />
+
+      {/* Strategic zone — Think · This week */}
+      <StrategicSection
+        prompts={strategicPrompts}
+        schools={schools}
+        onSkip={handleSkipPrompt}
+        onBatchReel={(ids) => setBatchReelSchoolIds(ids)}
+      />
+
+      {/* Batch reel send modal */}
+      {batchReelSchoolIds && (
+        <BatchReelModal
+          schoolIds={batchReelSchoolIds}
+          schools={schools}
+          userId={user.id}
+          onClose={() => setBatchReelSchoolIds(null)}
+        />
+      )}
 
       {/* Recently handled */}
       <HandledSection

@@ -33,6 +33,7 @@ export interface School {
   last_video_url: string | null
   last_video_title: string | null
   last_video_sent_at: string | null
+  rq_link: string | null
   notes: string | null
   generic_team_email: string | null
   aliases: string[]
@@ -251,6 +252,9 @@ export interface PlayerProfile {
   academic_summary: string | null
   last_parsed_at: string | null
   source_asset_id: string | null
+  current_reel_url: string | null
+  current_reel_title: string | null
+  current_reel_updated_at: string | null
   created_at: string
   updated_at: string
 }
