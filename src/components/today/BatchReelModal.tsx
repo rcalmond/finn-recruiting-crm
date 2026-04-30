@@ -63,14 +63,14 @@ export default function BatchReelModal({ schoolIds, schools, userId, onClose }: 
     <>
       {/* Backdrop */}
       <div onClick={onClose} style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 1100,
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 1050,
       }} />
 
       {/* Main panel */}
       <div style={{
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
         width: 480, maxHeight: '80vh', background: '#fff', borderRadius: 12,
-        boxShadow: '0 20px 48px rgba(0,0,0,0.18)', zIndex: 1101,
+        boxShadow: '0 20px 48px rgba(0,0,0,0.18)', zIndex: 1051,
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
         {/* Header */}
