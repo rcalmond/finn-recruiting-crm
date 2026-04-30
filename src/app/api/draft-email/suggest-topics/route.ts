@@ -29,16 +29,25 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { schoolId, coachId } = await req.json() as {
+    const { schoolId, coachId, taskContext } = await req.json() as {
       schoolId: string
       coachId: string | null
+      taskContext?: { type: string; metadata?: { reelUrl?: string; reelTitle?: string } }
     }
 
     if (!schoolId) {
       return NextResponse.json({ error: 'schoolId is required' }, { status: 400 })
     }
 
-    const { system, user: userPrompt } = await buildTopicSuggestPrompt(admin(), schoolId, coachId)
+    const { system: baseSystem, user: userPrompt } = await buildTopicSuggestPrompt(admin(), schoolId, coachId)
+
+    // Append task context to system prompt when present
+    let system = baseSystem
+    if (taskContext?.type === 'send_reel') {
+      const reelTitle = taskContext.metadata?.reelTitle ?? 'highlight reel'
+      const reelUrl = taskContext.metadata?.reelUrl ?? ''
+      system += `\n\nTASK CONTEXT:\nThis email is part of a batch where Finn is sharing his updated highlight reel with target schools. The reel is: ${reelTitle}${reelUrl ? ` (${reelUrl})` : ''}.\n\nAll suggested topics should center on:\n- Sharing the new reel as the primary purpose\n- Connecting it to recent communications or school interests\n- Soliciting feedback or response from the coach\n\nTopic suggestions should NOT be generic — they should all relate to the reel-sharing purpose.`
+    }
 
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',

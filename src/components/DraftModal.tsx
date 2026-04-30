@@ -12,12 +12,21 @@ type DraftModalMode =
       coachRole?: string; schoolTier?: string; campaignId: string;
       renderedBody: string; channelRec?: 'gmail' | 'sr' | null }
 
+export interface TaskContext {
+  type: 'send_reel' | 'general'
+  metadata?: {
+    reelUrl?: string
+    reelTitle?: string
+  }
+}
+
 interface DraftModalProps {
   mode: DraftModalMode
   userId: string
   onClose: () => void
   onSent?: () => void
   onDismissed?: () => void  // campaign mode only
+  taskContext?: TaskContext
 }
 
 // ─── Stages ──────────────────────────────────────────────────────────────────
@@ -30,7 +39,7 @@ type Stage =
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function DraftModal({ mode, userId, onClose, onSent, onDismissed }: DraftModalProps) {
+export default function DraftModal({ mode, userId, onClose, onSent, onDismissed, taskContext }: DraftModalProps) {
   const isCampaign = mode.kind === 'campaign'
   const isReply = mode.kind === 'reply'
   const isFresh = mode.kind === 'fresh'
@@ -60,6 +69,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed 
         body: JSON.stringify({
           schoolId: mode.schoolId,
           coachId: mode.coachId,
+          taskContext: taskContext ?? undefined,
         }),
       })
       const json = await res.json()
@@ -89,6 +99,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed 
       if (selectedTopic) payload.selectedTopic = selectedTopic
       if (brief.trim()) payload.brief = brief.trim()
       if (isReply) payload.replyToContactLogId = mode.replyToContactLogId
+      if (taskContext) payload.taskContext = taskContext
 
       const res = await fetch('/api/draft-email', {
         method: 'POST',

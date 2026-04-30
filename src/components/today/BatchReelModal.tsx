@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import type { School } from '@/lib/types'
-import DraftModal from '@/components/DraftModal'
+import DraftModal, { type TaskContext } from '@/components/DraftModal'
 
 const LV = {
   ink: '#0E0E0E',
@@ -18,12 +18,18 @@ interface Props {
   schoolIds: string[]
   schools: School[]
   userId: string
+  reelUrl: string | null
+  reelTitle: string | null
   onClose: () => void
 }
 
 type SchoolState = 'pending' | 'drafting' | 'sent' | 'skipped'
 
-export default function BatchReelModal({ schoolIds, schools, userId, onClose }: Props) {
+export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, reelTitle, onClose }: Props) {
+  const reelTaskContext: TaskContext | undefined = reelUrl ? {
+    type: 'send_reel',
+    metadata: { reelUrl, reelTitle: reelTitle ?? undefined },
+  } : undefined
   const schoolMap = useMemo(() => new Map(schools.map(s => [s.id, s])), [schools])
   const listed = useMemo(() =>
     schoolIds.map(id => schoolMap.get(id)).filter(Boolean) as School[],
@@ -166,6 +172,7 @@ export default function BatchReelModal({ schoolIds, schools, userId, onClose }: 
             schoolName: draftingSchool.name,
           }}
           userId={userId}
+          taskContext={reelTaskContext}
           onClose={() => handleSkip(draftingSchoolId)}
           onSent={() => handleSent(draftingSchoolId)}
         />

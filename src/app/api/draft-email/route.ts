@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
       brief?: string
       selectedTopic?: string
       replyToContactLogId?: string
+      taskContext?: { type: string; metadata?: { reelUrl?: string; reelTitle?: string } }
     }
 
     if (!body.schoolId) {
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
 
     const isReply = !!body.replyToContactLogId
 
-    const { system, user: userPrompt } = await buildEmailDraftPrompt(admin(), {
+    const { system: baseSystem, user: userPrompt } = await buildEmailDraftPrompt(admin(), {
       schoolId: body.schoolId,
       coachId: body.coachId ?? null,
       brief: body.brief,
@@ -69,6 +70,14 @@ export async function POST(req: NextRequest) {
       context: 'individual',
       replyToContactLogId: body.replyToContactLogId,
     })
+
+    // Append task context when present (e.g., batch reel send)
+    let system = baseSystem
+    if (body.taskContext?.type === 'send_reel') {
+      const reelTitle = body.taskContext.metadata?.reelTitle ?? 'highlight reel'
+      const reelUrl = body.taskContext.metadata?.reelUrl ?? ''
+      system += `\n\nTASK CONTEXT:\nThis email's primary purpose is sharing Finn's updated highlight reel: ${reelTitle}${reelUrl ? ` (${reelUrl})` : ''}. Lead with the reel as the reason for reaching out. Connect it to the school-specific context (prior conversations, position fit, program interest). Keep the reel link prominent.`
+    }
 
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',

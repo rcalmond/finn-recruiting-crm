@@ -59,6 +59,7 @@ export default function TodayClient({
   const [skippedKeys, setSkippedKeys] = useState<Set<string>>(new Set())
   const [skipsLoaded, setSkipsLoaded] = useState(false)
   const [currentReelUrl, setCurrentReelUrl] = useState<string | null>(null)
+  const [currentReelTitle, setCurrentReelTitle] = useState<string | null>(null)
   const [profileLoaded, setProfileLoaded] = useState(false)
 
   // Load skips and player profile on mount
@@ -72,11 +73,13 @@ export default function TodayClient({
         setSkipsLoaded(true)
       })
     supabase.from('player_profile')
-      .select('current_reel_url')
+      .select('current_reel_url, current_reel_title')
       .limit(1)
       .single()
       .then(({ data }) => {
-        setCurrentReelUrl((data as { current_reel_url: string | null } | null)?.current_reel_url ?? null)
+        const d = data as { current_reel_url: string | null; current_reel_title: string | null } | null
+        setCurrentReelUrl(d?.current_reel_url ?? null)
+        setCurrentReelTitle(d?.current_reel_title ?? null)
         setProfileLoaded(true)
       })
   }, [supabase])
@@ -324,6 +327,8 @@ export default function TodayClient({
           schoolIds={batchReelSchoolIds}
           schools={schools}
           userId={user.id}
+          reelUrl={currentReelUrl}
+          reelTitle={currentReelTitle}
           onClose={() => setBatchReelSchoolIds(null)}
         />
       )}
