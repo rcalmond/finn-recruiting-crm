@@ -2,8 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 
 type NavItem = {
+  label: string
+  href: string
+  count?: number
+}
+
+type ToolsSubItem = {
   label: string
   href: string
   count?: number
@@ -12,25 +19,42 @@ type NavItem = {
 // Sub-paths that belong to the Library section
 const LIBRARY_PATHS = ['/library', '/assets', '/questions']
 
-function buildNavItems(
+// Tools sub-items (settings routes)
+const TOOLS_PATHS = [
+  '/settings/coach-changes',
+  '/settings/gmail-partials',
+  '/settings/classification-review',
+  '/settings/gmail',
+  '/tools',
+]
+
+function buildTopNavItems(): NavItem[] {
+  return [
+    { label: 'Today',     href: '/'          },
+    { label: 'Schools',   href: '/schools'   },
+    { label: 'Campaigns', href: '/campaigns' },
+    { label: 'Library',   href: '/library'   },
+  ]
+}
+
+function buildToolsSubItems(
   pendingCoachChanges: number,
   pendingGmailPartials: number,
   pendingClassification: number,
-): NavItem[] {
+): ToolsSubItem[] {
   return [
-    { label: 'Today',          href: '/'                       },
-    { label: 'Schools',        href: '/schools'                },
-    { label: 'Campaigns',      href: '/campaigns'              },
-    { label: 'Library',        href: '/library'                },
-    { label: 'Import',         href: '/bulk-import'            },
-    { label: 'Review',         href: '/settings/coach-changes',
+    { label: 'Coach Changes',         href: '/settings/coach-changes',
       count: pendingCoachChanges > 0 ? pendingCoachChanges : undefined },
-    { label: 'Gmail Partials', href: '/settings/gmail-partials',
+    { label: 'Parse Review',          href: '/settings/gmail-partials',
       count: pendingGmailPartials > 0 ? pendingGmailPartials : undefined },
-    { label: 'Email Review',   href: '/settings/classification-review',
+    { label: 'Classification Review', href: '/settings/classification-review',
       count: pendingClassification > 0 ? pendingClassification : undefined },
-    { label: 'Settings',       href: '/settings/gmail'         },
+    { label: 'Gmail Settings',        href: '/settings/gmail' },
   ]
+}
+
+function isToolsPath(pathname: string) {
+  return TOOLS_PATHS.some(p => pathname.startsWith(p))
 }
 
 // ── Sidebar (desktop) ──────────────────────────────────────────────
@@ -44,12 +68,17 @@ export function AppSidebar({
   pendingClassification?: number
 }) {
   const pathname = usePathname()
-  const NAV_ITEMS = buildNavItems(pendingCoachChanges, pendingGmailPartials, pendingClassification)
+  const TOP_ITEMS = buildTopNavItems()
+  const TOOLS_ITEMS = buildToolsSubItems(pendingCoachChanges, pendingGmailPartials, pendingClassification)
+
+  const toolsActive = isToolsPath(pathname)
+  const [toolsOpen, setToolsOpen] = useState(toolsActive)
+
+  const totalToolsBadge = pendingCoachChanges + pendingGmailPartials + pendingClassification
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
     if (href === '/library') return LIBRARY_PATHS.some(p => pathname.startsWith(p))
-    if (href === '/settings/gmail') return pathname === '/settings/gmail'
     return pathname.startsWith(href)
   }
 
@@ -87,7 +116,7 @@ export function AppSidebar({
 
       {/* Nav items */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {NAV_ITEMS.map(item => {
+        {TOP_ITEMS.map(item => {
           const on = isActive(item.href)
           return (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
@@ -102,19 +131,84 @@ export function AppSidebar({
                 transition: 'background 0.15s',
               }}>
                 <span>{item.label}</span>
-                {item.count != null && (
-                  <span style={{
-                    marginLeft: 'auto',
-                    padding: '1px 7px', borderRadius: 10,
-                    background: on ? '#C8102E' : 'transparent',
-                    color: on ? '#fff' : '#7A7570',
-                    fontSize: 11, fontWeight: 700,
-                  }}>{item.count}</span>
-                )}
               </div>
             </Link>
           )
         })}
+
+        {/* Tools parent */}
+        <button
+          onClick={() => setToolsOpen(prev => !prev)}
+          style={{
+            all: 'unset',
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '10px 14px', borderRadius: 8,
+            background: toolsActive && !toolsOpen ? '#0E0E0E' : 'transparent',
+            cursor: 'pointer', fontSize: 14,
+            color: toolsActive && !toolsOpen ? '#fff' : toolsActive ? '#0E0E0E' : '#4A4A4A',
+            fontWeight: toolsActive ? 600 : 450,
+            letterSpacing: -0.1,
+            transition: 'background 0.15s',
+            width: '100%',
+            boxSizing: 'border-box',
+          }}
+        >
+          <span>Tools</span>
+          {/* Chevron */}
+          <svg
+            width="12" height="12" viewBox="0 0 12 12" fill="none"
+            style={{
+              marginLeft: 2,
+              transform: toolsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.15s',
+            }}
+          >
+            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {totalToolsBadge > 0 && (
+            <span style={{
+              marginLeft: 'auto',
+              padding: '1px 7px', borderRadius: 10,
+              background: toolsActive && !toolsOpen ? '#C8102E' : 'transparent',
+              color: toolsActive && !toolsOpen ? '#fff' : '#7A7570',
+              fontSize: 11, fontWeight: 700,
+            }}>{totalToolsBadge}</span>
+          )}
+        </button>
+
+        {/* Tools sub-items */}
+        {toolsOpen && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, paddingLeft: 12 }}>
+            {TOOLS_ITEMS.map(item => {
+              const on = isActive(item.href)
+              return (
+                <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '8px 14px', borderRadius: 8,
+                    background: on ? '#0E0E0E' : 'transparent',
+                    cursor: 'pointer', fontSize: 13,
+                    color: on ? '#fff' : '#4A4A4A',
+                    fontWeight: on ? 600 : 450,
+                    letterSpacing: -0.1,
+                    transition: 'background 0.15s',
+                  }}>
+                    <span>{item.label}</span>
+                    {item.count != null && (
+                      <span style={{
+                        marginLeft: 'auto',
+                        padding: '1px 7px', borderRadius: 10,
+                        background: on ? '#C8102E' : 'transparent',
+                        color: on ? '#fff' : '#7A7570',
+                        fontSize: 11, fontWeight: 700,
+                      }}>{item.count}</span>
+                    )}
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <div style={{ flex: 1 }} />
@@ -151,12 +245,22 @@ export function AppBottomNav({
   pendingClassification?: number
 }) {
   const pathname = usePathname()
-  const NAV_ITEMS = buildNavItems(pendingCoachChanges, pendingGmailPartials, pendingClassification)
+
+  const totalToolsBadge = pendingCoachChanges + pendingGmailPartials + pendingClassification
+
+  const MOBILE_ITEMS: NavItem[] = [
+    { label: 'Today',     href: '/'          },
+    { label: 'Schools',   href: '/schools'   },
+    { label: 'Campaigns', href: '/campaigns' },
+    { label: 'Library',   href: '/library'   },
+    { label: 'Tools',     href: '/tools',
+      count: totalToolsBadge > 0 ? totalToolsBadge : undefined },
+  ]
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
     if (href === '/library') return LIBRARY_PATHS.some(p => pathname.startsWith(p))
-    if (href === '/settings/gmail') return pathname === '/settings/gmail'
+    if (href === '/tools') return isToolsPath(pathname)
     return pathname.startsWith(href)
   }
 
@@ -169,7 +273,7 @@ export function AppBottomNav({
       display: 'flex', justifyContent: 'space-around',
       zIndex: 40,
     }}>
-      {NAV_ITEMS.map(item => {
+      {MOBILE_ITEMS.map(item => {
         const on = isActive(item.href)
         return (
           <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
@@ -186,7 +290,17 @@ export function AppBottomNav({
                   background: '#C8102E', borderRadius: 2,
                 }} />
               )}
-              {item.label}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                {item.label}
+                {item.count != null && (
+                  <span style={{
+                    padding: '0 5px', borderRadius: 8,
+                    background: '#C8102E', color: '#fff',
+                    fontSize: 9, fontWeight: 700,
+                    lineHeight: '16px',
+                  }}>{item.count}</span>
+                )}
+              </span>
             </div>
           </Link>
         )
