@@ -119,8 +119,12 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
   }
 
   function handleDraftClosed(schoolId: string) {
-    // DraftModal closed without sending — revert to pre-draft state, no DB write
-    setStates(prev => new Map(prev).set(schoolId, preDraftState ?? 'pending'))
+    // DraftModal closed — only revert if NOT already marked sent by handleSent
+    // (onSent fires before onClose; both reference the same closure)
+    setStates(prev => {
+      if (prev.get(schoolId) === 'sent') return prev // already handled by handleSent
+      return new Map(prev).set(schoolId, preDraftState ?? 'pending')
+    })
     setDraftingSchoolId(null)
     setPreDraftState(null)
   }

@@ -32,7 +32,7 @@ export default function StrategicSection({ prompts, schools, onSkip, onBatchReel
 
   function handleAction(prompt: StrategicPrompt) {
     if (prompt.actionKey === 'batch_reel') {
-      onBatchReel(prompt.affectedSchoolIds)
+      onBatchReel(prompt.allTargetSchoolIds)
     } else if (prompt.actionKey === 'school_list') {
       const schoolMap = new Map(schools.map(s => [s.id, s]))
       setListModal({

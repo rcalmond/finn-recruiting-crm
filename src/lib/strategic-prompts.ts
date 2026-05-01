@@ -22,7 +22,8 @@ export interface StrategicPrompt {
   resolved: boolean
   actionLabel: string
   actionKey: string          // used by UI to determine action type
-  affectedSchoolIds: string[] // for modal/batch flow
+  affectedSchoolIds: string[] // schools still needing action (excludes batch-sent)
+  allTargetSchoolIds: string[] // all schools in scope (for batch modal — includes already-sent)
   relevanceScore: number
   skippedThisWeek: boolean
 }
@@ -73,19 +74,20 @@ export function computeReelCoverage(
   schools: School[],
   currentReelUrl: string | null,
   batchSentSchoolIds: Set<string> = new Set()
-): Pick<StrategicPrompt, 'count' | 'total' | 'affectedSchoolIds' | 'relevanceScore'> {
-  if (!currentReelUrl) return { count: 0, total: 0, affectedSchoolIds: [], relevanceScore: 0 }
+): Pick<StrategicPrompt, 'count' | 'total' | 'affectedSchoolIds' | 'allTargetSchoolIds' | 'relevanceScore'> {
+  if (!currentReelUrl) return { count: 0, total: 0, affectedSchoolIds: [], allTargetSchoolIds: [], relevanceScore: 0 }
 
   const abSchools = schools.filter(s => tierAB(s) && isActive(s))
-  // A school is covered if: last_video_url matches current reel OR it has a batch_reel_send for the current reel
-  const affected = abSchools.filter(s =>
-    (!s.last_video_url || s.last_video_url !== currentReelUrl) && !batchSentSchoolIds.has(s.id)
-  )
+  // All A/B schools that don't have the current reel via last_video_url (includes batch-sent)
+  const allTarget = abSchools.filter(s => !s.last_video_url || s.last_video_url !== currentReelUrl)
+  // Remaining: those not yet batch-sent
+  const affected = allTarget.filter(s => !batchSentSchoolIds.has(s.id))
 
   return {
     count: affected.length,
     total: abSchools.length,
     affectedSchoolIds: affected.map(s => s.id),
+    allTargetSchoolIds: allTarget.map(s => s.id),
     relevanceScore: abSchools.length > 0 ? affected.length / abSchools.length : 0,
   }
 }
@@ -194,6 +196,7 @@ export function getStrategicPrompts(
       actionLabel: 'View list',
       actionKey: 'school_list',
       ...rq,
+      allTargetSchoolIds: rq.affectedSchoolIds,
       resolved: false,
       skippedThisWeek: skippedKeys.has('rq_refresh'),
     },
@@ -204,6 +207,7 @@ export function getStrategicPrompts(
       actionLabel: 'View list',
       actionKey: 'school_list',
       ...stale,
+      allTargetSchoolIds: stale.affectedSchoolIds,
       resolved: false,
       skippedThisWeek: skippedKeys.has('stale_tier_a'),
     },
@@ -214,6 +218,7 @@ export function getStrategicPrompts(
       actionLabel: 'Add schools',
       actionKey: 'add_schools',
       ...pipeline,
+      allTargetSchoolIds: [],
       resolved: false,
       skippedThisWeek: skippedKeys.has('pipeline_shape'),
     },
