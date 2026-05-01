@@ -374,20 +374,17 @@ export default function GmailPartialsClient({ partials }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 750, color: LV.ink, letterSpacing: -0.5, margin: 0 }}>
-              Gmail Partials
+              Parse Review
             </h1>
             <p style={{ fontSize: 13, color: LV.inkLo, marginTop: 4 }}>
-              {visible.length > 0
-                ? `${visible.length} email${visible.length !== 1 ? 's' : ''} couldn't be linked to a coach`
-                : 'All caught up — no partials to review'}
+              Resolve emails the Gmail parser couldn&apos;t fully process. Link to existing coaches or correct the parse manually.
             </p>
+            {visible.length > 0 && (
+              <p style={{ fontSize: 13, color: LV.ink, marginTop: 6, fontWeight: 500 }}>
+                {visible.length} email{visible.length !== 1 ? 's' : ''} couldn&apos;t be linked to a coach
+              </p>
+            )}
           </div>
-          <Link
-            href="/settings/gmail"
-            style={{ fontSize: 12, color: LV.inkLo, textDecoration: 'none' }}
-          >
-            ← Gmail settings
-          </Link>
         </div>
       </div>
 

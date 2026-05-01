@@ -311,20 +311,17 @@ export default function ClassificationReviewClient({ rows }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 750, color: LV.ink, letterSpacing: -0.5, margin: 0 }}>
-              Email Review
+              Classification Review
             </h1>
             <p style={{ fontSize: 13, color: LV.inkLo, marginTop: 4 }}>
-              {visible.length > 0
-                ? `${visible.length} email${visible.length !== 1 ? 's' : ''} Haiku wasn't sure how to classify`
-                : 'All caught up — no low-confidence emails to review'}
+              Confirm AI intent labels for emails the classifier wasn&apos;t confident about. Adjust the intent or accept the suggestion.
             </p>
+            {visible.length > 0 && (
+              <p style={{ fontSize: 13, color: LV.ink, marginTop: 6, fontWeight: 500 }}>
+                {visible.length} email{visible.length !== 1 ? 's' : ''} need review
+              </p>
+            )}
           </div>
-          <Link
-            href="/settings/gmail"
-            style={{ fontSize: 12, color: LV.inkLo, textDecoration: 'none' }}
-          >
-            ← Gmail settings
-          </Link>
         </div>
       </div>
 

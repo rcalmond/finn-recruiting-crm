@@ -83,10 +83,10 @@ export default function GmailSettingsClient({
       {/* Page header */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 22, fontWeight: 750, color: '#0E0E0E', letterSpacing: -0.5, margin: 0 }}>
-          Gmail Integration
+          Gmail Settings
         </h1>
         <p style={{ fontSize: 13, color: '#7A7570', marginTop: 4 }}>
-          Automatically capture recruiting emails from {connectedEmail ?? 'your Gmail account'}.
+          Manage Gmail integration — sync schedule, authentication, and connected accounts.
         </p>
       </div>
 

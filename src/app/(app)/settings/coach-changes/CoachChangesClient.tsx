@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -218,20 +218,17 @@ export default function CoachChangesClient({ groups }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 750, color: LV.ink, letterSpacing: -0.5, margin: 0 }}>
-              Coaching Staff Changes
+              Coach Changes
             </h1>
             <p style={{ fontSize: 13, color: LV.inkLo, marginTop: 4 }}>
-              {totalPending > 0
-                ? `${totalPending} change${totalPending !== 1 ? 's' : ''} pending review across ${groups.length} school${groups.length !== 1 ? 's' : ''}`
-                : 'All caught up — no pending changes'}
+              Review coach roster changes flagged by the biweekly sync. Approve, reject, or update each change.
             </p>
+            {totalPending > 0 && (
+              <p style={{ fontSize: 13, color: LV.ink, marginTop: 6, fontWeight: 500 }}>
+                {totalPending} change{totalPending !== 1 ? 's' : ''} pending review across {groups.length} school{groups.length !== 1 ? 's' : ''}
+              </p>
+            )}
           </div>
-          <Link
-            href="/settings/gmail"
-            style={{ fontSize: 12, color: LV.inkLo, textDecoration: 'none' }}
-          >
-            ← Gmail settings
-          </Link>
         </div>
       </div>
 

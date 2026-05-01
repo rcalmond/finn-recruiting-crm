@@ -76,11 +76,14 @@ export function AppSidebar({
 
   const totalToolsBadge = pendingCoachChanges + pendingGmailPartials + pendingClassification
 
-  const isActive = (href: string) => {
+  const isTopActive = (href: string) => {
     if (href === '/') return pathname === '/'
     if (href === '/library') return LIBRARY_PATHS.some(p => pathname.startsWith(p))
     return pathname.startsWith(href)
   }
+
+  // Tools sub-items use exact match to avoid /settings/gmail matching /settings/gmail-partials
+  const isSubActive = (href: string) => pathname === href
 
   return (
     <aside style={{
@@ -117,7 +120,7 @@ export function AppSidebar({
       {/* Nav items */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {TOP_ITEMS.map(item => {
-          const on = isActive(item.href)
+          const on = isTopActive(item.href)
           return (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
               <div style={{
@@ -180,7 +183,7 @@ export function AppSidebar({
         {toolsOpen && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1, paddingLeft: 12 }}>
             {TOOLS_ITEMS.map(item => {
-              const on = isActive(item.href)
+              const on = isSubActive(item.href)
               return (
                 <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
                   <div style={{
