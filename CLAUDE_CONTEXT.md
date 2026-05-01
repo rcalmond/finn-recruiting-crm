@@ -72,6 +72,7 @@ videos_sent         boolean           -- legacy; prefer last_video_url IS NOT NU
 last_video_url      text              -- most recent YouTube URL Finn sent to this school
 last_video_title    text              -- fetched via YouTube oEmbed
 last_video_sent_at  timestamptz       -- sent_at of the contact_log row containing the URL
+rq_link             text              -- URL to school's RQ page on their recruiting platform
 notes               text
 created_at          timestamptz
 updated_at          timestamptz
@@ -265,6 +266,53 @@ created_at    timestamptz
 reviewed_at   timestamptz
 reviewer_note text
 ```
+
+### Table: `player_profile` (singleton — migration 025)
+```
+id                    uuid PK
+current_stats         text
+upcoming_schedule     text
+highlights            text
+academic_summary      text
+last_parsed_at        timestamptz
+source_asset_id       uuid FK → assets.id
+current_reel_url      text              -- canonical "current reel" URL
+current_reel_title    text              -- fetched via YouTube oEmbed
+current_reel_updated_at timestamptz     -- when current reel was set
+created_at            timestamptz
+updated_at            timestamptz
+```
+
+Singleton enforced via partial unique index on `((true))`. Player profile is parsed from
+Finn's Soccer Resume by `src/lib/asset-parsers.ts` on upload. Current reel fields are
+managed via manual SQL for v1 (asset library UI for reel management is future work).
+
+### Table: `strategic_skips` (migration 032)
+```
+id          uuid PK
+prompt_key  text NOT NULL         -- e.g. 'reel_coverage', 'rq_refresh'
+week_start  date NOT NULL         -- Sunday date in Mountain time
+created_at  timestamptz default now()
+```
+
+Index: `(week_start, prompt_key)`. RLS enabled. Persists weekly "skip this week" actions
+for strategic prompts. Resets implicitly when week_start advances to next Sunday.
+
+### Table: `batch_reel_sends` (migration 033)
+```
+id          uuid PK
+school_id   uuid NOT NULL FK → schools.id (cascade delete)
+reel_url    text NOT NULL
+sent_via    text NOT NULL         -- 'Email' | 'Sports Recruits' | 'Skipped'
+sent_at     timestamptz NOT NULL default now()
+created_at  timestamptz default now()
+```
+
+Indexes: `(school_id, sent_at desc)`, `(reel_url)`. RLS enabled. Persists BatchReelModal
+flow state. Distinct from contact_log — contact_log only receives entries from actual email
+ingest. batch_reel_sends records Finn's intent during batch sends, including SR-sent cases
+that won't appear in contact_log until SR ingest captures the email.
+State derivation: most recent row per school_id by sent_at DESC wins.
 
 ### Scraper columns on `schools`
 ```
@@ -669,9 +717,20 @@ The isSRNotification brand detection bug (missing "SportsRecruits" without .com)
 Cross-source dedup (Gmail sync vs SR notification for same message) remains unbuilt. Low
 urgency; duplicates are harmless and manually cleaned when spotted.
 
-**Today strategic zone (Phase 3b) not yet built:**
-Dynamic prompts based on pipeline state (reel coverage, RQ status, stale Tier A, ID camp
-planning, pipeline gaps). Each prompt: question + actionable button. Weekly refresh cadence.
+**Asset library / player_profile UI for managing current_reel not yet built:**
+Current reel fields (current_reel_url, current_reel_title, current_reel_updated_at) are
+populated via manual SQL for v1. Future: editable in the asset library or player profile UI.
+
+**Batch flows only exist for reel_coverage prompt:**
+stale_tier_a, rq_refresh, and pipeline_shape use simple "View list" modals with click-through
+to school detail. Future: batch flows for those prompts too (e.g., batch RQ update flow).
+
+**LLM-augmented strategic prompts deferred to v2:**
+v1 ships with 4 hardcoded prompts. Future: LLM generates dynamic prompts based on pipeline
+state (ID camp planning, visit planning, pipeline gaps, recruiting timeline awareness).
+
+**ID camp and visit planning prompts not yet built:**
+Waiting on ID camp product features. Likely tied to a schools.id_camp_dates or similar schema.
 
 **Classifier intent inconsistency (requires_reply vs requires_action):**
 The classifier doesn't reliably distinguish between these two intents. Today's scoring
@@ -767,14 +826,46 @@ valid email.)
 
 **Migrations:** 030 (handled_at), 031 (selected_for_today_at on contact_log + action_items)
 
-### Phase 3b — Today Strategic Zone (PENDING)
+### Phase 3b — Today Strategic Zone (shipped 2026-04-30)
 
-Planned scope:
-- Dynamic prompts based on current pipeline state
-- Topics: reel coverage, RQ coverage, stale Tier A, ID camp planning, pipeline gaps
-- Each prompt: question + actionable button
-- Weekly refresh cadence
-- Not yet scoped in detail; depends on Phase 3a feedback
+**Four hardcoded prompts (`src/lib/strategic-prompts.ts`):**
+- `reel_coverage`: A/B schools where `last_video_url != current_reel_url` and no
+  `batch_reel_sends` row for the current reel. Score: count/total.
+- `rq_refresh`: A/B schools where rq_status != Completed OR rq_updated_at IS NULL OR
+  rq_updated_at < 60 days ago. Score: count/total.
+- `stale_tier_a`: Tier A schools with no outbound in 30+ days, excluding schools in
+  tactical selection. Score: min(count/8, 1.0) * 1.5.
+- `pipeline_shape`: surfaces when Tier A < 8 OR Tier B < 6. Score: 1.0 (A<8) or 0.5 (B<6).
+
+**Scoring and visibility:**
+- Top 3 by relevanceScore. Weekly cadence (Sunday 00:00 MT week boundary).
+- Visibility: !skippedThisWeek AND count > 0 AND relevanceScore > 0.
+- Gap-focused summaries ("X of Y need attention"), no success-state UI.
+- Server-side weekly skips via `strategic_skips` table.
+- `getCurrentWeekStart()` uses Intl.DateTimeFormat for timezone-safe Sunday calculation.
+
+**StrategicPrompt architecture:**
+- `affectedSchoolIds`: schools still needing the action (drives prompt card count)
+- `allTargetSchoolIds`: full target set including already-done (drives batch flow modal)
+
+**BatchReelModal (reel_coverage action):**
+- Lists all target A/B schools with state from `batch_reel_sends` (pending/sent/skipped)
+- Click any pending/skipped school to draft (any order — not forced sequential)
+- DraftModal opens with TaskContext `{type: 'send_reel', metadata: {reelUrl, reelTitle}}`
+  → reel-focused topic suggestions and draft generation
+- Sent = terminal (locked, checkmark). Skipped = re-clickable (revisit pattern).
+- Close-without-send: reverts to pre-draft state, no DB write.
+- State persists via `batch_reel_sends` table. Mount-time: most recent row per school wins.
+- Email path: writes `sent_via='Email'`. SR path: writes `sent_via='Sports Recruits'`.
+
+**School detail RQ enhancements:**
+- `rq_link` inline editable (pencil-on-hover pattern)
+- "Open RQ" link (visible when rq_link populated, opens in new tab)
+- "Mark updated" one-click button (bumps rq_updated_at = now())
+
+**Migrations:** 032 (rq_link, current_reel_*, strategic_skips), 033 (batch_reel_sends)
+
+Phase 3a + 3b together = Today redesign feature-complete.
 
 ### Phase 1 Complete (2026-04-24)
 
@@ -2113,6 +2204,8 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-04-30 | Phase 3b shipped: strategic zone — 4 hardcoded prompts (reel coverage, RQ refresh, stale Tier A, pipeline shape), BatchReelModal with persistence, TaskContext-aware email gen, school detail RQ enhancements | Feature |
+| 2026-04-30 | Migrations 032+033: strategic_skips, batch_reel_sends tables; schools.rq_link, player_profile.current_reel_* columns | Schema |
 | 2026-04-30 | Phase 3a shipped: Today tactical zone — scored top 3, locked daily selection, Done/Undo with handled_at, HandledSection, single source of truth state | Feature |
 | 2026-04-30 | Migrations 030+031: handled_at + selected_for_today_at on contact_log and action_items | Schema |
 | 2026-04-30 | Foundation: shared awaiting-reply.ts (isAwaitingReply + isTargetTier), tier/channel/intent filters, sent_at comparisons | Refactor |
