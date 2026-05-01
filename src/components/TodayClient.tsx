@@ -5,15 +5,18 @@ import type { User } from '@supabase/supabase-js'
 import type { School, ContactLogEntry } from '@/lib/types'
 import { useSchools, useContactLog, useActionItems } from '@/hooks/useRealtimeData'
 import { createClient } from '@/lib/supabase/client'
-import { todayStr } from '@/lib/utils'
+import { todayStr, daysBetween } from '@/lib/utils'
 import { getTactical3, rebuildSelectedItems, type TacticalItem } from '@/lib/today-scoring'
 import { mountainTimeToday, mountainDayStartUTC } from '@/lib/today-selection'
+import { isAwaitingReply } from '@/lib/awaiting-reply'
 import { getStrategicPrompts, getCurrentWeekStart, type StrategicPrompt } from '@/lib/strategic-prompts'
+import { getPipelineSchools } from '@/lib/pipeline-rail'
 import DraftModal from './DraftModal'
 import TacticalSection from './today/TacticalSection'
 import StrategicSection from './today/StrategicSection'
 import BatchReelModal from './today/BatchReelModal'
 import HandledSection from './today/HandledSection'
+import PipelineRail from './today/PipelineRail'
 
 interface DraftTarget {
   kind: 'fresh' | 'reply'
@@ -26,19 +29,19 @@ interface DraftTarget {
 }
 
 const LV = {
-  paper: '#F6F1E8',
-  ink: '#0E0E0E',
-  inkLo: '#7A7570',
+  paper:    '#F6F1E8',
+  ink:      '#0E0E0E',
+  inkLo:    '#7A7570',
+  inkMute:  '#A8A39B',
+  red:      '#C8102E',
+  tealDeep: '#006A65',
+  goldText: '#8A6F0E',
 }
 
 export default function TodayClient({
   user,
-  pendingCoachChanges = 0,
-  pendingGmailPartials = 0,
 }: {
   user: User
-  pendingCoachChanges?: number
-  pendingGmailPartials?: number
 }) {
   const today = todayStr()
   const mtToday = mountainTimeToday()
@@ -170,6 +173,69 @@ export default function TodayClient({
     })
   }, [selectionInitialized, selectedIds, contactLog, schools, actionItems, today])
 
+  // ── Masthead metrics ────────────────────────────────────────────────────────
+  // All scoped to Tier A/B, active schools only.
+  const mastheadMetrics = useMemo(() => {
+    const abSchools = schools.filter(s =>
+      (s.category === 'A' || s.category === 'B') && s.status !== 'Inactive'
+    )
+    const abIds = new Set(abSchools.map(s => s.id))
+
+    // Build per-school entry map for isAwaitingReply
+    const bySchool = new Map<string, ContactLogEntry[]>()
+    for (const e of contactLog) {
+      if (!e.school_id || !abIds.has(e.school_id)) continue
+      if (!bySchool.has(e.school_id)) bySchool.set(e.school_id, [])
+      bySchool.get(e.school_id)!.push(e)
+    }
+
+    // active: unique A/B schools with inbound awaiting reply
+    const activeSchools = new Set<string>()
+    bySchool.forEach((entries: ContactLogEntry[], schoolId: string) => {
+      const hasAwaiting = entries.some((e: ContactLogEntry) =>
+        e.direction === 'Inbound' && isAwaitingReply(e, entries)
+      )
+      if (hasAwaiting) activeSchools.add(schoolId)
+    })
+
+    // overdue: count of A/B action items (not schools) that are past due
+    const overdueCount = actionItems.filter(i =>
+      !i.completed_at && i.due_date && i.due_date < today && abIds.has(i.school_id)
+    ).length
+
+    // this week: unique A/B schools that are going_cold OR have action due in 7d
+    const weekSchools = new Set<string>()
+
+    // going_cold: A/B schools with most recent inbound awaiting 5+ days
+    bySchool.forEach((entries: ContactLogEntry[], schoolId: string) => {
+      const awaiting = entries.filter((e: ContactLogEntry) =>
+        e.direction === 'Inbound' && isAwaitingReply(e, entries)
+      )
+      if (awaiting.length > 0) {
+        const mostRecent = awaiting.sort((a: ContactLogEntry, b: ContactLogEntry) => b.sent_at.localeCompare(a.sent_at))[0]
+        const sentDate = new Date(mostRecent.sent_at).toLocaleDateString('en-CA', { timeZone: 'America/Denver' })
+        const days = daysBetween(sentDate)
+        if (days >= 5) weekSchools.add(schoolId)
+      }
+    })
+
+    // action items due within next 7 days (A/B only)
+    const todayDate = new Date(today)
+    const weekEnd = new Date(todayDate)
+    weekEnd.setDate(weekEnd.getDate() + 7)
+    const weekEndStr = weekEnd.toISOString().split('T')[0]
+    for (const item of actionItems) {
+      if (item.completed_at) continue
+      if (!item.due_date) continue
+      if (!abIds.has(item.school_id)) continue
+      if (item.due_date >= today && item.due_date <= weekEndStr) {
+        weekSchools.add(item.school_id)
+      }
+    }
+
+    return { active: activeSchools.size, overdue: overdueCount, week: weekSchools.size }
+  }, [schools, contactLog, actionItems, today])
+
   // ── Strategic prompts (computed after activeItems to exclude tactical schools) ──
   const tacticalSchoolIds = useMemo(() => {
     const ids = new Set<string>()
@@ -200,6 +266,12 @@ export default function TodayClient({
     [contactLog, dayStart, schoolMap]
   )
 
+  // ── Pipeline rail data ──────────────────────────────────────────────────────
+  const pipelineItems = useMemo(() =>
+    getPipelineSchools(schools, contactLog),
+    [schools, contactLog]
+  )
+
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   async function handleDone(entryId: string) {
@@ -226,112 +298,120 @@ export default function TodayClient({
 
   const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' })
   const dateLabel = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
-  const overdueCount = actionItems.filter(i => i.due_date && i.due_date < today).length
 
   return (
     <div style={{
       minHeight: '100vh',
       background: LV.paper,
-      paddingBottom: 'clamp(60px, 10vw, 100px)',
       fontFamily: "'Inter', -apple-system, sans-serif",
     }}>
-      {/* Masthead */}
+      {/* Masthead — full width, above the 2-column split */}
       <div style={{
-        padding: 'clamp(20px, 3vw, 14px) clamp(22px, 5vw, 56px) clamp(8px, 1vw, 8px)',
+        padding: '24px clamp(28px, 4vw, 56px) 8px',
       }}>
         <h1 style={{
           margin: 0,
-          fontSize: 'clamp(40px, 7vw, 64px)',
-          fontWeight: 700, letterSpacing: 'clamp(-2px, -0.03em, -3px)',
-          color: LV.ink, lineHeight: 1,
-          display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap',
+          fontSize: 'clamp(56px, 7vw, 88px)',
+          fontWeight: 700, letterSpacing: '-0.04em',
+          color: LV.ink, lineHeight: 0.95,
           fontStyle: 'italic',
-        }}>
-          Today.
-          {overdueCount > 0 && (
-            <span style={{
-              fontSize: 'clamp(12px, 1.5vw, 14px)', fontWeight: 700,
-              color: '#C8102E', letterSpacing: 0, fontStyle: 'normal',
-            }}>
-              {overdueCount} overdue
-            </span>
-          )}
-        </h1>
+        }}>Today.</h1>
+
+        {/* Metric line */}
         <div style={{
-          marginTop: 6, fontSize: 11, letterSpacing: '0.15em',
-          textTransform: 'uppercase', fontWeight: 700, color: LV.inkLo,
+          marginTop: 10,
+          display: 'flex', alignItems: 'baseline',
+          gap: 14, flexWrap: 'wrap',
+          fontSize: 14, fontWeight: 600,
+          letterSpacing: -0.1,
         }}>
-          {dayName} — {dateLabel}
+          {mastheadMetrics.overdue > 0 && (
+            <>
+              <span style={{ whiteSpace: 'nowrap' }}>
+                <span style={{ color: LV.red, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                  {mastheadMetrics.overdue}
+                </span>{' '}
+                <span style={{ color: LV.inkLo, fontWeight: 500 }}>overdue</span>
+              </span>
+              <span style={{ color: LV.inkMute }}>·</span>
+            </>
+          )}
+          <span style={{ whiteSpace: 'nowrap' }}>
+            <span style={{ color: LV.tealDeep, fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
+              {mastheadMetrics.active}
+            </span>{' '}
+            <span style={{ color: LV.inkLo, fontWeight: 500 }}>active</span>
+          </span>
+          <span style={{ color: LV.inkMute }}>·</span>
+          <span style={{ whiteSpace: 'nowrap' }}>
+            <span style={{ color: LV.goldText, fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
+              {mastheadMetrics.week}
+            </span>{' '}
+            <span style={{ color: LV.inkLo, fontWeight: 500 }}>this week</span>
+          </span>
+        </div>
+
+        {/* Date kicker */}
+        <div style={{
+          marginTop: 10, fontSize: 11, letterSpacing: '0.18em',
+          textTransform: 'uppercase', fontWeight: 800, color: LV.inkLo,
+        }}>
+          {dayName}, {dateLabel}
         </div>
       </div>
 
-      {/* Coach changes callout */}
-      {pendingCoachChanges > 0 && (
-        <div style={{ margin: 'clamp(0px, 1vw, 4px) clamp(22px, 5vw, 56px) 20px' }}>
-          <a href="/settings/coach-changes" style={{ textDecoration: 'none' }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '11px 16px', borderRadius: 8,
-              background: '#FEF3C7', border: '1px solid #FCD34D', cursor: 'pointer',
-            }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#92400E' }}>
-                {pendingCoachChanges} coaching staff change{pendingCoachChanges !== 1 ? 's' : ''} to review
-              </span>
-              <span style={{ fontSize: 12, color: '#B45309', fontWeight: 600 }}>Review →</span>
-            </div>
-          </a>
+      {/* 2-column: main content + pipeline rail */}
+      <div className="md:flex">
+        <main style={{ flex: 1, minWidth: 0, paddingBottom: 'clamp(60px, 10vw, 100px)' }}>
+          {/* Tactical top 3 (locked for the day) */}
+          <TacticalSection
+            items={activeItems}
+            onDraftReply={(schoolId, coachName, entryId, channel) => {
+              const school = schools.find(s => s.id === schoolId)
+              if (!school) return
+              setDraftTarget({
+                kind: 'reply',
+                school,
+                coachName: coachName ?? undefined,
+                replyToContactLogId: entryId,
+                inboundChannel: channel,
+              })
+            }}
+            onDraftFresh={(schoolId) => {
+              const school = schools.find(s => s.id === schoolId)
+              if (!school) return
+              setDraftTarget({ kind: 'fresh', school })
+            }}
+            onComplete={async (id) => { await completeItem(id) }}
+            onSnooze={async (id) => { await snoozeEntry(id) }}
+            onDone={handleDone}
+          />
+
+          {/* Strategic zone — Think · This week */}
+          <StrategicSection
+            prompts={strategicPrompts}
+            schools={schools}
+            onSkip={handleSkipPrompt}
+            onBatchReel={(ids) => setBatchReelSchoolIds(ids)}
+          />
+
+          {/* Recently handled */}
+          <HandledSection
+            items={handledToday}
+            onUndo={handleUndo}
+          />
+        </main>
+
+        {/* Desktop pipeline rail */}
+        <div className="hidden md:block">
+          <PipelineRail items={pipelineItems} />
         </div>
-      )}
+      </div>
 
-      {/* Gmail partials callout */}
-      {pendingGmailPartials > 0 && (
-        <div style={{ margin: 'clamp(0px, 1vw, 4px) clamp(22px, 5vw, 56px) 12px' }}>
-          <a href="/settings/gmail-partials" style={{ textDecoration: 'none' }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '11px 16px', borderRadius: 8,
-              background: '#EFF6FF', border: '1px solid #BFDBFE', cursor: 'pointer',
-            }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#1E40AF' }}>
-                {pendingGmailPartials} Gmail email{pendingGmailPartials !== 1 ? 's' : ''} need coach review
-              </span>
-              <span style={{ fontSize: 12, color: '#1D4ED8', fontWeight: 600 }}>Review →</span>
-            </div>
-          </a>
-        </div>
-      )}
-
-      {/* Tactical top 3 (locked for the day) */}
-      <TacticalSection
-        items={activeItems}
-        onDraftReply={(schoolId, coachName, entryId, channel) => {
-          const school = schools.find(s => s.id === schoolId)
-          if (!school) return
-          setDraftTarget({
-            kind: 'reply',
-            school,
-            coachName: coachName ?? undefined,
-            replyToContactLogId: entryId,
-            inboundChannel: channel,
-          })
-        }}
-        onDraftFresh={(schoolId) => {
-          const school = schools.find(s => s.id === schoolId)
-          if (!school) return
-          setDraftTarget({ kind: 'fresh', school })
-        }}
-        onComplete={async (id) => { await completeItem(id) }}
-        onSnooze={async (id) => { await snoozeEntry(id) }}
-        onDone={handleDone}
-      />
-
-      {/* Strategic zone — Think · This week */}
-      <StrategicSection
-        prompts={strategicPrompts}
-        schools={schools}
-        onSkip={handleSkipPrompt}
-        onBatchReel={(ids) => setBatchReelSchoolIds(ids)}
-      />
+      {/* Mobile pipeline rail — full width at bottom, padded for bottom nav */}
+      <div className="block md:hidden" style={{ paddingBottom: 80 }}>
+        <PipelineRail items={pipelineItems} mobile />
+      </div>
 
       {/* Batch reel send modal */}
       {batchReelSchoolIds && (
@@ -344,12 +424,6 @@ export default function TodayClient({
           onClose={() => setBatchReelSchoolIds(null)}
         />
       )}
-
-      {/* Recently handled */}
-      <HandledSection
-        items={handledToday}
-        onUndo={handleUndo}
-      />
 
       {/* Draft modal */}
       {draftTarget && (

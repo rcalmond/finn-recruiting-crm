@@ -2,19 +2,24 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { StrategicPrompt } from '@/lib/strategic-prompts'
+import type { StrategicPrompt, PromptKey } from '@/lib/strategic-prompts'
 import type { School } from '@/lib/types'
 
 const LV = {
-  paper: '#F6F1E8',
-  paperDeep: '#EFE8D8',
-  ink: '#0E0E0E',
-  inkMid: '#4A4A4A',
-  inkLo: '#7A7570',
-  inkMute: '#A8A39B',
-  line: '#E2DBC9',
+  paper:    '#F6F1E8',
+  ink:      '#0E0E0E',
+  inkLo:    '#7A7570',
+  inkMute:  '#A8A39B',
+  line:     '#E2DBC9',
   tealDeep: '#006A65',
-  tealSoft: '#D7F0ED',
+}
+
+// Tag labels for the 4 fixed prompts
+const PROMPT_TAG: Record<PromptKey, string> = {
+  reel_coverage:  'COVERAGE',
+  rq_refresh:     'PROFILE',
+  stale_tier_a:   'RHYTHM',
+  pipeline_shape: 'PIPELINE',
 }
 
 interface Props {
@@ -34,7 +39,6 @@ export default function StrategicSection({ prompts, schools, onSkip, onBatchReel
     if (prompt.actionKey === 'batch_reel') {
       onBatchReel(prompt.allTargetSchoolIds)
     } else if (prompt.actionKey === 'school_list') {
-      const schoolMap = new Map(schools.map(s => [s.id, s]))
       setListModal({
         title: prompt.question,
         schoolIds: prompt.affectedSchoolIds,
@@ -46,29 +50,35 @@ export default function StrategicSection({ prompts, schools, onSkip, onBatchReel
 
   return (
     <section style={{
-      margin: 'clamp(24px, 3vw, 36px) clamp(16px, 5vw, 56px) 0',
+      margin: 'clamp(36px, 4vw, 52px) clamp(28px, 4vw, 56px) 0',
     }}>
-      {/* Header */}
+      {/* Section header — subtle variant */}
       <div style={{
-        display: 'flex', alignItems: 'baseline', gap: 10,
-        marginBottom: 'clamp(12px, 2vw, 18px)',
+        display: 'flex', alignItems: 'baseline', gap: 14,
+        marginBottom: 16,
       }}>
         <div style={{
-          fontSize: 10, fontWeight: 800, letterSpacing: '0.15em',
+          fontSize: 11, fontWeight: 800, letterSpacing: '0.18em',
           textTransform: 'uppercase', color: LV.inkMute,
           padding: '4px 0', borderTop: `2px solid ${LV.inkMute}`,
         }}>Think</div>
         <div style={{
-          fontSize: 'clamp(16px, 2vw, 20px)', fontWeight: 700,
-          letterSpacing: '-0.02em', color: LV.inkLo, fontStyle: 'italic',
+          fontSize: 18, fontWeight: 700,
+          letterSpacing: '-0.03em', color: LV.inkLo, fontStyle: 'italic',
         }}>This week.</div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Card grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: 14,
+      }}>
         {prompts.map(prompt => (
           <PromptCard
             key={prompt.key}
             prompt={prompt}
+            tag={PROMPT_TAG[prompt.key] ?? ''}
             onAction={() => handleAction(prompt)}
             onSkip={() => onSkip(prompt.key)}
           />
@@ -89,44 +99,80 @@ export default function StrategicSection({ prompts, schools, onSkip, onBatchReel
   )
 }
 
-function PromptCard({ prompt, onAction, onSkip }: {
+// ── Prompt card ──────────────────────────────────────────────────────────────
+
+function PromptCard({ prompt, tag, onAction, onSkip }: {
   prompt: StrategicPrompt
+  tag: string
   onAction: () => void
   onSkip: () => void
 }) {
   return (
     <div style={{
-      padding: '14px 18px', borderRadius: 10,
-      background: LV.paperDeep, border: `1px solid ${LV.line}`,
+      background: LV.tealDeep,
+      borderRadius: 14,
+      padding: '22px 24px',
+      display: 'flex', flexDirection: 'column', gap: 10,
+      position: 'relative', overflow: 'hidden',
+      color: '#fff',
     }}>
+      {/* Tag — top-right */}
+      {tag && (
+        <div style={{
+          position: 'absolute', top: 18, right: 20,
+          fontSize: 10, fontWeight: 800, letterSpacing: '0.32em',
+          textTransform: 'uppercase', whiteSpace: 'nowrap',
+          color: 'rgba(255,255,255,0.65)',
+        }}>{tag}</div>
+      )}
+
+      {/* Question */}
       <div style={{
-        fontSize: 13, fontWeight: 700, color: LV.ink,
-        marginBottom: 4, lineHeight: 1.4,
+        fontSize: 'clamp(19px, 1.5vw, 22px)', fontWeight: 700,
+        fontStyle: 'italic', letterSpacing: '-0.025em',
+        lineHeight: 1.15, color: '#fff', paddingRight: 80,
+        textWrap: 'balance' as React.CSSProperties['textWrap'],
       }}>{prompt.question}</div>
+
+      {/* Summary */}
       <div style={{
-        fontSize: 12, color: LV.inkMid, marginBottom: 12,
+        fontSize: 13, color: 'rgba(255,255,255,0.78)', lineHeight: 1.55,
+        marginBottom: 4,
       }}>{prompt.summary}</div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+
+      {/* Action row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 2 }}>
         <button
           onClick={onAction}
           style={{
-            padding: '6px 14px', background: LV.ink, color: '#fff',
-            border: 'none', borderRadius: 999, fontSize: 11, fontWeight: 700,
+            padding: '8px 18px', background: '#fff', color: LV.tealDeep,
+            border: 'none', borderRadius: 999,
+            fontSize: 12, fontWeight: 800, letterSpacing: -0.1,
             cursor: 'pointer', fontFamily: 'inherit',
+            display: 'inline-flex', alignItems: 'center', gap: 8,
           }}
-        >{prompt.actionLabel}</button>
+        >
+          {prompt.actionLabel}
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+            <path d="M5 12h14m-5-6l6 6-6 6" stroke="currentColor" strokeWidth="2.6"
+              strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
         <button
           onClick={onSkip}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 11, fontWeight: 600, color: LV.inkMute,
-            fontFamily: 'inherit', padding: 0,
+            fontSize: 11, fontWeight: 700,
+            color: 'rgba(255,255,255,0.65)',
+            fontFamily: 'inherit', padding: 0, letterSpacing: -0.1,
           }}
         >Skip this week</button>
       </div>
     </div>
   )
 }
+
+// ── School list modal (unchanged) ────────────────────────────────────────────
 
 function SchoolListModal({ title, schoolIds, schools, onClose, onNavigate }: {
   title: string
@@ -135,8 +181,9 @@ function SchoolListModal({ title, schoolIds, schools, onClose, onNavigate }: {
   onClose: () => void
   onNavigate: (id: string) => void
 }) {
-  const schoolMap = new Map(schools.map(s => [s.id, s]))
-  const listed = schoolIds.map(id => schoolMap.get(id)).filter(Boolean) as School[]
+  const listed = schoolIds
+    .map(id => schools.find(s => s.id === id))
+    .filter(Boolean) as School[]
 
   return (
     <>
