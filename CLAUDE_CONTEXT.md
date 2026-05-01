@@ -2195,6 +2195,109 @@ SCHOOL: Williams
 
 ---
 
+### Today Page Visual Redesign (May 1, 2026) — SHIPPED
+
+#### What shipped
+
+**Nav restructure:** 9 items → 5 top-level (Today, Schools, Campaigns,
+Library, Tools). Tools expands inline desktop, /tools landing on mobile.
+Sub-items: Coach Changes, Parse Review, Classification Review, Gmail
+Settings. Import removed from nav (route preserved at /bulk-import).
+
+**Visual redesign — Liverpool/V5 design language:**
+- Masthead: clamp 56-88px italic "Today.", split-line metric subhead
+  (X overdue · Y active · Z this week with semantic colors — red,
+  teal-deep, gold), date kicker in small caps with letter-spacing
+- Tactical hero card (rank 1): red fill, watermark numeral (180px,
+  10% white opacity), italic display type for hero text, white pill
+  CTA with chevron
+- Tactical compact cards (ranks 2, 3): white fill with line border,
+  big italic red numeral on left rail, red pill CTA. Numeral scales
+  clamp(40-64px) for mobile readability
+- Strategic cards: teal-deep (#006A65) fill, italic question, white
+  pill CTA, tag labels (PROFILE/COVERAGE/RHYTHM/PIPELINE) absolute
+  top-right
+- Recently handled: 0.62 opacity, teal check circle SVG, body line
+  format school·coach·what·when, teal Undo button
+- Pipeline rail (NEW): right column 320px on desktop, full-width
+  bottom section on mobile with paperDeep bg. Schools grouped
+  HOT/ACTIVE/WARMING/COLD with status color dots. Cap 10. Rows
+  hover transparent → paper, click navigates to school detail
+- Caught-up state: ink panel with watermark "0", red "All clear"
+  badge, "Scan pipeline" CTA scrolls to pipeline rail
+
+**Banners removed from Today.** Tools sidebar badges carry signal
+(Coach Changes count, Parse Review count, Classification Review count).
+
+#### New files
+
+- `src/lib/pipeline-rail.ts` — pipeline classification logic
+  (getPipelineSchools, classifySchool)
+- `src/components/today/PipelineRail.tsx` — rail component with
+  desktop/mobile variants via prop
+
+#### Deleted (dead code)
+
+- `src/components/today/AwaitSection.tsx`
+- `src/components/today/ColdSection.tsx`
+- `src/components/today/HeroSection.tsx`
+- `src/components/today/WeekSection.tsx`
+
+#### Metric definitions (locked)
+
+- **active**: unique Tier A/B schools with isAwaitingReply (counts
+  schools, not entries). Source: awaiting-reply.ts.
+- **overdue**: Tier A/B action items where due_date < today AND
+  completed_at IS NULL (counts items, not schools). Hidden when 0.
+- **this week**: unique Tier A/B schools that are going_cold (5+d
+  silent) OR have action item due in next 7 days. Counts unique
+  schools (a school in both buckets counts once).
+
+Pipeline rail HOT count = masthead "active" count. Both derive from
+isAwaitingReply on A/B active schools — same source of truth.
+
+#### Pipeline rail status thresholds
+
+- **HOT**: school has unreplied inbound (any age, via isAwaitingReply)
+- **ACTIVE**: most recent contact_log entry < 14 days old
+- **WARMING**: most recent contact 14–30 days old
+- **COLD**: 30+ days since last contact, or no contact at all
+
+Filter: A/B schools where status != 'Inactive'. Sort: status priority
+then recency within group. Cap visible at 10.
+
+#### Decisions worth preserving
+
+- Color-by-rank, not by-type (hero red regardless of item type)
+- Compact cards visually identical except numeral
+- Person-first hero text ("Reply to Coach" / "Re-engage Coach" /
+  action description)
+- Strategic uses teal-deep at lower intensity than tactical red
+- Pipeline HOT = unreplied inbound only (NOT "in tactical selection" —
+  going-cold tactical items are explicitly cold conversations and
+  shouldn't be classified HOT)
+- Mobile compact card numeral scales clamp(40-64px), gap
+  clamp(12-22px) for narrow-width readability
+- Done/Snooze wrap as a pair on compact cards, never split
+- All section headers stripped of full-width banners — Tools sidebar
+  badges carry alert signals
+
+#### Status
+
+Deployed to production May 1, 2026 at 4:33 PM MT. Vercel deploy
+verified — masthead, tactical, strategic, handled, pipeline rail
+all rendering correctly. Mobile responsive at 390px confirmed.
+
+#### Tech debt added
+
+- `isActive()` helper duplicated across awaiting-reply.ts,
+  strategic-prompts.ts, pipeline-rail.ts — should extract to shared util
+- Snooze still has no Undo affordance (only HandledSection Undo for Done)
+- `isAwaitingReply` detection patterns may have edge cases worth
+  monitoring as more data flows through
+
+---
+
 ## 12. Recent Changes
 
 > **How to use this section:** When you make a meaningful change — new feature, schema update,
@@ -2204,6 +2307,11 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-01 | Today visual redesign shipped: V5 design language — red hero card, compact numeral rail, teal strategic cards, pipeline rail (HOT/ACTIVE/WARMING/COLD), masthead metrics (active/overdue/this week), caught-up state, mobile responsive | Feature |
+| 2026-05-01 | Nav restructure: 9 items → 5 top-level (Today/Schools/Campaigns/Library/Tools), Tools group with expandable sub-items, /tools landing page, Import removed from nav | Feature |
+| 2026-05-01 | New: src/lib/pipeline-rail.ts + src/components/today/PipelineRail.tsx — pipeline classification and right-rail component | Feature |
+| 2026-05-01 | Deleted dead code: AwaitSection, ColdSection, HeroSection, WeekSection — replaced by TacticalSection in Phase 3a | Cleanup |
+| 2026-05-01 | Banners removed from Today page — Tools sidebar badges carry coach-changes/parse-review/classification alert signals | UI |
 | 2026-04-30 | Phase 3b shipped: strategic zone — 4 hardcoded prompts (reel coverage, RQ refresh, stale Tier A, pipeline shape), BatchReelModal with persistence, TaskContext-aware email gen, school detail RQ enhancements | Feature |
 | 2026-04-30 | Migrations 032+033: strategic_skips, batch_reel_sends tables; schools.rq_link, player_profile.current_reel_* columns | Schema |
 | 2026-04-30 | Phase 3a shipped: Today tactical zone — scored top 3, locked daily selection, Done/Undo with handled_at, HandledSection, single source of truth state | Feature |
