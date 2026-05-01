@@ -48,17 +48,22 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
   useEffect(() => {
     if (!reelUrl) { setLoaded(true); return }
     supabase.from('batch_reel_sends')
-      .select('school_id, sent_via')
+      .select('school_id, sent_via, sent_at')
       .eq('reel_url', reelUrl)
       .in('school_id', schoolIds)
+      .order('sent_at', { ascending: false })
       .then(({ data }) => {
         if (data && data.length > 0) {
           setStates(prev => {
             const next = new Map(prev)
+            // Most recent row per school wins (query is sorted by sent_at DESC)
+            const seen = new Set<string>()
             for (const row of data as Array<{ school_id: string; sent_via: string }>) {
+              if (seen.has(row.school_id)) continue // already processed a more recent row
+              seen.add(row.school_id)
               if (row.sent_via === 'Email' || row.sent_via === 'Sports Recruits') {
                 next.set(row.school_id, 'sent')
-              } else if (row.sent_via === 'Skipped' && next.get(row.school_id) !== 'sent') {
+              } else if (row.sent_via === 'Skipped') {
                 next.set(row.school_id, 'skipped')
               }
             }
@@ -75,6 +80,9 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
 
   // ── Handlers with DB persistence ──────────────────────────────────────────
 
+  // Track the state before drafting so we can revert on close-without-send
+  const [preDraftState, setPreDraftState] = useState<SchoolState | null>(null)
+
   function startSchool(schoolId: string) {
     const currentState = states.get(schoolId)
     if (currentState !== 'pending' && currentState !== 'skipped') return
@@ -89,36 +97,32 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
         .then(() => {}) // fire-and-forget
     }
 
+    setPreDraftState(currentState)
     setStates(prev => new Map(prev).set(schoolId, 'drafting'))
     setDraftingSchoolId(schoolId)
   }
 
-  async function handleSent(schoolId: string) {
+  async function handleSent(schoolId: string, channel?: 'gmail' | 'sr') {
     setStates(prev => new Map(prev).set(schoolId, 'sent'))
     setDraftingSchoolId(null)
+    setPreDraftState(null)
 
-    // Persist to batch_reel_sends
+    // Persist to batch_reel_sends with correct channel
     if (reelUrl) {
+      const sentVia = channel === 'sr' ? 'Sports Recruits' : 'Email'
       await supabase.from('batch_reel_sends').insert({
         school_id: schoolId,
         reel_url: reelUrl,
-        sent_via: 'Email',
+        sent_via: sentVia,
       })
     }
   }
 
-  async function handleSkip(schoolId: string) {
-    setStates(prev => new Map(prev).set(schoolId, 'skipped'))
+  function handleDraftClosed(schoolId: string) {
+    // DraftModal closed without sending — revert to pre-draft state, no DB write
+    setStates(prev => new Map(prev).set(schoolId, preDraftState ?? 'pending'))
     setDraftingSchoolId(null)
-
-    // Persist to batch_reel_sends
-    if (reelUrl) {
-      await supabase.from('batch_reel_sends').insert({
-        school_id: schoolId,
-        reel_url: reelUrl,
-        sent_via: 'Skipped',
-      })
-    }
+    setPreDraftState(null)
   }
 
   const draftingSchool = draftingSchoolId ? schoolMap.get(draftingSchoolId) : null
@@ -250,8 +254,8 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
           }}
           userId={userId}
           taskContext={reelTaskContext}
-          onClose={() => handleSkip(draftingSchoolId)}
-          onSent={() => handleSent(draftingSchoolId)}
+          onClose={() => handleDraftClosed(draftingSchoolId)}
+          onSent={(channel) => handleSent(draftingSchoolId, channel)}
         />
       )}
     </>

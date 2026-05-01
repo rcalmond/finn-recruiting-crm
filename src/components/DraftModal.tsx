@@ -24,7 +24,7 @@ interface DraftModalProps {
   mode: DraftModalMode
   userId: string
   onClose: () => void
-  onSent?: () => void
+  onSent?: (channel?: 'gmail' | 'sr') => void
   onDismissed?: () => void  // campaign mode only
   taskContext?: TaskContext
 }
@@ -140,14 +140,14 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
         })
         const json = await res.json()
         if (!res.ok) { setError(json.error ?? 'Failed'); return }
-        onSent?.()
+        onSent?.(channel)
         onClose()
       } finally {
         setSending(null)
       }
     } else {
       // Fresh + reply modes: no DB write. CC pipeline captures the real send.
-      onSent?.()
+      onSent?.(channel)
       onClose()
     }
   }
