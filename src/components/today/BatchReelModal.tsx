@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { School } from '@/lib/types'
+import { createClient } from '@/lib/supabase/client'
 import DraftModal, { type TaskContext } from '@/components/DraftModal'
 
 const LV = {
@@ -26,6 +27,7 @@ interface Props {
 type SchoolState = 'pending' | 'drafting' | 'sent' | 'skipped'
 
 export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, reelTitle, onClose }: Props) {
+  const supabase = useMemo(() => createClient(), [])
   const reelTaskContext: TaskContext | undefined = reelUrl ? {
     type: 'send_reel',
     metadata: { reelUrl, reelTitle: reelTitle ?? undefined },
@@ -40,29 +42,100 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
     new Map(listed.map(s => [s.id, 'pending' as SchoolState]))
   )
   const [draftingSchoolId, setDraftingSchoolId] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
+
+  // ── Load persisted state from batch_reel_sends on mount ────────────────────
+  useEffect(() => {
+    if (!reelUrl) { setLoaded(true); return }
+    supabase.from('batch_reel_sends')
+      .select('school_id, sent_via')
+      .eq('reel_url', reelUrl)
+      .in('school_id', schoolIds)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setStates(prev => {
+            const next = new Map(prev)
+            for (const row of data as Array<{ school_id: string; sent_via: string }>) {
+              if (row.sent_via === 'Email' || row.sent_via === 'Sports Recruits') {
+                next.set(row.school_id, 'sent')
+              } else if (row.sent_via === 'Skipped' && next.get(row.school_id) !== 'sent') {
+                next.set(row.school_id, 'skipped')
+              }
+            }
+            return next
+          })
+        }
+        setLoaded(true)
+      })
+  }, [supabase, reelUrl, schoolIds])
 
   const pending = listed.filter(s => states.get(s.id) === 'pending')
   const sent = listed.filter(s => states.get(s.id) === 'sent')
   const skipped = listed.filter(s => states.get(s.id) === 'skipped')
 
+  // ── Handlers with DB persistence ──────────────────────────────────────────
+
   function startSchool(schoolId: string) {
     const currentState = states.get(schoolId)
     if (currentState !== 'pending' && currentState !== 'skipped') return
+
+    // If revisiting a skipped school, delete the Skipped row
+    if (currentState === 'skipped' && reelUrl) {
+      supabase.from('batch_reel_sends')
+        .delete()
+        .eq('school_id', schoolId)
+        .eq('reel_url', reelUrl)
+        .eq('sent_via', 'Skipped')
+        .then(() => {}) // fire-and-forget
+    }
+
     setStates(prev => new Map(prev).set(schoolId, 'drafting'))
     setDraftingSchoolId(schoolId)
   }
 
-  function handleSent(schoolId: string) {
+  async function handleSent(schoolId: string) {
     setStates(prev => new Map(prev).set(schoolId, 'sent'))
     setDraftingSchoolId(null)
+
+    // Persist to batch_reel_sends
+    if (reelUrl) {
+      await supabase.from('batch_reel_sends').insert({
+        school_id: schoolId,
+        reel_url: reelUrl,
+        sent_via: 'Email',
+      })
+    }
   }
 
-  function handleSkip(schoolId: string) {
+  async function handleSkip(schoolId: string) {
     setStates(prev => new Map(prev).set(schoolId, 'skipped'))
     setDraftingSchoolId(null)
+
+    // Persist to batch_reel_sends
+    if (reelUrl) {
+      await supabase.from('batch_reel_sends').insert({
+        school_id: schoolId,
+        reel_url: reelUrl,
+        sent_via: 'Skipped',
+      })
+    }
   }
 
   const draftingSchool = draftingSchoolId ? schoolMap.get(draftingSchoolId) : null
+
+  if (!loaded) {
+    return (
+      <>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 1050 }} />
+        <div style={{
+          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          background: '#fff', borderRadius: 12, padding: '40px 24px', zIndex: 1051,
+          fontSize: 13, color: LV.inkLo,
+        }}>Loading...</div>
+      </>
+    )
+  }
+
   return (
     <>
       {/* Backdrop */}
@@ -94,7 +167,7 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
           }}>&times;</button>
         </div>
 
-        {/* School list — pending rows are clickable */}
+        {/* School list */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
           {listed.map(s => {
             const state = states.get(s.id) ?? 'pending'
@@ -113,7 +186,6 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
                 onMouseEnter={e => { if (isClickable) e.currentTarget.style.background = '#F0EDE4' }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
               >
-                {/* Status indicator */}
                 <div style={{
                   width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
                   background: state === 'sent' ? LV.tealDeep
@@ -121,7 +193,6 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
                     : state === 'drafting' ? '#F59E0B'
                     : LV.line,
                 }} />
-                {/* School name + tier */}
                 <span style={{
                   fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
                   background: s.category === 'A' ? '#FEE2E2' : '#DBEAFE',
@@ -134,7 +205,6 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
                 }}>
                   {s.short_name || s.name}
                 </span>
-                {/* State label */}
                 <span style={{
                   fontSize: 10, fontWeight: 600, flexShrink: 0,
                   color: state === 'sent' ? LV.tealDeep : state === 'skipped' ? LV.inkMute : state === 'drafting' ? '#F59E0B' : LV.inkLo,
@@ -146,7 +216,7 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
           })}
         </div>
 
-        {/* Footer — only shows Done when all processed */}
+        {/* Footer */}
         <div style={{
           padding: '14px 20px', borderTop: `1px solid ${LV.line}`,
           display: 'flex', justifyContent: 'flex-end', gap: 8,
@@ -175,7 +245,7 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
           mode={{
             kind: 'fresh',
             schoolId: draftingSchool.id,
-            coachId: draftingSchool.id, // placeholder — modal resolves primary coach
+            coachId: draftingSchool.id,
             schoolName: draftingSchool.name,
           }}
           userId={userId}

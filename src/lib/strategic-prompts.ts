@@ -71,12 +71,16 @@ function isActive(s: School): boolean {
 
 export function computeReelCoverage(
   schools: School[],
-  currentReelUrl: string | null
+  currentReelUrl: string | null,
+  batchSentSchoolIds: Set<string> = new Set()
 ): Pick<StrategicPrompt, 'count' | 'total' | 'affectedSchoolIds' | 'relevanceScore'> {
   if (!currentReelUrl) return { count: 0, total: 0, affectedSchoolIds: [], relevanceScore: 0 }
 
   const abSchools = schools.filter(s => tierAB(s) && isActive(s))
-  const affected = abSchools.filter(s => !s.last_video_url || s.last_video_url !== currentReelUrl)
+  // A school is covered if: last_video_url matches current reel OR it has a batch_reel_send for the current reel
+  const affected = abSchools.filter(s =>
+    (!s.last_video_url || s.last_video_url !== currentReelUrl) && !batchSentSchoolIds.has(s.id)
+  )
 
   return {
     count: affected.length,
@@ -160,13 +164,14 @@ export function getStrategicPrompts(
   contactLog: ContactLogEntry[],
   currentReelUrl: string | null,
   skippedKeys: Set<string>,
-  tacticalSchoolIds: Set<string> = new Set()
+  tacticalSchoolIds: Set<string> = new Set(),
+  batchSentSchoolIds: Set<string> = new Set()
 ): StrategicPrompt[] {
   const a = schools.filter(s => s.category === 'A' && isActive(s)).length
   const b = schools.filter(s => s.category === 'B' && isActive(s)).length
   const c = schools.filter(s => s.category === 'C' && isActive(s)).length
 
-  const reel = computeReelCoverage(schools, currentReelUrl)
+  const reel = computeReelCoverage(schools, currentReelUrl, batchSentSchoolIds)
   const rq = computeRqRefresh(schools)
   const stale = computeStaleTierA(schools, contactLog, tacticalSchoolIds)
   const pipeline = computePipelineShape(schools)

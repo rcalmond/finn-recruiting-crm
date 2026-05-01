@@ -61,6 +61,7 @@ export default function TodayClient({
   const [currentReelUrl, setCurrentReelUrl] = useState<string | null>(null)
   const [currentReelTitle, setCurrentReelTitle] = useState<string | null>(null)
   const [profileLoaded, setProfileLoaded] = useState(false)
+  const [batchSentSchoolIds, setBatchSentIds] = useState<Set<string>>(new Set())
 
   // Load skips and player profile on mount
   useEffect(() => {
@@ -78,9 +79,20 @@ export default function TodayClient({
       .single()
       .then(({ data }) => {
         const d = data as { current_reel_url: string | null; current_reel_title: string | null } | null
-        setCurrentReelUrl(d?.current_reel_url ?? null)
+        const url = d?.current_reel_url ?? null
+        setCurrentReelUrl(url)
         setCurrentReelTitle(d?.current_reel_title ?? null)
         setProfileLoaded(true)
+        // Load batch reel sends for coverage calculation
+        if (url) {
+          supabase.from('batch_reel_sends')
+            .select('school_id')
+            .eq('reel_url', url)
+            .in('sent_via', ['Email', 'Sports Recruits'])
+            .then(({ data: sends }) => {
+              setBatchSentIds(new Set((sends ?? []).map((r: { school_id: string }) => r.school_id)))
+            })
+        }
       })
   }, [supabase])
 
@@ -172,8 +184,8 @@ export default function TodayClient({
 
   const strategicPrompts = useMemo(() => {
     if (!skipsLoaded || !profileLoaded) return []
-    return getStrategicPrompts(schools, contactLog, currentReelUrl, skippedKeys, tacticalSchoolIds)
-  }, [schools, contactLog, currentReelUrl, skippedKeys, skipsLoaded, profileLoaded, tacticalSchoolIds])
+    return getStrategicPrompts(schools, contactLog, currentReelUrl, skippedKeys, tacticalSchoolIds, batchSentSchoolIds)
+  }, [schools, contactLog, currentReelUrl, skippedKeys, skipsLoaded, profileLoaded, tacticalSchoolIds, batchSentSchoolIds])
 
   // ── Handled today — from live contactLog ───────────────────────────────────
   const handledToday = useMemo(() =>
