@@ -38,9 +38,6 @@ export interface School {
   generic_team_email: string | null
   aliases: string[]
   sort_order?: number | null
-  id_camp_1: string | null           // ISO date string YYYY-MM-DD
-  id_camp_2: string | null
-  id_camp_3: string | null
   created_at: string
   updated_at: string
 }

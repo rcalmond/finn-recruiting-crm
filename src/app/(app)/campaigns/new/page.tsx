@@ -21,7 +21,7 @@ export default async function NewCampaignPage() {
   // Fetch all schools (excluding Nope tier) for scope selection
   const { data: schools } = await admin
     .from('schools')
-    .select('id, name, short_name, category, division, status, conference, location, last_contact, head_coach, coach_email, admit_likelihood, rq_status, videos_sent, notes, generic_team_email, aliases, sort_order, id_camp_1, id_camp_2, id_camp_3, created_at, updated_at')
+    .select('id, name, short_name, category, division, status, conference, location, last_contact, head_coach, coach_email, admit_likelihood, rq_status, videos_sent, notes, generic_team_email, aliases, sort_order, created_at, updated_at')
     .neq('category', 'Nope')
     .order('name')
 

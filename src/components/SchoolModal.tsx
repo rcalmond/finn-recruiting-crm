@@ -53,9 +53,6 @@ export default function SchoolModal(props: Props) {
   const [rqStatus, setRqStatus] = useState(s?.rq_status ?? '')
   const [videosSent, setVideosSent] = useState(s?.videos_sent ?? false)
   const [notes, setNotes] = useState(s?.notes ?? '')
-  const [idCamp1, setIdCamp1] = useState(s?.id_camp_1 ?? '')
-  const [idCamp2, setIdCamp2] = useState(s?.id_camp_2 ?? '')
-  const [idCamp3, setIdCamp3] = useState(s?.id_camp_3 ?? '')
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [draftingEmail, setDraftingEmail] = useState(false)
@@ -146,9 +143,6 @@ export default function SchoolModal(props: Props) {
       admit_likelihood: (admit || null) as AdmitLikelihood | null,
       rq_status: rqStatus || null, videos_sent: videosSent,
       notes: notes || null,
-      id_camp_1: idCamp1 || null,
-      id_camp_2: idCamp2 || null,
-      id_camp_3: idCamp3 || null,
     }
     if (isEdit) {
       await (props as EditProps).onUpdate(data)
@@ -378,22 +372,6 @@ export default function SchoolModal(props: Props) {
               <Field label="Notes">
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} style={{ ...fieldStyle, resize: 'vertical' }} />
               </Field>
-
-              {/* ID Camps */}
-              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8 }}>ID CAMPS</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                  <Field label="Camp Date 1">
-                    <input type="date" value={idCamp1} onChange={e => setIdCamp1(e.target.value)} style={fieldStyle} />
-                  </Field>
-                  <Field label="Camp Date 2">
-                    <input type="date" value={idCamp2} onChange={e => setIdCamp2(e.target.value)} style={fieldStyle} />
-                  </Field>
-                  <Field label="Camp Date 3">
-                    <input type="date" value={idCamp3} onChange={e => setIdCamp3(e.target.value)} style={fieldStyle} />
-                  </Field>
-                </div>
-              </div>
 
               {/* Action Items (edit mode only) */}
               {isEdit && (

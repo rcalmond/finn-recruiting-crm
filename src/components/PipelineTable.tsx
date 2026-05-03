@@ -298,15 +298,9 @@ export default function PipelineTable({ schools, actionItems = [], onSelectSchoo
                         </div>
                       )}
                     </td>
-                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-                      {[s.id_camp_1, s.id_camp_2, s.id_camp_3].filter(Boolean).map((d, i) => {
-                        const upcoming = d! >= today
-                        return (
-                          <div key={i} style={{ fontSize: 11, fontWeight: 600, color: upcoming ? '#0369a1' : '#94a3b8', background: upcoming ? '#e0f2fe' : '#f1f5f9', borderRadius: 4, padding: '1px 6px', display: 'inline-block', marginBottom: 2, marginRight: 2 }}>
-                            {formatDate(d)}
-                          </div>
-                        )
-                      })}
+                    {/* TODO: wire to useCamps() in Phase A1 — show next upcoming camp date per school */}
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: 11, color: '#94a3b8' }}>
+                      —
                     </td>
                     <td style={{ padding: '10px 8px' }}>
                       <button
