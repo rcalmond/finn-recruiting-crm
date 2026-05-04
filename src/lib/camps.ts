@@ -56,10 +56,105 @@ export function composeCampsWithRelations(
   })
 }
 
+// ─── Action item sync ────────────────────────────────────────────────────────
+
+/**
+ * Maintains the invariant: status='interested' AND registration_deadline IS NOT NULL
+ * ↔ active action_item exists.
+ *
+ * Called by createCamp, updateCamp, updateFinnStatus, and deleteCamp.
+ */
+async function syncActionItemForCamp(
+  supabase: SupabaseClient,
+  opts: {
+    campId: string
+    campName: string
+    hostSchoolId: string
+    status: CampFinnStatusValue
+    registrationDeadline: string | null
+    actionItemId: string | null
+  }
+): Promise<string | null> {
+  const { campId, campName, hostSchoolId, status, registrationDeadline, actionItemId } = opts
+  const shouldExist = status === 'interested' && registrationDeadline !== null
+
+  if (shouldExist && !actionItemId) {
+    // CREATE: interested + deadline, no action_item yet
+    const { data: maxData } = await supabase
+      .from('action_items')
+      .select('sort_order')
+      .is('completed_at', null)
+      .order('sort_order', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .single()
+    const nextOrder = ((maxData as { sort_order: number } | null)?.sort_order ?? 0) + 1
+
+    const { data: item, error } = await supabase
+      .from('action_items')
+      .insert({
+        school_id: hostSchoolId,
+        action: `Register: ${campName}`,
+        owner: 'Finn',
+        due_date: registrationDeadline,
+        sort_order: nextOrder,
+      })
+      .select('id')
+      .single()
+
+    if (error || !item) {
+      console.error('Failed to create camp action_item:', error, 'campId:', campId)
+      return null
+    }
+
+    // Store the reference
+    await supabase
+      .from('camp_finn_status')
+      .update({ action_item_id: item.id })
+      .eq('camp_id', campId)
+
+    return item.id
+
+  } else if (shouldExist && actionItemId) {
+    // UPDATE: interested + deadline, action_item exists — sync due_date, action text,
+    // and clear completed_at (reactivates if previously completed via registered→interested)
+    await supabase
+      .from('action_items')
+      .update({ due_date: registrationDeadline, action: `Register: ${campName}`, completed_at: null })
+      .eq('id', actionItemId)
+
+    return actionItemId
+
+  } else if (!shouldExist && actionItemId) {
+    // Need to remove or complete the action_item
+    if (status === 'registered') {
+      // COMPLETE: transitioned to registered
+      await supabase
+        .from('action_items')
+        .update({ completed_at: new Date().toISOString() })
+        .eq('id', actionItemId)
+      // Keep the reference (history)
+      return actionItemId
+
+    } else {
+      // DELETE: declined, attended, or deadline cleared while interested
+      await supabase.from('action_items').delete().eq('id', actionItemId)
+      await supabase
+        .from('camp_finn_status')
+        .update({ action_item_id: null })
+        .eq('camp_id', campId)
+      return null
+    }
+  }
+
+  // No action needed (no deadline + no action_item, or non-interested + no action_item)
+  return actionItemId
+}
+
 // ─── Mutations ───────────────────────────────────────────────────────────────
 
 /**
  * Create a camp and its default camp_finn_status row (status='interested').
+ * If registration_deadline is set, also creates a registration action_item.
  */
 export async function createCamp(
   supabase: SupabaseClient,
@@ -82,11 +177,24 @@ export async function createCamp(
     console.error('Camp created but finn_status insert failed:', statusError, 'campId:', camp.id)
   }
 
-  return { camp: camp as Camp, error: null }
+  // Sync action_item if deadline exists
+  const typedCamp = camp as Camp
+  if (typedCamp.registration_deadline) {
+    await syncActionItemForCamp(supabase, {
+      campId: typedCamp.id,
+      campName: typedCamp.name,
+      hostSchoolId: typedCamp.host_school_id,
+      status: 'interested',
+      registrationDeadline: typedCamp.registration_deadline,
+      actionItemId: null,
+    })
+  }
+
+  return { camp: typedCamp, error: null }
 }
 
 /**
- * Update camp fields.
+ * Update camp fields. Syncs action_item if registration_deadline changed.
  */
 export async function updateCamp(
   supabase: SupabaseClient,
@@ -94,14 +202,34 @@ export async function updateCamp(
   data: Partial<Omit<Camp, 'id' | 'created_at' | 'updated_at'>>
 ): Promise<string | null> {
   const { error } = await supabase.from('camps').update(data).eq('id', id)
-  return error?.message ?? null
+  if (error) return error.message
+
+  // If deadline or name changed, sync action_item
+  if ('registration_deadline' in data || 'name' in data || 'host_school_id' in data) {
+    // Fetch current camp + finn_status to get full context
+    const { data: camp } = await supabase.from('camps').select('*').eq('id', id).single()
+    const { data: fs } = await supabase.from('camp_finn_status').select('*').eq('camp_id', id).single()
+
+    if (camp && fs) {
+      const typedCamp = camp as Camp
+      const typedFs = fs as CampFinnStatus
+      await syncActionItemForCamp(supabase, {
+        campId: id,
+        campName: typedCamp.name,
+        hostSchoolId: typedCamp.host_school_id,
+        status: typedFs.status,
+        registrationDeadline: typedCamp.registration_deadline,
+        actionItemId: typedFs.action_item_id,
+      })
+    }
+  }
+
+  return null
 }
 
 /**
  * Update Finn's status for a camp. Sets the appropriate timestamp
- * without clearing historical ones.
- *
- * No action_items integration in this phase (deferred to A5).
+ * without clearing historical ones. Syncs action_item per status transition.
  */
 export async function updateFinnStatus(
   supabase: SupabaseClient,
@@ -126,16 +254,47 @@ export async function updateFinnStatus(
     .update(updates)
     .eq('camp_id', campId)
 
-  return error?.message ?? null
+  if (error) return error.message
+
+  // Sync action_item for the new status
+  const { data: camp } = await supabase.from('camps').select('*').eq('id', campId).single()
+  const { data: fs } = await supabase.from('camp_finn_status').select('*').eq('camp_id', campId).single()
+
+  if (camp && fs) {
+    const typedCamp = camp as Camp
+    const typedFs = fs as CampFinnStatus
+    await syncActionItemForCamp(supabase, {
+      campId,
+      campName: typedCamp.name,
+      hostSchoolId: typedCamp.host_school_id,
+      status: typedFs.status,
+      registrationDeadline: typedCamp.registration_deadline,
+      actionItemId: typedFs.action_item_id,
+    })
+  }
+
+  return null
 }
 
 /**
- * Delete a camp. Cascade FKs handle attendees + finn_status.
+ * Delete a camp. Deletes associated action_item if it exists,
+ * then cascade FKs handle attendees + finn_status.
  */
 export async function deleteCamp(
   supabase: SupabaseClient,
   id: string
 ): Promise<string | null> {
+  // Delete associated action_item if it exists (not cascaded by FK)
+  const { data: fs } = await supabase
+    .from('camp_finn_status')
+    .select('action_item_id')
+    .eq('camp_id', id)
+    .single()
+
+  if (fs && (fs as CampFinnStatus).action_item_id) {
+    await supabase.from('action_items').delete().eq('id', (fs as CampFinnStatus).action_item_id!)
+  }
+
   const { error } = await supabase.from('camps').delete().eq('id', id)
   return error?.message ?? null
 }

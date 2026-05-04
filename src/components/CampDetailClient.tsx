@@ -401,6 +401,15 @@ function HostSchoolRow({ camp, schools, onUpdate }: {
   )
 }
 
+function PencilIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path d="M8.5 1.5l2 2M1 8.5L8.5 1.5l2 2L3 11H1V8.5z" stroke="currentColor"
+        strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 function EditableRow({ label, value, field, type, campId, onUpdate }: {
   label: string
   value: string | null
@@ -410,6 +419,7 @@ function EditableRow({ label, value, field, type, campId, onUpdate }: {
   onUpdate: (id: string, data: Record<string, unknown>) => Promise<string | null>
 }) {
   const [editing, setEditing] = useState(false)
+  const [hovered, setHovered] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
 
   async function save() {
@@ -475,11 +485,15 @@ function EditableRow({ label, value, field, type, campId, onUpdate }: {
       ) : (
         <div
           onClick={() => { setDraft(value ?? ''); setEditing(true) }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
           style={{
-            flex: 1, fontSize: 13, color: value ? LV.ink : LV.inkMute,
+            flex: 1, display: 'flex', alignItems: 'flex-start', gap: 6,
+            fontSize: 13, color: value ? LV.ink : LV.inkMute,
             cursor: 'pointer', minHeight: 20,
           }}
         >
+          <div style={{ flex: 1 }}>
           {type === 'url' && value ? (
             <a
               href={value}
@@ -491,6 +505,12 @@ function EditableRow({ label, value, field, type, campId, onUpdate }: {
           ) : (
             displayValue || '—'
           )}
+          </div>
+          <span style={{
+            color: LV.inkMute, flexShrink: 0, marginTop: 2,
+            opacity: hovered ? 1 : 0.4,
+            transition: 'opacity 150ms',
+          }}><PencilIcon /></span>
         </div>
       )}
     </div>
