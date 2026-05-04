@@ -33,6 +33,7 @@ function buildTopNavItems(): NavItem[] {
     { label: 'Today',     href: '/'          },
     { label: 'Schools',   href: '/schools'   },
     { label: 'Campaigns', href: '/campaigns' },
+    { label: 'Camps',     href: '/camps'     },
     { label: 'Library',   href: '/library'   },
   ]
 }
@@ -255,6 +256,7 @@ export function AppBottomNav({
     { label: 'Today',     href: '/'          },
     { label: 'Schools',   href: '/schools'   },
     { label: 'Campaigns', href: '/campaigns' },
+    { label: 'Camps',     href: '/camps'     },
     { label: 'Library',   href: '/library'   },
     { label: 'Tools',     href: '/tools',
       count: totalToolsBadge > 0 ? totalToolsBadge : undefined },
