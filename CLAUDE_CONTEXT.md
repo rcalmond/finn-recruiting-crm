@@ -2298,7 +2298,7 @@ all rendering correctly. Mobile responsive at 390px confirmed.
 
 ---
 
-### ID Camps Workstream — Phase A1-A3 (May 2-3, 2026)
+### ID Camps Workstream — Phase A1-A6 (May 2-4, 2026)
 
 #### What shipped
 
@@ -2343,6 +2343,38 @@ all rendering correctly. Mobile responsive at 390px confirmed.
   incorrectly backfilled as Lafayette)
 - Cross-attendees added: Lafayette attends Mass camps, Amherst
   attends Penn camps
+
+**Phase A4 — School detail integration (May 3):**
+- CAMPS section in school detail right sidebar between
+  Action Items and Notes
+- Hosted/Attending subsections via getCampsForSchool helper
+- "+ Add" button opens AddCampModal with host pre-filled
+
+**Phase A5 — Action items integration (May 3):**
+- syncActionItemForCamp helper handles state machine
+- Auto-create action_item when registration_deadline set
+  and status='interested'
+- Complete on registered, delete on declined, re-create
+  when status returns to interested
+- Camp deletion cascades to associated action_item
+
+**Phase A6 — Calendar view (May 4):**
+- /camps page view toggle (List default, Calendar)
+- Single-month grid with prev/next nav and Today button
+- Multi-day camps render as bars spanning week boundaries
+  with rounded-corner segmenting
+- Bar labels repeat on every week-segment; left accent stripe
+  only on camp's true first day
+- Status pill semantics for bar colors
+- Auto-derived short names via getCampDisplayName
+  (src/lib/camp-display.ts) — strips common suffixes
+  ("Men's Soccer ID Camp", "ID Camp", etc.) so calendar
+  bars stay readable. List and detail views show full name.
+- Bordered container, recessed other-month cells, today
+  circle, consistent grid lines
+- Mobile <768px hides toggle, shows List only
+- Host school pencil affordance + click-outside-to-dismiss
+  on camp detail page
 
 #### Architecture decisions
 
@@ -2424,18 +2456,13 @@ Active:
 Resolved:
 - schools.id_camp_1/2/3 columns dropped (pre-camps placeholder
   fields)
+- Phase A4 (school detail integration), Phase A5 (action items
+  integration), Phase A6 (calendar view) all shipped.
 
 #### Status
 
-All three phases shipped to production. Camps system is usable for
-real recruiting work. Smoke tests passed.
-
-#### Next phases (not yet shipped)
-
-- **Phase A4:** School detail CampsSection — show camps relevant
-  to a school on /schools/[id], hosted + attending subsections
-- **Phase A5:** Action items integration — auto-create action_items
-  for registration deadlines, complete/delete on status transitions
+All six phases shipped to production. Camps system is feature-complete
+for v1. Smoke tests passed.
 
 ---
 
@@ -2448,6 +2475,9 @@ real recruiting work. Smoke tests passed.
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-04 | Phase A6: Camps calendar view — view toggle, month grid, multi-day bars, auto-derived short names (camp-display.ts), host school pencil + click-outside dismiss | Feature |
+| 2026-05-04 | Phase A5: Camps action item integration — syncActionItemForCamp state machine (auto-create on deadline+interested, complete on registered, delete on declined) | Feature |
+| 2026-05-04 | Phase A4: Camps section on school detail — Hosted/Attending subsections, + Add with host pre-fill | Feature |
 | 2026-05-03 | Phase A3: Camp detail page — inline edit, status pills, school attendees, delete confirmation, editable host school selector | Feature |
 | 2026-05-03 | Fix: useCamps takes schools as param, stable channel subscription — eliminates cascading useSchools subscription errors | Bug fix |
 | 2026-05-02 | Phase A2: /camps list view with filter pills, AddCampModal, Camps added to nav (6 top-level items) | Feature |
