@@ -97,6 +97,7 @@ export default function SchoolModal(props: Props) {
       role: newCoachDraft.role,
       email: newCoachDraft.email.trim() || null,
       is_primary: coaches.length === 0,   // first coach added becomes primary automatically
+      is_active: true,
       needs_review: false,
       sort_order: coaches.length * 10,
       notes: null,

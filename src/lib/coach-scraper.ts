@@ -524,18 +524,75 @@ async function applyChanges(
       }
     }
 
-    // ── Write to coach_changes audit table (always, for all detected changes) ──
+    // ── Check rejection history before logging ──────────────────────────────────
+    // If the most recent terminal (applied/rejected) coach_changes row for this
+    // exact proposal signature is 'rejected', skip the insert. This prevents
+    // re-surfacing proposals that were already intentionally dismissed.
 
-    const { error: logErr } = await admin.from('coach_changes').insert({
-      school_id:   schoolId,
-      change_type: change.changeType,
-      coach_id:    change.coachId,
-      details:     change.details,
-      status:      change.wouldStatus,
-    })
+    let skipLog = false
+    if (change.wouldStatus === 'manual') {
+      let query = admin
+        .from('coach_changes')
+        .select('status')
+        .eq('school_id', schoolId)
+        .eq('change_type', change.changeType)
+        .in('status', ['applied', 'rejected'])
+        .order('created_at', { ascending: false })
+        .limit(1)
 
-    if (logErr) {
-      console.error(`  [log] Failed to log change "${change.changeType}" for "${change.coachName}": ${logErr.message}`)
+      // Narrow signature per change type
+      if (change.coachId) {
+        query = query.eq('coach_id', change.coachId)
+
+        // Include old/new value fields so a genuinely new proposal
+        // (different values) isn't blocked by a prior rejection
+        const d = change.details as Record<string, unknown>
+        if (change.changeType === 'email_changed') {
+          query = query.contains('details', {
+            email_before: d.email_before,
+            email_after: d.email_after,
+          })
+        } else if (change.changeType === 'role_changed') {
+          query = query.contains('details', {
+            role_before: d.role_before,
+            role_after: d.role_after,
+          })
+        } else if (change.changeType === 'name_changed') {
+          query = query.contains('details', {
+            name_before: d.name_before,
+            name_after: d.name_after,
+          })
+        } else if (change.changeType === 'email_added') {
+          query = query.contains('details', {
+            email_new: d.email_new,
+          })
+        }
+        // coach_departed: coach_id alone is sufficient
+      } else if (change.changeType === 'coach_added') {
+        const d = change.details as Record<string, unknown>
+        query = query.contains('details', { name: d.name, role: d.role })
+      }
+
+      const { data: priorRows } = await query
+      if (priorRows && priorRows.length > 0 && priorRows[0].status === 'rejected') {
+        skipLog = true
+      }
+    }
+
+    // ── Write to coach_changes audit table ────────────────────────────────────
+
+    if (!skipLog) {
+      const { error: logErr } = await admin.from('coach_changes').insert({
+        school_id:   schoolId,
+        change_type: change.changeType,
+        coach_id:    change.coachId,
+        details:     change.details,
+        status:      change.wouldStatus,
+      })
+
+      if (logErr) {
+        console.error(`  [log] Failed to log change "${change.changeType}" for "${change.coachName}": ${logErr.message}`)
+      }
     }
   }
 
@@ -574,11 +631,12 @@ export async function scrapeSchool(
 
   const url = school.coach_page_url as string
 
-  // Fetch existing coaches from DB
+  // Fetch existing active coaches from DB (inactive = already departed, excluded from diff)
   const { data: dbRows } = await admin
     .from('coaches')
     .select('id, school_id, name, role, email, is_primary, sort_order')
     .eq('school_id', schoolId)
+    .eq('is_active', true)
   const dbCoaches = (dbRows ?? []) as DbCoach[]
 
   // Fetch HTML

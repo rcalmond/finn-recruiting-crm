@@ -250,6 +250,7 @@ export interface Coach {
   role: CoachRole
   email: string | null
   is_primary: boolean
+  is_active: boolean
   needs_review: boolean
   sort_order: number
   notes: string | null

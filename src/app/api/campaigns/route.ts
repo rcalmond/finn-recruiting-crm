@@ -109,6 +109,7 @@ export async function POST(req: NextRequest) {
     .from('coaches')
     .select('id, school_id')
     .eq('is_primary', true)
+    .eq('is_active', true)
     .in('school_id', schoolIds)
     .order('sort_order', { ascending: true, nullsFirst: false })
   // DISTINCT ON equivalent: keep first coach per school

@@ -32,6 +32,7 @@ export default async function NewCampaignPage() {
         .from('coaches')
         .select('id, school_id, name, role, email, is_primary, needs_review, sort_order, notes, created_at, updated_at')
         .eq('is_primary', true)
+        .eq('is_active', true)
         .in('school_id', schoolIds)
     : { data: [] }
 

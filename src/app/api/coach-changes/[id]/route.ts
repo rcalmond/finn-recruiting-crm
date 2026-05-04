@@ -8,7 +8,7 @@
  *
  * Apply logic per change_type:
  *   coach_added    → INSERT into coaches from details jsonb
- *   coach_departed → UPDATE coaches SET needs_review=true (no hard delete)
+ *   coach_departed → UPDATE coaches SET is_active=false, needs_review=false (soft-delete)
  *   email_added    → UPDATE coaches SET email = details.email_new
  *   email_changed  → UPDATE coaches SET email = details.email_after
  *   role_changed   → UPDATE coaches SET role  = details.role_after
@@ -115,10 +115,10 @@ export async function PUT(
       }
 
       case 'coach_departed': {
-        if (!change.coach_id) { applyErr = 'coach_id is null — cannot flag for review'; break }
+        if (!change.coach_id) { applyErr = 'coach_id is null — cannot deactivate'; break }
         const { error } = await admin
           .from('coaches')
-          .update({ needs_review: true })
+          .update({ is_active: false, needs_review: false })
           .eq('id', change.coach_id)
         if (error) applyErr = error.message
         break

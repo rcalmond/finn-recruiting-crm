@@ -57,6 +57,7 @@ export async function POST(
     .select('id')
     .eq('school_id', schoolId)
     .eq('is_primary', true)
+    .eq('is_active', true)
     .order('sort_order', { ascending: true, nullsFirst: false })
     .limit(1)
   const coachId = coaches?.[0]?.id ?? null

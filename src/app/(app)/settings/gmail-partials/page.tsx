@@ -29,7 +29,7 @@ export default async function GmailPartialsPage() {
         .from('coaches')
         .select('id, name, role, school_id')
         .in('school_id', schoolIds)
-        .eq('needs_review', false)
+        .eq('is_active', true)
         .order('sort_order')
     : { data: [] }
 
