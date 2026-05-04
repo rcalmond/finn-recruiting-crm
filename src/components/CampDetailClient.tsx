@@ -86,7 +86,7 @@ export default function CampDetailClient({ campId }: { campId: string }) {
       <StatusSection camp={campData} onUpdateStatus={updateFinnStatus} />
 
       {/* Details */}
-      <DetailsSection camp={campData} onUpdate={updateCamp} />
+      <DetailsSection camp={campData} schools={schools} onUpdate={updateCamp} />
 
       {/* School attendees */}
       <AttendeesSection
@@ -271,8 +271,9 @@ function StatusSection({ camp, onUpdateStatus }: {
 
 // ─── Details (inline editable) ───────────────────────────────────────────────
 
-function DetailsSection({ camp, onUpdate }: {
+function DetailsSection({ camp, schools, onUpdate }: {
   camp: CampWithRelations
+  schools: School[]
   onUpdate: (id: string, data: Record<string, unknown>) => Promise<string | null>
 }) {
   return (
@@ -283,6 +284,7 @@ function DetailsSection({ camp, onUpdate }: {
       }}>Details</div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <HostSchoolRow camp={camp} schools={schools} onUpdate={onUpdate} />
         <EditableRow label="Start date" value={camp.camp.start_date} field="start_date" type="date" campId={camp.camp.id} onUpdate={onUpdate} />
         <EditableRow label="End date" value={camp.camp.end_date} field="end_date" type="date" campId={camp.camp.id} onUpdate={onUpdate} />
         <EditableRow label="Location" value={camp.camp.location} field="location" type="text" campId={camp.camp.id} onUpdate={onUpdate} />
@@ -291,6 +293,110 @@ function DetailsSection({ camp, onUpdate }: {
         <EditableRow label="Cost" value={camp.camp.cost} field="cost" type="text" campId={camp.camp.id} onUpdate={onUpdate} />
         <EditableRow label="Notes" value={camp.camp.notes} field="notes" type="textarea" campId={camp.camp.id} onUpdate={onUpdate} />
       </div>
+    </div>
+  )
+}
+
+function HostSchoolRow({ camp, schools, onUpdate }: {
+  camp: CampWithRelations
+  schools: School[]
+  onUpdate: (id: string, data: Record<string, unknown>) => Promise<string | null>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [search, setSearch] = useState('')
+
+  const hostName = camp.hostSchool.short_name || camp.hostSchool.name
+  const tier = TIER_STYLE[camp.hostSchool.category] ?? TIER_STYLE.C
+
+  const filtered = search.length > 0
+    ? schools
+        .filter(s => s.status !== 'Inactive' && s.category !== 'Nope')
+        .filter(s => (s.short_name || s.name).toLowerCase().includes(search.toLowerCase()))
+        .slice(0, 10)
+    : []
+
+  async function handleSelect(schoolId: string) {
+    await onUpdate(camp.camp.id, { host_school_id: schoolId })
+    setEditing(false)
+    setSearch('')
+  }
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 12,
+      padding: '8px 0', borderBottom: `1px solid ${LV.line}`,
+    }}>
+      <span style={{
+        width: 100, flexShrink: 0,
+        fontSize: 12, fontWeight: 600, color: LV.inkLo,
+      }}>Host school</span>
+
+      {editing ? (
+        <div style={{ flex: 1 }}>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search schools..."
+            autoFocus
+            onKeyDown={e => { if (e.key === 'Escape') { setEditing(false); setSearch('') } }}
+            style={{
+              width: '100%', padding: '6px 10px',
+              border: `1px solid ${LV.tealDeep}`, borderRadius: 6,
+              fontSize: 13, color: LV.ink, fontFamily: 'inherit',
+            }}
+          />
+          {search.length > 0 && (
+            <div style={{
+              maxHeight: 160, overflowY: 'auto',
+              border: `1px solid ${LV.line}`, borderRadius: 6,
+              marginTop: 4, background: '#fff',
+            }}>
+              {filtered.map(s => {
+                const t = TIER_STYLE[s.category] ?? TIER_STYLE.C
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => handleSelect(s.id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      width: '100%', padding: '8px 10px',
+                      background: 'none', border: 'none', textAlign: 'left',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                      borderBottom: `1px solid ${LV.line}`,
+                    }}
+                  >
+                    <span style={{
+                      fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 3,
+                      background: t.bg, color: t.color,
+                    }}>{s.category}</span>
+                    <span style={{ fontSize: 13, color: LV.ink }}>{s.short_name || s.name}</span>
+                  </button>
+                )
+              })}
+              {filtered.length === 0 && (
+                <div style={{ padding: '8px 10px', fontSize: 12, color: LV.inkMute }}>
+                  No matching schools
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          onClick={() => setEditing(true)}
+          style={{
+            flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+            cursor: 'pointer', minHeight: 20,
+          }}
+        >
+          <span style={{
+            fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
+            background: tier.bg, color: tier.color,
+          }}>{camp.hostSchool.category}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: LV.ink }}>{hostName}</span>
+        </div>
+      )}
     </div>
   )
 }
