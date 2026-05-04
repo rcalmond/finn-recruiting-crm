@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { useSchools, useContactLog, useActionItems } from '@/hooks/useRealtimeData'
+import { useSchools, useContactLog, useActionItems, useCamps } from '@/hooks/useRealtimeData'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { todayStr, formatDate } from '@/lib/utils'
@@ -23,6 +23,7 @@ export default function DashboardClient({ user }: { user: User }) {
   const { schools, loading, updateSchool, insertSchool, deleteSchool, reorderSchools } = useSchools()
   const { entries: contactLog } = useContactLog()
   const { items: actionItems, completeItem: completeActionItem, reorderItems: reorderActionItems } = useActionItems()
+  const { camps } = useCamps()
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams.get('tab')
     return (t === 'actions' || t === 'pipeline' || t === 'log' || t === 'questions') ? t : 'dashboard'
@@ -228,6 +229,7 @@ export default function DashboardClient({ user }: { user: User }) {
           <PipelineTable
             schools={schools}
             actionItems={actionItems}
+            camps={camps}
             onSelectSchool={setSelectedSchool}
             onUpdateSchool={updateSchool}
             onReorderSchools={reorderSchools}

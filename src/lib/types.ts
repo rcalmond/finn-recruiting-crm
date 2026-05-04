@@ -89,6 +89,67 @@ export interface ActionItem {
   school?: Pick<School, 'id' | 'name' | 'short_name' | 'category' | 'status'>
 }
 
+// ─── ID Camps ────────────────────────────────────────────────────────────────
+
+export type CampFinnStatusValue = 'interested' | 'registered' | 'attended' | 'declined'
+
+export interface Camp {
+  id: string
+  host_school_id: string
+  name: string
+  start_date: string            // YYYY-MM-DD
+  end_date: string              // YYYY-MM-DD
+  location: string | null
+  registration_url: string | null
+  registration_deadline: string | null  // YYYY-MM-DD
+  cost: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CampSchoolAttendee {
+  id: string
+  camp_id: string
+  school_id: string
+  source: string                // 'advertised' | 'confirmed' | 'rumored'
+  notes: string | null
+  created_at: string
+}
+
+export interface CampCoachAttendee {
+  id: string
+  camp_id: string
+  coach_id: string
+  source: string
+  confirmed_at: string | null
+  created_at: string
+}
+
+export interface CampFinnStatus {
+  id: string
+  camp_id: string
+  status: CampFinnStatusValue
+  registered_at: string | null
+  attended_at: string | null
+  declined_at: string | null
+  declined_reason: string | null
+  notes: string | null
+  action_item_id: string | null
+  created_at: string
+}
+
+/** Composed type for UI rendering — camp with all related data joined. */
+export interface CampWithRelations {
+  camp: Camp
+  hostSchool: Pick<School, 'id' | 'name' | 'short_name' | 'category'>
+  finnStatus: CampFinnStatus | null
+  schoolAttendees: Array<CampSchoolAttendee & {
+    school: Pick<School, 'id' | 'name' | 'short_name' | 'category'>
+  }>
+  coachAttendees: CampCoachAttendee[]
+}
+
 // ─── Asset library ────────────────────────────────────────────────────────────
 
 export type AssetType =

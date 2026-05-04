@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useMemo, useRef } from 'react'
-import type { School, ActionItem, PipelineFilters, Division, Status, AdmitLikelihood, Category, ActionOwner } from '@/lib/types'
+import type { School, ActionItem, PipelineFilters, Division, Status, AdmitLikelihood, Category, ActionOwner, CampWithRelations } from '@/lib/types'
 import { STATUS_COLORS, ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate, daysBetween, todayStr } from '@/lib/utils'
+import { getNextUpcomingCamp } from '@/lib/camps'
 
 const STATUSES: Status[] = ['Not Contacted', 'Intro Sent', 'Ongoing Conversation', 'Visit Scheduled', 'Offer', 'Inactive']
 const CATEGORIES: Category[] = ['A', 'B', 'C', 'Nope']
@@ -22,13 +23,14 @@ const ADMIT_ORDER: Record<string, number> = { 'Likely': 0, 'Target': 1, 'Reach':
 interface Props {
   schools: School[]
   actionItems?: ActionItem[]
+  camps?: CampWithRelations[]
   onSelectSchool: (s: School) => void
   onUpdateSchool: (id: string, updates: Partial<School>) => Promise<unknown>
   onReorderSchools: (orderedIds: string[]) => Promise<void>
   initialFilters?: Partial<PipelineFilters>
 }
 
-export default function PipelineTable({ schools, actionItems = [], onSelectSchool, onUpdateSchool, onReorderSchools, initialFilters }: Props) {
+export default function PipelineTable({ schools, actionItems = [], camps = [], onSelectSchool, onUpdateSchool, onReorderSchools, initialFilters }: Props) {
   const [sortMode, setSortMode] = useState<'manual' | 'smart'>('manual')
   const [filters, setFilters] = useState<PipelineFilters>({ ...DEFAULT_FILTERS, ...initialFilters })
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'category', dir: 'asc' })
@@ -298,9 +300,16 @@ export default function PipelineTable({ schools, actionItems = [], onSelectSchoo
                         </div>
                       )}
                     </td>
-                    {/* TODO: wire to useCamps() in Phase A1 — show next upcoming camp date per school */}
-                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: 11, color: '#94a3b8' }}>
-                      —
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                      {(() => {
+                        const next = getNextUpcomingCamp(camps, s.id, today)
+                        if (!next) return <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>
+                        return (
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#0369a1', background: '#e0f2fe', borderRadius: 4, padding: '1px 6px', display: 'inline-block' }}>
+                            {formatDate(next.camp.start_date)}
+                          </div>
+                        )
+                      })()}
                     </td>
                     <td style={{ padding: '10px 8px' }}>
                       <button
