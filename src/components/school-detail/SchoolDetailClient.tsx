@@ -4,13 +4,15 @@ import { useState, useMemo, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
-import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood } from '@/lib/types'
-import { useSchools, useContactLog, useActionItems, useCoaches } from '@/hooks/useRealtimeData'
+import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampWithRelations } from '@/lib/types'
+import { useSchools, useContactLog, useActionItems, useCoaches, useCamps } from '@/hooks/useRealtimeData'
 import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
 import { getRankedFeaturedAction } from '@/lib/todayLogic'
+import { getCampsForSchool } from '@/lib/camps'
 import { todayStr } from '@/lib/utils'
 import DraftModal from '@/components/DraftModal'
 import PrepForCallModal from '@/components/PrepForCallModal'
+import AddCampModal from '@/components/AddCampModal'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -1250,12 +1252,14 @@ function AboutRow({ label, value }: { label: string; value: string }) {
 }
 
 function Sidebar({
-  school, coaches, actionItems, completedItems, today, onComplete, onAddAction, onUpdateSchool, onDraft, onPrepForCall, onSetPrimary,
+  school, coaches, actionItems, completedItems, camps, schools, today, onComplete, onAddAction, onUpdateSchool, onDraft, onPrepForCall, onSetPrimary,
 }: {
   school: School
   coaches: Coach[]
   actionItems: ActionItem[]
   completedItems: ActionItem[]
+  camps: CampWithRelations[]
+  schools: School[]
   today: string
   onComplete: (id: string) => Promise<void>
   onAddAction: (action: string, dueDate: string, owner: string) => Promise<void>
@@ -1723,6 +1727,159 @@ function Sidebar({
           </div>
         )}
       </SidebarCard>
+
+      {/* Camps */}
+      <SidebarCamps school={school} camps={camps} schools={schools} />
+    </div>
+  )
+}
+
+// ─── Sidebar camps section ───────────────────────────────────────────────────
+
+const CAMP_STATUS_STYLE: Record<string, { bg: string; color: string }> = {
+  interested: { bg: '#DBEAFE', color: '#1E40AF' },
+  registered: { bg: '#D7F0ED', color: '#006A65' },
+  attended:   { bg: '#F3F4F6', color: '#374151' },
+  declined:   { bg: '#FEE2E2', color: '#991B1B' },
+}
+
+const CAMP_TIER_STYLE: Record<string, { bg: string; color: string }> = {
+  A: { bg: '#FEE2E2', color: '#991B1B' },
+  B: { bg: '#DBEAFE', color: '#1E40AF' },
+  C: { bg: '#F3F4F6', color: '#374151' },
+}
+
+function SidebarCamps({ school, camps, schools }: {
+  school: School
+  camps: CampWithRelations[]
+  schools: School[]
+}) {
+  const router = useRouter()
+  const [showAddModal, setShowAddModal] = useState(false)
+  const { hosted, attending } = getCampsForSchool(camps, school.id)
+  const totalCount = hosted.length + attending.length
+
+  return (
+    <>
+      <SidebarCard label={`Camps${totalCount > 0 ? ` · ${totalCount}` : ''}`}>
+        {/* Add button */}
+        <div style={{ float: 'right', marginTop: -30 }}>
+          <button
+            onClick={() => setShowAddModal(true)}
+            style={{
+              padding: '3px 10px', borderRadius: 999,
+              border: `1px solid ${SD.line}`, background: '#fff',
+              fontSize: 10, fontWeight: 700, color: SD.tealDeep,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >+ Add</button>
+        </div>
+
+        {totalCount === 0 ? (
+          <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>
+            No camps yet.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Hosted */}
+            {hosted.length > 0 && (
+              <div>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: SD.inkLo,
+                  textTransform: 'uppercase', letterSpacing: '0.08em',
+                  marginBottom: 6,
+                }}>Hosted</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {hosted.map(c => (
+                    <SidebarCampRow key={c.camp.id} camp={c} onClick={() => router.push(`/camps/${c.camp.id}`)} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Attending */}
+            {attending.length > 0 && (
+              <div>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: SD.inkLo,
+                  textTransform: 'uppercase', letterSpacing: '0.08em',
+                  marginBottom: 6,
+                }}>Attending</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {attending.map(c => (
+                    <SidebarCampRow key={c.camp.id} camp={c} showHost onClick={() => router.push(`/camps/${c.camp.id}`)} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </SidebarCard>
+
+      {showAddModal && (
+        <AddCampModal
+          schools={schools}
+          onClose={() => setShowAddModal(false)}
+          onCreated={(id) => { setShowAddModal(false); router.push(`/camps/${id}`) }}
+          prefilledHostSchoolId={school.id}
+        />
+      )}
+    </>
+  )
+}
+
+function SidebarCampRow({ camp, showHost, onClick }: {
+  camp: CampWithRelations
+  showHost?: boolean
+  onClick: () => void
+}) {
+  const status = camp.finnStatus?.status ?? 'interested'
+  const statusStyle = CAMP_STATUS_STYLE[status]
+  const hostTier = CAMP_TIER_STYLE[camp.hostSchool.category] ?? CAMP_TIER_STYLE.C
+
+  const s = new Date(camp.camp.start_date + 'T12:00:00')
+  const e = new Date(camp.camp.end_date + 'T12:00:00')
+  const sMonth = s.toLocaleDateString('en-US', { month: 'short' })
+  const sDay = s.getDate()
+  const eMonth = e.toLocaleDateString('en-US', { month: 'short' })
+  const eDay = e.getDate()
+  const dateStr = camp.camp.start_date === camp.camp.end_date
+    ? `${sMonth} ${sDay}`
+    : sMonth === eMonth ? `${sMonth} ${sDay}–${eDay}` : `${sMonth} ${sDay} – ${eMonth} ${eDay}`
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        padding: '6px 8px', borderRadius: 8,
+        cursor: 'pointer',
+        fontSize: 12,
+      }}
+    >
+      <div style={{ fontWeight: 600, color: SD.ink, lineHeight: 1.4 }}>
+        {camp.camp.name}
+      </div>
+      <div style={{
+        marginTop: 2, display: 'flex', alignItems: 'center', gap: 6,
+        fontSize: 11, color: SD.inkLo, flexWrap: 'wrap',
+      }}>
+        {showHost && (
+          <>
+            <span style={{
+              fontSize: 9, fontWeight: 800, padding: '1px 4px', borderRadius: 3,
+              background: hostTier.bg, color: hostTier.color,
+            }}>{camp.hostSchool.category}</span>
+            <span>{camp.hostSchool.short_name || camp.hostSchool.name}</span>
+            <span style={{ color: SD.inkMute }}>·</span>
+          </>
+        )}
+        <span>{dateStr}</span>
+        <span style={{
+          fontSize: 9, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
+          background: statusStyle.bg, color: statusStyle.color,
+          textTransform: 'capitalize',
+        }}>{status}</span>
+      </div>
     </div>
   )
 }
@@ -1751,6 +1908,7 @@ export default function SchoolDetailClient({
   const { entries: contactLog, loading: logLoading, insertContact, updateEntry, deleteEntry, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
   const { items: actionItems, completedItems, loading: actionsLoading, completeItem, insertItem } = useActionItems(initialSchool.id)
   const { coaches, setPrimary } = useCoaches(initialSchool.id)
+  const { camps } = useCamps(schools)
 
   const loading = schoolsLoading || logLoading || actionsLoading
 
@@ -1847,6 +2005,8 @@ export default function SchoolDetailClient({
           coaches={coaches}
           actionItems={actionItems}
           completedItems={completedItems}
+          camps={camps}
+          schools={schools}
           today={today}
           onComplete={async (id) => { await completeItem(id) }}
           onAddAction={async (action, dueDate, owner) => {
