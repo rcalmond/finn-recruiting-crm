@@ -140,6 +140,39 @@ export async function deleteCamp(
   return error?.message ?? null
 }
 
+// ─── School attendee mutations ───────────────────────────────────────────────
+
+/**
+ * Add a school to a camp's attendee list.
+ */
+export async function addSchoolAttendee(
+  supabase: SupabaseClient,
+  campId: string,
+  schoolId: string,
+  source: string = 'advertised',
+): Promise<string | null> {
+  const { error } = await supabase
+    .from('camp_school_attendees')
+    .insert({ camp_id: campId, school_id: schoolId, source })
+  return error?.message ?? null
+}
+
+/**
+ * Remove a school from a camp's attendee list.
+ */
+export async function removeSchoolAttendee(
+  supabase: SupabaseClient,
+  campId: string,
+  schoolId: string,
+): Promise<string | null> {
+  const { error } = await supabase
+    .from('camp_school_attendees')
+    .delete()
+    .eq('camp_id', campId)
+    .eq('school_id', schoolId)
+  return error?.message ?? null
+}
+
 // ─── Pure helpers ────────────────────────────────────────────────────────────
 
 /**

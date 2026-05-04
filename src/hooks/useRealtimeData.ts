@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFinnStatus, CampFinnStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations } from '@/lib/types'
-import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp as updateCampMutation, updateFinnStatus as updateFinnStatusMutation, deleteCamp as deleteCampMutation } from '@/lib/camps'
+import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp as updateCampMutation, updateFinnStatus as updateFinnStatusMutation, deleteCamp as deleteCampMutation, addSchoolAttendee as addSchoolAttendeeMutation, removeSchoolAttendee as removeSchoolAttendeeMutation } from '@/lib/camps'
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
 
@@ -510,11 +510,15 @@ export function useCoaches(schoolId?: string) {
 
 // ─── Camps ───────────────────────────────────────────────────────────────────
 
-export function useCamps() {
+export function useCamps(schools: School[]) {
   const [camps, setCamps] = useState<CampWithRelations[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = useMemo(() => createClient(), [])
-  const { schools } = useSchools()
+
+  // Use a ref for schools to avoid re-creating fetchCamps (and tearing down
+  // the realtime channel) every time the schools array reference changes.
+  const schoolsRef = useRef(schools)
+  schoolsRef.current = schools
 
   const fetchCamps = useCallback(async () => {
     const [campsRes, statusRes, attendeesRes, coachesRes] = await Promise.all([
@@ -528,18 +532,19 @@ export function useCamps() {
 
     const composed = composeCampsWithRelations(
       campsRes.data as Camp[],
-      schools,
+      schoolsRef.current,
       (statusRes.data ?? []) as CampFinnStatus[],
       (attendeesRes.data ?? []) as Array<CampSchoolAttendee & { school: Pick<School, 'id' | 'name' | 'short_name' | 'category'> }>,
       (coachesRes.data ?? []) as CampCoachAttendee[],
     )
     setCamps(composed)
     setLoading(false)
-  }, [supabase, schools])
+  }, [supabase])
+
+  // Stable channel subscription — mounts once, never tears down on schools changes
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
   useEffect(() => {
-    if (schools.length === 0) return // wait for schools to load — composeCampsWithRelations needs school records to populate hostSchool
-    fetchCamps()
     const channel = supabase
       .channel(`camps-all-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'camps' }, fetchCamps)
@@ -547,8 +552,17 @@ export function useCamps() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'camp_school_attendees' }, fetchCamps)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'camp_coach_attendees' }, fetchCamps)
       .subscribe()
+    channelRef.current = channel
     return () => { supabase.removeChannel(channel) }
-  }, [fetchCamps, supabase, schools.length])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase])
+
+  // Fetch camps when schools first populate (initial empty → loaded)
+  const schoolsLoaded = schools.length > 0
+  useEffect(() => {
+    if (schoolsLoaded) fetchCamps()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolsLoaded])
 
   const createCamp = useCallback(async (data: Omit<Camp, 'id' | 'created_at' | 'updated_at'>): Promise<{ id: string | null; error: string | null }> => {
     const result = await createCampMutation(supabase, data)
@@ -574,5 +588,17 @@ export function useCamps() {
     return error
   }, [supabase, fetchCamps])
 
-  return { camps, loading, createCamp, updateCamp, updateFinnStatus, deleteCamp }
+  const addSchoolAttendee = useCallback(async (campId: string, schoolId: string, source?: string) => {
+    const error = await addSchoolAttendeeMutation(supabase, campId, schoolId, source)
+    if (!error) await fetchCamps()
+    return error
+  }, [supabase, fetchCamps])
+
+  const removeSchoolAttendee = useCallback(async (campId: string, schoolId: string) => {
+    const error = await removeSchoolAttendeeMutation(supabase, campId, schoolId)
+    if (!error) await fetchCamps()
+    return error
+  }, [supabase, fetchCamps])
+
+  return { camps, loading, createCamp, updateCamp, updateFinnStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee }
 }

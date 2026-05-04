@@ -23,7 +23,7 @@ interface Props {
 }
 
 export default function AddCampModal({ schools, onClose, onCreated, prefilledHostSchoolId }: Props) {
-  const { createCamp } = useCamps()
+  const { createCamp } = useCamps(schools)
 
   const [hostSchoolId, setHostSchoolId] = useState(prefilledHostSchoolId ?? '')
   const [name, setName] = useState('')

@@ -46,8 +46,8 @@ type TierFilter = 'A' | 'B' | 'C' | 'all'
 
 export default function CampsClient({ user }: { user: User }) {
   const router = useRouter()
-  const { camps, loading } = useCamps()
   const { schools } = useSchools()
+  const { camps, loading } = useCamps(schools)
   const today = todayStr()
 
   const [timeframe, setTimeframe] = useState<TimeframeFilter>('upcoming')
