@@ -8,6 +8,7 @@ import { useCamps, useSchools } from '@/hooks/useRealtimeData'
 import { sortCampsChronological, classifyCampTimeframe } from '@/lib/camps'
 import { todayStr } from '@/lib/utils'
 import AddCampModal from './AddCampModal'
+import CampsCalendar from './CampsCalendar'
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 
@@ -50,15 +51,16 @@ export default function CampsClient({ user }: { user: User }) {
   const { camps, loading } = useCamps(schools)
   const today = todayStr()
 
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
   const [timeframe, setTimeframe] = useState<TimeframeFilter>('upcoming')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [tierFilter, setTierFilter] = useState<TierFilter>('all')
   const [showAddModal, setShowAddModal] = useState(false)
 
+  // Filtered camps for list view (timeframe + status + tier)
   const filtered = useMemo(() => {
     let list = sortCampsChronological(camps)
 
-    // Timeframe
     if (timeframe !== 'all') {
       list = list.filter(c => {
         const tf = classifyCampTimeframe(c.camp, today)
@@ -67,18 +69,31 @@ export default function CampsClient({ user }: { user: User }) {
       })
     }
 
-    // Finn's status
     if (statusFilter !== 'all') {
       list = list.filter(c => c.finnStatus?.status === statusFilter)
     }
 
-    // Host tier
     if (tierFilter !== 'all') {
       list = list.filter(c => c.hostSchool.category === tierFilter)
     }
 
     return list
   }, [camps, today, timeframe, statusFilter, tierFilter])
+
+  // Filtered camps for calendar view (status + tier only, no timeframe)
+  const calendarCamps = useMemo(() => {
+    let list = camps
+
+    if (statusFilter !== 'all') {
+      list = list.filter(c => c.finnStatus?.status === statusFilter)
+    }
+
+    if (tierFilter !== 'all') {
+      list = list.filter(c => c.hostSchool.category === tierFilter)
+    }
+
+    return list
+  }, [camps, statusFilter, tierFilter])
 
   if (loading) {
     return (
@@ -97,13 +112,34 @@ export default function CampsClient({ user }: { user: User }) {
     }}>
       {/* Header */}
       <div style={{
-        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         marginBottom: 24, flexWrap: 'wrap', gap: 12,
       }}>
-        <h1 style={{
-          margin: 0, fontSize: 28, fontWeight: 700,
-          letterSpacing: '-0.03em', color: LV.ink, fontStyle: 'italic',
-        }}>Camps.</h1>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+          <h1 style={{
+            margin: 0, fontSize: 28, fontWeight: 700,
+            letterSpacing: '-0.03em', color: LV.ink, fontStyle: 'italic',
+          }}>Camps.</h1>
+
+          {/* View toggle — desktop only */}
+          <div className="hidden md:inline-flex" style={{ gap: 2, alignItems: 'center' }}>
+            {(['list', 'calendar'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                style={{
+                  padding: '5px 12px', borderRadius: 999,
+                  border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: 12, fontWeight: viewMode === mode ? 700 : 500,
+                  background: viewMode === mode ? LV.ink : 'transparent',
+                  color: viewMode === mode ? '#fff' : LV.inkMid,
+                  textTransform: 'capitalize',
+                }}
+              >{mode}</button>
+            ))}
+          </div>
+        </div>
+
         <button
           onClick={() => setShowAddModal(true)}
           style={{
@@ -117,18 +153,21 @@ export default function CampsClient({ user }: { user: User }) {
 
       {/* Filters */}
       <div style={{
-        display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20,
+        display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 28,
       }}>
-        <FilterGroup
-          label="Time"
-          value={timeframe}
-          options={[
-            { value: 'upcoming', label: 'Upcoming' },
-            { value: 'past', label: 'Past' },
-            { value: 'all', label: 'All' },
-          ]}
-          onChange={v => setTimeframe(v as TimeframeFilter)}
-        />
+        {/* Timeframe filter — list view only */}
+        {viewMode === 'list' && (
+          <FilterGroup
+            label="Time"
+            value={timeframe}
+            options={[
+              { value: 'upcoming', label: 'Upcoming' },
+              { value: 'past', label: 'Past' },
+              { value: 'all', label: 'All' },
+            ]}
+            onChange={v => setTimeframe(v as TimeframeFilter)}
+          />
+        )}
         <FilterGroup
           label="Status"
           value={statusFilter}
@@ -154,59 +193,68 @@ export default function CampsClient({ user }: { user: User }) {
         />
       </div>
 
-      {/* Empty state */}
-      {filtered.length === 0 && (
-        <div style={{
-          padding: '48px 24px', textAlign: 'center',
-          background: '#fff', border: `1px solid ${LV.line}`, borderRadius: 14,
-          color: LV.inkLo, fontSize: 14,
-        }}>
-          {camps.length === 0
-            ? 'No camps yet. Add your first camp.'
-            : 'No camps match the current filters.'}
-        </div>
-      )}
+      {/* Calendar view — desktop only */}
+      <div className="hidden md:block">
+        {viewMode === 'calendar' && (
+          <CampsCalendar camps={calendarCamps} />
+        )}
+      </div>
 
-      {/* Table (desktop) */}
-      {filtered.length > 0 && (
-        <>
-          <div className="hidden md:block">
+      {/* List view (always on mobile, conditional on desktop) */}
+      {(viewMode === 'list' || true) && (
+        <div className={viewMode === 'calendar' ? 'block md:hidden' : ''}>
+          {/* Empty state */}
+          {filtered.length === 0 && (
             <div style={{
-              background: '#fff', border: `1px solid ${LV.line}`,
-              borderRadius: 14, overflow: 'hidden',
+              padding: '48px 24px', textAlign: 'center',
+              background: '#fff', border: `1px solid ${LV.line}`, borderRadius: 14,
+              color: LV.inkLo, fontSize: 14,
             }}>
-              {/* Header row */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 140px 120px 80px 100px',
-                padding: '10px 20px',
-                borderBottom: `1px solid ${LV.line}`,
-                fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
-                textTransform: 'uppercase', color: LV.inkMute,
-              }}>
-                <span>Camp</span>
-                <span>Host</span>
-                <span>Dates</span>
-                <span>Schools</span>
-                <span>Status</span>
+              {camps.length === 0
+                ? 'No camps yet. Add your first camp.'
+                : 'No camps match the current filters.'}
+            </div>
+          )}
+
+          {/* Table (desktop) */}
+          {filtered.length > 0 && (
+            <>
+              <div className={viewMode === 'calendar' ? 'hidden' : 'hidden md:block'}>
+                <div style={{
+                  background: '#fff', border: `1px solid ${LV.line}`,
+                  borderRadius: 14, overflow: 'hidden',
+                }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 140px 120px 80px 100px',
+                    padding: '10px 20px',
+                    borderBottom: `1px solid ${LV.line}`,
+                    fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
+                    textTransform: 'uppercase', color: LV.inkMute,
+                  }}>
+                    <span>Camp</span>
+                    <span>Host</span>
+                    <span>Dates</span>
+                    <span>Schools</span>
+                    <span>Status</span>
+                  </div>
+                  {filtered.map(c => (
+                    <CampRow key={c.camp.id} camp={c} onClick={() => router.push(`/camps/${c.camp.id}`)} />
+                  ))}
+                </div>
               </div>
 
-              {/* Rows */}
-              {filtered.map(c => (
-                <CampRow key={c.camp.id} camp={c} onClick={() => router.push(`/camps/${c.camp.id}`)} />
-              ))}
-            </div>
-          </div>
-
-          {/* Mobile cards */}
-          <div className="block md:hidden">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {filtered.map(c => (
-                <CampCard key={c.camp.id} camp={c} onClick={() => router.push(`/camps/${c.camp.id}`)} />
-              ))}
-            </div>
-          </div>
-        </>
+              {/* Mobile cards (always visible on mobile) */}
+              <div className="block md:hidden">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {filtered.map(c => (
+                    <CampCard key={c.camp.id} camp={c} onClick={() => router.push(`/camps/${c.camp.id}`)} />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {/* Add camp modal */}

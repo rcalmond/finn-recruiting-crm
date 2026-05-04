@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCamps, useSchools } from '@/hooks/useRealtimeData'
@@ -303,7 +303,21 @@ function HostSchoolRow({ camp, schools, onUpdate }: {
   onUpdate: (id: string, data: Record<string, unknown>) => Promise<string | null>
 }) {
   const [editing, setEditing] = useState(false)
+  const [hovered, setHovered] = useState(false)
   const [search, setSearch] = useState('')
+  const selectorRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!editing) return
+    function handleClickOutside(e: MouseEvent) {
+      if (selectorRef.current && !selectorRef.current.contains(e.target as Node)) {
+        setEditing(false)
+        setSearch('')
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [editing])
 
   const hostName = camp.hostSchool.short_name || camp.hostSchool.name
   const tier = TIER_STYLE[camp.hostSchool.category] ?? TIER_STYLE.C
@@ -332,7 +346,7 @@ function HostSchoolRow({ camp, schools, onUpdate }: {
       }}>Host school</span>
 
       {editing ? (
-        <div style={{ flex: 1 }}>
+        <div ref={selectorRef} style={{ flex: 1 }}>
           <input
             type="text"
             value={search}
@@ -385,6 +399,8 @@ function HostSchoolRow({ camp, schools, onUpdate }: {
       ) : (
         <div
           onClick={() => setEditing(true)}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
           style={{
             flex: 1, display: 'flex', alignItems: 'center', gap: 6,
             cursor: 'pointer', minHeight: 20,
@@ -394,7 +410,12 @@ function HostSchoolRow({ camp, schools, onUpdate }: {
             fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
             background: tier.bg, color: tier.color,
           }}>{camp.hostSchool.category}</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: LV.ink }}>{hostName}</span>
+          <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: LV.ink }}>{hostName}</span>
+          <span style={{
+            color: LV.inkMute, flexShrink: 0, marginTop: 2,
+            opacity: hovered ? 1 : 0.4,
+            transition: 'opacity 150ms',
+          }}><PencilIcon /></span>
         </div>
       )}
     </div>
