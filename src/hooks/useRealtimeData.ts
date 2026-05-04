@@ -550,10 +550,10 @@ export function useCamps() {
     return () => { supabase.removeChannel(channel) }
   }, [fetchCamps, supabase, schools.length])
 
-  const createCamp = useCallback(async (data: Omit<Camp, 'id' | 'created_at' | 'updated_at'>) => {
+  const createCamp = useCallback(async (data: Omit<Camp, 'id' | 'created_at' | 'updated_at'>): Promise<{ id: string | null; error: string | null }> => {
     const result = await createCampMutation(supabase, data)
     if (!result.error) await fetchCamps()
-    return result.error
+    return { id: result.camp?.id ?? null, error: result.error }
   }, [supabase, fetchCamps])
 
   const updateCamp = useCallback(async (id: string, data: Partial<Omit<Camp, 'id' | 'created_at' | 'updated_at'>>) => {
