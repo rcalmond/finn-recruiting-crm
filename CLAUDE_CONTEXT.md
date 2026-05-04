@@ -2298,6 +2298,147 @@ all rendering correctly. Mobile responsive at 390px confirmed.
 
 ---
 
+### ID Camps Workstream — Phase A1-A3 (May 2-3, 2026)
+
+#### What shipped
+
+**Phase A1 — Data layer (May 2):**
+- Migration 034: 4 new tables (camps, camp_school_attendees,
+  camp_coach_attendees, camp_finn_status) with RLS, realtime
+  publication, FK cascades, and updated_at trigger on camps
+- 7 camps backfilled from schools.id_camp_1/2/3 plus PPA Mass 2
+  from manual research
+- Dropped schools.id_camp_1/2/3 columns + cleanup of 4 TypeScript
+  files referencing them
+- src/lib/types.ts: Camp, CampSchoolAttendee, CampCoachAttendee,
+  CampFinnStatus, CampWithRelations
+- src/lib/camps.ts: queries (composeCampsWithRelations), mutations
+  (createCamp, updateCamp, updateFinnStatus, deleteCamp,
+  addSchoolAttendee, removeSchoolAttendee), pure helpers
+  (getNextUpcomingCamp, classifyCampTimeframe,
+  sortCampsChronological, getCampsForSchool)
+- useCamps(schools) hook with realtime subscriptions on all 4
+  camp tables, takes schools as parameter
+- PipelineTable wired to render next upcoming camp date per school
+
+**Phase A2 — List view + add modal + nav (May 2):**
+- /camps page with timeframe/status/tier filter pills
+- Desktop table layout, mobile stacked cards
+- AddCampModal with searchable school dropdown
+- AppNav: Camps added between Campaigns and Library, 6 top-level
+  items
+- Schools passed as prop to AddCampModal to avoid duplicate
+  useSchools subscription
+
+**Phase A3 — Camp detail page + host editing (May 3):**
+- /camps/[id] route with full edit + status management
+- Inline edit pattern (pencil-on-click, blur-saves, Escape cancels)
+- Status pills with immediate save, current-status timestamp only
+- Decline reason inline input
+- School attendees: search-add (multi), tier badge, remove
+- Two-step delete confirmation
+- Editable host school selector (added during Phase A3 polish
+  after surfacing PPA camps had wrong hosts)
+- PPA Mass 1 + PPA Mass 2 corrected to Amherst host (were
+  incorrectly backfilled as Lafayette)
+- Cross-attendees added: Lafayette attends Mass camps, Amherst
+  attends Penn camps
+
+#### Architecture decisions
+
+**Status timestamps preserve history.** updateFinnStatus sets the
+new status's timestamp but doesn't clear historical ones. So if
+Finn registers then declines, registered_at is preserved as
+historical context. Display shows only current-status timestamp
+to avoid confusion.
+
+**Host school is required and must be a tracked school.** v1 doesn't
+support free-text hosts. If a camp is at a non-tracked venue
+(e.g., PPA at Amherst when Amherst isn't yet in schools), Finn
+adds the school first. v2 may add free-text host_name as
+alternative if the pattern emerges.
+
+**School attendees model the "MIT camp had Hopkins coaches"
+recruiting force-multiplier pattern.** A camp links to host school
+via FK; attendee schools listed via camp_school_attendees with
+source='advertised' default. UI search-add stays open for batch
+adds. Phase A2 model: school-level attendance, not coach-level.
+
+**Coach attendees deferred to v2.** Schema and types exist; UI not
+built. Reasoning: backfilled camps have empty coach lists, the
+"Hopkins coaches at MIT" use case is school-level not coach-level,
+and building UI for empty section is debt.
+
+**useCamps takes schools as parameter, not nested useSchools().**
+Original implementation called useSchools() inside useCamps(),
+creating a cascading subscription where every schools update tore
+down and re-created the camps channel. Combined with React
+StrictMode double-mount, caused "cannot add postgres_changes after
+subscribe" errors. Fix: useCamps(schools) signature, useRef for
+stable channel subscription, separate effect for initial fetch
+when schools first populate.
+
+#### New schema (added in 034)
+
+camps:
+  - id, host_school_id (FK schools cascade), name, start_date,
+    end_date, location, registration_url, registration_deadline,
+    cost (text — pricing varies), notes, created_at, updated_at
+  - Indexes on start_date, host_school_id
+
+camp_school_attendees:
+  - id, camp_id (FK camps cascade), school_id (FK schools cascade),
+    source ('advertised' | 'confirmed' | 'rumored'), notes,
+    created_at
+  - unique (camp_id, school_id)
+
+camp_coach_attendees:
+  - id, camp_id (FK camps cascade), coach_id (FK coaches cascade),
+    source, confirmed_at, created_at
+  - unique (camp_id, coach_id)
+
+camp_finn_status:
+  - id, camp_id (FK camps cascade), status ('interested' |
+    'registered' | 'attended' | 'declined'), registered_at,
+    attended_at, declined_at, declined_reason, notes, action_item_id
+    (FK action_items set null), created_at
+  - unique (camp_id)
+
+#### Tech debt
+
+Active:
+- 7 useSchools() call sites is sprawl. Each creates its own
+  subscription. Future: SchoolsProvider context at app root,
+  single subscription, all consumers read from context.
+- StrictMode + Supabase realtime channel teardown has race
+  conditions. The useCamps fix avoids the issue by stabilizing
+  the channel subscription, but useSchools and other hooks still
+  have the same vulnerability if nested in another hook.
+- Coach attendees UI deferred to v2.
+- Free-text host_name (non-tracked-school hosts) deferred. PPA
+  was the operator example — currently host is a tracked school
+  (Lafayette/Amherst), not the operator.
+- ID camp strategic prompt (deferred from Phase 3b strategic zone)
+  now unblocked by camps schema. Next session candidate.
+
+Resolved:
+- schools.id_camp_1/2/3 columns dropped (pre-camps placeholder
+  fields)
+
+#### Status
+
+All three phases shipped to production. Camps system is usable for
+real recruiting work. Smoke tests passed.
+
+#### Next phases (not yet shipped)
+
+- **Phase A4:** School detail CampsSection — show camps relevant
+  to a school on /schools/[id], hosted + attending subsections
+- **Phase A5:** Action items integration — auto-create action_items
+  for registration deadlines, complete/delete on status transitions
+
+---
+
 ## 12. Recent Changes
 
 > **How to use this section:** When you make a meaningful change — new feature, schema update,
@@ -2307,6 +2448,11 @@ all rendering correctly. Mobile responsive at 390px confirmed.
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-03 | Phase A3: Camp detail page — inline edit, status pills, school attendees, delete confirmation, editable host school selector | Feature |
+| 2026-05-03 | Fix: useCamps takes schools as param, stable channel subscription — eliminates cascading useSchools subscription errors | Bug fix |
+| 2026-05-02 | Phase A2: /camps list view with filter pills, AddCampModal, Camps added to nav (6 top-level items) | Feature |
+| 2026-05-02 | Phase A1: Migration 034 (4 camps tables + backfill 7 camps), camps.ts data layer, useCamps() hook, PipelineTable camp dates | Schema + Feature |
+| 2026-05-02 | Dropped schools.id_camp_1/2/3 columns + TypeScript cleanup across 4 files | Schema + Cleanup |
 | 2026-05-01 | Today visual redesign shipped: V5 design language — red hero card, compact numeral rail, teal strategic cards, pipeline rail (HOT/ACTIVE/WARMING/COLD), masthead metrics (active/overdue/this week), caught-up state, mobile responsive | Feature |
 | 2026-05-01 | Nav restructure: 9 items → 5 top-level (Today/Schools/Campaigns/Library/Tools), Tools group with expandable sub-items, /tools landing page, Import removed from nav | Feature |
 | 2026-05-01 | New: src/lib/pipeline-rail.ts + src/components/today/PipelineRail.tsx — pipeline classification and right-rail component | Feature |
