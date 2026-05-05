@@ -138,18 +138,37 @@ export async function extractCampsFromText(input: ExtractionInput): Promise<Extr
     const content = response.content[0]
     if (content.type !== 'text') return []
 
-    // Strip markdown code fences if Haiku wraps the response
+    // Strip markdown code fences and trailing commentary.
+    // Haiku sometimes returns: ```json\n[...]\n```\n\n**Reasoning:** ...
     let raw = content.text.trim()
     if (raw.startsWith('```')) {
-      raw = raw.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim()
+      raw = raw.replace(/^```(?:json)?\s*/, '').replace(/```[\s\S]*$/, '').trim()
+    }
+    // If there's trailing text after the JSON array close, strip it
+    const lastBracket = raw.lastIndexOf(']')
+    if (lastBracket !== -1 && lastBracket < raw.length - 1) {
+      raw = raw.slice(0, lastBracket + 1)
     }
 
-    const parsed = JSON.parse(raw)
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch (parseErr) {
+      console.error('[camp-extractor] JSON parse failed.')
+      console.error('[camp-extractor] Raw response (first 500 chars):')
+      console.error(raw.slice(0, 500))
+      console.error('[camp-extractor] Raw response (last 200 chars):')
+      console.error(raw.slice(-200))
+      return []
+    }
+
     if (!Array.isArray(parsed)) return []
 
-    // Validate each camp has required fields
-    return parsed.filter((c: ExtractedCamp) =>
-      c.name && c.start_date && /^\d{4}-\d{2}-\d{2}$/.test(c.start_date)
+    // Validate each camp has required fields + enforce past-date rejection
+    // (model doesn't always comply with the prompt rule)
+    return (parsed as ExtractedCamp[]).filter((c: ExtractedCamp) =>
+      c.name && c.start_date && /^\d{4}-\d{2}-\d{2}$/.test(c.start_date) &&
+      c.start_date >= input.currentDate
     )
   } catch (err) {
     console.error('[camp-extractor] extraction failed:', err)
@@ -209,6 +228,19 @@ export async function shouldSkipProposal(
 
   if (priorProposals && priorProposals.length > 0 && priorProposals[0].status === 'rejected') {
     return { skip: true, reason: 'previously rejected' }
+  }
+
+  // Check 3: pending proposal with matching signature already in queue
+  const { data: pendingProposals } = await supabase
+    .from('camp_proposals')
+    .select('id')
+    .eq('host_school_id', hostSchoolId)
+    .eq('status', 'pending')
+    .contains('proposed_data', { start_date: startDate })
+    .limit(1)
+
+  if (pendingProposals && pendingProposals.length > 0) {
+    return { skip: true, reason: 'pending proposal already exists' }
   }
 
   return { skip: false }
