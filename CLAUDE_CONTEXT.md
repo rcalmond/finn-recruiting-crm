@@ -246,6 +246,8 @@ name         text
 role         text                   -- 'Head Coach' | 'Assistant Coach' | 'Associate Head Coach' | 'Other' | etc.
 email        text
 is_primary   boolean                -- true = designated contact for this school
+is_active    boolean not null default true
+                                    -- false = departed coach, soft-deleted via apply of coach_departed proposal
 needs_review boolean                -- true = flagged for human review (coach_departed applies this)
 sort_order   integer
 notes        text                   -- used for endowed chair titles, misc
@@ -253,6 +255,11 @@ source       text not null          -- 'manual' (default) | 'scraped' (roster sc
 created_at   timestamptz
 updated_at   timestamptz
 ```
+
+**is_active filtering convention:** Read surfaces (school detail, campaign selectors, scraper diff,
+UI pickers) filter is_active=true. Write surfaces (ingestion paths from Gmail, SendGrid, SR webhook,
+bulk import) do NOT filter — historical inbound emails to departed coaches must still resolve to
+their original coach record to keep contact_log linkage intact.
 
 ### Table: `coach_changes`
 ```
@@ -380,6 +387,7 @@ and are legacy — note this in contact log if surfaced.
   - `supabase/scripts/` — data migrations and one-shot scripts (committed)
   - `supabase/scratch/` — investigation queries (gitignored)
   - `scripts/generate-claude-context.ts` — this script
+- **Deployment**: Vercel Pro tier (upgraded May 5, 2026): unlocks minute-granular crons, 60s default function timeout (configurable to 300s), better cold start performance. gmail-sync now runs every 15 minutes (was daily on Hobby tier).
 
 **SQL execution convention:** All psql commands run as `psql -f <path>` against files
 on disk. No inline `-c "..."` SQL — that pattern triggers Claude Code's brace-quote
@@ -922,6 +930,105 @@ If a proposed email_changed replaces a person-shaped address (firstname.lastname
 If an existing Head Coach gets re-classified to a lower role AND no new Head Coach appears in the same scrape for that school, flag as suspicious_parsing rather than queuing for review. Would have caught the Vom Steeg (UCSB) false positive. Revisit when we next touch the scraper.
 
 **Do NOT add:** heuristics based on username character count or missing letters. Emory's policy proves that truncated usernames are real. Trust the scraped page.
+
+### Scraper hardening — shipped (May 5, 2026)
+
+**Bug C resolution — coach_departed apply now actually departs the coach (migration 035, May 5, 2026):**
+
+Prior behavior: applying a coach_departed proposal set coaches.needs_review=true but left the coach in the active diff set. Scraper saw the coach was still in the DB but missing from the page, re-proposed departure on every run. 14 rows confirmed stuck in this loop before the fix.
+
+Fix: added coaches.is_active boolean (default true) with partial index coaches_active_school_idx on (school_id) where is_active = true. Apply path for coach_departed sets is_active=false and needs_review=false. Scraper diff query filters is_active=true. UI surfaces (SchoolDetailClient, campaign coach selectors, gmail-partials picker) filter is_active=true. Ingestion paths (gmail-autolabel, gmail-resolve, bulk-import, sendgrid webhook) intentionally do NOT filter — historical emails to departed coaches must still resolve to the original coach record so contact_log linkage stays correct.
+
+Architectural decision: soft-delete via is_active flag, not hard delete. Preserves contact_log FK references and the recruiting history they encode. To re-activate a coach (rare — handle via SQL): `update coaches set is_active=true where id='...';`
+
+**Bug A resolution — rejected proposals no longer re-surface (May 5, 2026):**
+
+Prior behavior: applyChanges() in src/lib/coach-scraper.ts inserted a new coach_changes row for every page-vs-DB diff, regardless of whether the same proposal had been rejected before. 4 rows confirmed re-surfacing on every scrape.
+
+Fix: before inserting, applyChanges() queries coach_changes for prior terminal rows (status in applied or rejected) matching the proposal signature, ordered by created_at desc. If the most recent terminal row's status is 'rejected', the insert is skipped.
+
+Signature per change_type (uses actual schema keys role_before/role_after, email_before/email_after, name_before/name_after):
+- coach_departed: (school_id, change_type, coach_id)
+- email_changed: (school_id, change_type, coach_id, details @> {email_before, email_after})
+- email_added: (school_id, change_type, coach_id, details @> {email_new})
+- role_changed: (school_id, change_type, coach_id, details @> {role_before, role_after})
+- name_changed: (school_id, change_type, coach_id, details @> {name_before, name_after})
+- coach_added: (school_id, change_type, details @> {name, role})
+
+Including old/new values prevents over-suppression: a coach whose Head→Assistant role change was rejected can still trigger a future Assistant→Director proposal.
+
+Auto-applied changes (wouldStatus !== 'manual') skip the dedup check and always log.
+
+Validation pending: Wednesday May 7 cron run will confirm the 18 processed rows do not reappear. Update this section after validation lands.
+
+### Camp Discovery System — Phase B (May 5, 2026)
+
+**Phase B1 + B2 — Foundation + historical backfill:**
+
+Migration 036 added camp_proposals table mirroring the coach_changes review queue pattern:
+
+  camp_proposals:
+    id, source ('email_extract' | 'email_extract_backfill' | 'web_search'),
+    source_ref (contact_log_id for email, web:URL for search),
+    host_school_id, proposed_data (jsonb),
+    matched_camp_id (FK camps, nullable),
+    status ('pending' | 'applied' | 'rejected' | 'superseded'),
+    confidence ('high' | 'medium' | 'low'),
+    notes, created_at, reviewed_at
+
+Extractor (src/lib/camp-extractor.ts) uses Claude Haiku 4.5. Truncates input to 4000 chars. Returns array of camps per call (one email or web page can mention multiple camps). Date validation rules in prompt: reject past dates, reject > 18 months future, infer year from today's date when ambiguous. Confidence rubric: high (explicit dates + location + host clear), medium (dates clear, details ambiguous), low (camp mentioned but specifics unclear). Empty array when no extractable camp data — does NOT invent dates.
+
+Defense-in-depth filter strips past-dated camps from extractor output regardless of model behavior. Lehigh 2025-12-20 was the case that proved this filter earns its keep — Haiku occasionally violates Rule 3 despite the prompt.
+
+Markdown fence stripping handles both ```json and ``` prefixes plus trailing reasoning text after the array. First version of the parser failed on every Haiku response; the fix added trim + slice(0, lastIndexOf(']')+1) logic to handle text-after-JSON cases.
+
+shouldSkipProposal() three-check dedup:
+1. Existing camp (±2 day tolerance) → don't skip, set matchedCampId for update-existing flow
+2. Terminal rejected proposal (exact start_date) → skip
+3. Pending proposal (exact start_date + same host) → skip
+
+Apply path supports both create-new (insert into camps + camp_school_attendees) and update-existing (merge non-null fields into existing camps row). Optional "mark_finn_interested" checkbox in review UI defaults checked, upserts camp_finn_status='interested' on apply.
+
+Backfill script (scripts/backfill-camp-extraction.ts): one-shot pass over Inbound contact_log rows from past 12 months matching camp keyword pattern, A/B/C schools only. Initial run May 5: 32 rows triggered extractor, 19 camps extracted, 4 skipped via pending-proposal dedup, 8 matched existing, 15 new proposals inserted.
+
+**Phase B3 — Live trigger:**
+
+extractAndProposeCamps() helper added to camp-extractor.ts. Wired as fire-and-forget call in /api/cron/gmail-sync and /api/webhooks/sendgrid-inbound, parallel to the existing classifyAndUpdate hook. Fires only when:
+- direction='Inbound'
+- school_id IS NOT NULL
+- parse_status IN ('full', 'partial')
+- school.category IN ('A','B','C')
+- body or summary matches /\b(camp|clinic|showcase|ID camp|prospect day|elite training)\b/i
+
+Idempotency check at top of function: skip if any camp_proposals row already exists with source_ref=rowId. Prevents duplicate Haiku calls on retry/re-sync.
+
+**Phase B4 — Tavily web discovery (deferred to follow-up doc update):**
+
+Saturday cron at /api/cron/camp-discovery shipped May 5. Validation pending — first natural production run is Saturday May 10. Document fully after that run completes.
+
+### Ingestion Health Monitoring (May 5, 2026)
+
+Today screen banner surfaces ingestion failures. getIngestionHealth() returns SourceHealth[] for each monitored source. Banner renders only when at least one source is unhealthy.
+
+Sources monitored:
+- Gmail: gmail_tokens.last_sync_at vs now
+  - Healthy: < 24h
+  - Warning: 24h–72h
+  - Critical: > 72h or missing row
+  - Action: Reconnect at /settings/gmail
+- SendGrid: max(contact_log.created_at) where gmail_message_id IS NULL AND parse_status IS NOT NULL
+  - Healthy: < 7 days
+  - Warning: 7–14 days
+  - Critical: > 14 days
+  - Action: Open SendGrid dashboard (external link)
+
+Pattern generalizes — adding a third source means adding one async function and including in the getIngestionHealth array.
+
+**Gmail OAuth disconnect lessons learned:**
+
+April 28 → May 5 outage: gmail_tokens row was deleted (cause unconfirmed — most likely user action via /settings/gmail Disconnect button or direct Supabase SQL). Code-level investigation confirmed the only delete path is the manual disconnect handler; failed token refresh does NOT delete the row by design (good defensive design, line 96 in gmail-client.ts has explicit comment).
+
+Reconnect via /settings/gmail restored functionality. First reconnect attempt produced 403 PERMISSION_DENIED on autolabel API calls — Google's cached consent had stale scopes. Fix: revoke at myaccount.google.com → Security → third-party apps, then disconnect+reconnect in app for fresh consent flow with full gmail.modify scope.
 
 ---
 
@@ -2475,6 +2582,14 @@ for v1. Smoke tests passed.
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-05 | SendGrid webhook health monitoring added to Today screen banner; getIngestionHealth() generalized to support multiple sources | Feature |
+| 2026-05-05 | Gmail sync cadence: daily → every 15 minutes (Vercel Pro upgrade); UI copy now matches reality | Ops |
+| 2026-05-05 | Vercel Pro tier upgrade — unlocks minute-granular crons, 60s function timeout, better cold starts | Ops |
+| 2026-05-05 | Today screen Gmail sync health banner (yellow >24h stale, red >72h or missing row) | Feature |
+| 2026-05-05 | Phase B3 (live trigger): extractAndProposeCamps wired into gmail-sync and sendgrid-inbound as fire-and-forget hook; validated end-to-end on reconnect | Feature |
+| 2026-05-05 | Phase B2 (backfill): scripts/backfill-camp-extraction.ts; initial run produced 15 new camp proposals + 8 matched-existing from 32 inbound rows | Tooling |
+| 2026-05-05 | Phase B1 (foundation): migration 036 (camp_proposals table), camp-extractor.ts with Haiku 4.5, 3-check dedup helper, /settings/camp-proposals review UI | Schema + Feature |
+| 2026-05-05 | Migration 035: coaches.is_active soft-delete pattern + dedup against rejection history; Bug A and Bug C fixes in coach scraper review pipeline | Schema + Bug fix |
 | 2026-05-04 | Phase A6: Camps calendar view — view toggle, month grid, multi-day bars, auto-derived short names (camp-display.ts), host school pencil + click-outside dismiss | Feature |
 | 2026-05-04 | Phase A5: Camps action item integration — syncActionItemForCamp state machine (auto-create on deadline+interested, complete on registered, delete on declined) | Feature |
 | 2026-05-04 | Phase A4: Camps section on school detail — Hosted/Attending subsections, + Add with host pre-fill | Feature |
