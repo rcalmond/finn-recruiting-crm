@@ -17,6 +17,8 @@ import StrategicSection from './today/StrategicSection'
 import BatchReelModal from './today/BatchReelModal'
 import HandledSection from './today/HandledSection'
 import PipelineRail from './today/PipelineRail'
+import SyncHealthBanner from './today/SyncHealthBanner'
+import type { GmailHealth } from '@/lib/gmail-health'
 
 interface DraftTarget {
   kind: 'fresh' | 'reply'
@@ -40,8 +42,10 @@ const LV = {
 
 export default function TodayClient({
   user,
+  gmailHealth,
 }: {
   user: User
+  gmailHealth?: GmailHealth
 }) {
   const today = todayStr()
   const mtToday = mountainTimeToday()
@@ -305,6 +309,9 @@ export default function TodayClient({
       background: LV.paper,
       fontFamily: "'Inter', -apple-system, sans-serif",
     }}>
+      {/* Gmail sync health banner */}
+      {gmailHealth && <SyncHealthBanner health={gmailHealth} />}
+
       {/* Masthead — full width, above the 2-column split */}
       <div style={{
         padding: '24px clamp(28px, 4vw, 56px) 8px',
