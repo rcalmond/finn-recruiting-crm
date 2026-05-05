@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { CampWithRelations, CampFinnStatusValue } from '@/lib/types'
 import { getCampDisplayName } from '@/lib/camp-display'
@@ -25,6 +25,10 @@ const BAR_COLORS: Record<CampFinnStatusValue, { bg: string; accent: string; text
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MAX_VISIBLE_SLOTS = 4
+const SLOT_TOP_OFFSET = 28  // px from cell top (below day number)
+const SLOT_HEIGHT = 22
+const SLOT_GAP = 2
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -54,6 +58,113 @@ function campsOnDate(camps: CampWithRelations[], dateStr: string): CampWithRelat
   return camps.filter(c => c.camp.start_date <= dateStr && c.camp.end_date >= dateStr)
 }
 
+/**
+ * Assign locked slot indices for multi-day camps within a week.
+ * Uses greedy packing: each camp gets the lowest slot that doesn't
+ * conflict with already-placed camps on any shared day.
+ */
+function computeMultiDaySlots(week: Date[], camps: CampWithRelations[]): Map<string, number> {
+  const weekStart = toDateStr(week[0])
+  const weekEnd = toDateStr(week[6])
+
+  // Collect multi-day camps active this week
+  const multiDay: CampWithRelations[] = []
+  const seen = new Set<string>()
+  for (const day of week) {
+    const ds = toDateStr(day)
+    for (const c of campsOnDate(camps, ds)) {
+      if (c.camp.start_date !== c.camp.end_date && !seen.has(c.camp.id)) {
+        seen.add(c.camp.id)
+        multiDay.push(c)
+      }
+    }
+  }
+
+  // Sort by start_date, then name for deterministic ordering
+  multiDay.sort((a, b) => {
+    if (a.camp.start_date !== b.camp.start_date) return a.camp.start_date.localeCompare(b.camp.start_date)
+    return a.camp.name.localeCompare(b.camp.name)
+  })
+
+  // Greedy slot packing: for each camp, find lowest slot not conflicting
+  // with any already-placed camp on any shared day
+  const slotMap = new Map<string, number>()
+  const placed: Array<{ camp: CampWithRelations; slot: number }> = []
+
+  for (const camp of multiDay) {
+    // Effective date range within this week
+    const cStart = camp.camp.start_date < weekStart ? weekStart : camp.camp.start_date
+    const cEnd = camp.camp.end_date > weekEnd ? weekEnd : camp.camp.end_date
+
+    let slot = 0
+    slotSearch:
+    while (true) {
+      // Check if this slot conflicts with any already-placed camp
+      for (const p of placed) {
+        if (p.slot !== slot) continue
+        const pStart = p.camp.camp.start_date < weekStart ? weekStart : p.camp.camp.start_date
+        const pEnd = p.camp.camp.end_date > weekEnd ? weekEnd : p.camp.camp.end_date
+        // Date ranges overlap?
+        if (cStart <= pEnd && cEnd >= pStart) {
+          slot++
+          continue slotSearch
+        }
+      }
+      break // no conflict at this slot
+    }
+
+    slotMap.set(camp.camp.id, slot)
+    placed.push({ camp, slot })
+  }
+
+  return slotMap
+}
+
+/**
+ * For a single cell, compute which camps go in which slots.
+ * Multi-day camps use their locked slot from computeMultiDaySlots.
+ * Single-day camps pack into remaining slots.
+ * Returns { visible: [{camp, slot}], overflow: [camp] }.
+ */
+function assignCellSlots(
+  dayCamps: CampWithRelations[],
+  multiDaySlots: Map<string, number>,
+): { visible: Array<{ camp: CampWithRelations; slot: number }>; overflow: CampWithRelations[] } {
+  const visible: Array<{ camp: CampWithRelations; slot: number }> = []
+  const overflow: CampWithRelations[] = []
+  const occupiedSlots = new Set<number>()
+
+  // Phase 1: place multi-day camps at their locked slots
+  for (const c of dayCamps) {
+    const lockedSlot = multiDaySlots.get(c.camp.id)
+    if (lockedSlot !== undefined) {
+      if (lockedSlot < MAX_VISIBLE_SLOTS) {
+        visible.push({ camp: c, slot: lockedSlot })
+        occupiedSlots.add(lockedSlot)
+      } else {
+        overflow.push(c)
+      }
+    }
+  }
+
+  // Phase 2: pack single-day camps into remaining slots
+  for (const c of dayCamps) {
+    if (multiDaySlots.has(c.camp.id)) continue // already placed
+    let placed = false
+    for (let s = 0; s < MAX_VISIBLE_SLOTS; s++) {
+      if (!occupiedSlots.has(s)) {
+        visible.push({ camp: c, slot: s })
+        occupiedSlots.add(s)
+        placed = true
+        break
+      }
+    }
+    if (!placed) overflow.push(c)
+  }
+
+  return { visible, overflow }
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 interface Props {
@@ -65,6 +176,7 @@ export default function CampsCalendar({ camps }: Props) {
   const today = new Date()
   const [viewYear, setViewYear] = useState(today.getFullYear())
   const [viewMonth, setViewMonth] = useState(today.getMonth())
+  const [popoverDate, setPopoverDate] = useState<string | null>(null)
 
   const todayStr = toDateStr(today)
   const weeks = useMemo(() => buildMonthGrid(viewYear, viewMonth), [viewYear, viewMonth])
@@ -74,24 +186,34 @@ export default function CampsCalendar({ camps }: Props) {
   function prevMonth() {
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11) }
     else setViewMonth(m => m - 1)
+    setPopoverDate(null)
   }
 
   function nextMonth() {
     if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0) }
     else setViewMonth(m => m + 1)
+    setPopoverDate(null)
   }
 
   function goToday() {
     setViewYear(today.getFullYear())
     setViewMonth(today.getMonth())
+    setPopoverDate(null)
   }
 
+  // Pre-compute multi-day slot assignments per week
+  const weekMultiDaySlots = useMemo(() =>
+    weeks.map(week => computeMultiDaySlots(week, camps)),
+    [weeks, camps]
+  )
+
+  // Pre-compute camps per date
   const campsByDate = useMemo(() => {
     const map = new Map<string, CampWithRelations[]>()
     for (const week of weeks) {
       for (const day of week) {
         const ds = toDateStr(day)
-        map.set(ds, campsOnDate(camps, ds))
+        if (!map.has(ds)) map.set(ds, campsOnDate(camps, ds))
       }
     }
     return map
@@ -149,69 +271,200 @@ export default function CampsCalendar({ camps }: Props) {
         </div>
 
         {/* Week rows */}
-        {weeks.map((week, wi) => (
-          <div key={wi} style={{
-            display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
-            borderBottom: wi < 5 ? `1px solid ${LV.line}` : 'none',
-            minHeight: 100,
-          }}>
-            {week.map((day, di) => {
-              const ds = toDateStr(day)
-              const isCurrentMonth = day.getMonth() === viewMonth
-              const isToday = ds === todayStr
-              const dayCamps = campsByDate.get(ds) ?? []
+        {weeks.map((week, wi) => {
+          const multiDaySlots = weekMultiDaySlots[wi]
 
-              return (
-                <div key={di} style={{
-                  padding: '4px 4px 8px',
-                  borderRight: di < 6 ? `1px solid ${LV.line}` : 'none',
-                  background: isCurrentMonth ? '#fff' : LV.paperDeep,
-                }}>
-                  {/* Day number — top right */}
-                  <div style={{
-                    textAlign: 'right',
-                    padding: '2px 6px 0 0',
-                    marginBottom: 4,
-                    height: 22,
+          return (
+            <div key={wi} style={{
+              display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
+              borderBottom: wi < 5 ? `1px solid ${LV.line}` : 'none',
+              minHeight: SLOT_TOP_OFFSET + MAX_VISIBLE_SLOTS * (SLOT_HEIGHT + SLOT_GAP) + 20,
+            }}>
+              {week.map((day, di) => {
+                const ds = toDateStr(day)
+                const isCurrentMonth = day.getMonth() === viewMonth
+                const isToday = ds === todayStr
+                const dayCamps = campsByDate.get(ds) ?? []
+
+                const { visible, overflow } = assignCellSlots(dayCamps, multiDaySlots)
+
+                return (
+                  <div key={di} style={{
+                    borderRight: di < 6 ? `1px solid ${LV.line}` : 'none',
+                    background: isCurrentMonth ? '#fff' : LV.paperDeep,
+                    position: 'relative',
                   }}>
-                    {isToday ? (
-                      <span style={{
-                        background: LV.ink, color: '#fff', borderRadius: '50%',
-                        width: 22, height: 22, display: 'inline-flex',
-                        alignItems: 'center', justifyContent: 'center',
-                        fontSize: 12, fontWeight: 600,
-                      }}>{day.getDate()}</span>
-                    ) : (
-                      <span style={{
-                        fontSize: 12, fontWeight: 400,
-                        color: LV.inkMid,
-                        opacity: isCurrentMonth ? 1 : 0.35,
-                      }}>{day.getDate()}</span>
+                    {/* Day number — top right */}
+                    <div style={{
+                      textAlign: 'right',
+                      padding: '4px 6px 0 0',
+                      height: SLOT_TOP_OFFSET,
+                    }}>
+                      {isToday ? (
+                        <span style={{
+                          background: LV.ink, color: '#fff', borderRadius: '50%',
+                          width: 22, height: 22, display: 'inline-flex',
+                          alignItems: 'center', justifyContent: 'center',
+                          fontSize: 12, fontWeight: 600,
+                        }}>{day.getDate()}</span>
+                      ) : (
+                        <span style={{
+                          fontSize: 12, fontWeight: 400,
+                          color: LV.inkMid,
+                          opacity: isCurrentMonth ? 1 : 0.35,
+                        }}>{day.getDate()}</span>
+                      )}
+                    </div>
+
+                    {/* Camp bars at fixed slot positions */}
+                    <div style={{ opacity: isCurrentMonth ? 1 : 0.5 }}>
+                      {visible.map(({ camp: c, slot }) => {
+                        const isStart = ds === c.camp.start_date
+                        const isEnd = ds === c.camp.end_date
+                        const isMultiDay = c.camp.start_date !== c.camp.end_date
+                        return (
+                          <div
+                            key={c.camp.id}
+                            style={{
+                              position: 'absolute',
+                              top: SLOT_TOP_OFFSET + slot * (SLOT_HEIGHT + SLOT_GAP),
+                              left: isMultiDay && !isStart ? 0 : 4,
+                              right: isMultiDay && !isEnd ? 0 : 4,
+                            }}
+                          >
+                            <CampBar
+                              camp={c}
+                              dateStr={ds}
+                              viewMonth={viewMonth}
+                              viewYear={viewYear}
+                              onClick={() => router.push(`/camps/${c.camp.id}`)}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* +N more pill — anchored at bottom */}
+                    {overflow.length > 0 && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          bottom: 4, left: 4, right: 4,
+                          textAlign: 'center',
+                        }}
+                      >
+                        <MorePill
+                          count={overflow.length}
+                          allCamps={dayCamps}
+                          dateStr={ds}
+                          columnIndex={di}
+                          isOpen={popoverDate === ds}
+                          onToggle={() => setPopoverDate(prev => prev === ds ? null : ds)}
+                          onNavigate={(id) => { setPopoverDate(null); router.push(`/camps/${id}`) }}
+                        />
+                      </div>
                     )}
                   </div>
-
-                  {/* Camp bars — start at consistent vertical rail */}
-                  <div style={{
-                    display: 'flex', flexDirection: 'column', gap: 2,
-                    opacity: isCurrentMonth ? 1 : 0.5,
-                  }}>
-                    {dayCamps.map(c => (
-                      <CampBar
-                        key={c.camp.id}
-                        camp={c}
-                        dateStr={ds}
-                        viewMonth={viewMonth}
-                        viewYear={viewYear}
-                        onClick={() => router.push(`/camps/${c.camp.id}`)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        ))}
+                )
+              })}
+            </div>
+          )
+        })}
       </div>
+    </div>
+  )
+}
+
+// ─── +N more pill with popover ───────────────────────────────────────────────
+
+function MorePill({ count, allCamps, dateStr, columnIndex, isOpen, onToggle, onNavigate }: {
+  count: number
+  allCamps: CampWithRelations[]
+  dateStr: string
+  columnIndex: number
+  isOpen: boolean
+  onToggle: () => void
+  onNavigate: (campId: string) => void
+}) {
+  const anchorRight = columnIndex >= 4
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onToggle()
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') onToggle()
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isOpen, onToggle])
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        onClick={onToggle}
+        style={{
+          fontSize: 9, fontWeight: 700, color: LV.inkMute,
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontFamily: 'inherit', padding: '1px 4px',
+        }}
+      >+{count} more</button>
+
+      {isOpen && (
+        <div style={{
+          position: 'absolute', bottom: '100%',
+          ...(anchorRight ? { right: 0 } : { left: 0 }),
+          width: 280, maxHeight: 300, overflowY: 'auto',
+          background: '#fff', border: `1px solid ${LV.line}`,
+          borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+          zIndex: 50, padding: '8px 0',
+          marginBottom: 4,
+        }}>
+          <div style={{
+            padding: '4px 12px 8px', fontSize: 10, fontWeight: 700,
+            color: LV.inkMute, textTransform: 'uppercase', letterSpacing: '0.08em',
+          }}>
+            {new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </div>
+          {allCamps.map(c => {
+            const status = c.finnStatus?.status ?? 'interested'
+            const colors = BAR_COLORS[status]
+            const school = c.hostSchool.short_name || c.hostSchool.name
+            const campName = getCampDisplayName(c.camp)
+            const dateRange = c.camp.start_date === c.camp.end_date
+              ? ''
+              : ` · ${fmtDateRange(c.camp.start_date, c.camp.end_date)}`
+
+            return (
+              <button
+                key={c.camp.id}
+                onClick={() => onNavigate(c.camp.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  width: '100%', padding: '6px 12px',
+                  background: 'none', border: 'none', textAlign: 'left',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                <span style={{
+                  width: 7, height: 7, borderRadius: 99,
+                  background: colors.accent, flexShrink: 0,
+                }} />
+                <span style={{ fontSize: 12, color: LV.ink, flex: 1, minWidth: 0 }}>
+                  <span style={{ fontWeight: 600 }}>{school}</span>
+                  <span style={{ color: LV.inkMid }}> · {campName}{dateRange}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -239,37 +492,53 @@ function CampBar({ camp, dateStr, viewMonth, viewYear, onClick }: {
   const roundLeft = isStart && startInView
   const roundRight = isEnd && endInView
 
-  // Show label on the leftmost day of each week-segment
   const dayDate = new Date(dateStr + 'T12:00:00')
   const isFirstDayOfWeek = dayDate.getDay() === 0
   const showLabel = isStart || (isFirstDayOfWeek && camp.camp.start_date < dateStr)
 
-  // Accent stripe only on the camp's very first day (not continuation segments)
   const showAccent = isStart && startInView
 
-  const displayName = getCampDisplayName(camp.camp)
+  // Label with school prefix
+  const schoolPrefix = camp.hostSchool.short_name || camp.hostSchool.name.slice(0, 8)
+  const campShort = getCampDisplayName(camp.camp)
+  const fullLabel = `${schoolPrefix}: ${campShort}`
+  const segmentDays = isStart
+    ? Math.min(7 - dayDate.getDay(), Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1)
+    : isFirstDayOfWeek
+      ? Math.min(7, Math.round((endDate.getTime() - dayDate.getTime()) / 86400000) + 1)
+      : 0
+  const approxChars = segmentDays * 12
+  const barLabel = approxChars >= fullLabel.length ? fullLabel : schoolPrefix
+
+  // Multi-line tooltip
+  const tooltipLines = [
+    camp.camp.name,
+    camp.hostSchool.short_name || camp.hostSchool.name,
+    camp.camp.start_date === camp.camp.end_date
+      ? camp.camp.start_date
+      : `${camp.camp.start_date} – ${camp.camp.end_date}`,
+    camp.camp.location,
+    `Status: ${camp.finnStatus?.status ?? 'Not set'}`,
+  ].filter(Boolean).join('\n')
 
   return (
     <div
       onClick={onClick}
-      title={camp.camp.name}
+      title={tooltipLines}
       style={{
         background: colors.bg,
         color: colors.text,
         fontSize: 11, fontWeight: 500,
-        height: 22,
+        height: SLOT_HEIGHT,
         display: 'flex', alignItems: 'center',
         cursor: 'pointer',
         borderRadius: `${roundLeft ? 4 : 0}px ${roundRight ? 4 : 0}px ${roundRight ? 4 : 0}px ${roundLeft ? 4 : 0}px`,
-        marginLeft: roundLeft ? 0 : -4,
-        marginRight: roundRight ? 0 : -4,
         overflow: 'hidden',
         whiteSpace: 'nowrap',
         textOverflow: 'ellipsis',
         position: 'relative',
       }}
     >
-      {/* Left accent stripe on camp's first day only */}
       {showAccent && (
         <div style={{
           position: 'absolute', left: 0, top: 0, bottom: 0,
@@ -279,14 +548,25 @@ function CampBar({ camp, dateStr, viewMonth, viewYear, onClick }: {
       )}
       {showLabel && (
         <span style={{ paddingLeft: showAccent ? 9 : 6, paddingRight: 6 }}>
-          {displayName}
+          {barLabel}
         </span>
       )}
     </div>
   )
 }
 
-// ─── Shared styles ───────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function fmtDateRange(start: string, end: string): string {
+  const s = new Date(start + 'T12:00:00')
+  const e = new Date(end + 'T12:00:00')
+  const sMonth = s.toLocaleDateString('en-US', { month: 'short' })
+  const sDay = s.getDate()
+  const eMonth = e.toLocaleDateString('en-US', { month: 'short' })
+  const eDay = e.getDate()
+  if (sMonth === eMonth) return `${sMonth} ${sDay}–${eDay}`
+  return `${sMonth} ${sDay} – ${eMonth} ${eDay}`
+}
 
 const arrowBtn: React.CSSProperties = {
   background: 'none', border: `1px solid ${LV.line}`,
