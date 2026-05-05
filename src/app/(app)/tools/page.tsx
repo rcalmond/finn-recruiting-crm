@@ -17,7 +17,7 @@ export default async function ToolsPage() {
 
   const admin = makeAdmin()
 
-  const [coachChanges, gmailPartials, classification] = await Promise.all([
+  const [coachChanges, gmailPartials, classification, campProposals] = await Promise.all([
     admin
       .from('coach_changes')
       .select('id', { count: 'exact', head: true })
@@ -36,6 +36,11 @@ export default async function ToolsPage() {
       .eq('classification_confidence', 'low')
       .not('classified_at', 'is', null)
       .then(r => r.count ?? 0),
+    admin
+      .from('camp_proposals')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .then(r => r.count ?? 0),
   ])
 
   return (
@@ -43,6 +48,7 @@ export default async function ToolsPage() {
       pendingCoachChanges={coachChanges}
       pendingGmailPartials={gmailPartials}
       pendingClassification={classification}
+      pendingCampProposals={campProposals}
     />
   )
 }

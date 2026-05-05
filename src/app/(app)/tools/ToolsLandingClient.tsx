@@ -13,10 +13,12 @@ export default function ToolsLandingClient({
   pendingCoachChanges,
   pendingGmailPartials,
   pendingClassification,
+  pendingCampProposals,
 }: {
   pendingCoachChanges: number
   pendingGmailPartials: number
   pendingClassification: number
+  pendingCampProposals: number
 }) {
   const tools: ToolCard[] = [
     {
@@ -36,6 +38,12 @@ export default function ToolsLandingClient({
       description: 'Confirm AI intent labels for low-confidence email classifications',
       href: '/settings/classification-review',
       count: pendingClassification,
+    },
+    {
+      label: 'Camp Proposals',
+      description: 'Review camps extracted from emails and web discovery',
+      href: '/settings/camp-proposals',
+      count: pendingCampProposals,
     },
     {
       label: 'Gmail Settings',

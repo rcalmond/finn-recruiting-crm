@@ -150,6 +150,38 @@ export interface CampWithRelations {
   coachAttendees: CampCoachAttendee[]
 }
 
+// ─── Camp proposals (discovery) ──────────────────────────────────────────────
+
+export type CampProposalSource = 'email_extract' | 'email_extract_backfill' | 'web_search'
+export type CampProposalStatus = 'pending' | 'applied' | 'rejected' | 'superseded'
+export type CampProposalConfidence = 'high' | 'medium' | 'low'
+
+export interface CampProposalProposedData {
+  name: string
+  start_date: string                    // YYYY-MM-DD
+  end_date: string | null
+  location: string | null
+  registration_url: string | null
+  registration_deadline: string | null
+  cost: string | null
+  notes: string | null
+  attendee_school_ids: string[]
+}
+
+export interface CampProposal {
+  id: string
+  source: CampProposalSource
+  source_ref: string
+  host_school_id: string | null
+  proposed_data: CampProposalProposedData
+  matched_camp_id: string | null
+  status: CampProposalStatus
+  confidence: CampProposalConfidence
+  notes: string | null
+  created_at: string
+  reviewed_at: string | null
+}
+
 // ─── Asset library ────────────────────────────────────────────────────────────
 
 export type AssetType =

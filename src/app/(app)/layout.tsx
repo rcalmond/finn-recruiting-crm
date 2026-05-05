@@ -47,11 +47,24 @@ async function getPendingClassification(): Promise<number> {
   }
 }
 
+async function getPendingCampProposals(): Promise<number> {
+  try {
+    const { count } = await makeAdmin()
+      .from('camp_proposals')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+    return count ?? 0
+  } catch {
+    return 0
+  }
+}
+
 export default async function AppShellLayout({ children }: { children: React.ReactNode }) {
-  const [pendingCoachChanges, pendingGmailPartials, pendingClassification] = await Promise.all([
+  const [pendingCoachChanges, pendingGmailPartials, pendingClassification, pendingCampProposals] = await Promise.all([
     getPendingCoachChanges(),
     getPendingGmailPartials(),
     getPendingClassification(),
+    getPendingCampProposals(),
   ])
 
   return (
@@ -62,6 +75,7 @@ export default async function AppShellLayout({ children }: { children: React.Rea
           pendingCoachChanges={pendingCoachChanges}
           pendingGmailPartials={pendingGmailPartials}
           pendingClassification={pendingClassification}
+          pendingCampProposals={pendingCampProposals}
         />
       </div>
 
@@ -76,6 +90,7 @@ export default async function AppShellLayout({ children }: { children: React.Rea
           pendingCoachChanges={pendingCoachChanges}
           pendingGmailPartials={pendingGmailPartials}
           pendingClassification={pendingClassification}
+          pendingCampProposals={pendingCampProposals}
         />
       </div>
     </>

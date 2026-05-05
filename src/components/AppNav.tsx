@@ -24,6 +24,7 @@ const TOOLS_PATHS = [
   '/settings/coach-changes',
   '/settings/gmail-partials',
   '/settings/classification-review',
+  '/settings/camp-proposals',
   '/settings/gmail',
   '/tools',
 ]
@@ -42,6 +43,7 @@ function buildToolsSubItems(
   pendingCoachChanges: number,
   pendingGmailPartials: number,
   pendingClassification: number,
+  pendingCampProposals: number,
 ): ToolsSubItem[] {
   return [
     { label: 'Coach Changes',         href: '/settings/coach-changes',
@@ -50,6 +52,8 @@ function buildToolsSubItems(
       count: pendingGmailPartials > 0 ? pendingGmailPartials : undefined },
     { label: 'Classification Review', href: '/settings/classification-review',
       count: pendingClassification > 0 ? pendingClassification : undefined },
+    { label: 'Camp Proposals',        href: '/settings/camp-proposals',
+      count: pendingCampProposals > 0 ? pendingCampProposals : undefined },
     { label: 'Gmail Settings',        href: '/settings/gmail' },
   ]
 }
@@ -63,19 +67,21 @@ export function AppSidebar({
   pendingCoachChanges = 0,
   pendingGmailPartials = 0,
   pendingClassification = 0,
+  pendingCampProposals = 0,
 }: {
   pendingCoachChanges?: number
   pendingGmailPartials?: number
   pendingClassification?: number
+  pendingCampProposals?: number
 }) {
   const pathname = usePathname()
   const TOP_ITEMS = buildTopNavItems()
-  const TOOLS_ITEMS = buildToolsSubItems(pendingCoachChanges, pendingGmailPartials, pendingClassification)
+  const TOOLS_ITEMS = buildToolsSubItems(pendingCoachChanges, pendingGmailPartials, pendingClassification, pendingCampProposals)
 
   const toolsActive = isToolsPath(pathname)
   const [toolsOpen, setToolsOpen] = useState(toolsActive)
 
-  const totalToolsBadge = pendingCoachChanges + pendingGmailPartials + pendingClassification
+  const totalToolsBadge = pendingCoachChanges + pendingGmailPartials + pendingClassification + pendingCampProposals
 
   const isTopActive = (href: string) => {
     if (href === '/') return pathname === '/'
@@ -243,14 +249,16 @@ export function AppBottomNav({
   pendingCoachChanges = 0,
   pendingGmailPartials = 0,
   pendingClassification = 0,
+  pendingCampProposals = 0,
 }: {
   pendingCoachChanges?: number
   pendingGmailPartials?: number
   pendingClassification?: number
+  pendingCampProposals?: number
 }) {
   const pathname = usePathname()
 
-  const totalToolsBadge = pendingCoachChanges + pendingGmailPartials + pendingClassification
+  const totalToolsBadge = pendingCoachChanges + pendingGmailPartials + pendingClassification + pendingCampProposals
 
   const MOBILE_ITEMS: NavItem[] = [
     { label: 'Today',     href: '/'          },
