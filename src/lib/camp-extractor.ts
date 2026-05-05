@@ -138,7 +138,13 @@ export async function extractCampsFromText(input: ExtractionInput): Promise<Extr
     const content = response.content[0]
     if (content.type !== 'text') return []
 
-    const parsed = JSON.parse(content.text)
+    // Strip markdown code fences if Haiku wraps the response
+    let raw = content.text.trim()
+    if (raw.startsWith('```')) {
+      raw = raw.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim()
+    }
+
+    const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
 
     // Validate each camp has required fields
