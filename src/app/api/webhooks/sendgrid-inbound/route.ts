@@ -773,6 +773,11 @@ export async function POST(req: NextRequest) {
     import('@/lib/classify-inbound').then(({ classifyAndUpdate }) =>
       classifyAndUpdate(admin, rowId, classifyInput)
     ).catch(err => console.error(`[sg-inbound] classify import failed:`, err))
+
+    // Fire-and-forget: extract camp proposals from inbound emails
+    import('@/lib/camp-extractor').then(({ extractAndProposeCamps }) =>
+      extractAndProposeCamps(rowId, admin)
+    ).catch(err => console.error(`[sg-inbound] camp-extract import failed:`, err))
   }
 
   return NextResponse.json({ ok: true })

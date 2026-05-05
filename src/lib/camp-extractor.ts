@@ -246,6 +246,116 @@ export async function shouldSkipProposal(
   return { skip: false }
 }
 
+// ─── Live trigger ────────────────────────────────────────────────────────────
+
+const CAMP_PATTERN = /\b(camp|clinic|showcase|ID camp|prospect day|elite training)\b/i
+
+/**
+ * Fire-and-forget hook for inbound contact_log rows.
+ * Extracts camp data and inserts camp_proposals for review.
+ * Never throws — all errors are logged and swallowed.
+ */
+export async function extractAndProposeCamps(
+  rowId: string,
+  admin: SupabaseClient
+): Promise<void> {
+  try {
+    // 1. Load the contact_log row with school join
+    const { data: row, error } = await admin
+      .from('contact_log')
+      .select('id, school_id, direction, coach_name, channel, summary, raw_source, sent_at, date, parse_status, schools!inner(id, name, short_name, category)')
+      .eq('id', rowId)
+      .single()
+
+    if (error || !row) {
+      console.error('[camp-extract] row not found:', rowId, error?.message)
+      return
+    }
+
+    // 2. Filter — return early if not eligible
+    if (row.direction !== 'Inbound') return
+    if (!row.school_id) return
+    if (!row.parse_status || !['full', 'partial'].includes(row.parse_status)) return
+
+    const school = (row as Record<string, unknown>).schools as { id: string; name: string; short_name: string | null; category: string }
+    if (!['A', 'B', 'C'].includes(school.category)) return
+
+    const text = row.raw_source || row.summary || ''
+    if (!CAMP_PATTERN.test(text)) return
+
+    // 3. Idempotency — skip if already proposed from this row
+    const { data: existing } = await admin
+      .from('camp_proposals')
+      .select('id')
+      .eq('source_ref', rowId)
+      .limit(1)
+
+    if (existing && existing.length > 0) return
+
+    // 4. Load candidate attendee schools
+    const { data: allSchools } = await admin
+      .from('schools')
+      .select('id, name, short_name, aliases')
+      .in('category', ['A', 'B', 'C'])
+      .neq('status', 'Inactive')
+
+    const candidateSchools = (allSchools ?? [])
+      .filter(s => s.id !== school.id)
+      .map(s => ({ id: s.id, name: s.short_name || s.name, aliases: s.aliases ?? [] }))
+
+    const today = new Date().toISOString().split('T')[0]
+    const dateLabel = row.date || row.sent_at?.split('T')[0] || 'unknown'
+    const schoolName = school.short_name || school.name
+
+    // 5. Extract camps
+    const extracted = await extractCampsFromText({
+      text,
+      sourceContext: `Email from ${row.coach_name ?? 'unknown coach'} via ${row.channel} on ${dateLabel}`,
+      hostSchoolName: schoolName,
+      hostSchoolId: school.id,
+      candidateAttendeeSchools: candidateSchools,
+      currentDate: today,
+    })
+
+    if (extracted.length === 0) return
+
+    // 6. Insert proposals with dedup
+    for (const camp of extracted) {
+      const dedup = await shouldSkipProposal(admin, {
+        hostSchoolId: school.id,
+        startDate: camp.start_date,
+        endDate: camp.end_date,
+      })
+
+      if (dedup.skip) continue
+
+      await admin.from('camp_proposals').insert({
+        source: 'email_extract',
+        source_ref: rowId,
+        host_school_id: school.id,
+        proposed_data: {
+          name: camp.name,
+          start_date: camp.start_date,
+          end_date: camp.end_date,
+          location: camp.location,
+          registration_url: camp.registration_url,
+          registration_deadline: camp.registration_deadline,
+          cost: camp.cost,
+          notes: camp.notes,
+          attendee_school_ids: camp.attendee_school_ids,
+        },
+        matched_camp_id: dedup.matchedCampId ?? null,
+        confidence: camp.confidence,
+        notes: camp.reasoning,
+      })
+    }
+
+    console.log(`[camp-extract] ${schoolName}: ${extracted.length} camp(s) from row ${rowId}`)
+  } catch (err) {
+    console.error('[camp-extract] failed for row', rowId, err)
+  }
+}
+
 // ── Date helpers ─────────────────────────────────────────────────────────────
 
 function shiftDate(dateStr: string, days: number): string {

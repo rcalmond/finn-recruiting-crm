@@ -296,6 +296,11 @@ export async function GET(req: NextRequest) {
         import('@/lib/classify-inbound').then(({ classifyAndUpdate }) =>
           classifyAndUpdate(admin, rowId, classifyInput)
         ).catch(err => console.error(`[gmail-sync] classify import failed for ${messageId}:`, err))
+
+        // Fire-and-forget: extract camp proposals from inbound emails
+        import('@/lib/camp-extractor').then(({ extractAndProposeCamps }) =>
+          extractAndProposeCamps(rowId, admin)
+        ).catch(err => console.error(`[gmail-sync] camp-extract import failed for ${messageId}:`, err))
       }
 
       // 6g. Fire-and-forget: link outbound to campaign_schools if applicable
