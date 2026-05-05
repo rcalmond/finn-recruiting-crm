@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import type { GmailHealth } from '@/lib/gmail-health'
+import type { SourceHealth } from '@/lib/ingestion-health'
 
 const STYLES = {
   warning: {
@@ -18,10 +18,19 @@ const STYLES = {
   },
 }
 
-export default function SyncHealthBanner({ health }: { health: GmailHealth }) {
-  if (health.isHealthy || health.severity === 'none') return null
+export default function SyncHealthBanner({ sources }: { sources: SourceHealth[] }) {
+  const unhealthy = sources.filter(s => !s.isHealthy && s.severity !== 'none')
+  if (unhealthy.length === 0) return null
 
-  const style = STYLES[health.severity]
+  // Worst severity wins
+  const worstSeverity = unhealthy.some(s => s.severity === 'critical') ? 'critical' : 'warning'
+  const style = STYLES[worstSeverity]
+
+  // Single issue: show its message directly
+  // Multiple issues: aggregate
+  const message = unhealthy.length === 1
+    ? unhealthy[0].message
+    : `${unhealthy.length} ingestion warnings — ${unhealthy.map(s => s.source === 'gmail' ? 'Gmail' : 'SendGrid').join(' and ')}`
 
   return (
     <div style={{
@@ -34,13 +43,40 @@ export default function SyncHealthBanner({ health }: { health: GmailHealth }) {
         gap: 12, flexWrap: 'wrap',
       }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: style.text }}>
-          {health.reason}
+          {message}
         </span>
-        <Link href="/settings/gmail" style={{
-          fontSize: 12, fontWeight: 600, color: style.link,
-          textDecoration: 'none',
-        }}>Reconnect →</Link>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          {unhealthy.map(s => s.actionUrl && s.actionLabel ? (
+            <ActionLink
+              key={s.source}
+              url={s.actionUrl}
+              label={s.actionLabel}
+              color={style.link}
+              external={s.actionUrl.startsWith('http')}
+            />
+          ) : null)}
+        </div>
       </div>
     </div>
+  )
+}
+
+function ActionLink({ url, label, color, external }: {
+  url: string; label: string; color: string; external?: boolean
+}) {
+  if (external) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ fontSize: 12, fontWeight: 600, color, textDecoration: 'none' }}
+      >{label} →</a>
+    )
+  }
+  return (
+    <Link href={url} style={{ fontSize: 12, fontWeight: 600, color, textDecoration: 'none' }}>
+      {label} →
+    </Link>
   )
 }
