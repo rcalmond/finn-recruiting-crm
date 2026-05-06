@@ -14,11 +14,12 @@ const LV = {
   tealDeep: '#006A65',
 }
 
-// Tag labels for the 4 fixed prompts
+// Tag labels for the 5 fixed prompts
 const PROMPT_TAG: Record<PromptKey, string> = {
   reel_coverage:  'COVERAGE',
   rq_refresh:     'PROFILE',
   stale_tier_a:   'RHYTHM',
+  camp_decisions: 'CAMPS',
   pipeline_shape: 'PIPELINE',
 }
 
@@ -27,9 +28,10 @@ interface Props {
   schools: School[]
   onSkip: (key: string) => Promise<void>
   onBatchReel: (schoolIds: string[]) => void
+  onCampDecisions: (campIds: string[]) => void
 }
 
-export default function StrategicSection({ prompts, schools, onSkip, onBatchReel }: Props) {
+export default function StrategicSection({ prompts, schools, onSkip, onBatchReel, onCampDecisions }: Props) {
   const router = useRouter()
   const [listModal, setListModal] = useState<{ title: string; schoolIds: string[] } | null>(null)
 
@@ -38,6 +40,8 @@ export default function StrategicSection({ prompts, schools, onSkip, onBatchReel
   function handleAction(prompt: StrategicPrompt) {
     if (prompt.actionKey === 'batch_reel') {
       onBatchReel(prompt.allTargetSchoolIds)
+    } else if (prompt.actionKey === 'camp_decisions') {
+      onCampDecisions(prompt.affectedCampIds ?? [])
     } else if (prompt.actionKey === 'school_list') {
       setListModal({
         title: prompt.question,

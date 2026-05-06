@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { User } from '@supabase/supabase-js'
 import type { School, ContactLogEntry } from '@/lib/types'
-import { useSchools, useContactLog, useActionItems } from '@/hooks/useRealtimeData'
+import { useSchools, useContactLog, useActionItems, useCamps } from '@/hooks/useRealtimeData'
 import { createClient } from '@/lib/supabase/client'
 import { todayStr, daysBetween } from '@/lib/utils'
 import { getTactical3, rebuildSelectedItems, type TacticalItem } from '@/lib/today-scoring'
@@ -15,6 +15,7 @@ import DraftModal from './DraftModal'
 import TacticalSection from './today/TacticalSection'
 import StrategicSection from './today/StrategicSection'
 import BatchReelModal from './today/BatchReelModal'
+import PendingCampDecisionsModal from './strategic/PendingCampDecisionsModal'
 import HandledSection from './today/HandledSection'
 import PipelineRail from './today/PipelineRail'
 import SyncHealthBanner from './today/SyncHealthBanner'
@@ -54,13 +55,15 @@ export default function TodayClient({
   const { schools, loading: schoolsLoading } = useSchools()
   const { entries: contactLog, loading: logLoading, markHandled, markUnhandled, snoozeEntry } = useContactLog()
   const { items: actionItems, loading: actionsLoading, completeItem } = useActionItems()
+  const { camps, loading: campsLoading } = useCamps(schools)
   const supabase = useMemo(() => createClient(), [])
 
-  const loading = schoolsLoading || logLoading || actionsLoading
+  const loading = schoolsLoading || logLoading || actionsLoading || campsLoading
   const schoolMap = useMemo(() => new Map(schools.map(s => [s.id, s])), [schools])
 
   const [draftTarget, setDraftTarget] = useState<DraftTarget | null>(null)
   const [batchReelSchoolIds, setBatchReelSchoolIds] = useState<string[] | null>(null)
+  const [campDecisionsCampIds, setCampDecisionsCampIds] = useState<string[] | null>(null)
 
   // ── Strategic prompts ──────────────────────────────────────────────────────
   const [skippedKeys, setSkippedKeys] = useState<Set<string>>(new Set())
@@ -254,8 +257,8 @@ export default function TodayClient({
 
   const strategicPrompts = useMemo(() => {
     if (!skipsLoaded || !profileLoaded) return []
-    return getStrategicPrompts(schools, contactLog, currentReelUrl, skippedKeys, tacticalSchoolIds, batchSentSchoolIds)
-  }, [schools, contactLog, currentReelUrl, skippedKeys, skipsLoaded, profileLoaded, tacticalSchoolIds, batchSentSchoolIds])
+    return getStrategicPrompts(schools, contactLog, currentReelUrl, skippedKeys, tacticalSchoolIds, batchSentSchoolIds, camps)
+  }, [schools, contactLog, currentReelUrl, skippedKeys, skipsLoaded, profileLoaded, tacticalSchoolIds, batchSentSchoolIds, camps])
 
   // ── Handled today — from live contactLog ───────────────────────────────────
   const handledToday = useMemo(() =>
@@ -400,6 +403,7 @@ export default function TodayClient({
             schools={schools}
             onSkip={handleSkipPrompt}
             onBatchReel={(ids) => setBatchReelSchoolIds(ids)}
+            onCampDecisions={(ids) => setCampDecisionsCampIds(ids)}
           />
 
           {/* Recently handled */}
@@ -429,6 +433,15 @@ export default function TodayClient({
           reelUrl={currentReelUrl}
           reelTitle={currentReelTitle}
           onClose={() => setBatchReelSchoolIds(null)}
+        />
+      )}
+
+      {/* Pending camp decisions modal */}
+      {campDecisionsCampIds && (
+        <PendingCampDecisionsModal
+          campIds={campDecisionsCampIds}
+          camps={camps}
+          onClose={() => setCampDecisionsCampIds(null)}
         />
       )}
 

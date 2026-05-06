@@ -1,17 +1,17 @@
 /**
  * strategic-prompts.ts
  *
- * Computes the 4 hardcoded strategic prompts for Today's "Think · This week" section.
+ * Computes the 5 hardcoded strategic prompts for Today's "Think · This week" section.
  * Each prompt reads from live DB data and returns a count + summary.
  * Top 3 by relevance score surface in the UI.
  */
 
-import type { School, ContactLogEntry } from './types'
+import type { School, ContactLogEntry, CampWithRelations } from './types'
 import { daysBetween } from './utils'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type PromptKey = 'reel_coverage' | 'rq_refresh' | 'stale_tier_a' | 'pipeline_shape'
+export type PromptKey = 'reel_coverage' | 'rq_refresh' | 'stale_tier_a' | 'camp_decisions' | 'pipeline_shape'
 
 export interface StrategicPrompt {
   key: PromptKey
@@ -24,6 +24,7 @@ export interface StrategicPrompt {
   actionKey: string          // used by UI to determine action type
   affectedSchoolIds: string[] // schools still needing action (excludes batch-sent)
   allTargetSchoolIds: string[] // all schools in scope (for batch modal — includes already-sent)
+  affectedCampIds?: string[] // camp IDs needing decisions (camp_decisions prompt only)
   relevanceScore: number
   skippedThisWeek: boolean
 }
@@ -159,6 +160,44 @@ export function computePipelineShape(
   }
 }
 
+export function computeCampDecisions(
+  camps: CampWithRelations[],
+  schools: School[]
+): Pick<StrategicPrompt, 'count' | 'total' | 'affectedSchoolIds' | 'allTargetSchoolIds' | 'relevanceScore'> & { affectedCampIds: string[] } {
+  const today = new Date().toISOString().split('T')[0]
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() + 60)
+  const cutoffStr = cutoff.toISOString().split('T')[0]
+
+  const schoolMap = new Map(schools.map(s => [s.id, s]))
+
+  const pending = camps.filter(c => {
+    // Camp must start between today and today + 60 days
+    if (c.camp.start_date < today || c.camp.start_date > cutoffStr) return false
+
+    // Host school must be A/B/C and not Inactive
+    const host = schoolMap.get(c.camp.host_school_id)
+    if (!host) return false
+    if (host.category === 'Nope' || host.status === 'Inactive') return false
+
+    // Status must be 'interested' or no finn_status row at all
+    if (!c.finnStatus) return true
+    return c.finnStatus.status === 'interested'
+  })
+
+  const schoolIds = Array.from(new Set(pending.map(c => c.camp.host_school_id)))
+  const campIds = pending.map(c => c.camp.id)
+
+  return {
+    count: pending.length,
+    total: pending.length,
+    affectedSchoolIds: schoolIds,
+    allTargetSchoolIds: schoolIds,
+    affectedCampIds: campIds,
+    relevanceScore: pending.length > 0 ? Math.min(pending.length / 8, 1.0) : 0,
+  }
+}
+
 // ─── Orchestrator ────────────────────────────────────────────────────────────
 
 export function getStrategicPrompts(
@@ -167,7 +206,8 @@ export function getStrategicPrompts(
   currentReelUrl: string | null,
   skippedKeys: Set<string>,
   tacticalSchoolIds: Set<string> = new Set(),
-  batchSentSchoolIds: Set<string> = new Set()
+  batchSentSchoolIds: Set<string> = new Set(),
+  camps: CampWithRelations[] = []
 ): StrategicPrompt[] {
   const a = schools.filter(s => s.category === 'A' && isActive(s)).length
   const b = schools.filter(s => s.category === 'B' && isActive(s)).length
@@ -176,6 +216,7 @@ export function getStrategicPrompts(
   const reel = computeReelCoverage(schools, currentReelUrl, batchSentSchoolIds)
   const rq = computeRqRefresh(schools)
   const stale = computeStaleTierA(schools, contactLog, tacticalSchoolIds)
+  const campDecisions = computeCampDecisions(camps, schools)
   const pipeline = computePipelineShape(schools)
 
   const prompts: StrategicPrompt[] = [
@@ -210,6 +251,16 @@ export function getStrategicPrompts(
       allTargetSchoolIds: stale.affectedSchoolIds,
       resolved: false,
       skippedThisWeek: skippedKeys.has('stale_tier_a'),
+    },
+    {
+      key: 'camp_decisions',
+      question: `${campDecisions.count} pending camp decision${campDecisions.count !== 1 ? 's' : ''}`,
+      summary: 'Camps in the next 60 days awaiting your call',
+      actionLabel: 'Review camps',
+      actionKey: 'camp_decisions',
+      ...campDecisions,
+      resolved: false,
+      skippedThisWeek: skippedKeys.has('camp_decisions'),
     },
     {
       key: 'pipeline_shape',
