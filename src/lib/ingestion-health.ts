@@ -161,11 +161,12 @@ async function checkCoachScraper(): Promise<SourceHealth> {
       .maybeSingle()
 
     if (!data || !data.completed_at) {
+      // No cron_runs rows yet — instrumentation just deployed.
+      // Don't show a stale banner; the cron may be running fine.
       return {
-        source: 'coach-scraper', isHealthy: false, severity: 'warning',
+        source: 'coach-scraper', isHealthy: true, severity: 'none',
         lastEventAt: null, hoursStale: null,
-        message: 'Coach scraper has never completed a run',
-        actionLabel: 'View coach changes', actionUrl: '/settings/coach-changes',
+        message: 'Coach scraper — no instrumented runs yet',
       }
     }
 
@@ -213,11 +214,12 @@ async function checkCampDiscovery(): Promise<SourceHealth> {
       .maybeSingle()
 
     if (!data || !data.completed_at) {
+      // No cron_runs rows yet — instrumentation just deployed.
+      // Don't show a stale banner; the cron may be running fine.
       return {
-        source: 'camp-discovery', isHealthy: false, severity: 'warning',
+        source: 'camp-discovery', isHealthy: true, severity: 'none',
         lastEventAt: null, hoursStale: null,
-        message: 'Camp discovery has never completed a run',
-        actionLabel: 'View camp proposals', actionUrl: '/settings/camp-proposals',
+        message: 'Camp discovery — no instrumented runs yet',
       }
     }
 
