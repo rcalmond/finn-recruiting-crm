@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { searchTavily } from '@/lib/tavily'
 import { extractCampsFromText, shouldSkipProposal } from '@/lib/camp-extractor'
+import { startRun, completeRun } from '@/lib/cron-runs'
 
 function serviceClient() {
   return createServiceClient(
@@ -54,6 +55,7 @@ export async function GET(req: NextRequest) {
   }
 
   const admin = serviceClient()
+  const runId = await startRun(admin, 'camp-discovery')
   const today = new Date().toISOString().split('T')[0]
 
   // Load all active A/B/C schools
@@ -64,6 +66,7 @@ export async function GET(req: NextRequest) {
     .neq('status', 'Inactive')
 
   if (schoolsErr || !schools) {
+    await completeRun(admin, runId, 'failed', {}, 'Failed to load schools')
     return NextResponse.json({ error: 'Failed to load schools' }, { status: 500 })
   }
 
@@ -203,6 +206,24 @@ export async function GET(req: NextRequest) {
   }
 
   console.log(`[camp-discovery] ${startedAt} — done: ${totalInserted} inserted, ${totalSkipped} skipped, ${totalErrors} errors across ${schools.length} schools`)
+
+  const errorsPerSchool = perSchool.filter(s => s.errors > 0).map(s => ({
+    school: s.schoolName,
+    errors: s.errors,
+  }))
+
+  await completeRun(
+    admin, runId,
+    errorsPerSchool.length > 0 ? 'partial' : 'success',
+    {
+      schools_searched: schools.length,
+      tavily_calls: perSchool.reduce((sum, s) => sum + (s.tavilyResults > 0 ? 1 : 0), 0),
+      camps_extracted: perSchool.reduce((sum, s) => sum + s.campsExtracted, 0),
+      proposals_inserted: totalInserted,
+      proposals_skipped: totalSkipped,
+      errors_per_school: errorsPerSchool,
+    }
+  )
 
   return NextResponse.json(summary)
 }

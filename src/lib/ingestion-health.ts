@@ -10,7 +10,7 @@
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 export interface SourceHealth {
-  source: 'gmail' | 'sendgrid'
+  source: 'gmail' | 'sendgrid' | 'coach-scraper' | 'camp-discovery'
   isHealthy: boolean
   severity: 'none' | 'warning' | 'critical'
   lastEventAt: string | null     // ISO timestamp
@@ -144,8 +144,112 @@ async function checkSendGrid(): Promise<SourceHealth> {
   }
 }
 
+// ─── Coach scraper health ───────────────────────────────────────────────────
+// Thresholds: < 5d healthy, 5-10d warning, > 10d critical
+
+async function checkCoachScraper(): Promise<SourceHealth> {
+  try {
+    const admin = makeAdmin()
+    const { data } = await admin
+      .from('cron_runs')
+      .select('completed_at')
+      .eq('cron_name', 'coach-roster-sync')
+      .in('status', ['success', 'partial'])
+      .not('completed_at', 'is', null)
+      .order('completed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!data || !data.completed_at) {
+      return {
+        source: 'coach-scraper', isHealthy: false, severity: 'warning',
+        lastEventAt: null, hoursStale: null,
+        message: 'Coach scraper has never completed a run',
+        actionLabel: 'View coach changes', actionUrl: '/settings/coach-changes',
+      }
+    }
+
+    const hours = (Date.now() - new Date(data.completed_at).getTime()) / (1000 * 60 * 60)
+    const days = Math.round(hours / 24)
+
+    if (hours < 5 * 24) {
+      return {
+        source: 'coach-scraper', isHealthy: true, severity: 'none',
+        lastEventAt: data.completed_at, hoursStale: Math.round(hours),
+        message: 'Coach scraper healthy',
+      }
+    }
+
+    const severity = hours < 10 * 24 ? 'warning' as const : 'critical' as const
+    return {
+      source: 'coach-scraper', isHealthy: false, severity,
+      lastEventAt: data.completed_at, hoursStale: Math.round(hours),
+      message: `Coach scraper stale — last run ${days} days ago`,
+      actionLabel: 'View coach changes', actionUrl: '/settings/coach-changes',
+    }
+  } catch {
+    return {
+      source: 'coach-scraper', isHealthy: true, severity: 'none',
+      lastEventAt: null, hoursStale: null,
+      message: 'Health check failed (non-blocking)',
+    }
+  }
+}
+
+// ─── Camp discovery health ──────────────────────────────────────────────────
+// Thresholds: < 10d healthy, 10-21d warning, > 21d critical
+
+async function checkCampDiscovery(): Promise<SourceHealth> {
+  try {
+    const admin = makeAdmin()
+    const { data } = await admin
+      .from('cron_runs')
+      .select('completed_at')
+      .eq('cron_name', 'camp-discovery')
+      .in('status', ['success', 'partial'])
+      .not('completed_at', 'is', null)
+      .order('completed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!data || !data.completed_at) {
+      return {
+        source: 'camp-discovery', isHealthy: false, severity: 'warning',
+        lastEventAt: null, hoursStale: null,
+        message: 'Camp discovery has never completed a run',
+        actionLabel: 'View camp proposals', actionUrl: '/settings/camp-proposals',
+      }
+    }
+
+    const hours = (Date.now() - new Date(data.completed_at).getTime()) / (1000 * 60 * 60)
+    const days = Math.round(hours / 24)
+
+    if (hours < 10 * 24) {
+      return {
+        source: 'camp-discovery', isHealthy: true, severity: 'none',
+        lastEventAt: data.completed_at, hoursStale: Math.round(hours),
+        message: 'Camp discovery healthy',
+      }
+    }
+
+    const severity = hours < 21 * 24 ? 'warning' as const : 'critical' as const
+    return {
+      source: 'camp-discovery', isHealthy: false, severity,
+      lastEventAt: data.completed_at, hoursStale: Math.round(hours),
+      message: `Camp discovery stale — last run ${days} days ago`,
+      actionLabel: 'View camp proposals', actionUrl: '/settings/camp-proposals',
+    }
+  } catch {
+    return {
+      source: 'camp-discovery', isHealthy: true, severity: 'none',
+      lastEventAt: null, hoursStale: null,
+      message: 'Health check failed (non-blocking)',
+    }
+  }
+}
+
 // ─── Combined ────────────────────────────────────────────────────────────────
 
 export async function getIngestionHealth(): Promise<SourceHealth[]> {
-  return Promise.all([checkGmail(), checkSendGrid()])
+  return Promise.all([checkGmail(), checkSendGrid(), checkCoachScraper(), checkCampDiscovery()])
 }

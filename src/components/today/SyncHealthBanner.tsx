@@ -18,6 +18,13 @@ const STYLES = {
   },
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  gmail: 'Gmail',
+  sendgrid: 'SendGrid',
+  'coach-scraper': 'Coach scraper',
+  'camp-discovery': 'Camp discovery',
+}
+
 export default function SyncHealthBanner({ sources }: { sources: SourceHealth[] }) {
   const unhealthy = sources.filter(s => !s.isHealthy && s.severity !== 'none')
   if (unhealthy.length === 0) return null
@@ -30,7 +37,7 @@ export default function SyncHealthBanner({ sources }: { sources: SourceHealth[] 
   // Multiple issues: aggregate
   const message = unhealthy.length === 1
     ? unhealthy[0].message
-    : `${unhealthy.length} ingestion warnings — ${unhealthy.map(s => s.source === 'gmail' ? 'Gmail' : 'SendGrid').join(' and ')}`
+    : `${unhealthy.length} ingestion warnings — ${unhealthy.map(s => SOURCE_LABELS[s.source] ?? s.source).join(' and ')}`
 
   return (
     <div style={{

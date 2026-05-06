@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { scrapeSchool } from '@/lib/coach-scraper'
+import { startRun, completeRun } from '@/lib/cron-runs'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = ReturnType<typeof createServiceClient<any>>
@@ -61,6 +62,7 @@ export async function GET(req: NextRequest) {
   }
 
   const admin = serviceClient()
+  const runId = await startRun(admin, 'coach-roster-sync')
 
   // ── 2. Fetch all schools with a coach_page_url and scrape enabled ──────────
 
@@ -72,6 +74,7 @@ export async function GET(req: NextRequest) {
 
   if (fetchErr) {
     console.error(`[coach-roster-sync] ${startedAt} — failed to fetch schools: ${fetchErr.message}`)
+    await completeRun(admin, runId, 'failed', {}, fetchErr.message)
     return NextResponse.json({ error: fetchErr.message }, { status: 500 })
   }
 
@@ -113,6 +116,7 @@ export async function GET(req: NextRequest) {
     applied:   0,
     noChange:  0,
   }
+  const errorsPerSchool: Array<{ school: string; error: string }> = []
 
   for (let i = 0; i < schools.length; i++) {
     if (i > 0) await sleep(2_000)
@@ -122,6 +126,7 @@ export async function GET(req: NextRequest) {
 
     if (result.error) {
       stats.errors++
+      errorsPerSchool.push({ school: school.name, error: result.error })
       console.error(
         `[coach-roster-sync] ${startedAt} — ${school.name}: ERROR — ${result.error}`
       )
@@ -148,6 +153,19 @@ export async function GET(req: NextRequest) {
     `[coach-roster-sync] ${startedAt} — done: ` +
     `schools=${stats.schools} changes=${stats.changes} ` +
     `applied=${stats.applied} noChange=${stats.noChange} errors=${stats.errors}`
+  )
+
+  await completeRun(
+    admin, runId,
+    errorsPerSchool.length > 0 ? 'partial' : 'success',
+    {
+      schools_scraped: stats.schools,
+      changes_proposed: stats.changes,
+      changes_auto_applied: stats.applied,
+      errors_per_school: errorsPerSchool,
+      no_change: stats.noChange,
+      skipped: stats.skipped,
+    }
   )
 
   return NextResponse.json({ ok: true, stats })

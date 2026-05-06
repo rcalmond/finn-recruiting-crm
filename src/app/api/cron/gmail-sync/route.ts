@@ -33,6 +33,7 @@ import {
 import { parseGmailMessage, ParsedGmailEntry } from '@/lib/gmail-parser'
 import { autoLabelKnownSenders } from '@/lib/gmail-autolabel'
 import { resolveSchoolAndCoach } from '@/lib/gmail-resolve'
+import { startRun, completeRun } from '@/lib/cron-runs'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -103,6 +104,7 @@ export async function GET(req: NextRequest) {
   }
 
   const admin = serviceClient()
+  const runId = await startRun(admin, 'gmail-sync')
 
   // ── 2. Fetch last_sync_at ───────────────────────────────────────────────────
 
@@ -114,6 +116,7 @@ export async function GET(req: NextRequest) {
 
   if (tokenErr || !tokenRow) {
     console.error(`[gmail-sync] ${startedAt} — no token row for ${GMAIL_USER}; aborting`)
+    await completeRun(admin, runId, 'failed', {}, 'no_token: gmail_tokens row missing')
     // Return 200 so Vercel doesn't mark the cron as failed and send alerts.
     // This is expected when Part 4 is deployed but OAuth hasn't been completed yet.
     return NextResponse.json({ ok: true, skipped: 'no_token' })
@@ -133,6 +136,7 @@ export async function GET(req: NextRequest) {
     if (err instanceof GmailAuthError) {
       // Token is dead — can't proceed with sync either
       console.error(`[gmail-sync] ${startedAt} — GmailAuthError in autolabel: ${err.message}`)
+      await completeRun(admin, runId, 'failed', {}, `auth_error: ${err.message}`)
       return NextResponse.json({ ok: true, skipped: 'auth_error', detail: err.message })
     }
     // Non-auth error in autolabel: log and continue — don't let it block the sync
@@ -346,6 +350,15 @@ export async function GET(req: NextRequest) {
     `failed=${stats.failed} partial=${stats.partial} ` +
     `pages=${pagesProcessed} autolabel=${labelResult.labeled}`
   )
+
+  await completeRun(admin, runId, stats.failed > 0 ? 'partial' : 'success', {
+    messages_captured: stats.inserted,
+    autolabel_inbound: labelResult.inboundLabeled,
+    autolabel_sent: labelResult.sentLabeled,
+    deduped: stats.deduped,
+    failed: stats.failed,
+    pages: pagesProcessed,
+  })
 
   return NextResponse.json({ ok: true, stats, labelResult, pagesProcessed })
 }
