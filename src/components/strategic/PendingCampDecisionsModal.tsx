@@ -92,6 +92,12 @@ export default function PendingCampDecisionsModal({ campIds, camps, onClose }: P
     setBusy(prev => { const n = new Set(prev); n.delete(campId); return n })
   }
 
+  async function handleTarget(campId: string) {
+    setBusy(prev => new Set(prev).add(campId))
+    await updateFinnStatus(supabase, campId, 'targeted')
+    setBusy(prev => { const n = new Set(prev); n.delete(campId); return n })
+  }
+
   function handleSkip(campId: string) {
     setSkippedIds(prev => new Set(prev).add(campId))
     if (declineInputId === campId) {
@@ -191,6 +197,16 @@ export default function PendingCampDecisionsModal({ campIds, camps, onClose }: P
                   display: 'flex', alignItems: 'center', gap: 8,
                   marginTop: 10, flexWrap: 'wrap',
                 }}>
+                  <button
+                    onClick={() => handleTarget(c.camp.id)}
+                    disabled={isBusy}
+                    style={{
+                      padding: '5px 14px', fontSize: 11, fontWeight: 700,
+                      background: '#92400E', color: '#fff', border: 'none',
+                      borderRadius: 999, cursor: isBusy ? 'default' : 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >Target</button>
                   <button
                     onClick={() => handleRegister(c.camp.id)}
                     disabled={isBusy}

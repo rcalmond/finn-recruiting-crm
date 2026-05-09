@@ -29,6 +29,7 @@ const TIER_STYLE: Record<string, { bg: string; color: string }> = {
 
 const STATUS_COLORS: Record<CampFinnStatusValue, { bg: string; color: string }> = {
   interested: { bg: '#DBEAFE', color: '#1E40AF' },
+  targeted:   { bg: '#FEF3C7', color: '#92400E' },
   registered: { bg: '#D7F0ED', color: '#006A65' },
   attended:   { bg: '#F3F4F6', color: '#374151' },
   declined:   { bg: '#FEE2E2', color: '#991B1B' },
@@ -179,7 +180,7 @@ function StatusSection({ camp, onUpdateStatus }: {
   const [declineReason, setDeclineReason] = useState(camp.finnStatus?.declined_reason ?? '')
   const [showDeclineInput, setShowDeclineInput] = useState(false)
 
-  const statuses: CampFinnStatusValue[] = ['interested', 'registered', 'attended', 'declined']
+  const statuses: CampFinnStatusValue[] = ['interested', 'targeted', 'registered', 'attended', 'declined']
 
   async function handleStatusChange(status: CampFinnStatusValue) {
     if (status === currentStatus) return
@@ -201,7 +202,9 @@ function StatusSection({ camp, onUpdateStatus }: {
 
   // Timestamp for current status
   let timestamp: string | null = null
-  if (currentStatus === 'registered' && camp.finnStatus?.registered_at) {
+  if (currentStatus === 'targeted' && camp.finnStatus?.targeted_at) {
+    timestamp = `Targeted ${fmtDate(camp.finnStatus.targeted_at)}`
+  } else if (currentStatus === 'registered' && camp.finnStatus?.registered_at) {
     timestamp = `Registered ${fmtDate(camp.finnStatus.registered_at)}`
   } else if (currentStatus === 'attended' && camp.finnStatus?.attended_at) {
     timestamp = `Attended ${fmtDate(camp.finnStatus.attended_at)}`

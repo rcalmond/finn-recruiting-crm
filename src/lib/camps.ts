@@ -59,8 +59,8 @@ export function composeCampsWithRelations(
 // ─── Action item sync ────────────────────────────────────────────────────────
 
 /**
- * Maintains the invariant: status='interested' AND registration_deadline IS NOT NULL
- * ↔ active action_item exists.
+ * Maintains the invariant: status='targeted' AND registration_deadline IS NOT NULL
+ * ↔ active action_item exists. (Model B: 'targeted' gates action items, not 'interested'.)
  *
  * Called by createCamp, updateCamp, updateFinnStatus, and deleteCamp.
  */
@@ -76,7 +76,7 @@ async function syncActionItemForCamp(
   }
 ): Promise<string | null> {
   const { campId, campName, hostSchoolId, status, registrationDeadline, actionItemId } = opts
-  const shouldExist = status === 'interested' && registrationDeadline !== null
+  const shouldExist = status === 'targeted' && registrationDeadline !== null
 
   if (shouldExist && !actionItemId) {
     // CREATE: interested + deadline, no action_item yet
@@ -126,8 +126,8 @@ async function syncActionItemForCamp(
 
   } else if (!shouldExist && actionItemId) {
     // Need to remove or complete the action_item
-    if (status === 'registered') {
-      // COMPLETE: transitioned to registered
+    if (status === 'registered' || status === 'attended') {
+      // COMPLETE: transitioned to registered or attended
       await supabase
         .from('action_items')
         .update({ completed_at: new Date().toISOString() })
@@ -136,7 +136,7 @@ async function syncActionItemForCamp(
       return actionItemId
 
     } else {
-      // DELETE: declined, attended, or deadline cleared while interested
+      // DELETE: declined, or status returned to interested (no longer targeted)
       await supabase.from('action_items').delete().eq('id', actionItemId)
       await supabase
         .from('camp_finn_status')
@@ -146,7 +146,7 @@ async function syncActionItemForCamp(
     }
   }
 
-  // No action needed (no deadline + no action_item, or non-interested + no action_item)
+  // No action needed (no deadline + no action_item, or non-targeted + no action_item)
   return actionItemId
 }
 
@@ -154,7 +154,7 @@ async function syncActionItemForCamp(
 
 /**
  * Create a camp and its default camp_finn_status row (status='interested').
- * If registration_deadline is set, also creates a registration action_item.
+ * Action item creation deferred until status transitions to 'targeted' (Model B).
  */
 export async function createCamp(
   supabase: SupabaseClient,
@@ -240,6 +240,7 @@ export async function updateFinnStatus(
   const updates: Record<string, unknown> = { status }
 
   // Set the appropriate timestamp for this transition
+  if (status === 'targeted') updates.targeted_at = new Date().toISOString()
   if (status === 'registered') updates.registered_at = new Date().toISOString()
   if (status === 'attended') updates.attended_at = new Date().toISOString()
   if (status === 'declined') {

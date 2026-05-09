@@ -91,7 +91,7 @@ export interface ActionItem {
 
 // ─── ID Camps ────────────────────────────────────────────────────────────────
 
-export type CampFinnStatusValue = 'interested' | 'registered' | 'attended' | 'declined'
+export type CampFinnStatusValue = 'interested' | 'targeted' | 'registered' | 'attended' | 'declined'
 
 export interface Camp {
   id: string
@@ -130,6 +130,7 @@ export interface CampFinnStatus {
   id: string
   camp_id: string
   status: CampFinnStatusValue
+  targeted_at: string | null
   registered_at: string | null
   attended_at: string | null
   declined_at: string | null

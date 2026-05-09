@@ -19,6 +19,7 @@ const LV = {
 
 const BAR_COLORS: Record<CampFinnStatusValue, { bg: string; accent: string; text: string }> = {
   interested: { bg: '#DBEAFE', accent: '#3B82F6', text: '#1E40AF' },
+  targeted:   { bg: '#FEF3C7', accent: '#F59E0B', text: '#92400E' },
   registered: { bg: '#D7F0ED', accent: '#14B8A6', text: '#006A65' },
   attended:   { bg: '#F3F4F6', accent: '#6B7280', text: '#374151' },
   declined:   { bg: '#FEE2E2', accent: '#EF4444', text: '#991B1B' },
