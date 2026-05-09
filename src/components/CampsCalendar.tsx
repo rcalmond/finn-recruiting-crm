@@ -25,6 +25,18 @@ const BAR_COLORS: Record<CampFinnStatusValue, { bg: string; accent: string; text
   declined:   { bg: '#FEE2E2', accent: '#EF4444', text: '#991B1B' },
 }
 
+const STATUS_PRIORITY: Record<CampFinnStatusValue, number> = {
+  targeted: 0,
+  registered: 1,
+  interested: 2,
+  declined: 3,
+  attended: 4,
+}
+
+function campStatusPriority(c: CampWithRelations): number {
+  return STATUS_PRIORITY[c.finnStatus?.status ?? 'interested']
+}
+
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MAX_VISIBLE_SLOTS = 4
 const SLOT_TOP_OFFSET = 28  // px from cell top (below day number)
@@ -81,9 +93,11 @@ function computeMultiDaySlots(week: Date[], camps: CampWithRelations[]): Map<str
     }
   }
 
-  // Sort by start_date, then name for deterministic ordering
+  // Sort by start_date, then status priority, then name for deterministic ordering
   multiDay.sort((a, b) => {
     if (a.camp.start_date !== b.camp.start_date) return a.camp.start_date.localeCompare(b.camp.start_date)
+    const pa = campStatusPriority(a), pb = campStatusPriority(b)
+    if (pa !== pb) return pa - pb
     return a.camp.name.localeCompare(b.camp.name)
   })
 
@@ -148,9 +162,15 @@ function assignCellSlots(
     }
   }
 
-  // Phase 2: pack single-day camps into remaining slots
-  for (const c of dayCamps) {
-    if (multiDaySlots.has(c.camp.id)) continue // already placed
+  // Phase 2: pack single-day camps into remaining slots (sorted by status priority)
+  const singleDay = dayCamps
+    .filter(c => !multiDaySlots.has(c.camp.id))
+    .sort((a, b) => {
+      const pa = campStatusPriority(a), pb = campStatusPriority(b)
+      if (pa !== pb) return pa - pb
+      return a.camp.name.localeCompare(b.camp.name)
+    })
+  for (const c of singleDay) {
     let placed = false
     for (let s = 0; s < MAX_VISIBLE_SLOTS; s++) {
       if (!occupiedSlots.has(s)) {
