@@ -13,6 +13,7 @@ import { todayStr } from '@/lib/utils'
 import DraftModal from '@/components/DraftModal'
 import PrepForCallModal from '@/components/PrepForCallModal'
 import AddCampModal from '@/components/AddCampModal'
+import EditableActionRow from '@/components/EditableActionRow'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -1252,7 +1253,7 @@ function AboutRow({ label, value }: { label: string; value: string }) {
 }
 
 function Sidebar({
-  school, coaches, actionItems, completedItems, camps, schools, today, onComplete, onAddAction, onUpdateSchool, onDraft, onPrepForCall, onSetPrimary,
+  school, coaches, actionItems, completedItems, camps, schools, today, onComplete, onAddAction, onUpdateAction, onUpdateSchool, onDraft, onPrepForCall, onSetPrimary,
 }: {
   school: School
   coaches: Coach[]
@@ -1263,6 +1264,7 @@ function Sidebar({
   today: string
   onComplete: (id: string) => Promise<void>
   onAddAction: (action: string, dueDate: string, owner: string) => Promise<void>
+  onUpdateAction: (id: string, updates: { action?: string; due_date?: string | null }) => Promise<void>
   onUpdateSchool: (updates: Partial<School>) => Promise<void>
   onDraft: (kind: 'fresh' | 'reply') => void
   onPrepForCall: () => void
@@ -1659,40 +1661,15 @@ function Sidebar({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {actionItems.map(item => {
-              const isOverdue = !!(item.due_date && item.due_date < today)
-              return (
-                <div key={item.id} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 10,
-                }}>
-                  <input
-                    type="checkbox"
-                    onChange={() => onComplete(item.id)}
-                    style={{
-                      marginTop: 2, width: 14, height: 14,
-                      cursor: 'pointer', flexShrink: 0,
-                      accentColor: SD.red,
-                    }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      fontSize: 12, color: SD.inkSoft,
-                      fontWeight: 600, lineHeight: 1.4,
-                    }}>{item.action}</div>
-                    {item.due_date && (
-                      <div style={{
-                        marginTop: 2, fontSize: 10, fontWeight: 600,
-                        color: isOverdue ? SD.red : SD.inkLo,
-                      }}>
-                        {isOverdue ? 'Overdue · ' : ''}
-                        {fmtShortDate(item.due_date)}
-                        {item.owner ? ` · ${item.owner}` : ''}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+            {actionItems.map(item => (
+              <EditableActionRow
+                key={item.id}
+                item={item}
+                today={today}
+                onComplete={onComplete}
+                onUpdate={onUpdateAction}
+              />
+            ))}
           </div>
         )}
 
@@ -1907,7 +1884,7 @@ export default function SchoolDetailClient({
   // ── Realtime subscriptions ─────────────────────────────────────────────────
   const { schools, loading: schoolsLoading, updateSchool } = useSchools()
   const { entries: contactLog, loading: logLoading, insertContact, updateEntry, deleteEntry, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
-  const { items: actionItems, completedItems, loading: actionsLoading, completeItem, insertItem } = useActionItems(initialSchool.id)
+  const { items: actionItems, completedItems, loading: actionsLoading, completeItem, insertItem, updateItem } = useActionItems(initialSchool.id)
   const { coaches, setPrimary } = useCoaches(initialSchool.id)
   const { camps } = useCamps(schools)
 
@@ -2013,6 +1990,7 @@ export default function SchoolDetailClient({
           onAddAction={async (action, dueDate, owner) => {
             await insertItem({ school_id: school.id, action, owner: owner as 'Finn' | 'Randy', due_date: dueDate })
           }}
+          onUpdateAction={async (id, updates) => { await updateItem(id, updates) }}
           onUpdateSchool={async (updates) => { await updateSchool(school.id, updates) }}
           onDraft={(kind) => setDraftTarget({ kind })}
           onPrepForCall={() => setPrepOpen(true)}
