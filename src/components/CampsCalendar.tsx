@@ -72,115 +72,33 @@ function campsOnDate(camps: CampWithRelations[], dateStr: string): CampWithRelat
 }
 
 /**
- * Assign locked slot indices for multi-day camps within a week.
- * Uses greedy packing: each camp gets the lowest slot that doesn't
- * conflict with already-placed camps on any shared day.
+ * For a single cell, compute which camps go in which slots.
+ * All camps (multi-day and single-day) are sorted by status priority,
+ * then the top N fill visible slots 0..N-1. The rest go to overflow.
+ *
+ * Multi-day camps may land at different slots on different days —
+ * priority ordering is preserved universally at the cost of
+ * cross-day slot stability in dense weeks.
  */
-function computeMultiDaySlots(week: Date[], camps: CampWithRelations[]): Map<string, number> {
-  const weekStart = toDateStr(week[0])
-  const weekEnd = toDateStr(week[6])
-
-  // Collect multi-day camps active this week
-  const multiDay: CampWithRelations[] = []
-  const seen = new Set<string>()
-  for (const day of week) {
-    const ds = toDateStr(day)
-    for (const c of campsOnDate(camps, ds)) {
-      if (c.camp.start_date !== c.camp.end_date && !seen.has(c.camp.id)) {
-        seen.add(c.camp.id)
-        multiDay.push(c)
-      }
-    }
-  }
-
-  // Sort by start_date, then status priority, then name for deterministic ordering
-  multiDay.sort((a, b) => {
-    if (a.camp.start_date !== b.camp.start_date) return a.camp.start_date.localeCompare(b.camp.start_date)
+function assignCellSlots(
+  dayCamps: CampWithRelations[],
+): { visible: Array<{ camp: CampWithRelations; slot: number }>; overflow: CampWithRelations[] } {
+  // Sort all camps by status priority, then name
+  const sorted = [...dayCamps].sort((a, b) => {
     const pa = campStatusPriority(a), pb = campStatusPriority(b)
     if (pa !== pb) return pa - pb
     return a.camp.name.localeCompare(b.camp.name)
   })
 
-  // Greedy slot packing: for each camp, find lowest slot not conflicting
-  // with any already-placed camp on any shared day
-  const slotMap = new Map<string, number>()
-  const placed: Array<{ camp: CampWithRelations; slot: number }> = []
-
-  for (const camp of multiDay) {
-    // Effective date range within this week
-    const cStart = camp.camp.start_date < weekStart ? weekStart : camp.camp.start_date
-    const cEnd = camp.camp.end_date > weekEnd ? weekEnd : camp.camp.end_date
-
-    let slot = 0
-    slotSearch:
-    while (true) {
-      // Check if this slot conflicts with any already-placed camp
-      for (const p of placed) {
-        if (p.slot !== slot) continue
-        const pStart = p.camp.camp.start_date < weekStart ? weekStart : p.camp.camp.start_date
-        const pEnd = p.camp.camp.end_date > weekEnd ? weekEnd : p.camp.camp.end_date
-        // Date ranges overlap?
-        if (cStart <= pEnd && cEnd >= pStart) {
-          slot++
-          continue slotSearch
-        }
-      }
-      break // no conflict at this slot
-    }
-
-    slotMap.set(camp.camp.id, slot)
-    placed.push({ camp, slot })
-  }
-
-  return slotMap
-}
-
-/**
- * For a single cell, compute which camps go in which slots.
- * Multi-day camps use their locked slot from computeMultiDaySlots.
- * Single-day camps pack into remaining slots.
- * Returns { visible: [{camp, slot}], overflow: [camp] }.
- */
-function assignCellSlots(
-  dayCamps: CampWithRelations[],
-  multiDaySlots: Map<string, number>,
-): { visible: Array<{ camp: CampWithRelations; slot: number }>; overflow: CampWithRelations[] } {
   const visible: Array<{ camp: CampWithRelations; slot: number }> = []
   const overflow: CampWithRelations[] = []
-  const occupiedSlots = new Set<number>()
 
-  // Phase 1: place multi-day camps at their locked slots
-  for (const c of dayCamps) {
-    const lockedSlot = multiDaySlots.get(c.camp.id)
-    if (lockedSlot !== undefined) {
-      if (lockedSlot < MAX_VISIBLE_SLOTS) {
-        visible.push({ camp: c, slot: lockedSlot })
-        occupiedSlots.add(lockedSlot)
-      } else {
-        overflow.push(c)
-      }
+  for (let i = 0; i < sorted.length; i++) {
+    if (i < MAX_VISIBLE_SLOTS) {
+      visible.push({ camp: sorted[i], slot: i })
+    } else {
+      overflow.push(sorted[i])
     }
-  }
-
-  // Phase 2: pack single-day camps into remaining slots (sorted by status priority)
-  const singleDay = dayCamps
-    .filter(c => !multiDaySlots.has(c.camp.id))
-    .sort((a, b) => {
-      const pa = campStatusPriority(a), pb = campStatusPriority(b)
-      if (pa !== pb) return pa - pb
-      return a.camp.name.localeCompare(b.camp.name)
-    })
-  for (const c of singleDay) {
-    let placed = false
-    for (let s = 0; s < MAX_VISIBLE_SLOTS; s++) {
-      if (!occupiedSlots.has(s)) {
-        visible.push({ camp: c, slot: s })
-        occupiedSlots.add(s)
-        placed = true
-        break
-      }
-    }
-    if (!placed) overflow.push(c)
   }
 
   return { visible, overflow }
@@ -222,11 +140,8 @@ export default function CampsCalendar({ camps }: Props) {
     setPopoverDate(null)
   }
 
-  // Pre-compute multi-day slot assignments per week
-  const weekMultiDaySlots = useMemo(() =>
-    weeks.map(week => computeMultiDaySlots(week, camps)),
-    [weeks, camps]
-  )
+  // (Multi-day slot pre-computation removed — slots are now assigned
+  // per-cell by status priority, not locked across weeks.)
 
   // Pre-compute camps per date
   const campsByDate = useMemo(() => {
@@ -293,8 +208,6 @@ export default function CampsCalendar({ camps }: Props) {
 
         {/* Week rows */}
         {weeks.map((week, wi) => {
-          const multiDaySlots = weekMultiDaySlots[wi]
-
           return (
             <div key={wi} style={{
               display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
@@ -307,7 +220,7 @@ export default function CampsCalendar({ camps }: Props) {
                 const isToday = ds === todayStr
                 const dayCamps = campsByDate.get(ds) ?? []
 
-                const { visible, overflow } = assignCellSlots(dayCamps, multiDaySlots)
+                const { visible, overflow } = assignCellSlots(dayCamps)
 
                 return (
                   <div key={di} style={{
