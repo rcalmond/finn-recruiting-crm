@@ -1738,6 +1738,7 @@ function Sidebar({
 
 const CAMP_STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   interested: { bg: '#DBEAFE', color: '#1E40AF' },
+  targeted:   { bg: '#FEF3C7', color: '#92400E' },
   registered: { bg: '#D7F0ED', color: '#006A65' },
   attended:   { bg: '#F3F4F6', color: '#374151' },
   declined:   { bg: '#FEE2E2', color: '#991B1B' },
