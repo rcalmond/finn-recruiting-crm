@@ -959,7 +959,7 @@ Including old/new values prevents over-suppression: a coach whose Head→Assista
 
 Auto-applied changes (wouldStatus !== 'manual') skip the dedup check and always log.
 
-Validation pending: Wednesday May 7 cron run will confirm the 18 processed rows do not reappear. Update this section after validation lands.
+**Validation confirmed (May 6, 2026):** Wednesday's natural coach-roster-sync cron produced 1 new genuinely-new coach_changes row. None of the 18 previously processed rows reappeared. Bug A and Bug C fixes are confirmed working in production.
 
 ### Camp Discovery System — Phase B (May 5, 2026)
 
@@ -1002,9 +1002,22 @@ extractAndProposeCamps() helper added to camp-extractor.ts. Wired as fire-and-fo
 
 Idempotency check at top of function: skip if any camp_proposals row already exists with source_ref=rowId. Prevents duplicate Haiku calls on retry/re-sync.
 
-**Phase B4 — Tavily web discovery (deferred to follow-up doc update):**
+**Phase B4 — Tavily web discovery (validated May 9, 2026):**
 
-Saturday cron at /api/cron/camp-discovery shipped May 5. Validation pending — first natural production run is Saturday May 10. Document fully after that run completes.
+Saturday cron at /api/cron/camp-discovery, runs all A/B/C tier active schools (~33). Tavily query format: `${school.name} men's soccer ID camp` (no year — extractor handles staleness). search_depth: 'advanced', max_results: 5, include_raw_content: true. Per-result extraction via Haiku 4.5.
+
+Files: src/lib/tavily.ts (Tavily client), src/app/api/cron/camp-discovery/route.ts (Saturday 14:00 UTC = 8 AM MT), vercel.json schedule entry.
+
+Belt-and-suspenders dedup: skip if camp_proposals exists with source_ref=`web:${url}` AND status='pending'.
+
+Validation: First natural production run May 9, 2026. cron_runs row confirmed status='success'. New camp_proposals inserted from web discovery successfully processed via /settings/camp-proposals review queue.
+
+Known limitations:
+- TotalCamps pages are JS-rendered, Tavily can't extract
+- School name collisions ("Clark" → Lewis & Clark, "Rochester" → Oakland U Rochester MI)
+- Gender mismatches (Hopkins girls camps surfacing as proposals)
+- Wrong-sport noise from generic queries
+- Aggregator coverage (idcampssoccer.com, idcampfinder.com) compensates for some of these gaps
 
 ### Ingestion Health Monitoring (May 5, 2026)
 
@@ -1029,6 +1042,269 @@ Pattern generalizes — adding a third source means adding one async function an
 April 28 → May 5 outage: gmail_tokens row was deleted (cause unconfirmed — most likely user action via /settings/gmail Disconnect button or direct Supabase SQL). Code-level investigation confirmed the only delete path is the manual disconnect handler; failed token refresh does NOT delete the row by design (good defensive design, line 96 in gmail-client.ts has explicit comment).
 
 Reconnect via /settings/gmail restored functionality. First reconnect attempt produced 403 PERMISSION_DENIED on autolabel API calls — Google's cached consent had stale scopes. Fix: revoke at myaccount.google.com → Security → third-party apps, then disconnect+reconnect in app for fresh consent flow with full gmail.modify scope.
+
+### Pending Camp Decisions Strategic Prompt (May 7, 2026)
+
+New strategic prompt 'camp_decisions' (prompt_key: 'camp_decisions'). Surfaces camps where Finn needs to make a register-or-decline call before the camp starts.
+
+Logic in src/lib/strategic-prompts.ts:
+
+Match criteria:
+- camp.start_date between today and today + 60 days
+- host school category in ('A','B','C')
+- host school status != 'Inactive'
+- camp_finn_status.status = 'interested' OR no status row (excluding 'targeted' camps — those are already decided)
+
+Score: count / 8, capped at 1.0.
+
+Files:
+- src/lib/strategic-prompts.ts (computeCampDecisions)
+- src/components/strategic/PendingCampDecisionsModal.tsx (sorted by start_date, days-until red if <=7, deadline display, Target/Register/Decline/Skip action buttons)
+- src/components/today/StrategicSection.tsx (CAMPS tag)
+- src/components/TodayClient.tsx (useCamps hook, modal wiring)
+
+Position in strategic prompts array:
+1. reel_coverage
+2. rq_refresh
+3. stale_tier_a
+4. camp_decisions (new)
+5. pipeline_shape
+
+Live filtering via realtime subscription. Weekly skip via strategic_skips table.
+
+### cron_runs Audit Table (May 7, 2026)
+
+Generic cron audit log. Schema:
+
+  cron_runs:
+    id, cron_name (check: gmail-sync, coach-roster-sync, camp-discovery),
+    started_at, completed_at,
+    status (running | success | partial | failed),
+    error, metadata jsonb, created_at
+
+Indexes:
+- (cron_name, completed_at desc) where completed
+- (cron_name, started_at) where running
+
+Helpers in src/lib/cron-runs.ts:
+- startRun(admin, cronName) → returns runId
+- completeRun(admin, runId, status, metadata, error?)
+
+Both helpers swallow their own errors and log — they never break the calling cron. The audit log is supplementary, not critical-path.
+
+Wired into all 3 cron routes:
+- /api/cron/gmail-sync
+- /api/cron/coach-roster-sync
+- /api/cron/camp-discovery
+
+Existing per-source signals preserved (not replaced):
+- gmail_tokens.last_sync_at (Gmail OAuth sync state)
+- schools.coach_page_last_scraped_at (per-school scraper progress)
+
+Health monitoring extension:
+
+getIngestionHealth() in src/lib/ingestion-health.ts now reads cron_runs for sources without other last-run signals:
+
+- coach-scraper:
+  - Query: max(completed_at) where cron_name='coach-roster-sync' and status in ('success', 'partial')
+  - Thresholds: warning > 5 days, critical > 10 days
+  - Null treated as healthy (no rows yet = instrumentation not yet active, not a failure)
+
+- camp-discovery:
+  - Same pattern, thresholds: warning > 10 days, critical > 21 days
+
+Validation: First gmail-sync row landed May 7, 2026 with status=success, 6-second runtime, expected metadata (messages_captured, autolabel counts, etc.). Coach scraper first instrumented row Sunday May 10. Camp discovery first instrumented row Saturday May 9.
+
+### Targeted Camp State — Phase B Continuation (May 11, 2026)
+
+**Schema (migration 038):**
+
+Added 'targeted' status to camp_finn_status:
+
+  alter table camp_finn_status add column targeted_at timestamptz;
+
+No check constraint change applied — investigation revealed the camp_finn_status table has no database-level status validation. Status values are enforced via the TypeScript CampFinnStatusValue type only. The application code is the source of truth; the database is permissive text.
+
+Lesson captured: future state additions to enum-style columns should verify whether a check constraint exists before assuming the standard "drop + re-add constraint" migration pattern applies.
+
+**State semantics:**
+
+Five states in priority order:
+1. interested — applied a proposal, on the radar, no real decision (default after proposal apply)
+2. targeted — Finn is genuinely planning to attend (the meaningful gate)
+3. registered — paid, signed up
+4. attended — completed
+5. declined — actively decided no
+
+**Action item logic (Model B from design discussion):**
+
+Updated syncActionItemForCamp in src/lib/camps.ts:
+- status='interested' with deadline → NO action item (was: action item created)
+- status='targeted' with deadline → action item created
+- status='registered' → action item marked completed
+- status='attended' → action item marked completed
+- status='declined' → action item deleted
+- status changes from 'targeted' back to 'interested' → action item deleted
+
+Result: 'interested' is now pure radar with no operational consequence. 'targeted' is the meaningful gate that triggers action items, deadline tracking, and forces decisive prioritization.
+
+**UI updates:**
+
+- CampDetailClient: 5th pill (amber #FEF3C7/#92400E), targeted_at timestamp display
+- CampsCalendar: amber bar colors for targeted (#FEF3C7/#F59E0B/#92400E)
+- CampsClient: filter pill ordering: All | Interested | Targeted | Registered | Attended | Declined
+- PendingCampDecisionsModal: "Target" button added as primary action alongside Register / Decline / Skip
+- SchoolDetailClient CAMP_STATUS_STYLE: targeted entry added (hotfix May 11 after initial deploy crashed on Rochester school detail page — missed callsite)
+
+**Migration safety lesson:**
+
+The targeted-state deploy caused a production crash on any school detail page that rendered camps with the new 'targeted' value. Root cause: CAMP_STATUS_STYLE map in SchoolDetailClient.tsx had no entry for 'targeted', so `.bg` lookup returned undefined.
+
+Pattern: when adding states to a TypeScript union, the build's exhaustiveness check catches missing switch cases but does NOT catch plain-object maps keyed on the union values. Manual codebase search required for all such maps.
+
+Locations updated for this state addition:
+- CampDetailClient pill colors
+- CampsCalendar bar colors
+- CampsClient filter pill style
+- SchoolDetailClient CAMP_STATUS_STYLE (missed initially)
+
+Future state additions should grep for all status-keyed object maps before deploy.
+
+### Inline Action Item Editing (May 11, 2026)
+
+Shared EditableActionRow component at src/components/EditableActionRow.tsx supports inline edit of description and due_date.
+
+Inline edit pattern:
+- Description: click → text input with auto-focus and select-all, Enter or blur saves, Escape cancels
+- Due date: click → native date picker, selecting a date saves, Escape cancels
+- "Add date" link when no due_date set
+- Completion checkbox unchanged
+
+Save semantics:
+- Uses existing useActionItems().updateItem with built-in optimistic updates
+- Sync-managed fields (school_id, linked camp_id, contact_log_id, source) NOT user-editable
+- Sync logic doesn't update existing action items — only creates new ones — so manual edits are safe from clobbering
+
+Rendered in: SchoolDetailClient sidebar action items panel.
+
+Audit of action item rendering locations (8 total):
+1. SchoolDetailClient sidebar → inline edit (primary editing surface)
+2. SchoolDetailClient timeline → read-only (chronological)
+3. TacticalSection on Today screen → read-only (act now UX, edit happens on school detail)
+4. ActionsPanel legacy /pipeline → read-only (drag interactions conflict with inline edit)
+5. DashboardView legacy summary → read-only (truncated)
+6. PipelineTable next-action column → read-only (single cell)
+7. SchoolModal legacy modal → already has its own edit forms
+8. DashboardClient "Copy for Claude" export → not UI rendering
+
+Editing surface intentionally constrained to school detail sidebar. Today screen tactical zone stays action-focused (complete/navigate); editing requires navigating to school detail page (one click away).
+
+### Calendar Status Priority Sort (May 11, 2026)
+
+Camps within calendar cells now sort by status priority so targeted camps occupy visible slots preferentially over interested camps, with declined/attended sinking to overflow.
+
+Priority order (lower = more visible):
+1. targeted
+2. registered
+3. interested
+4. declined
+5. attended
+
+**Architectural simplification:**
+
+The earlier slot-stability work (Phase A6 polish round, ~107 lines of multi-day slot locking) was removed and replaced with a 20-line per-cell priority sort.
+
+Old behavior: multi-day camps got locked slots across all their cells, single-day camps packed into remaining slots. This caused targeted single-day camps to be pushed to overflow when multi-day interested camps occupied slots 0-3.
+
+New behavior: all camps for a cell (multi-day continuations + single-day) sort by status priority, top N get visible slots, rest go to overflow. Multi-day visual continuity sacrificed in dense weeks (which is the only time slot conflicts occur), but priority preserved universally.
+
+Net change: ~85 lines deleted, behavior more correct.
+
+Files: src/components/CampsCalendar.tsx
+
+### Campaign Email Rework — LLM Generation (May 11, 2026)
+
+**Migration 039:**
+
+- campaigns.message_set text column — free-form text, one message per line, used as input to LLM generation
+- campaign_email_drafts table:
+  - id, campaign_id (CASCADE), school_id (CASCADE), coach_id (SET NULL), subject, body, generated_at, regenerated_at, regeneration_count, model_used, input_tokens, output_tokens, created_at
+  - unique (campaign_id, school_id, coach_id)
+  - indexes on campaign_id, school_id
+
+**Migration 040:**
+
+- campaign_email_drafts.last_hint text column — captures the regeneration guidance text when user-provided
+
+**Migration 041:**
+
+- campaigns.archived_at timestamptz — when set, campaign is hidden from default list (reversible)
+- Verified CASCADE delete on campaign_schools.campaign_id and campaign_email_drafts.campaign_id
+
+**Generator (src/lib/campaign-email-generator.ts):**
+
+Sonnet 4.6 powered email body generation. NOT Haiku — the synthesis task (read full conversation history, generate personalized body that doesn't repeat covered topics) needs Sonnet's nuance pickup. Cost ~$0.03 per email, ~$0.90 for a 30-school campaign — trivial.
+
+Input to generator:
+- Campaign (includes message_set, name)
+- School with full relations
+- Coach (primary recipient if known)
+- Full contact history for this school (all contact_log rows asc by created_at, including manual entries — everything we know about Finn's interactions with this coach/school)
+- Finn's static context (position, class year, club, current_reel URL)
+- Optional regenerationHint (free-text guidance from user)
+
+Output: { body, inputTokens, outputTokens }
+
+Prompt structure (system + user):
+- System: identity (Finn as 2027 left wingback), guidance on synthesizing campaign messages with conversation history, tone/length rules, output format
+- User: structured sections for Finn context, school info, coach info, strategic context, prior conversation (chronological, truncated to 400 chars per row), campaign messages, optional regeneration guidance
+
+Max output: 600 tokens. Typically uses 250-400.
+
+**API route (/api/campaigns/generate-draft):**
+
+POST endpoint. Checks campaign_email_drafts cache first, generates if missing. Supports `regenerate: true` to force fresh generation (increments regeneration_count, updates regenerated_at, stores last_hint if provided).
+
+Falls back to template body if no message_set configured on the campaign (preserves legacy campaign compatibility).
+
+**DraftModal (src/components/DraftModal.tsx):**
+
+- Campaign mode with hasMessageSet: auto-generates on open ("Generating personalized draft..." while loading)
+- Campaign mode without hasMessageSet: existing template flow + "Personalize with AI" path
+- Subject line: templated "Finn Almond | Left Wingback | Class of 2027 | {short_name}" at top, read-only, Copy button
+- CC: finn@in.finnsoccer.com (static, displayed)
+- Body: LLM-generated, editable in textarea
+- "Regenerate" with hint input — text field for free-form guidance ("shorter", "more casual", "lead with camps", etc.) — hint clears after each regeneration
+- "Revert to draft" — returns to cached LLM draft after manual edits (not template)
+- "Mark as sent via Gmail" / "Mark as sent via SR" send buttons (hidden on archived campaigns)
+- "Dismiss from this campaign" action
+- Template fallback on generation failure (toast notice + revert to old template path)
+
+**Campaign creation simplification:**
+
+Removed from /campaigns/new Step 1:
+- Template name field
+- Email body textarea
+- Variable pill buttons ({{coach_last_name}}, etc.)
+- Preview section
+
+Kept:
+- Campaign name
+- Messages to communicate textarea (with placeholder examples)
+- Help text: "One message per line. The AI will personalize each email based on prior conversations with each school."
+
+Legacy campaigns (created before this change) still work via the template fallback path in DraftModal.
+
+**Archive and delete:**
+
+Two separate actions:
+- Archive (reversible): sets archived_at = now(). Hidden from default Active filter; visible in Archived and All. Activate button hidden, send buttons hidden in draft modal. ARCHIVED badge replaces status badge.
+- Delete (irreversible): hard delete with type-to-confirm modal ("Type DELETE to confirm"). Cascades to campaign_email_drafts and campaign_schools. contact_log rows preserved (historical record of actual sends).
+
+UI surfaces:
+- Campaigns list: filter pills (Active / Archived / All), kebab menu per row with Archive/Unarchive + Delete
+- Campaign detail header: Archive/Unarchive + Delete buttons near Activate
+- Kebab dropdown uses React portal with edge-aware positioning (flips above kebab when near viewport bottom)
 
 ---
 
@@ -2582,6 +2858,18 @@ for v1. Smoke tests passed.
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-11 | Campaign list kebab dropdown: React portal + edge-aware positioning (flips above near viewport bottom) | Bug fix |
+| 2026-05-11 | Campaign archive + delete: migration 041 (archived_at), kebab actions, type-to-confirm delete, CASCADE preservation of contact_log | Feature + Schema |
+| 2026-05-11 | Campaign draft modal: subject line restoration, Regenerate with hint input (migration 040 adds last_hint) | Feature + Schema |
+| 2026-05-11 | Campaign creation simplified: removed template editor, only campaign name + messages to communicate | Feature |
+| 2026-05-11 | Campaign email generation rework: LLM-powered per-school drafts via Sonnet 4.6, migration 039 (campaign_email_drafts table + message_set column), full conversation history input | Feature + Schema |
+| 2026-05-11 | Calendar status priority sort: targeted at top of visible stack, ~85 lines deleted (slot-stability replaced with per-cell sort) | Feature + Refactor |
+| 2026-05-11 | Inline action item editing via shared EditableActionRow: description + due_date editable in school detail sidebar | Feature |
+| 2026-05-11 | Targeted camp state: migration 038 (targeted_at column), Model B action item gating (targeted, not interested), amber pill/bar colors throughout | Schema + Feature |
+| 2026-05-09 | Phase B4 Tavily web discovery validated in production — first natural cron + cron_runs instrumentation | Validation |
+| 2026-05-07 | cron_runs audit table (migration 037), health monitoring extended to coach-scraper and camp-discovery | Schema + Feature |
+| 2026-05-07 | Pending Camp Decisions strategic prompt (camp_decisions) — forces decision pass on interested camps within 60 days | Feature |
+| 2026-05-06 | Coach scraper Bug A + Bug C fixes validated via natural Wednesday cron — zero regression on processed rows | Validation |
 | 2026-05-05 | SendGrid webhook health monitoring added to Today screen banner; getIngestionHealth() generalized to support multiple sources | Feature |
 | 2026-05-05 | Gmail sync cadence: daily → every 15 minutes (Vercel Pro upgrade); UI copy now matches reality | Ops |
 | 2026-05-05 | Vercel Pro tier upgrade — unlocks minute-granular crons, 60s function timeout, better cold starts | Ops |
