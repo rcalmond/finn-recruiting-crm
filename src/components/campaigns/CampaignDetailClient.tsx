@@ -149,6 +149,9 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
   const [error, setError]               = useState<string | null>(null)
 
   const [draftSchool, setDraftSchool] = useState<CampaignSchool | null>(null)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deleteInput, setDeleteInput]         = useState('')
+  const [deleting, setDeleting]               = useState(false)
 
   function handleSent(schoolId: string) {
     const now = new Date().toISOString()
@@ -253,6 +256,38 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
     }))
   }
 
+  // ── Archive / Delete ─────────────────────────────────────────────────────────
+
+  async function handleArchiveToggle() {
+    const archive = !campaign.archived_at
+    setError(null)
+    const res = await fetch(`/api/campaigns/${campaign.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: archive ? 'archive' : 'unarchive' }),
+    })
+    if (res.ok) {
+      setCampaign(c => ({ ...c, archived_at: archive ? new Date().toISOString() : null }))
+    } else {
+      const j = await res.json()
+      setError(j.error ?? 'Failed')
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    const res = await fetch(`/api/campaigns/${campaign.id}`, { method: 'DELETE' })
+    if (res.ok) {
+      router.push('/campaigns')
+    } else {
+      const j = await res.json()
+      setError(j.error ?? 'Delete failed')
+      setDeleting(false)
+    }
+  }
+
+  const isArchived = !!campaign.archived_at
+
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const bodyStartsTodo = (campaign.template?.body ?? '').trimStart().toLowerCase().startsWith('todo')
@@ -279,7 +314,15 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
             {campaign.name}
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <StatusBadge status={campaign.status} />
+            {isArchived ? (
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '3px 10px',
+                borderRadius: 4, textTransform: 'uppercase', letterSpacing: 0.5,
+                background: '#E5E7EB', color: '#6B7280',
+              }}>archived</span>
+            ) : (
+              <StatusBadge status={campaign.status} />
+            )}
             <span style={{ fontSize: 12, color: C.inkLo }}>
               Created {fmtDate(campaign.created_at)}
             </span>
@@ -296,31 +339,52 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
           </div>
         </div>
 
-        {/* Status transition buttons */}
-        {tButtons.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            {tButtons.map(t => (
-              <div key={t.action} style={{ position: 'relative' }}>
-                {t.action === 'activate' && showTodoWarning && (
-                  <div style={{
-                    position: 'absolute', bottom: '110%', right: 0, whiteSpace: 'nowrap',
-                    fontSize: 11, color: C.amber, background: '#FFFBEB',
-                    border: `1px solid #FCD34D`, borderRadius: 5, padding: '4px 8px',
-                  }}>
-                    Template body starts with TODO — update before sending
-                  </div>
-                )}
-                <button
-                  onClick={() => handleTransition(t.action)}
-                  disabled={transitioning}
-                  style={btn(t.variant, transitioning)}
-                >
-                  {t.label}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+          {/* Status transitions (hidden when archived) */}
+          {!isArchived && tButtons.map(t => (
+            <div key={t.action} style={{ position: 'relative' }}>
+              {t.action === 'activate' && showTodoWarning && (
+                <div style={{
+                  position: 'absolute', bottom: '110%', right: 0, whiteSpace: 'nowrap',
+                  fontSize: 11, color: C.amber, background: '#FFFBEB',
+                  border: `1px solid #FCD34D`, borderRadius: 5, padding: '4px 8px',
+                }}>
+                  Template body starts with TODO — update before sending
+                </div>
+              )}
+              <button
+                onClick={() => handleTransition(t.action)}
+                disabled={transitioning}
+                style={btn(t.variant, transitioning)}
+              >
+                {t.label}
+              </button>
+            </div>
+          ))}
+          {/* Archive / Unarchive */}
+          <button
+            onClick={handleArchiveToggle}
+            style={{
+              padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
+              background: 'transparent', color: C.inkLo, border: `1px solid ${C.border}`,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            {isArchived ? 'Unarchive' : 'Archive'}
+          </button>
+          {/* Delete */}
+          <button
+            onClick={() => { setDeleteModalOpen(true); setDeleteInput('') }}
+            style={{
+              padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
+              background: 'transparent', color: C.red, border: 'none',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Delete...
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -646,6 +710,7 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
               renderedBody: renderTemplate(campaign.template?.body ?? '', schoolName, draftSchool.coach ?? null),
               channelRec: chRec,
               hasMessageSet: !!campaign.message_set?.trim(),
+              isArchived,
             }}
             userId=""
             onClose={() => setDraftSchool(null)}
@@ -654,6 +719,63 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
           />
         )
       })()}
+
+      {/* Delete confirmation modal */}
+      {deleteModalOpen && (
+        <>
+          <div onClick={() => setDeleteModalOpen(false)} style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 1050,
+          }} />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            width: 420, maxWidth: 'calc(100vw - 32px)', background: '#fff',
+            borderRadius: 12, boxShadow: '0 20px 48px rgba(0,0,0,0.18)', zIndex: 1051,
+            padding: 24,
+          }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: C.ink }}>
+              Delete campaign?
+            </h3>
+            <p style={{ fontSize: 13, color: '#4A4A4A', lineHeight: 1.6, margin: '0 0 16px' }}>
+              This will permanently delete &ldquo;{campaign.name}&rdquo; and all draft history.
+              Sent emails will remain in contact history.
+            </p>
+            <p style={{ fontSize: 13, color: '#4A4A4A', margin: '0 0 12px' }}>
+              Type <strong>DELETE</strong> to confirm.
+            </p>
+            <input
+              type="text"
+              value={deleteInput}
+              onChange={e => setDeleteInput(e.target.value)}
+              placeholder="DELETE"
+              autoFocus
+              style={{
+                width: '100%', padding: '8px 12px', borderRadius: 6,
+                border: `1px solid ${C.border}`, fontSize: 13,
+                fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button
+                onClick={() => setDeleteModalOpen(false)}
+                style={{
+                  padding: '8px 16px', borderRadius: 7, fontSize: 13, fontWeight: 600,
+                  background: '#f1f5f9', color: '#475569', border: 'none', cursor: 'pointer',
+                }}
+              >Cancel</button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteInput !== 'DELETE' || deleting}
+                style={{
+                  padding: '8px 16px', borderRadius: 7, fontSize: 13, fontWeight: 600,
+                  background: C.red, color: '#fff', border: 'none',
+                  cursor: deleteInput !== 'DELETE' || deleting ? 'not-allowed' : 'pointer',
+                  opacity: deleteInput !== 'DELETE' || deleting ? 0.5 : 1,
+                }}
+              >{deleting ? 'Deleting...' : 'Delete campaign'}</button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

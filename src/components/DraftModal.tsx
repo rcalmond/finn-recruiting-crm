@@ -11,7 +11,7 @@ type DraftModalMode =
   | { kind: 'campaign'; schoolId: string; coachId: string; schoolName: string; coachName?: string;
       coachRole?: string; schoolTier?: string; campaignId: string;
       renderedBody: string; channelRec?: 'gmail' | 'sr' | null;
-      hasMessageSet?: boolean }
+      hasMessageSet?: boolean; isArchived?: boolean }
 
 export interface TaskContext {
   type: 'send_reel' | 'general'
@@ -45,6 +45,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
   const isReply = mode.kind === 'reply'
   const isFresh = mode.kind === 'fresh'
   const campaignHasMessageSet = isCampaign && mode.hasMessageSet
+  const campaignIsArchived = isCampaign && mode.isArchived
 
   const [stage, setStage] = useState<Stage>(isCampaign ? (campaignHasMessageSet ? 'generate' : 'review') : 'suggest')
   const [topics, setTopics] = useState<string[]>([])
@@ -643,8 +644,16 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
 
               {/* Actions */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {campaignIsArchived && (
+                  <div style={{
+                    fontSize: 12, color: '#6B7280', background: '#F3F4F6',
+                    padding: '8px 12px', borderRadius: 6, fontWeight: 600,
+                  }}>
+                    This campaign is archived. Unarchive to send.
+                  </div>
+                )}
                 {/* Mark as sent */}
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {!campaignIsArchived && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button
                     onClick={() => handleMarkSent('gmail')}
                     disabled={sending !== null || generating}
@@ -667,7 +676,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                   >
                     {sending === 'sr' ? 'Marking...' : 'Mark as sent via SR'}
                   </button>
-                </div>
+                </div>}
 
                 {/* Dismiss (campaign only) */}
                 {isCampaign && (

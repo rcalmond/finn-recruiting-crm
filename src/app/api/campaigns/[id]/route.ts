@@ -1,7 +1,8 @@
 /**
  * /api/campaigns/[id]
- * GET   — campaign detail with all campaign_schools (school + coach joined)
- * PATCH — status transitions: activate, pause, resume, complete
+ * GET    — campaign detail with all campaign_schools (school + coach joined)
+ * PATCH  — status transitions + archive/unarchive
+ * DELETE — hard delete (cascade removes drafts + school associations; contact_log preserved)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -61,7 +62,7 @@ export async function GET(
 
 // ── PATCH /api/campaigns/[id] ─────────────────────────────────────────────────
 //
-// Body: { action: 'activate' | 'pause' | 'resume' | 'complete' }
+// Body: { action: 'activate' | 'pause' | 'resume' | 'complete' | 'archive' | 'unarchive' }
 
 export async function PATCH(
   req: NextRequest,
@@ -75,6 +76,20 @@ export async function PATCH(
   const { action } = await req.json() as { action: string }
 
   const db = admin()
+
+  // ── Archive / Unarchive ──────────────────────────────────────────────────
+  if (action === 'archive') {
+    const { error } = await db.from('campaigns').update({ archived_at: new Date().toISOString() }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+  if (action === 'unarchive') {
+    const { error } = await db.from('campaigns').update({ archived_at: null }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
+  // ── Status transitions ───────────────────────────────────────────────────
   const { data: campaign } = await db
     .from('campaigns')
     .select('status')
@@ -107,4 +122,22 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ ok: true, status: targetStatus })
+}
+
+// ── DELETE /api/campaigns/[id] ────────────────────────────────────────────────
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const db = admin()
+  const { error } = await db.from('campaigns').delete().eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ ok: true })
 }

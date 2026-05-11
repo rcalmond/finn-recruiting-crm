@@ -312,6 +312,7 @@ export interface Campaign {
   tier_scope: string[]
   throttle_days: number
   message_set: string | null
+  archived_at: string | null
   created_at: string
   activated_at: string | null
   completed_at: string | null
