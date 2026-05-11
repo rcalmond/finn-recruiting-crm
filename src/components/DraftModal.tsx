@@ -10,7 +10,8 @@ type DraftModalMode =
       replyToContactLogId: string; inboundChannel?: string }
   | { kind: 'campaign'; schoolId: string; coachId: string; schoolName: string; coachName?: string;
       coachRole?: string; schoolTier?: string; campaignId: string;
-      renderedBody: string; channelRec?: 'gmail' | 'sr' | null }
+      renderedBody: string; channelRec?: 'gmail' | 'sr' | null;
+      hasMessageSet?: boolean }
 
 export interface TaskContext {
   type: 'send_reel' | 'general'
@@ -43,13 +44,15 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
   const isCampaign = mode.kind === 'campaign'
   const isReply = mode.kind === 'reply'
   const isFresh = mode.kind === 'fresh'
+  const campaignHasMessageSet = isCampaign && mode.hasMessageSet
 
-  const [stage, setStage] = useState<Stage>(isCampaign ? 'review' : 'suggest')
+  const [stage, setStage] = useState<Stage>(isCampaign ? (campaignHasMessageSet ? 'generate' : 'review') : 'suggest')
   const [topics, setTopics] = useState<string[]>([])
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
   const [brief, setBrief] = useState('')
   const [subject, setSubject] = useState('')
-  const [body, setBody] = useState(isCampaign ? mode.renderedBody : '')
+  const [body, setBody] = useState(isCampaign && !campaignHasMessageSet ? mode.renderedBody : '')
+  const [cachedBody, setCachedBody] = useState<string | null>(null) // holds LLM-generated draft for "Start over"
   const [error, setError] = useState<string | null>(null)
   const [copiedBody, setCopiedBody] = useState(false)
   const [copiedSubject, setCopiedSubject] = useState(false)
@@ -83,6 +86,53 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
   }, [mode.schoolId, mode.coachId])
 
   useEffect(() => { if (!isCampaign) fetchTopics() }, [fetchTopics, isCampaign])
+
+  // ── Campaign LLM draft: fetch or generate on mount ────────────────────────
+
+  const fetchCampaignDraft = useCallback(async (regenerate = false) => {
+    if (!isCampaign) return
+    setStage('generate')
+    setGenerating(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/campaigns/generate-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaignId: mode.campaignId,
+          schoolId: mode.schoolId,
+          coachId: mode.coachId,
+          regenerate,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Generation failed')
+
+      if (json.fallback) {
+        // No message set — fall back to template
+        setBody(mode.renderedBody)
+        setCachedBody(mode.renderedBody)
+      } else if (json.draft) {
+        setBody(json.draft.body)
+        setCachedBody(json.draft.body)
+        if (json.draft.subject) setSubject(json.draft.subject)
+      }
+      setStage('review')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Generation failed')
+      // Fall back to template body
+      setBody(mode.renderedBody)
+      setCachedBody(mode.renderedBody)
+      setStage('review')
+    } finally {
+      setGenerating(false)
+    }
+  }, [isCampaign, mode])
+
+  useEffect(() => {
+    if (campaignHasMessageSet) fetchCampaignDraft(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Stage 2: generate email ───────────────────────────────────────────────
 
@@ -213,9 +263,20 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
   }
 
   async function handleRegenerate() {
-    setSelectedTopic(null)
-    setBrief('')
-    await fetchTopics()
+    if (campaignHasMessageSet) {
+      await fetchCampaignDraft(true)
+    } else {
+      setSelectedTopic(null)
+      setBrief('')
+      await fetchTopics()
+    }
+  }
+
+  function handleStartOver() {
+    if (isCampaign && cachedBody !== null) {
+      // Revert to cached LLM-generated draft (not template)
+      setBody(cachedBody)
+    }
   }
 
   // ── Can generate? ─────────────────────────────────────────────────────────
@@ -383,7 +444,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
               padding: '40px 0', textAlign: 'center', color: '#94a3b8',
               fontSize: 13,
             }}>
-              Generating draft...
+              {campaignHasMessageSet ? 'Generating personalized draft...' : 'Generating draft...'}
             </div>
           )}
 
@@ -475,7 +536,21 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                     {isCampaign ? 'Message — editable (per-school only, does not update template)' : 'Body'}
                   </Label>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    {isCampaign && (
+                    {isCampaign && campaignHasMessageSet && (
+                      <button
+                        onClick={handleRegenerate}
+                        disabled={generating || sending !== null}
+                        title="Generate a fresh draft with AI"
+                        style={{
+                          ...copyBtnStyle(false),
+                          opacity: generating || sending !== null ? 0.5 : 1,
+                          cursor: generating || sending !== null ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {generating ? 'Generating...' : 'Regenerate'}
+                      </button>
+                    )}
+                    {isCampaign && !campaignHasMessageSet && (
                       <button
                         onClick={handleCampaignPersonalize}
                         disabled={generating || sending !== null}
@@ -586,6 +661,16 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
               style={{ ...generateBtnStyle, background: '#475569' }}
             >
               Start over
+            </button>
+          )}
+
+          {stage === 'review' && isCampaign && cachedBody !== null && body !== cachedBody && (
+            <button
+              onClick={handleStartOver}
+              disabled={generating}
+              style={{ ...generateBtnStyle, background: '#475569', opacity: generating ? 0.5 : 1 }}
+            >
+              Revert to draft
             </button>
           )}
         </div>

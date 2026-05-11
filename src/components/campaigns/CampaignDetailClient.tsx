@@ -645,6 +645,7 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
               campaignId: campaign.id,
               renderedBody: renderTemplate(campaign.template?.body ?? '', schoolName, draftSchool.coach ?? null),
               channelRec: chRec,
+              hasMessageSet: !!campaign.message_set?.trim(),
             }}
             userId=""
             onClose={() => setDraftSchool(null)}

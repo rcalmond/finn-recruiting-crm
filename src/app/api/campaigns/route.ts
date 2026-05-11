@@ -73,9 +73,10 @@ export async function POST(req: NextRequest) {
     body: string
     throttleDays: number
     schoolIds: string[]
+    messageSet?: string
   }
 
-  const { name, templateName, body: templateBody, throttleDays, schoolIds } = body
+  const { name, templateName, body: templateBody, throttleDays, schoolIds, messageSet } = body
   if (!name?.trim() || !templateBody?.trim() || !Array.isArray(schoolIds) || schoolIds.length === 0) {
     return NextResponse.json({ error: 'name, body, and at least one school are required' }, { status: 400 })
   }
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
       status: 'draft',
       tier_scope: ['A', 'B'],
       throttle_days: throttleDays ?? 7,
+      message_set: messageSet?.trim() || null,
     })
     .select('id')
     .single()

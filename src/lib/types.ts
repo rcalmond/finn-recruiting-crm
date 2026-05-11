@@ -311,11 +311,28 @@ export interface Campaign {
   status: CampaignStatus
   tier_scope: string[]
   throttle_days: number
+  message_set: string | null
   created_at: string
   activated_at: string | null
   completed_at: string | null
   // joined
   template?: CampaignTemplate
+}
+
+export interface CampaignEmailDraft {
+  id: string
+  campaign_id: string
+  school_id: string
+  coach_id: string | null
+  subject: string
+  body: string
+  generated_at: string
+  regenerated_at: string | null
+  regeneration_count: number
+  model_used: string
+  input_tokens: number | null
+  output_tokens: number | null
+  created_at: string
 }
 
 /** Row in campaign_schools, with school + coach joined */

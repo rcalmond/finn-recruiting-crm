@@ -115,6 +115,7 @@ export default function NewCampaignClient({ schools, coachBySchool, sampleSchool
   const [campaignName, setCampaignName]     = useState('')
   const [templateName, setTemplateName]     = useState('')
   const [body, setBody]                     = useState('')
+  const [messageSet, setMessageSet]         = useState('')
   const [showPreview, setShowPreview]       = useState(true)
 
   // Step 2 — school scope
@@ -185,6 +186,7 @@ export default function NewCampaignClient({ schools, coachBySchool, sampleSchool
           body,
           throttleDays,
           schoolIds: selectedSchools.map(s => s.id),
+          messageSet: messageSet.trim() || undefined,
         }),
       })
       const json = await res.json()
@@ -322,6 +324,21 @@ export default function NewCampaignClient({ schools, coachBySchool, sampleSchool
                 {body.trim() ? preview : <span style={{ color: C.inkLo, fontStyle: 'italic' }}>Start typing to see preview…</span>}
               </div>
             )}
+          </div>
+
+          {/* Messages to communicate (for LLM personalization) */}
+          <div>
+            <label style={labelStyle}>Messages to communicate</label>
+            <textarea
+              value={messageSet}
+              onChange={e => setMessageSet(e.target.value)}
+              rows={6}
+              placeholder={'Spring club season just wrapped — won league title\nLikely attending MLS NEXT Cup in late May (to confirm)\nWorking out summer ID camp schedule\nCurious how your program plays with wingbacks'}
+              style={{ ...inputStyle(true), minHeight: 100 }}
+            />
+            <div style={{ marginTop: 4, fontSize: 11, color: C.inkLo }}>
+              One message per line. The AI will personalize each email based on prior conversations with each school. Leave blank to use the template only.
+            </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
