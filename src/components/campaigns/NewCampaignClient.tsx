@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { School, Coach } from '@/lib/types'
 
@@ -17,37 +17,6 @@ const C = {
   amber:   '#B45309',
   green:   '#16A34A',
   teal:    '#00B2A9',
-}
-
-// ── Mustache renderer ─────────────────────────────────────────────────────────
-
-function renderTemplate(body: string, school: School | null, coach: Coach | null): string {
-  if (!school) return body
-  const parts = (coach?.name ?? '').trim().split(/\s+/)
-  const firstName = parts[0] ?? ''
-  const lastName  = parts.length > 1 ? parts[parts.length - 1] : parts[0] ?? ''
-  return body
-    .replace(/\{\{coach_last_name\}\}/g,  lastName  || '[Coach]')
-    .replace(/\{\{coach_first_name\}\}/g, firstName || '[Coach]')
-    .replace(/\{\{school_name\}\}/g,      school.name)
-    .replace(/\{\{coach_role\}\}/g,       coach?.role ?? '[Role]')
-}
-
-// ── Supported placeholders ────────────────────────────────────────────────────
-
-const PLACEHOLDERS = [
-  { label: '{{coach_last_name}}',  value: '{{coach_last_name}}'  },
-  { label: '{{coach_first_name}}', value: '{{coach_first_name}}' },
-  { label: '{{school_name}}',      value: '{{school_name}}'      },
-  { label: '{{coach_role}}',       value: '{{coach_role}}'       },
-]
-
-// ── Unknown placeholder warning ───────────────────────────────────────────────
-
-function findUnknownPlaceholders(body: string): string[] {
-  const supported = new Set(PLACEHOLDERS.map(p => p.value))
-  const all = body.match(/\{\{[^}]+\}\}/g) ?? []
-  return Array.from(new Set(all.filter(p => !supported.has(p))))
 }
 
 // ── Style helpers ─────────────────────────────────────────────────────────────
@@ -98,25 +67,19 @@ function StepDot({ n, active, done }: { n: number; active: boolean; done: boolea
 interface Props {
   schools: School[]
   coachBySchool: Record<string, Coach>
-  sampleSchool: School | null
-  sampleCoach: Coach | null
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function NewCampaignClient({ schools, coachBySchool, sampleSchool, sampleCoach }: Props) {
+export default function NewCampaignClient({ schools, coachBySchool }: Props) {
   const router = useRouter()
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Step state: 1=name+template, 2=scope, 3=throttle, 4=review
+  // Step state: 1=name+messages, 2=scope, 3=settings
   const [step, setStep] = useState(1)
 
   // Step 1
   const [campaignName, setCampaignName]     = useState('')
-  const [templateName, setTemplateName]     = useState('')
-  const [body, setBody]                     = useState('')
   const [messageSet, setMessageSet]         = useState('')
-  const [showPreview, setShowPreview]       = useState(true)
 
   // Step 2 — school scope
   const nonNope = schools.filter(s => s.category !== 'Nope')
@@ -135,26 +98,10 @@ export default function NewCampaignClient({ schools, coachBySchool, sampleSchool
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
-  const unknown = findUnknownPlaceholders(body)
-  const preview = renderTemplate(body, sampleSchool, sampleCoach)
-  const canAdvanceStep1 = campaignName.trim().length > 0 && body.trim().length > 0
+  const canAdvanceStep1 = campaignName.trim().length > 0
   const selectedSchools = nonNope.filter(s => selected.has(s.id))
 
   // ── Handlers ───────────────────────────────────────────────────────────────
-
-  function insertPlaceholder(value: string) {
-    const el = textareaRef.current
-    if (!el) { setBody(b => b + value); return }
-    const start = el.selectionStart ?? body.length
-    const end   = el.selectionEnd   ?? body.length
-    const next  = body.slice(0, start) + value + body.slice(end)
-    setBody(next)
-    // Restore cursor position after React re-render
-    setTimeout(() => {
-      el.selectionStart = el.selectionEnd = start + value.length
-      el.focus()
-    }, 0)
-  }
 
   function toggleSchool(id: string) {
     setSelected(prev => {
@@ -182,8 +129,6 @@ export default function NewCampaignClient({ schools, coachBySchool, sampleSchool
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: campaignName.trim(),
-          templateName: templateName.trim() || `${campaignName.trim()} — template`,
-          body,
           throttleDays,
           schoolIds: selectedSchools.map(s => s.id),
           messageSet: messageSet.trim() || undefined,
@@ -232,7 +177,7 @@ export default function NewCampaignClient({ schools, coachBySchool, sampleSchool
           </div>
         ))}
         <span style={{ fontSize: 12, color: C.inkLo, marginLeft: 8 }}>
-          {step === 1 ? 'Name & template' : step === 2 ? 'School scope' : 'Settings'}
+          {step === 1 ? 'Name & messages' : step === 2 ? 'School scope' : 'Settings'}
         </span>
       </div>
 
@@ -245,88 +190,12 @@ export default function NewCampaignClient({ schools, coachBySchool, sampleSchool
             <input
               value={campaignName}
               onChange={e => setCampaignName(e.target.value)}
-              placeholder="e.g. Wingback update — May 2026"
+              placeholder="e.g. Spring update — May 2026"
               style={inputStyle()}
               autoFocus
             />
           </div>
 
-          <div>
-            <label style={labelStyle}>Template name <span style={{ color: C.inkLo, fontWeight: 400 }}>(optional)</span></label>
-            <input
-              value={templateName}
-              onChange={e => setTemplateName(e.target.value)}
-              placeholder={campaignName.trim() ? `${campaignName.trim()} — template` : 'Template name'}
-              style={inputStyle()}
-            />
-          </div>
-
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <label style={{ ...labelStyle, marginBottom: 0 }}>Email body</label>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {PLACEHOLDERS.map(p => (
-                  <button
-                    key={p.value}
-                    onClick={() => insertPlaceholder(p.value)}
-                    style={{
-                      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
-                      background: '#E0F2FE', color: '#0369A1', border: 'none', cursor: 'pointer',
-                    }}
-                    title={`Insert ${p.value}`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <textarea
-              ref={textareaRef}
-              value={body}
-              onChange={e => setBody(e.target.value)}
-              placeholder={'Coach {{coach_last_name}},\n\nI wanted to follow up…'}
-              style={{ ...inputStyle(true), minHeight: 220 }}
-            />
-            {unknown.length > 0 && (
-              <div style={{ marginTop: 6, fontSize: 11, color: C.amber }}>
-                Unknown placeholder{unknown.length > 1 ? 's' : ''} (will not be replaced): {unknown.join(', ')}
-              </div>
-            )}
-          </div>
-
-          {/* Live preview */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <label style={{ ...labelStyle, marginBottom: 0 }}>
-                Preview
-                {sampleSchool && (
-                  <span style={{ fontWeight: 400, color: C.inkLo }}>
-                    {' '}— {sampleSchool.short_name ?? sampleSchool.name}
-                    {sampleCoach ? ` / ${sampleCoach.name}` : ' (no coach)'}
-                  </span>
-                )}
-              </label>
-              <button
-                onClick={() => setShowPreview(p => !p)}
-                style={{ fontSize: 11, color: C.inkLo, background: 'none', border: 'none', cursor: 'pointer' }}
-              >
-                {showPreview ? 'hide' : 'show'}
-              </button>
-            </div>
-            {showPreview && (
-              <div style={{
-                background: C.paper, border: `1px solid ${C.border}`,
-                borderRadius: 8, padding: '14px 16px',
-                fontSize: 13, color: C.inkSoft, whiteSpace: 'pre-wrap',
-                lineHeight: 1.6, minHeight: 80,
-                fontFamily: 'Georgia, serif',
-              }}>
-                {body.trim() ? preview : <span style={{ color: C.inkLo, fontStyle: 'italic' }}>Start typing to see preview…</span>}
-              </div>
-            )}
-          </div>
-
-          {/* Messages to communicate (for LLM personalization) */}
           <div>
             <label style={labelStyle}>Messages to communicate</label>
             <textarea
@@ -334,10 +203,10 @@ export default function NewCampaignClient({ schools, coachBySchool, sampleSchool
               onChange={e => setMessageSet(e.target.value)}
               rows={6}
               placeholder={'Spring club season just wrapped — won league title\nLikely attending MLS NEXT Cup in late May (to confirm)\nWorking out summer ID camp schedule\nCurious how your program plays with wingbacks'}
-              style={{ ...inputStyle(true), minHeight: 100 }}
+              style={{ ...inputStyle(true), minHeight: 140 }}
             />
             <div style={{ marginTop: 4, fontSize: 11, color: C.inkLo }}>
-              One message per line. The AI will personalize each email based on prior conversations with each school. Leave blank to use the template only.
+              One message per line. The AI will personalize each email based on prior conversations with each school.
             </div>
           </div>
 

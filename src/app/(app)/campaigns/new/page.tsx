@@ -36,18 +36,12 @@ export default async function NewCampaignPage() {
         .in('school_id', schoolIds)
     : { data: [] }
 
-  // Find a sample school for live preview: first A-tier with a primary coach
   const coachBySchool = new Map((coaches ?? []).map(c => [c.school_id, c]))
-  const aTier = (schools ?? []).filter(s => s.category === 'A')
-  const sampleSchool = aTier.find(s => coachBySchool.has(s.id)) ?? aTier[0] ?? (schools ?? [])[0] ?? null
-  const sampleCoach = sampleSchool ? (coachBySchool.get(sampleSchool.id) ?? null) : null
 
   return (
     <NewCampaignClient
       schools={(schools ?? []) as School[]}
       coachBySchool={Object.fromEntries(coachBySchool) as Record<string, Coach>}
-      sampleSchool={sampleSchool as School | null}
-      sampleCoach={sampleCoach as Coach | null}
     />
   )
 }

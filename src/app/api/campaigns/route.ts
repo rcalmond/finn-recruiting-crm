@@ -69,24 +69,24 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json() as {
     name: string
-    templateName: string
-    body: string
+    templateName?: string
+    body?: string
     throttleDays: number
     schoolIds: string[]
     messageSet?: string
   }
 
   const { name, templateName, body: templateBody, throttleDays, schoolIds, messageSet } = body
-  if (!name?.trim() || !templateBody?.trim() || !Array.isArray(schoolIds) || schoolIds.length === 0) {
-    return NextResponse.json({ error: 'name, body, and at least one school are required' }, { status: 400 })
+  if (!name?.trim() || !Array.isArray(schoolIds) || schoolIds.length === 0) {
+    return NextResponse.json({ error: 'name and at least one school are required' }, { status: 400 })
   }
 
   const db = admin()
 
-  // 1. Insert template
+  // 1. Insert template (placeholder for legacy compatibility — new campaigns may have empty body)
   const { data: tmpl, error: tmplErr } = await db
     .from('campaign_templates')
-    .insert({ name: templateName || name, body: templateBody })
+    .insert({ name: templateName || name, body: templateBody ?? '' })
     .select('id')
     .single()
   if (tmplErr) return NextResponse.json({ error: tmplErr.message }, { status: 500 })
