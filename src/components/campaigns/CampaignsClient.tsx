@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import type { Campaign } from '@/lib/types'
 
@@ -69,9 +70,24 @@ export default function CampaignsClient() {
   const [error, setError]         = useState<string | null>(null)
   const [filter, setFilter]       = useState<ListFilter>('active')
   const [menuOpen, setMenuOpen]   = useState<string | null>(null)
+  const [menuPos, setMenuPos]     = useState<{ top: number; left: number } | null>(null)
+  const kebabRef = useRef<HTMLButtonElement | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CampaignRow | null>(null)
   const [deleteInput, setDeleteInput]   = useState('')
   const [deleting, setDeleting]         = useState(false)
+
+  const openMenu = useCallback((id: string, btn: HTMLButtonElement) => {
+    if (menuOpen === id) { setMenuOpen(null); return }
+    const rect = btn.getBoundingClientRect()
+    const dropdownHeight = 80 // approx height of 2 menu items
+    const flipUp = rect.bottom + dropdownHeight > window.innerHeight
+    setMenuPos({
+      top: flipUp ? rect.top - dropdownHeight : rect.bottom + 4,
+      left: rect.right - 140, // align right edge with button
+    })
+    setMenuOpen(id)
+    kebabRef.current = btn
+  }, [menuOpen])
 
   useEffect(() => {
     fetch('/api/campaigns')
@@ -250,57 +266,69 @@ export default function CampaignsClient() {
                 <div style={{ fontSize: 12, color: C.inkLo, display: 'flex', alignItems: 'center' }}>
                   {created}
                 </div>
-                {/* Kebab menu */}
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                {/* Kebab menu trigger */}
+                <div style={{ display: 'flex', alignItems: 'center' }}>
                   <button
-                    onClick={e => { e.stopPropagation(); setMenuOpen(menuOpen === c.id ? null : c.id) }}
+                    onClick={e => { e.stopPropagation(); openMenu(c.id, e.currentTarget) }}
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer',
                       fontSize: 16, color: C.inkLo, padding: '0 4px', lineHeight: 1,
                     }}
                   >&#8942;</button>
-                  {menuOpen === c.id && (
-                    <>
-                      <div onClick={() => setMenuOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 1000 }} />
-                      <div style={{
-                        position: 'absolute', right: 0, top: '100%', zIndex: 1001,
-                        background: '#fff', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                        border: `1px solid ${C.border}`, overflow: 'hidden', minWidth: 140,
-                      }}>
-                        <button
-                          onClick={() => handleArchive(c.id, !isArchived)}
-                          style={{
-                            display: 'block', width: '100%', padding: '8px 14px',
-                            fontSize: 12, fontWeight: 600, color: C.ink,
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            textAlign: 'left', fontFamily: 'inherit',
-                          }}
-                          onMouseEnter={e => (e.currentTarget.style.background = C.paper)}
-                          onMouseLeave={e => (e.currentTarget.style.background = '')}
-                        >
-                          {isArchived ? 'Unarchive' : 'Archive'}
-                        </button>
-                        <button
-                          onClick={() => { setMenuOpen(null); setDeleteTarget(c); setDeleteInput('') }}
-                          style={{
-                            display: 'block', width: '100%', padding: '8px 14px',
-                            fontSize: 12, fontWeight: 600, color: C.red,
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            textAlign: 'left', fontFamily: 'inherit',
-                          }}
-                          onMouseEnter={e => (e.currentTarget.style.background = '#FEF2F2')}
-                          onMouseLeave={e => (e.currentTarget.style.background = '')}
-                        >
-                          Delete...
-                        </button>
-                      </div>
-                    </>
-                  )}
                 </div>
               </div>
             )
           })}
         </div>
+      )}
+
+      {/* Portaled kebab dropdown */}
+      {menuOpen && menuPos && typeof document !== 'undefined' && createPortal(
+        <>
+          <div onClick={() => setMenuOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 1000 }} />
+          <div style={{
+            position: 'fixed', top: menuPos.top, left: menuPos.left, zIndex: 1001,
+            background: '#fff', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+            border: `1px solid ${C.border}`, overflow: 'hidden', minWidth: 140,
+          }}>
+            {(() => {
+              const c = campaigns.find(x => x.id === menuOpen)
+              if (!c) return null
+              const isArch = !!c.archived_at
+              return (
+                <>
+                  <button
+                    onClick={() => handleArchive(c.id, !isArch)}
+                    style={{
+                      display: 'block', width: '100%', padding: '8px 14px',
+                      fontSize: 12, fontWeight: 600, color: C.ink,
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      textAlign: 'left', fontFamily: 'inherit',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = C.paper)}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}
+                  >
+                    {isArch ? 'Unarchive' : 'Archive'}
+                  </button>
+                  <button
+                    onClick={() => { setMenuOpen(null); setDeleteTarget(c); setDeleteInput('') }}
+                    style={{
+                      display: 'block', width: '100%', padding: '8px 14px',
+                      fontSize: 12, fontWeight: 600, color: C.red,
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      textAlign: 'left', fontFamily: 'inherit',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#FEF2F2')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}
+                  >
+                    Delete...
+                  </button>
+                </>
+              )
+            })()}
+          </div>
+        </>,
+        document.body
       )}
 
       {/* Delete confirmation modal */}
