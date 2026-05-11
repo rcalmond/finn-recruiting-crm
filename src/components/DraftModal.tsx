@@ -59,6 +59,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
   const [ccCopied, setCcCopied] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [sending, setSending] = useState<string | null>(null)
+  const [regenHint, setRegenHint] = useState('')
 
   // ── Stage 1: fetch topic suggestions on mount ─────────────────────────────
 
@@ -89,21 +90,23 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
 
   // ── Campaign LLM draft: fetch or generate on mount ────────────────────────
 
-  const fetchCampaignDraft = useCallback(async (regenerate = false) => {
+  const fetchCampaignDraft = useCallback(async (regenerate = false, hint?: string) => {
     if (!isCampaign) return
     setStage('generate')
     setGenerating(true)
     setError(null)
     try {
+      const payload: Record<string, unknown> = {
+        campaignId: mode.campaignId,
+        schoolId: mode.schoolId,
+        coachId: mode.coachId,
+        regenerate,
+      }
+      if (hint?.trim()) payload.hint = hint.trim()
       const res = await fetch('/api/campaigns/generate-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          campaignId: mode.campaignId,
-          schoolId: mode.schoolId,
-          coachId: mode.coachId,
-          regenerate,
-        }),
+        body: JSON.stringify(payload),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Generation failed')
@@ -264,7 +267,9 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
 
   async function handleRegenerate() {
     if (campaignHasMessageSet) {
-      await fetchCampaignDraft(true)
+      const hint = regenHint.trim() || undefined
+      setRegenHint('')
+      await fetchCampaignDraft(true, hint)
     } else {
       setSelectedTopic(null)
       setBrief('')
@@ -278,6 +283,12 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
       setBody(cachedBody)
     }
   }
+
+  // ── Campaign subject (templated, not LLM-generated) ────────────────────────
+
+  const campaignSubject = isCampaign
+    ? `Finn Almond | Left Wingback | Class of 2027 | ${mode.schoolName}`
+    : ''
 
   // ── Can generate? ─────────────────────────────────────────────────────────
 
@@ -485,6 +496,31 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                 </div>
               )}
 
+              {/* Subject (campaign — display only) */}
+              {isCampaign && (
+                <div>
+                  <div style={{
+                    display: 'flex', justifyContent: 'space-between',
+                    alignItems: 'center', marginBottom: 4,
+                  }}>
+                    <Label>Subject</Label>
+                    <button
+                      onClick={() => copyToClipboard(campaignSubject, setCopiedSubject)}
+                      style={copyBtnStyle(copiedSubject)}
+                    >
+                      {copiedSubject ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <div style={{
+                    ...fieldStyle,
+                    background: '#f8fafc', color: '#334155',
+                    cursor: 'default', userSelect: 'text',
+                  }}>
+                    {campaignSubject}
+                  </div>
+                </div>
+              )}
+
               {/* CC reminder */}
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 6,
@@ -536,20 +572,6 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                     {isCampaign ? 'Message — editable (per-school only, does not update template)' : 'Body'}
                   </Label>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    {isCampaign && campaignHasMessageSet && (
-                      <button
-                        onClick={handleRegenerate}
-                        disabled={generating || sending !== null}
-                        title="Generate a fresh draft with AI"
-                        style={{
-                          ...copyBtnStyle(false),
-                          opacity: generating || sending !== null ? 0.5 : 1,
-                          cursor: generating || sending !== null ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        {generating ? 'Generating...' : 'Regenerate'}
-                      </button>
-                    )}
                     {isCampaign && !campaignHasMessageSet && (
                       <button
                         onClick={handleCampaignPersonalize}
@@ -584,6 +606,40 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                   }}
                 />
               </div>
+
+              {/* Regenerate with hint (campaign + message_set only) */}
+              {isCampaign && campaignHasMessageSet && (
+                <div style={{
+                  display: 'flex', gap: 6, alignItems: 'center',
+                }}>
+                  <input
+                    type="text"
+                    value={regenHint}
+                    onChange={e => setRegenHint(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !generating) handleRegenerate() }}
+                    placeholder="What should change? (e.g., 'shorter', 'lead with camp')"
+                    disabled={generating || sending !== null}
+                    style={{
+                      flex: 1, padding: '6px 10px', borderRadius: 6,
+                      border: '1px solid #e2e8f0', fontSize: 12,
+                      fontFamily: 'inherit', outline: 'none',
+                      color: '#334155', background: '#fff',
+                    }}
+                  />
+                  <button
+                    onClick={handleRegenerate}
+                    disabled={generating || sending !== null}
+                    style={{
+                      ...copyBtnStyle(false),
+                      opacity: generating || sending !== null ? 0.5 : 1,
+                      cursor: generating || sending !== null ? 'not-allowed' : 'pointer',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {generating ? 'Generating...' : 'Regenerate'}
+                  </button>
+                </div>
+              )}
 
               {/* Actions */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

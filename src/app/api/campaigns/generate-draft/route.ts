@@ -30,11 +30,12 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { campaignId, schoolId, coachId, regenerate } = await req.json() as {
+  const { campaignId, schoolId, coachId, regenerate, hint } = await req.json() as {
     campaignId: string
     schoolId: string
     coachId: string | null
     regenerate?: boolean
+    hint?: string
   }
 
   if (!campaignId || !schoolId) {
@@ -152,6 +153,7 @@ export async function POST(req: NextRequest) {
     })),
     camps,
     currentReelUrl: (profile as { current_reel_url: string | null } | null)?.current_reel_url ?? null,
+    regenerationHint: hint?.trim() || null,
   }
 
   // If no message_set and no template body with content, fall back
@@ -199,6 +201,7 @@ export async function POST(req: NextRequest) {
             model_used: 'claude-sonnet-4-6',
             input_tokens: result.inputTokens,
             output_tokens: result.outputTokens,
+            last_hint: hint?.trim() || null,
           })
           .eq('id', (existing as { id: string }).id)
           .select('*')
@@ -220,6 +223,7 @@ export async function POST(req: NextRequest) {
         model_used: 'claude-sonnet-4-6',
         input_tokens: result.inputTokens,
         output_tokens: result.outputTokens,
+        last_hint: null,
       }, { onConflict: 'campaign_id,school_id,coach_id' })
       .select('*')
       .single()

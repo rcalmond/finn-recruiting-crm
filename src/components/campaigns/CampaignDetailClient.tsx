@@ -627,7 +627,7 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
       )}
 
       {draftSchool && (() => {
-        const schoolName = draftSchool.school?.name ?? draftSchool.school_id
+        const schoolName = draftSchool.school?.short_name || draftSchool.school?.name || draftSchool.school_id
         const inbound = lastInboundBySchool[draftSchool.school_id]
         const chRec = inbound?.authored_by === 'coach_personal' ? 'gmail' as const
           : inbound?.authored_by === 'coach_via_platform' ? 'sr' as const

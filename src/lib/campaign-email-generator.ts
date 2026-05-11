@@ -38,6 +38,7 @@ export interface GenerateInput {
   contactHistory: ContactHistoryRow[]
   camps: CampInfo[]
   currentReelUrl: string | null
+  regenerationHint?: string | null
 }
 
 export interface GenerateOutput {
@@ -118,7 +119,11 @@ ${historySection}
 ---
 ${messageSection}
 
----
+---${input.regenerationHint ? `
+REGENERATION GUIDANCE: ${input.regenerationHint}
+The previous draft was discarded. Generate a new version respecting this guidance while still honoring the campaign messages, conversation history, and strategic context.
+
+---` : ''}
 Write the email body.`
 
   const response = await client.messages.create({
