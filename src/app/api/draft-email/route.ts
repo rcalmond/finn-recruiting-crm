@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     }
 
     const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-opus-4-7',
       max_tokens: 1024,
       system,
       messages: [{ role: 'user', content: userPrompt }],
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
     console.error('[draft-email] First attempt JSON parse failed. Raw:', raw)
 
     const retryMessage = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-opus-4-7',
       max_tokens: 1024,
       system: system + '\n\nIMPORTANT: Your previous response was not valid JSON. Output ONLY a JSON object starting with { and ending with }. Do not include any preamble, explanation, or markdown. Properly escape any quotes inside string values with backslash.',
       messages: [

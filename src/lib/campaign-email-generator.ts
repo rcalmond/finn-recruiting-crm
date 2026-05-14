@@ -127,7 +127,7 @@ The previous draft was discarded. Generate a new version respecting this guidanc
 Write the email body.`
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-opus-4-7',
     max_tokens: 600,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userMessage }],

@@ -602,6 +602,8 @@ export async function buildTopicSuggestPrompt(
     admin.from('action_items')
       .select('action, owner, due_date')
       .eq('school_id', schoolId)
+      .is('completed_at', null)
+      .or(`due_date.is.null,due_date.gte.${new Date().toISOString().split('T')[0]}`)
       .order('sort_order')
       .limit(3),
   ])
