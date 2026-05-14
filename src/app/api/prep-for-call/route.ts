@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { PREP_SYSTEM_PROMPT, buildPrepPrompt } from '@/lib/prompts'
-import type { School, ContactLogEntry, Question, SchoolQuestionOverride, SchoolSpecificQuestion } from '@/lib/types'
+import type { Question, SchoolQuestionOverride, SchoolSpecificQuestion } from '@/lib/types'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -21,24 +21,101 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { school, recentLogs, globalQuestions } = body as {
-      school: School
-      recentLogs: ContactLogEntry[]
+    const { schoolId, globalQuestions } = body as {
+      schoolId: string
       globalQuestions: Question[]
     }
 
-    if (!school || !globalQuestions) {
-      return NextResponse.json({ error: 'Missing required fields: school, globalQuestions' }, { status: 400 })
+    if (!schoolId || !globalQuestions) {
+      return NextResponse.json({ error: 'Missing required fields: schoolId, globalQuestions' }, { status: 400 })
     }
+
+    const admin = serviceClient()
+    const today = new Date().toISOString().split('T')[0]
+
+    // ── Parallel data fetches ──────────────────────────────────────────────
+    const [
+      { data: school },
+      { data: contactRows },
+      { data: allCoaches },
+      { data: campRows },
+    ] = await Promise.all([
+      admin.from('schools')
+        .select('id, name, short_name, category, division, conference, location, notes, status, head_coach, admit_likelihood')
+        .eq('id', schoolId)
+        .single(),
+      // Full contact_log, chronological
+      admin.from('contact_log')
+        .select('date, sent_at, direction, channel, coach_name, summary, authored_by, intent')
+        .eq('school_id', schoolId)
+        .not('parse_status', 'in', '("orphan","non_coach")')
+        .order('sent_at', { ascending: true }),
+      // All active coaches
+      admin.from('coaches')
+        .select('name, role, email, is_primary, needs_review')
+        .eq('school_id', schoolId)
+        .eq('is_active', true)
+        .order('is_primary', { ascending: false }),
+      // Upcoming camps
+      admin.from('camps')
+        .select('name, start_date, end_date, location, registration_deadline, camp_finn_status(status)')
+        .eq('host_school_id', schoolId)
+        .gte('start_date', today),
+    ])
+
+    if (!school) {
+      return NextResponse.json({ error: 'School not found' }, { status: 404 })
+    }
+
+    // Process camps
+    const camps = (campRows ?? []).map((c: Record<string, unknown>) => {
+      const fs = c.camp_finn_status as Array<{ status: string }> | null
+      return {
+        name: c.name as string,
+        start_date: c.start_date as string,
+        end_date: c.end_date as string,
+        location: c.location as string | null,
+        registration_deadline: c.registration_deadline as string | null,
+        status: fs?.[0]?.status ?? 'no status',
+      }
+    })
+
+    // Process coaches
+    const coaches = (allCoaches ?? []).map((c: Record<string, unknown>) => ({
+      name: c.name as string,
+      role: c.role as string | null,
+      email: c.email as string | null,
+      is_primary: c.is_primary as boolean,
+      needs_review: c.needs_review as boolean,
+    }))
+
+    // Decline history
+    const history = contactRows ?? []
+    const declineRows = history.filter((r: Record<string, unknown>) => r.intent === 'decline')
 
     const userPrompt = buildPrepPrompt({
       school,
-      recentLogs: recentLogs ?? [],
+      contactHistory: history as Array<{
+        date: string
+        direction: string
+        channel: string
+        coach_name: string | null
+        summary: string | null
+        authored_by: string | null
+        intent: string | null
+      }>,
       globalQuestions,
+      coaches,
+      camps,
+      declineRows: declineRows as Array<{
+        date: string
+        coach_name: string | null
+        summary: string | null
+      }>,
     })
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-opus-4-7',
       max_tokens: 4096,
       system: PREP_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userPrompt }],
@@ -63,7 +140,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Model returned invalid JSON', raw }, { status: 500 })
     }
 
-    const admin = serviceClient()
     const now = new Date().toISOString()
 
     // Upsert overrides — update if exists, insert if not

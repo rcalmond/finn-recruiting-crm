@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { School, PrepResult, OverrideStatus, QuestionCategory } from '@/lib/types'
-import { useQuestions, useContactLog } from '@/hooks/useRealtimeData'
+import { useQuestions } from '@/hooks/useRealtimeData'
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
   'Formation & Fit':       { bg: '#eff6ff', text: '#2563eb' },
@@ -21,8 +21,6 @@ interface Props {
 
 export default function PrepForCallModal({ school, onClose }: Props) {
   const { questions, loading: questionsLoading } = useQuestions()
-  const { entries } = useContactLog(school.id)
-  const recentLogs = entries.slice(0, 5)
 
   const [state, setState] = useState<ModalState>('idle')
   const [prep, setPrep] = useState<PrepResult | null>(null)
@@ -38,7 +36,7 @@ export default function PrepForCallModal({ school, onClose }: Props) {
       const res = await fetch('/api/prep-for-call', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ school, recentLogs, globalQuestions: questions }),
+        body: JSON.stringify({ schoolId: school.id, globalQuestions: questions }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Prep failed')
@@ -146,9 +144,9 @@ ${prep.school_specific_questions.map(q => `
                 <div style={{ fontSize: 13, color: '#64748b', maxWidth: 380 }}>
                   Claude will review your notes and contact history, triage the question bank, and suggest school-specific questions.
                 </div>
-                {recentLogs.length > 0 && (
+                {questions.length > 0 && (
                   <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 8 }}>
-                    Using {recentLogs.length} contact log {recentLogs.length === 1 ? 'entry' : 'entries'} and {questions.length} questions.
+                    Using full conversation history and {questions.length} questions.
                   </div>
                 )}
               </div>

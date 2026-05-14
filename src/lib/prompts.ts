@@ -949,47 +949,130 @@ Finn's profile:
 - Highlight reel: https://www.youtube.com/watch?v=Va_Z09OYcs0
 
 Your job:
-1. Review the school record and contact history provided
-2. Triage the global question bank — mark each question as priority, answered, or skip based on what's already known
+1. Review the FULL school record and conversation history provided
+2. Triage the global question bank — mark each question as priority, answered, or skip based on what's already known from the conversation history, school notes, and context
 3. Suggest 2-3 school-specific questions that would advance THIS specific recruiting relationship
 4. Write a brief call_summary orienting Finn to where things stand
 
 Rules:
-- Be specific to what's actually in the notes and contact log
-- "answered" means there is clear evidence in the data — not a guess
+- Read the entire conversation history carefully. "answered" means there is clear evidence in the contact log or notes — not a guess. If a coach mentioned formation details in a prior exchange, that question is answered.
 - "priority" questions should reflect the current relationship stage: early conversations need formation/roster questions; warm relationships need development/culture questions
+- If there is decline history, factor it into the call_summary and suggest questions that address whether the decline context has changed (new position, new coach, etc.)
+- If upcoming camps are listed, consider whether camp logistics questions are relevant
 - School-specific questions should be actionable and advance the conversation, not generic
 - For category in school_specific_questions, use ONLY one of these exact strings: "Formation & Fit", "Roster & Playing Time", "Development", "Culture", "Academics & Aid"
 - Return only valid JSON matching the schema provided. No markdown fences, no preamble.`
 
+interface PrepCoach {
+  name: string
+  role: string | null
+  email: string | null
+  is_primary: boolean
+  needs_review: boolean
+}
+
+interface PrepCamp {
+  name: string
+  start_date: string
+  end_date: string
+  location: string | null
+  registration_deadline: string | null
+  status: string
+}
+
 export function buildPrepPrompt(params: {
-  school: School
-  recentLogs: ContactLogEntry[]
+  school: { id: string; name: string; short_name?: string | null; category: string; division: string; conference: string | null; location: string | null; notes: string | null; status: string; head_coach?: string | null; admit_likelihood?: string | null }
+  contactHistory: Array<{
+    date: string
+    direction: string
+    channel: string
+    coach_name: string | null
+    summary: string | null
+    authored_by: string | null
+    intent: string | null
+  }>
   globalQuestions: Question[]
+  coaches: PrepCoach[]
+  camps: PrepCamp[]
+  declineRows: Array<{
+    date: string
+    coach_name: string | null
+    summary: string | null
+  }>
 }): string {
-  const { school, recentLogs, globalQuestions } = params
+  const { school, contactHistory, globalQuestions, coaches, camps, declineRows } = params
+  const currentDate = formatCurrentDate()
   const lines: string[] = []
 
-  lines.push(`SCHOOL: ${school.name}`)
-  lines.push(`Division: ${school.division}${school.conference ? ` — ${school.conference}` : ''}`)
-  lines.push(`Location: ${school.location || 'Unknown'}`)
-  lines.push(`Status: ${school.status}`)
-  lines.push(`Head Coach: ${school.head_coach || 'Unknown'}`)
-  if (school.admit_likelihood) lines.push(`Admit Likelihood: ${school.admit_likelihood}`)
-  if (school.notes) lines.push(`Notes: ${school.notes}`)
+  lines.push(`TODAY: ${currentDate}`)
   lines.push('')
 
-  if (recentLogs.length > 0) {
-    lines.push(`CONTACT HISTORY (${recentLogs.length} most recent entries):`)
-    recentLogs.forEach(e => {
-      lines.push(`  [${e.date}] ${e.direction} via ${e.channel}${e.coach_name ? ` — ${e.coach_name}` : ''}:`)
-      lines.push(`    ${e.summary}`)
-    })
+  // School context
+  lines.push(`SCHOOL CONTEXT:`)
+  lines.push(`- ${school.name}`)
+  lines.push(`- Tier ${school.category}, Division ${school.division}${school.conference ? `, ${school.conference}` : ''}`)
+  lines.push(`- Location: ${school.location || 'Unknown'}`)
+  lines.push(`- Pipeline status: ${school.status}`)
+  if (school.admit_likelihood) lines.push(`- Admit likelihood: ${school.admit_likelihood}`)
+  if (school.notes) lines.push(`- Notes: ${school.notes}`)
+  lines.push('')
+
+  // Coaches
+  lines.push(`COACHES:`)
+  if (coaches.length > 0) {
+    for (const c of coaches) {
+      const parts = [`${c.name} (${c.role ?? 'unknown role'})`]
+      if (c.is_primary) parts.push('— PRIMARY')
+      if (c.needs_review) parts.push('— needs_review, may have departed')
+      if (c.email) parts.push(`<${c.email}>`)
+      lines.push(`- ${parts.join(' ')}`)
+    }
+  } else if (school.head_coach) {
+    lines.push(`- ${school.head_coach} (Head Coach)`)
   } else {
-    lines.push('CONTACT HISTORY: None — no contact logged yet.')
+    lines.push(`- No coaches on file`)
   }
   lines.push('')
 
+  // Camps
+  lines.push(`CAMPS AT THIS SCHOOL (upcoming):`)
+  if (camps.length > 0) {
+    for (const c of camps) {
+      const deadline = c.registration_deadline ? ` | Deadline: ${c.registration_deadline}` : ''
+      const loc = c.location ? ` | ${c.location}` : ''
+      lines.push(`- ${c.name} | ${c.start_date} – ${c.end_date}${loc} | Status: ${c.status}${deadline}`)
+    }
+  } else {
+    lines.push(`- None scheduled`)
+  }
+  lines.push('')
+
+  // Decline history
+  lines.push(`DECLINE HISTORY:`)
+  if (declineRows.length > 0) {
+    for (const d of declineRows) {
+      lines.push(`- Declined on ${d.date}${d.coach_name ? ` by ${d.coach_name}` : ''}: ${(d.summary ?? '').slice(0, 300)}`)
+    }
+    lines.push(`- Note: Finn transitioned from striker to left wingback in November 2025 and has a new highlight reel. Any decline prior to this transition was based on a different position.`)
+  } else {
+    lines.push(`- None`)
+  }
+  lines.push('')
+
+  // Full conversation history
+  if (contactHistory.length > 0) {
+    lines.push(`FULL CONVERSATION HISTORY (${contactHistory.length} entries, chronological, oldest first):`)
+    for (const e of contactHistory) {
+      lines.push(`[${e.date}] ${e.direction} via ${e.channel}${e.coach_name ? ` — ${e.coach_name}` : ''}`)
+      lines.push(e.summary ?? '(no body)')
+      lines.push('')
+    }
+  } else {
+    lines.push('CONVERSATION HISTORY: None — no contact logged yet.')
+    lines.push('')
+  }
+
+  // Question bank
   lines.push(`GLOBAL QUESTION BANK (${globalQuestions.length} questions — triage each one):`)
   globalQuestions.forEach(q => {
     lines.push(`  [${q.id}] ${q.category}: ${q.question}`)

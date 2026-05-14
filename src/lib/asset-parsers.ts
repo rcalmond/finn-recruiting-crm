@@ -66,7 +66,7 @@ export async function parseResume(storagePath: string): Promise<ParserResult> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
   const message = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+    model: 'claude-sonnet-4-6',
     max_tokens: 1024,
     system: PARSE_SYSTEM_PROMPT,
     messages: [{
