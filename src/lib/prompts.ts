@@ -315,6 +315,45 @@ interface ContactRow {
   intent: string | null
 }
 
+// ─── Shared helpers ──────────────────────────────────────────────────────────
+
+function formatCurrentDate(): string {
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'America/Denver',
+  }).format(new Date())
+}
+
+function todayISO(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
+const DATE_AWARENESS_RULE = (currentDate: string) =>
+`DATE AWARENESS:
+Today's date is ${currentDate}. Do not suggest or reference topics tied to past dates, completed events, past games, or expired opportunities as if they are still actionable. A camp on May 9-10 mentioned in prior correspondence is not a future opportunity if today is May 13. An "April game schedule" reference in May is past-due.
+
+You may reference past events as context for forward-looking content (e.g., "follow up on coach's April feedback about wingback positioning") but the suggestion or topic itself must be forward-looking and currently actionable.`
+
+interface CampContext {
+  name: string
+  start_date: string
+  end_date: string
+  location: string | null
+  registration_deadline: string | null
+  status: string
+}
+
+interface CoachContext {
+  name: string
+  role: string | null
+  email: string | null
+  is_primary: boolean
+  needs_review: boolean
+}
+
 /**
  * Shared prompt builder for all email draft paths.
  * Pulls player_profile, school/coach context, contact history,
@@ -328,6 +367,7 @@ export async function buildEmailDraftPrompt(
 ): Promise<{ system: string; user: string }> {
   // ── Parallel data fetches ──────────────────────────────────────────────────
   const isReply = !!input.replyToContactLogId
+  const today = todayISO()
 
   const [
     { data: profile },
@@ -336,6 +376,9 @@ export async function buildEmailDraftPrompt(
     { data: contactRows },
     { data: voiceRefs },
     { data: replyToRow },
+    { data: allCoaches },
+    { data: campRows },
+    { data: actionItems },
   ] = await Promise.all([
     // 1. Player profile (singleton)
     admin.from('player_profile').select('*').limit(1).single(),
@@ -351,13 +394,12 @@ export async function buildEmailDraftPrompt(
           .eq('id', input.coachId)
           .single()
       : Promise.resolve({ data: null }),
-    // 4. Last 5 contact_log rows for this school (both directions)
+    // 4. Full contact_log for this school (chronological)
     admin.from('contact_log')
       .select('date, sent_at, direction, channel, coach_name, summary, authored_by, intent')
       .eq('school_id', input.schoolId)
       .not('parse_status', 'in', '("orphan","non_coach")')
-      .order('sent_at', { ascending: false })
-      .limit(5),
+      .order('sent_at', { ascending: true }),
     // 5. Voice reference emails (15 most recent substantive outbounds post-wingback)
     admin.rpc('get_voice_references').then(r => r) as unknown as Promise<{ data: VoiceRef[] | null }>,
     // 6. Reply-to contact_log row (when replying)
@@ -367,10 +409,54 @@ export async function buildEmailDraftPrompt(
           .eq('id', input.replyToContactLogId)
           .single()
       : Promise.resolve({ data: null }),
+    // 7. All active coaches at this school
+    admin.from('coaches')
+      .select('name, role, email, is_primary, needs_review')
+      .eq('school_id', input.schoolId)
+      .eq('is_active', true)
+      .order('is_primary', { ascending: false }),
+    // 8. Upcoming camps at this school
+    admin.from('camps')
+      .select('name, start_date, end_date, location, registration_deadline, camp_finn_status(status)')
+      .eq('host_school_id', input.schoolId)
+      .gte('start_date', today),
+    // 9. Active action items for this school
+    admin.from('action_items')
+      .select('action, owner, due_date')
+      .eq('school_id', input.schoolId)
+      .is('completed_at', null)
+      .or(`due_date.is.null,due_date.gte.${today}`)
+      .order('sort_order')
+      .limit(5),
   ])
 
+  const currentDate = formatCurrentDate()
+
+  // ── Process camps ─────────────────────────────────────────────────────────
+  const camps: CampContext[] = (campRows ?? []).map((c: Record<string, unknown>) => {
+    const fs = c.camp_finn_status as Array<{ status: string }> | null
+    return {
+      name: c.name as string,
+      start_date: c.start_date as string,
+      end_date: c.end_date as string,
+      location: c.location as string | null,
+      registration_deadline: c.registration_deadline as string | null,
+      status: fs?.[0]?.status ?? 'no status',
+    }
+  })
+
+  // ── Process coaches ───────────────────────────────────────────────────────
+  const coaches: CoachContext[] = (allCoaches ?? []).map((c: Record<string, unknown>) => ({
+    name: c.name as string,
+    role: c.role as string | null,
+    email: c.email as string | null,
+    is_primary: c.is_primary as boolean,
+    needs_review: c.needs_review as boolean,
+  }))
+
   // ── Staleness calculation ──────────────────────────────────────────────────
-  const recentInbound = (contactRows ?? []).find(
+  const history = contactRows ?? []
+  const recentInbound = [...history].reverse().find(
     (r: ContactRow) => r.direction === 'Inbound' &&
       r.authored_by !== 'team_automated' &&
       r.authored_by !== 'staff_non_coach'
@@ -386,8 +472,11 @@ export async function buildEmailDraftPrompt(
       : 'Stale'
   }
 
+  // ── Decline history ───────────────────────────────────────────────────────
+  const declineRows = history.filter((r: ContactRow) => r.intent === 'decline')
+
   // ── Most recent inbound classification ─────────────────────────────────────
-  const classifiedInbound = (contactRows ?? []).find(
+  const classifiedInbound = [...history].reverse().find(
     (r: ContactRow) => r.direction === 'Inbound' && r.authored_by
   )
 
@@ -395,6 +484,9 @@ export async function buildEmailDraftPrompt(
   const sys: string[] = []
 
   sys.push(`You are drafting an email from Finn Almond, a 2027 left wingback at Albion SC Boulder County – MLS NEXT Academy U19, to a college soccer coach.`)
+  sys.push('')
+
+  sys.push(DATE_AWARENESS_RULE(currentDate))
   sys.push('')
 
   // Voice references
@@ -482,64 +574,129 @@ Body uses plain line breaks between paragraphs, no HTML.`)
   // ── Build user prompt ──────────────────────────────────────────────────────
   const usr: string[] = []
 
-  usr.push(`Drafting an email to:`)
+  usr.push(`TODAY: ${currentDate}`)
+  usr.push('')
+
+  // ── School context ──
+  usr.push(`SCHOOL CONTEXT:`)
   if (school) {
-    usr.push(`School: ${school.name} (Tier ${school.category}, ${school.division}${school.conference ? ` — ${school.conference}` : ''}, ${school.location ?? 'location unknown'})`)
-    if (school.notes) usr.push(`School notes: ${school.notes}`)
-  }
-  if (coach) {
-    usr.push(`Coach: ${coach.name} (${coach.role ?? 'role unknown'})${coach.needs_review ? ' — needs_review=true, may have departed' : ''}`)
+    usr.push(`- ${school.name}`)
+    usr.push(`- Tier ${school.category}, Division ${school.division}${school.conference ? `, ${school.conference}` : ''}`)
+    usr.push(`- Location: ${school.location ?? 'unknown'}`)
+    usr.push(`- Pipeline status: ${school.status}`)
+    if (school.notes) usr.push(`- Notes: ${school.notes}`)
   }
   usr.push('')
 
-  // Contact history
-  const history = contactRows ?? []
-  if (history.length > 0) {
-    usr.push(`Recent conversation (${history.length} entries, most recent first):`)
-    for (const row of history as ContactRow[]) {
-      const summary = stripSignature(row.summary ?? '')
-      usr.push(`  [${row.date}] ${row.direction} via ${row.channel}${row.coach_name ? ` — ${row.coach_name}` : ''}:`)
-      usr.push(`    ${summary.slice(0, 300)}`)
+  // ── Coaches ──
+  usr.push(`COACHES:`)
+  if (coaches.length > 0) {
+    for (const c of coaches) {
+      const parts = [`${c.name} (${c.role ?? 'unknown role'})`]
+      if (c.is_primary) parts.push('— PRIMARY')
+      if (c.needs_review) parts.push('— needs_review, may have departed')
+      usr.push(`- ${parts.join(' ')}`)
+    }
+  } else if (coach) {
+    usr.push(`- ${coach.name} (${coach.role ?? 'role unknown'})${coach.needs_review ? ' — needs_review, may have departed' : ''}`)
+  } else {
+    usr.push(`- No coaches on file`)
+  }
+  usr.push('')
+
+  // ── Camps ──
+  usr.push(`CAMPS AT THIS SCHOOL (upcoming):`)
+  if (camps.length > 0) {
+    for (const c of camps) {
+      const deadline = c.registration_deadline ? ` | Deadline: ${c.registration_deadline}` : ''
+      const loc = c.location ? ` | ${c.location}` : ''
+      usr.push(`- ${c.name} | ${c.start_date} – ${c.end_date}${loc} | Status: ${c.status}${deadline}`)
+    }
+  } else {
+    usr.push(`- None scheduled`)
+  }
+  usr.push('')
+
+  // ── Decline history ──
+  usr.push(`DECLINE HISTORY:`)
+  if (declineRows.length > 0) {
+    for (const d of declineRows as ContactRow[]) {
+      usr.push(`- Declined on ${d.date}${d.coach_name ? ` by ${d.coach_name}` : ''}: ${stripSignature(d.summary ?? '').slice(0, 300)}`)
+    }
+    usr.push(`- Note: Finn transitioned from striker to left wingback in November 2025 and has a new highlight reel. Any decline prior to this transition was based on a different position.`)
+  } else {
+    usr.push(`- None`)
+  }
+  usr.push('')
+
+  // ── Finn's current context ──
+  usr.push(`FINN'S CURRENT CONTEXT:`)
+  usr.push(`- Position: Left wingback`)
+  usr.push(`- Class: 2027`)
+  usr.push(`- Club: Albion SC Boulder County MLS NEXT Academy U19`)
+  usr.push(`- Current reel: ${profile?.current_reel_url ?? 'https://www.youtube.com/watch?v=Va_Z09OYcs0'}`)
+  if (profile?.highlights) usr.push(`- Recent highlights: ${profile.highlights}`)
+  if (profile?.current_stats) usr.push(`- Current stats: ${profile.current_stats}`)
+  if (profile?.upcoming_schedule) usr.push(`- Upcoming schedule: ${profile.upcoming_schedule}`)
+  usr.push('')
+
+  // ── Classification ──
+  if (classifiedInbound) {
+    usr.push(`MOST RECENT INBOUND CLASSIFICATION:`)
+    usr.push(`- authored_by: ${classifiedInbound.authored_by ?? 'unknown'}`)
+    usr.push(`- intent: ${classifiedInbound.intent ?? 'unknown'}`)
+    usr.push('')
+  }
+
+  // ── Staleness ──
+  if (recentInbound) {
+    usr.push(`STALENESS: ${stalenessLabel} (${stalenessDays} days since last meaningful inbound)`)
+  } else {
+    usr.push(`STALENESS: No prior inbound`)
+  }
+  usr.push('')
+
+  // ── Pending action items ──
+  const actions = actionItems ?? []
+  if (actions.length > 0) {
+    usr.push(`PENDING ACTION ITEMS:`)
+    for (const a of actions as Array<{ action: string; owner: string; due_date: string | null }>) {
+      usr.push(`- ${a.action} (${a.owner}${a.due_date ? `, due ${a.due_date}` : ''})`)
     }
     usr.push('')
+  }
+
+  // ── Full conversation history ──
+  if (history.length > 0) {
+    usr.push(`FULL CONVERSATION HISTORY (${history.length} entries, chronological, oldest first):`)
+    for (const row of history as ContactRow[]) {
+      const summary = stripSignature(row.summary ?? '')
+      usr.push(`[${row.date}] ${row.direction} via ${row.channel}${row.coach_name ? ` — ${row.coach_name}` : ''}`)
+      usr.push(summary)
+      usr.push('')
+    }
   } else {
-    usr.push(`Contact history: None — cold outreach.`)
+    usr.push(`CONVERSATION HISTORY: None — cold outreach.`)
     usr.push('')
   }
 
-  // Classification
-  if (classifiedInbound) {
-    usr.push(`Most recent inbound classification:`)
-    usr.push(`  authored_by: ${classifiedInbound.authored_by ?? 'unknown'}`)
-    usr.push(`  intent: ${classifiedInbound.intent ?? 'unknown'}`)
-    usr.push('')
-  }
-
-  // Staleness
-  if (recentInbound) {
-    usr.push(`Conversation staleness: ${stalenessLabel} (${stalenessDays} days since last meaningful inbound)`)
-  } else {
-    usr.push(`Conversation staleness: No prior inbound`)
-  }
-  usr.push('')
-
-  // Reply context (when replying to a specific inbound)
+  // ── Reply context ──
   if (isReply && replyToRow) {
     usr.push(`REPLYING TO this inbound message:`)
-    usr.push(`  [${replyToRow.date}] via ${replyToRow.channel}${replyToRow.coach_name ? ` — ${replyToRow.coach_name}` : ''}:`)
-    usr.push(`  ${(replyToRow.summary ?? '').slice(0, 500)}`)
+    usr.push(`[${replyToRow.date}] via ${replyToRow.channel}${replyToRow.coach_name ? ` — ${replyToRow.coach_name}` : ''}:`)
+    usr.push(replyToRow.summary ?? '')
     usr.push('')
     usr.push(`This is a reply. Continue the conversation naturally. Address what the coach said or asked. Move the conversation forward with one clear next step.`)
     usr.push('')
   }
 
-  // Brief or topic
+  // ── User guidance ──
   if (input.brief) {
-    usr.push(`Finn's brief: ${input.brief}`)
+    usr.push(`USER GUIDANCE: ${input.brief}`)
     usr.push('')
   }
   if (input.selectedTopic) {
-    usr.push(`Selected topic: ${input.selectedTopic}`)
+    usr.push(`SELECTED TOPIC: ${input.selectedTopic}`)
     usr.push('')
   }
 
@@ -570,22 +727,26 @@ Body uses plain line breaks between paragraphs, no HTML.`)
 
 /**
  * Topic suggestion: returns 2-3 suggested email topics for a school.
- * Uses the same context as buildEmailDraftPrompt but with a lighter prompt.
+ * Provides full conversation history, camps, coaches, and decline context
+ * so the model can generate highly specific, forward-looking suggestions.
  */
 export async function buildTopicSuggestPrompt(
   admin: SupabaseClient,
   schoolId: string,
   coachId: string | null
 ): Promise<{ system: string; user: string }> {
-  // Parallel fetches (subset of full prompt builder)
+  const today = todayISO()
+
   const [
     { data: profile },
     { data: school },
     { data: coach },
     { data: contactRows },
     { data: actionItems },
+    { data: allCoaches },
+    { data: campRows },
   ] = await Promise.all([
-    admin.from('player_profile').select('current_stats, upcoming_schedule, highlights').limit(1).single(),
+    admin.from('player_profile').select('current_stats, upcoming_schedule, highlights, current_reel_url').limit(1).single(),
     admin.from('schools')
       .select('name, category, division, conference, location, notes, status')
       .eq('id', schoolId)
@@ -593,23 +754,59 @@ export async function buildTopicSuggestPrompt(
     coachId
       ? admin.from('coaches').select('name, role, needs_review').eq('id', coachId).single()
       : Promise.resolve({ data: null }),
+    // Full contact_log (chronological)
     admin.from('contact_log')
       .select('date, sent_at, direction, channel, coach_name, summary, authored_by, intent')
       .eq('school_id', schoolId)
       .not('parse_status', 'in', '("orphan","non_coach")')
-      .order('sent_at', { ascending: false })
-      .limit(5),
+      .order('sent_at', { ascending: true }),
     admin.from('action_items')
       .select('action, owner, due_date')
       .eq('school_id', schoolId)
       .is('completed_at', null)
-      .or(`due_date.is.null,due_date.gte.${new Date().toISOString().split('T')[0]}`)
+      .or(`due_date.is.null,due_date.gte.${today}`)
       .order('sort_order')
-      .limit(3),
+      .limit(5),
+    // All active coaches
+    admin.from('coaches')
+      .select('name, role, email, is_primary, needs_review')
+      .eq('school_id', schoolId)
+      .eq('is_active', true)
+      .order('is_primary', { ascending: false }),
+    // Upcoming camps
+    admin.from('camps')
+      .select('name, start_date, end_date, location, registration_deadline, camp_finn_status(status)')
+      .eq('host_school_id', schoolId)
+      .gte('start_date', today),
   ])
 
+  const currentDate = formatCurrentDate()
+
+  // Process camps
+  const camps: CampContext[] = (campRows ?? []).map((c: Record<string, unknown>) => {
+    const fs = c.camp_finn_status as Array<{ status: string }> | null
+    return {
+      name: c.name as string,
+      start_date: c.start_date as string,
+      end_date: c.end_date as string,
+      location: c.location as string | null,
+      registration_deadline: c.registration_deadline as string | null,
+      status: fs?.[0]?.status ?? 'no status',
+    }
+  })
+
+  // Process coaches
+  const coaches: CoachContext[] = (allCoaches ?? []).map((c: Record<string, unknown>) => ({
+    name: c.name as string,
+    role: c.role as string | null,
+    email: c.email as string | null,
+    is_primary: c.is_primary as boolean,
+    needs_review: c.needs_review as boolean,
+  }))
+
   // Staleness
-  const recentInbound = (contactRows ?? []).find(
+  const history = contactRows ?? []
+  const recentInbound = [...history].reverse().find(
     (r: ContactRow) => r.direction === 'Inbound' &&
       r.authored_by !== 'team_automated' &&
       r.authored_by !== 'staff_non_coach'
@@ -625,60 +822,125 @@ export async function buildTopicSuggestPrompt(
       : 'Stale'
   }
 
-  const system = `Given the conversation history and player context below, suggest 2-3 short topic strings (under 12 words each) for the next email Finn could send to this coach. Topics should be specific to this thread and player situation, not generic.
+  // Decline history
+  const declineRows = history.filter((r: ContactRow) => r.intent === 'decline')
+
+  const system = `Given the full conversation history and context below, suggest 3 short topic strings (under 12 words each) for the next email Finn could send to this coach. Topics must be specific to this relationship and currently actionable.
+
+${DATE_AWARENESS_RULE(currentDate)}
 
 Surface from these signals (in priority order):
-1. Last inbound from coach — did they ask, request, or invite?
-2. Pending action items for this school — what's Finn already planning?
-3. Recent Finn news worth sharing (only if not already shared in recent outbound)
-4. Conversation staleness — if stale, "reintroduce + position change" is a valid topic
+1. Last inbound from coach — did they ask, request, or invite something forward-looking?
+2. Upcoming camps at this school — registration, attendance confirmation, logistics
+3. Pending action items for this school — what's Finn already planning?
+4. Recent Finn news worth sharing (only if not already shared in recent outbound)
+5. Conversation staleness — if stale, "reintroduce + position change" is a valid topic
+6. Decline history — if Finn was declined as a striker, reopening with wingback context is valid
 
 Skip "share recent news" if the conversation is highly transactional (coach asked a yes/no question, requested a form). Match the topic to the request shape.
 
-Return a JSON array of 2-3 strings. No preamble.`
+Return a JSON array of 3 strings. No preamble.`
 
+  // ── Build user prompt with structured sections ──
   const usr: string[] = []
+
+  usr.push(`TODAY: ${currentDate}`)
+  usr.push('')
+
+  // School context
+  usr.push(`SCHOOL CONTEXT:`)
   if (school) {
-    usr.push(`School: ${school.name} (Tier ${school.category}, ${school.division}${school.conference ? ` — ${school.conference}` : ''})`)
-    usr.push(`Status: ${school.status}`)
-    if (school.notes) usr.push(`Notes: ${school.notes}`)
-  }
-  if (coach) {
-    usr.push(`Coach: ${coach.name} (${coach.role ?? 'unknown role'})${coach.needs_review ? ' — may have departed' : ''}`)
+    usr.push(`- ${school.name}`)
+    usr.push(`- Tier ${school.category}, Division ${school.division}${school.conference ? `, ${school.conference}` : ''}`)
+    usr.push(`- Location: ${school.location ?? 'unknown'}`)
+    usr.push(`- Pipeline status: ${school.status}`)
+    if (school.notes) usr.push(`- Notes: ${school.notes}`)
   }
   usr.push('')
 
-  const history = contactRows ?? []
-  if (history.length > 0) {
-    usr.push(`Recent conversation:`)
-    for (const row of history as ContactRow[]) {
-      usr.push(`  [${row.date}] ${row.direction} via ${row.channel}${row.coach_name ? ` — ${row.coach_name}` : ''}: ${(row.summary ?? '').slice(0, 200)}`)
+  // Coaches
+  usr.push(`COACHES:`)
+  if (coaches.length > 0) {
+    for (const c of coaches) {
+      const parts = [`${c.name} (${c.role ?? 'unknown role'})`]
+      if (c.is_primary) parts.push('— PRIMARY')
+      if (c.needs_review) parts.push('— needs_review, may have departed')
+      usr.push(`- ${parts.join(' ')}`)
     }
-    usr.push('')
+  } else if (coach) {
+    usr.push(`- ${coach.name} (${coach.role ?? 'unknown role'})${coach.needs_review ? ' — may have departed' : ''}`)
+  } else {
+    usr.push(`- No coaches on file`)
   }
+  usr.push('')
 
+  // Camps
+  usr.push(`CAMPS AT THIS SCHOOL (upcoming):`)
+  if (camps.length > 0) {
+    for (const c of camps) {
+      const deadline = c.registration_deadline ? ` | Deadline: ${c.registration_deadline}` : ''
+      const loc = c.location ? ` | ${c.location}` : ''
+      usr.push(`- ${c.name} | ${c.start_date} – ${c.end_date}${loc} | Status: ${c.status}${deadline}`)
+    }
+  } else {
+    usr.push(`- None scheduled`)
+  }
+  usr.push('')
+
+  // Decline history
+  usr.push(`DECLINE HISTORY:`)
+  if (declineRows.length > 0) {
+    for (const d of declineRows as ContactRow[]) {
+      usr.push(`- Declined on ${d.date}${d.coach_name ? ` by ${d.coach_name}` : ''}: ${stripSignature(d.summary ?? '').slice(0, 300)}`)
+    }
+    usr.push(`- Note: Finn transitioned from striker to left wingback in November 2025 and has a new highlight reel. Any decline prior to this transition was based on a different position.`)
+  } else {
+    usr.push(`- None`)
+  }
+  usr.push('')
+
+  // Finn's context
+  usr.push(`FINN'S CURRENT CONTEXT:`)
+  usr.push(`- Position: Left wingback`)
+  usr.push(`- Class: 2027`)
+  usr.push(`- Club: Albion SC Boulder County MLS NEXT Academy U19`)
+  usr.push(`- Current reel: ${profile?.current_reel_url ?? 'https://www.youtube.com/watch?v=Va_Z09OYcs0'}`)
+  if (profile) {
+    if (profile.current_stats) usr.push(`- Current stats: ${profile.current_stats}`)
+    if (profile.upcoming_schedule) usr.push(`- Upcoming schedule: ${profile.upcoming_schedule}`)
+    if (profile.highlights) usr.push(`- Recent highlights: ${profile.highlights}`)
+  }
+  usr.push('')
+
+  // Action items
   const actions = actionItems ?? []
   if (actions.length > 0) {
-    usr.push(`Pending action items:`)
+    usr.push(`PENDING ACTION ITEMS:`)
     for (const a of actions as Array<{ action: string; owner: string; due_date: string | null }>) {
-      usr.push(`  - ${a.action} (${a.owner}${a.due_date ? `, due ${a.due_date}` : ''})`)
+      usr.push(`- ${a.action} (${a.owner}${a.due_date ? `, due ${a.due_date}` : ''})`)
     }
     usr.push('')
   }
 
-  if (profile) {
-    const news: string[] = []
-    if (profile.current_stats) news.push(`Stats: ${profile.current_stats}`)
-    if (profile.upcoming_schedule) news.push(`Schedule: ${profile.upcoming_schedule}`)
-    if (profile.highlights) news.push(`Highlights: ${profile.highlights}`)
-    if (news.length > 0) {
-      usr.push(`Player news available:`)
-      news.forEach(n => usr.push(`  ${n}`))
+  // Staleness
+  usr.push(`STALENESS: ${stalenessLabel}${recentInbound ? ` (${stalenessDays} days)` : ''}`)
+  usr.push('')
+
+  // Full conversation history
+  if (history.length > 0) {
+    usr.push(`FULL CONVERSATION HISTORY (${history.length} entries, chronological, oldest first):`)
+    for (const row of history as ContactRow[]) {
+      const summary = stripSignature(row.summary ?? '')
+      usr.push(`[${row.date}] ${row.direction} via ${row.channel}${row.coach_name ? ` — ${row.coach_name}` : ''}`)
+      usr.push(summary)
       usr.push('')
     }
+  } else {
+    usr.push(`CONVERSATION HISTORY: None — cold outreach.`)
+    usr.push('')
   }
 
-  usr.push(`Staleness: ${stalenessLabel}${recentInbound ? ` (${stalenessDays} days)` : ''}`)
+  usr.push(`Suggest 3 forward-looking, currently actionable topics for the next email to this coach. Each topic should be specific to the relationship and informed by the full context above.`)
 
   return { system, user: usr.join('\n') }
 }
