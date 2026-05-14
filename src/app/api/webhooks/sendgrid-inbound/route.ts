@@ -158,41 +158,88 @@ function cleanExtractedBody(text: string): string {
   return text.trim()
 }
 
-// Extract just the coach's message body from the SR notification
+/**
+ * Strip SR email wrapper noise and extract just the coach's message body.
+ *
+ * SR notification bodies arrive in two shapes:
+ *   (A) Gmail-forwarded: cleanly structured, Subject line at start of body
+ *   (B) Direct SendGrid: full HTML-to-text with CSS comments, template tabs,
+ *       "just sent a message" boilerplate, deeply indented Subject line
+ *
+ * Shape B is the one that produces polluted summaries. This function handles
+ * both by first stripping known wrapper noise, then finding the Subject
+ * boundary, then clipping quoted replies and SR footers.
+ */
 function extractMessageBody(body: string): string {
   // Normalize line endings — email text may arrive with \r\n
-  const normalized = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  let normalized = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
-  // Find the SR internal subject line — try formats in order of specificity.
-  // Use m.index directly (avoids re-searching the string via indexOf).
+  // ── Phase 0: Strip SR HTML template noise (Shape B) ──
+  // Remove CSS comment blocks and @media rules
+  normalized = normalized.replace(/\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\//g, '')
+  normalized = normalized.replace(/@media[^{]*\{[^}]*\}/g, '')
+  // Remove inline CSS rules (e.g., "body, table, td, {..." or "P {margin:...}")
+  normalized = normalized.replace(/[A-Za-z][A-Za-z, ]*\{[^}]*\}/g, '')
+  // Remove "An email from SportsRecruits" header
+  normalized = normalized.replace(/^An email from SportsRecruits\s*/im, '')
+  // Remove SR boilerplate lines
+  normalized = normalized.replace(/.*just sent a message to you on SportsRecruits\.?\s*/gi, '')
+  normalized = normalized.replace(/.*You received a new message\s*/gi, '')
+  normalized = normalized.replace(/.*just sent a message to your SportsRecruits inbox:?\s*/gi, '')
+  normalized = normalized.replace(/This is only a preview of the message\.[^\n]*\n*/gi, '')
+  normalized = normalized.replace(/To reply, log in to SportsRecruits\.?\s*/gi, '')
+  // Strip tab-heavy whitespace lines (HTML table structure remnants)
+  normalized = normalized.replace(/^[\t ]+$/gm, '')
+  // Collapse runs of blank lines
+  normalized = normalized.replace(/\n{3,}/g, '\n\n')
+
+  // ── Phase 1: Find Subject boundary ──
+  // After stripping noise, the Subject line should be findable.
+  // Try patterns in order of specificity — now also match indented Subject lines.
   const subjectPatterns = [
-    /\*Subject:[^\n]+\*\n+/i,       // *Subject: Re: ...*
-    /\*Subject:[^\n]+\n+/i,          // *Subject: Re: ...  (no closing *)
-    /^Subject:[^\n]+\n+/im,          // Subject: Re: ...   (no asterisks, line-anchored)
+    /\*Subject:[^\n]+\*\s*\n+/i,       // *Subject: Re: ...*
+    /\*Subject:[^\n]+\s*\n+/i,          // *Subject: Re: ...  (no closing *)
+    /^[ \t]*Subject:[^\n]+\s*\n+/im,    // Subject: Re: ...   (possibly indented)
   ]
 
   let startIdx = 0
+  let foundSubject = false
   for (const pattern of subjectPatterns) {
     const m = normalized.match(pattern)
     if (m && m.index !== undefined) {
       startIdx = m.index + m[0].length
+      foundSubject = true
       break
     }
   }
 
-  // End: "Reply on SportsRecruits", footer disclaimer, or horizontal rule
+  // If no Subject found but we stripped noise, start from beginning of cleaned text
+  if (!foundSubject) startIdx = 0
+
+  // ── Phase 2: Find end boundary ──
   let endIdx = normalized.length
-  const candidates = [
-    normalized.indexOf('Reply on SportsRecruits', startIdx),
-    normalized.indexOf('Please do not reply to this notification email', startIdx),
-    normalized.indexOf('\n---\n', startIdx),
-    normalized.indexOf('View the full message on SportsRecruits', startIdx),
+  const endPatterns = [
+    'Reply on SportsRecruits',
+    'Please do not reply to this notification email',
+    '\n---\n',
+    'View the full message on SportsRecruits',
+    'To view my full profile and video(s)',
+    'To view Finn\'s full profile',
   ]
-  for (const idx of candidates) {
+  for (const marker of endPatterns) {
+    const idx = normalized.indexOf(marker, startIdx)
     if (idx !== -1 && idx > startIdx) endIdx = Math.min(endIdx, idx)
   }
 
-  return cleanExtractedBody(normalized.slice(startIdx, endIdx))
+  // ── Phase 3: Strip quoted reply threads ──
+  // "On [date], Finn Almond" or "On Apr 26, 2026, at 9:46 PM, Finn Almond wrote:"
+  let extracted = normalized.slice(startIdx, endIdx)
+  const quoteMatch = extracted.match(/\nOn\s+[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}.*(?:Finn Almond|finnalmond08)/i)
+  if (quoteMatch && quoteMatch.index !== undefined) {
+    extracted = extracted.slice(0, quoteMatch.index)
+  }
+
+  return cleanExtractedBody(extracted)
 }
 
 // Gmail preamble dates look like "Sat, Apr 4, 2026 at 7:35 AM" — "at" is not valid JS
