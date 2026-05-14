@@ -50,7 +50,7 @@ STRUCTURE:
   - Middle: specific reason this school matters — engineering program, playing style, prior contact — be concrete
   - Always include highlight reel link (from ASSETS section in user prompt)
   - Close with one clear ask only
-  - Sign off: Thank you, name, email, phone, Sports Recruits link
+  - Sign off: brief closing (e.g., "Thank you," or "Best,") then "Finn" on its own line. No full signature block — email client appends contact info.
 
 ALWAYS INCLUDE: highlight reel link, position (Left Wingback), grad year (2027), club
 NEVER INCLUDE: game film unless it appears in assets and coach asked, striker framing, generic school compliments, more than one ask
@@ -534,15 +534,7 @@ export async function buildEmailDraftPrompt(
 - Always include position (Left Wingback), grad year (2027), club (Albion SC Boulder County – MLS NEXT Academy).
 - Never include game film unless the coach specifically asked for it.
 - Output must contain only plain text. Never wrap email addresses, URLs, or any other content in markdown link syntax like "[text](url)" or "<url>". Email addresses appear as plain text (e.g., "finnalmond08@gmail.com"). URLs appear as plain text (e.g., "https://..."). The voice references contain markdown link artifacts from email rendering — those are input noise to ignore, not patterns to replicate.
-- Sign off MUST use exactly this format, with each line on its own line, no extra fields, no italic/bold formatting:
-
-Thank you,
-Finn Almond
-finnalmond08@gmail.com
-(720) 687-8982
-https://my.sportsrecruits.com/athlete/finn_almond
-
-Some voice reference emails include extra signature lines (position, class year, club). Do NOT replicate those — use only the format above. The voice references' richer signatures are legacy.`)
+- Sign off: end with a brief closing line (e.g., "Thank you," or "Best,") followed by "Finn" on its own line. Do NOT include a full signature block — no email address, phone number, Sports Recruits URL, or other contact info. The email client appends those automatically. Voice references may include richer signatures — those are legacy, do not replicate them.`)
   sys.push('')
 
   // Staleness handling
