@@ -89,6 +89,22 @@ export interface ActionItem {
   school?: Pick<School, 'id' | 'name' | 'short_name' | 'category' | 'status'>
 }
 
+// ─── Messages ───────────────────────────────────────────────────────────────
+
+export type MessageType = 'update' | 'question'
+export type MessageStatus = 'active' | 'archived'
+
+export interface Message {
+  id: string
+  title: string
+  type: MessageType
+  notes: string | null
+  expires_at: string | null
+  status: MessageStatus
+  created_at: string
+  updated_at: string
+}
+
 // ─── ID Camps ────────────────────────────────────────────────────────────────
 
 export type CampFinnStatusValue = 'interested' | 'targeted' | 'registered' | 'attended' | 'declined'

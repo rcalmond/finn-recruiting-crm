@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFinnStatus, CampFinnStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFinnStatus, CampFinnStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message } from '@/lib/types'
 import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp as updateCampMutation, updateFinnStatus as updateFinnStatusMutation, deleteCamp as deleteCampMutation, addSchoolAttendee as addSchoolAttendeeMutation, removeSchoolAttendee as removeSchoolAttendeeMutation } from '@/lib/camps'
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
@@ -602,4 +602,58 @@ export function useCamps(schools: School[]) {
   }, [supabase, fetchCamps])
 
   return { camps, loading, createCamp, updateCamp, updateFinnStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee }
+}
+
+// ─── Messages ───────────────────────────────────────────────────────────────
+
+export function useMessages() {
+  const [messages, setMessages] = useState<Message[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = useMemo(() => createClient(), [])
+
+  const fetchMessages = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (!error && data) setMessages(data as Message[])
+    setLoading(false)
+  }, [supabase])
+
+  useEffect(() => {
+    fetchMessages()
+    const channel = supabase
+      .channel(`messages-changes-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, fetchMessages)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [fetchMessages, supabase])
+
+  const insertMessage = useCallback(async (msg: Pick<Message, 'title' | 'type' | 'notes' | 'expires_at'>) => {
+    const { data, error } = await supabase.from('messages').insert(msg).select('*').single()
+    if (!error && data) setMessages(prev => [data as Message, ...prev])
+    return error
+  }, [supabase])
+
+  const updateMessage = useCallback(async (id: string, updates: Partial<Pick<Message, 'title' | 'type' | 'notes' | 'expires_at' | 'status'>>) => {
+    const { error } = await supabase.from('messages').update(updates).eq('id', id)
+    if (!error) setMessages(prev => prev.map(m => m.id === id ? { ...m, ...updates } as Message : m))
+    return error
+  }, [supabase])
+
+  const archiveMessage = useCallback(async (id: string) => {
+    return updateMessage(id, { status: 'archived' })
+  }, [updateMessage])
+
+  const unarchiveMessage = useCallback(async (id: string) => {
+    return updateMessage(id, { status: 'active' })
+  }, [updateMessage])
+
+  const deleteMessage = useCallback(async (id: string) => {
+    const { error } = await supabase.from('messages').delete().eq('id', id)
+    if (!error) setMessages(prev => prev.filter(m => m.id !== id))
+    return error
+  }, [supabase])
+
+  return { messages, loading, insertMessage, updateMessage, archiveMessage, unarchiveMessage, deleteMessage }
 }
