@@ -737,6 +737,8 @@ export async function buildTopicSuggestPrompt(
     { data: actionItems },
     { data: allCoaches },
     { data: campRows },
+    { data: activeMessages },
+    { data: coverageRows },
   ] = await Promise.all([
     admin.from('player_profile').select('current_stats, upcoming_schedule, highlights, current_reel_url').limit(1).single(),
     admin.from('schools')
@@ -770,6 +772,10 @@ export async function buildTopicSuggestPrompt(
       .select('name, start_date, end_date, location, registration_deadline, camp_finn_status(status)')
       .eq('host_school_id', schoolId)
       .gte('start_date', today),
+    // Active message inventory
+    admin.from('messages').select('id, title, type, notes').eq('status', 'active'),
+    // Coverage for this school
+    admin.from('school_message_log').select('message_id').eq('school_id', schoolId),
   ])
 
   const currentDate = formatCurrentDate()
@@ -817,17 +823,24 @@ export async function buildTopicSuggestPrompt(
   // Decline history
   const declineRows = history.filter((r: ContactRow) => r.intent === 'decline')
 
+  // Uncovered inventory messages
+  const coveredIds = new Set((coverageRows ?? []).map((r: Record<string, unknown>) => r.message_id as string))
+  const uncoveredMessages = (activeMessages ?? []).filter((m: Record<string, unknown>) => !coveredIds.has(m.id as string))
+
   const system = `Given the full conversation history and context below, suggest 3 short topic strings (under 12 words each) for the next email Finn could send to this coach. Topics must be specific to this relationship and currently actionable.
 
 ${DATE_AWARENESS_RULE(currentDate)}
 
 Surface from these signals (in priority order):
 1. Last inbound from coach — did they ask, request, or invite something forward-looking?
-2. Upcoming camps at this school — registration, attendance confirmation, logistics
-3. Pending action items for this school — what's Finn already planning?
-4. Recent Finn news worth sharing (only if not already shared in recent outbound)
-5. Conversation staleness — if stale, "reintroduce + position change" is a valid topic
-6. Decline history — if Finn was declined as a striker, reopening with wingback context is valid
+2. Uncovered inventory messages that fit the conversation state (see UNCOVERED INVENTORY section)
+3. Upcoming camps at this school — registration, attendance confirmation, logistics
+4. Pending action items for this school — what's Finn already planning?
+5. Recent Finn news worth sharing (only if not already shared in recent outbound)
+6. Conversation staleness — if stale, "reintroduce + position change" is a valid topic
+7. Decline history — if Finn was declined as a striker, reopening with wingback context is valid
+
+When suggesting topics, prioritize uncovered inventory messages that fit the conversation state. If an uncovered inventory item is highly relevant, surface it as a topic. Don't force inventory items that don't fit — but when they fit, use them.
 
 Skip "share recent news" if the conversation is highly transactional (coach asked a yes/no question, requested a form). Match the topic to the request shape.
 
@@ -917,6 +930,15 @@ Return a JSON array of 3 strings. No preamble.`
   // Staleness
   usr.push(`STALENESS: ${stalenessLabel}${recentInbound ? ` (${stalenessDays} days)` : ''}`)
   usr.push('')
+
+  // Uncovered inventory messages
+  if (uncoveredMessages.length > 0) {
+    usr.push(`UNCOVERED INVENTORY MESSAGES (consider for topic suggestions):`)
+    for (const m of uncoveredMessages as Array<{ type: string; title: string; notes: string | null }>) {
+      usr.push(`- ${m.type}: ${m.title}${m.notes ? ` — ${m.notes}` : ''}`)
+    }
+    usr.push('')
+  }
 
   // Full conversation history
   if (history.length > 0) {

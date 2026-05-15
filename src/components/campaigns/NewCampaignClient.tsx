@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import type { School, Coach } from '@/lib/types'
+import type { School, Coach, Message } from '@/lib/types'
+import { createClient } from '@/lib/supabase/client'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -80,6 +81,15 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
   // Step 1
   const [campaignName, setCampaignName]     = useState('')
   const [messageSet, setMessageSet]         = useState('')
+  const [inventoryMessages, setInventoryMessages] = useState<Message[]>([])
+  const [selectedMsgIds, setSelectedMsgIds] = useState<Set<string>>(new Set())
+  const [msgTypeFilter, setMsgTypeFilter]   = useState<'all' | 'update' | 'question'>('all')
+
+  useEffect(() => {
+    const sb = createClient()
+    sb.from('messages').select('*').eq('status', 'active').order('type').order('title')
+      .then(({ data }) => { if (data) setInventoryMessages(data as Message[]) })
+  }, [])
 
   // Step 2 — school scope
   const nonNope = schools.filter(s => s.category !== 'Nope')
@@ -132,6 +142,7 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
           throttleDays,
           schoolIds: selectedSchools.map(s => s.id),
           messageSet: messageSet.trim() || undefined,
+          sourceMessageIds: selectedMsgIds.size > 0 ? Array.from(selectedMsgIds) : undefined,
         }),
       })
       const json = await res.json()
@@ -196,8 +207,72 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
             />
           </div>
 
+          {/* Inventory picker */}
+          {inventoryMessages.length > 0 && (
+            <div>
+              <label style={labelStyle}>Select from inventory</label>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                {(['all', 'update', 'question'] as const).map(f => (
+                  <button key={f} onClick={() => setMsgTypeFilter(f)} style={{
+                    padding: '3px 10px', borderRadius: 5, border: `1px solid ${msgTypeFilter === f ? C.ink : C.border}`,
+                    background: msgTypeFilter === f ? C.ink : C.white,
+                    color: msgTypeFilter === f ? C.white : C.inkLo,
+                    fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                    {f === 'all' ? 'All' : f === 'update' ? 'Updates' : 'Questions'}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto', marginBottom: 8 }}>
+                {inventoryMessages
+                  .filter(m => msgTypeFilter === 'all' || m.type === msgTypeFilter)
+                  .map(m => {
+                    const checked = selectedMsgIds.has(m.id)
+                    const typeBg = m.type === 'update' ? '#DCFCE7' : '#DBEAFE'
+                    const typeColor = m.type === 'update' ? '#166534' : '#1E40AF'
+                    return (
+                      <label key={m.id} style={{
+                        display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 10px',
+                        background: checked ? '#F0F9FF' : C.white, borderRadius: 6,
+                        border: `1px solid ${checked ? '#93C5FD' : C.border}`, cursor: 'pointer',
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const next = new Set(selectedMsgIds)
+                            if (checked) next.delete(m.id); else next.add(m.id)
+                            setSelectedMsgIds(next)
+                            // Auto-populate textarea
+                            const selected = inventoryMessages.filter(msg => next.has(msg.id))
+                            const lines = selected.map(msg => msg.title + (msg.notes ? ` — ${msg.notes}` : ''))
+                            setMessageSet(lines.join('\n'))
+                          }}
+                          style={{ marginTop: 2, flexShrink: 0 }}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{
+                              fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                              textTransform: 'uppercase', background: typeBg, color: typeColor,
+                            }}>{m.type}</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>{m.title}</span>
+                          </div>
+                          {m.notes && (
+                            <div style={{ fontSize: 11, color: C.inkLo, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {m.notes}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
+
           <div>
-            <label style={labelStyle}>Messages to communicate</label>
+            <label style={labelStyle}>{inventoryMessages.length > 0 ? 'Or write custom messages' : 'Messages to communicate'}</label>
             <textarea
               value={messageSet}
               onChange={e => setMessageSet(e.target.value)}

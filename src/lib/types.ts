@@ -105,6 +105,25 @@ export interface Message {
   updated_at: string
 }
 
+// ─── School Message Plan ────────────────────────────────────────────────────
+
+export interface SchoolMessagePlanSuggestion {
+  message_id: string
+  reasoning: string
+  timing: 'send_now' | 'after_event' | 'wait'
+}
+
+export interface SchoolMessagePlan {
+  id: string
+  school_id: string
+  finn_notes: string | null
+  suggestions: { items: SchoolMessagePlanSuggestion[] } | null
+  suggestions_generated_at: string | null
+  suggestions_model_used: string | null
+  created_at: string
+  updated_at: string
+}
+
 // ─── ID Camps ────────────────────────────────────────────────────────────────
 
 export type CampFinnStatusValue = 'interested' | 'targeted' | 'registered' | 'attended' | 'declined'
@@ -328,6 +347,7 @@ export interface Campaign {
   tier_scope: string[]
   throttle_days: number
   message_set: string | null
+  source_message_ids: string[] | null
   archived_at: string | null
   created_at: string
   activated_at: string | null

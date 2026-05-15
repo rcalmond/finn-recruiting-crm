@@ -14,6 +14,7 @@ import DraftModal from '@/components/DraftModal'
 import PrepForCallModal from '@/components/PrepForCallModal'
 import AddCampModal from '@/components/AddCampModal'
 import EditableActionRow from '@/components/EditableActionRow'
+import CommunicationsPlan from '@/components/school-detail/CommunicationsPlan'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -1962,22 +1963,25 @@ export default function SchoolDetailClient({
         alignItems: 'start',
         paddingBottom: 'clamp(24px, 4vw, 40px)',
       }}>
-        <Timeline
-          contactLog={contactLog}
-          actionItems={actionItems}
-          school={school}
-          coaches={coaches}
-          today={today}
-          userId={user.id}
-          onDraft={(kind, entryId, channel) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel })}
-          onComplete={async (id) => { await completeItem(id) }}
-          onSnooze={async (id) => { await snoozeEntry(id) }}
-          onDismiss={async (id) => { await dismissEntry(id) }}
-          onUndo={async (id) => { await undoEntry(id) }}
-          onLogEntry={async (entry) => { await insertContact(entry as Parameters<typeof insertContact>[0]) }}
-          onEditEntry={async (id, updates) => { await updateEntry(id, updates) }}
-          onDeleteEntry={async (id) => { await deleteEntry(id) }}
-        />
+        <div>
+          <Timeline
+            contactLog={contactLog}
+            actionItems={actionItems}
+            school={school}
+            coaches={coaches}
+            today={today}
+            userId={user.id}
+            onDraft={(kind, entryId, channel) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel })}
+            onComplete={async (id) => { await completeItem(id) }}
+            onSnooze={async (id) => { await snoozeEntry(id) }}
+            onDismiss={async (id) => { await dismissEntry(id) }}
+            onUndo={async (id) => { await undoEntry(id) }}
+            onLogEntry={async (entry) => { await insertContact(entry as Parameters<typeof insertContact>[0]) }}
+            onEditEntry={async (id, updates) => { await updateEntry(id, updates) }}
+            onDeleteEntry={async (id) => { await deleteEntry(id) }}
+          />
+          <CommunicationsPlan schoolId={school.id} />
+        </div>
         <Sidebar
           school={school}
           coaches={coaches}
