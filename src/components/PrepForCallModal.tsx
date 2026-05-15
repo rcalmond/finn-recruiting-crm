@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type { School, PrepResult, OverrideStatus, QuestionCategory } from '@/lib/types'
 import { useQuestions } from '@/hooks/useRealtimeData'
 
-const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
+const CATEGORY_COLORS: Record<QuestionCategory, { bg: string; text: string }> = {
   'Formation & Fit':       { bg: '#eff6ff', text: '#2563eb' },
   'Roster & Playing Time': { bg: '#f0fdf4', text: '#059669' },
   'Development':           { bg: '#fdf4ff', text: '#9333ea' },

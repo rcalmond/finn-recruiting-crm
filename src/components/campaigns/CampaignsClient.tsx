@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import type { Campaign } from '@/lib/types'
+import type { Campaign, CampaignStatus } from '@/lib/types'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -22,7 +22,7 @@ const C = {
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
-const STATUS_STYLES: Record<string, React.CSSProperties> = {
+const STATUS_STYLES: Record<CampaignStatus, React.CSSProperties> = {
   draft:     { background: '#F3F4F6', color: '#374151' },
   active:    { background: '#DCFCE7', color: '#166534' },
   paused:    { background: '#FEF9C3', color: '#854D0E' },
@@ -41,7 +41,7 @@ function StatusBadge({ status, archived }: { status: string; archived?: boolean 
       </span>
     )
   }
-  const style = STATUS_STYLES[status] ?? STATUS_STYLES.draft
+  const style = STATUS_STYLES[status as CampaignStatus] ?? STATUS_STYLES.draft
   return (
     <span style={{
       ...style,

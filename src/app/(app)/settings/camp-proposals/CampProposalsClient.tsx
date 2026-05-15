@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { CampProposal, CampProposalProposedData, School } from '@/lib/types'
+import type { CampProposal, CampProposalProposedData, Category, School } from '@/lib/types'
 
 const LV = {
   paper:    '#F6F1E8',
@@ -22,10 +22,11 @@ const CONFIDENCE_STYLE: Record<string, { bg: string; color: string }> = {
   low:    { bg: '#FEE2E2', color: '#991B1B' },
 }
 
-const TIER_STYLE: Record<string, { bg: string; color: string }> = {
+const TIER_STYLE: Record<Category, { bg: string; color: string }> = {
   A: { bg: '#FEE2E2', color: '#991B1B' },
   B: { bg: '#DBEAFE', color: '#1E40AF' },
   C: { bg: '#F3F4F6', color: '#374151' },
+  Nope: { bg: '#E5E7EB', color: '#6B7280' },
 }
 
 type ProposalRow = CampProposal & {

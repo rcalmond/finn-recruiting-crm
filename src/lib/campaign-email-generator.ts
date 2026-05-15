@@ -126,21 +126,26 @@ The previous draft was discarded. Generate a new version respecting this guidanc
 ---` : ''}
 Write the email body.`
 
-  const response = await client.messages.create({
-    model: 'claude-opus-4-7',
-    max_tokens: 600,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userMessage }],
-  })
+  try {
+    const response = await client.messages.create({
+      model: 'claude-opus-4-7',
+      max_tokens: 600,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userMessage }],
+    })
 
-  const body = response.content
-    .filter(b => b.type === 'text')
-    .map(b => b.text)
-    .join('')
+    const body = response.content
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('')
 
-  return {
-    body,
-    inputTokens: response.usage.input_tokens,
-    outputTokens: response.usage.output_tokens,
+    return {
+      body,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+    }
+  } catch (error) {
+    console.error('[campaign-email-gen] Anthropic API error:', error instanceof Error ? error.message : error)
+    return { body: '', inputTokens: 0, outputTokens: 0 }
   }
 }

@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useMessages, useSchoolMessageLog } from '@/hooks/useRealtimeData'
-import type { Message, MessageType, MessageStatus } from '@/lib/types'
+import type { Message, MessageType, MessageStatus, Category } from '@/lib/types'
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 
@@ -341,7 +341,7 @@ function MessageModal({ message, onClose, onSave, onArchive }: {
     setSaving(false)
   }
 
-  const TIER_COLORS: Record<string, { bg: string; color: string }> = {
+  const TIER_COLORS: Record<Category, { bg: string; color: string }> = {
     A: { bg: '#FEE2E2', color: '#991B1B' },
     B: { bg: '#FEF3C7', color: '#92400E' },
     C: { bg: '#E0E7FF', color: '#3730A3' },
@@ -456,7 +456,7 @@ function MessageModal({ message, onClose, onSave, onArchive }: {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {coverageEntries.map(entry => {
-                      const tier = entry.school?.category ?? 'C'
+                      const tier = (entry.school?.category ?? 'C') as Category
                       const tc = TIER_COLORS[tier] ?? TIER_COLORS.C
                       return (
                         <div

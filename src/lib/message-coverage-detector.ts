@@ -74,41 +74,46 @@ ${inventorySection}
 ---
 Return JSON with matched_message_ids and reasoning.`
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 500,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userMessage }],
-  })
-
-  const raw = response.content
-    .filter(b => b.type === 'text')
-    .map(b => b.text)
-    .join('')
-    .trim()
-
-  // Strip markdown fences
-  const cleaned = raw
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/```\s*$/i, '')
-    .trim()
-
-  // Parse response
-  const validIds = new Set(input.activeMessages.map(m => m.id))
   try {
-    const parsed = JSON.parse(cleaned) as { matched_message_ids?: string[]; reasoning?: string }
-    const matchedIds = (parsed.matched_message_ids ?? []).filter(
-      id => typeof id === 'string' && validIds.has(id)
-    )
-    return {
-      matchedMessageIds: matchedIds,
-      reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
-      inputTokens: response.usage.input_tokens,
-      outputTokens: response.usage.output_tokens,
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 500,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userMessage }],
+    })
+
+    const raw = response.content
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('')
+      .trim()
+
+    // Strip markdown fences
+    const cleaned = raw
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim()
+
+    // Parse response
+    const validIds = new Set(input.activeMessages.map(m => m.id))
+    try {
+      const parsed = JSON.parse(cleaned) as { matched_message_ids?: string[]; reasoning?: string }
+      const matchedIds = (parsed.matched_message_ids ?? []).filter(
+        id => typeof id === 'string' && validIds.has(id)
+      )
+      return {
+        matchedMessageIds: matchedIds,
+        reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+      }
+    } catch {
+      console.error('[message-coverage] Failed to parse detector response:', raw.slice(0, 200))
+      return { matchedMessageIds: [], reasoning: 'parse error', inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
     }
-  } catch {
-    console.error('[message-coverage] Failed to parse detector response:', raw.slice(0, 200))
-    return { matchedMessageIds: [], reasoning: 'parse error', inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
+  } catch (error) {
+    console.error('[message-coverage] Anthropic API error:', error instanceof Error ? error.message : error)
+    return { matchedMessageIds: [], reasoning: '', inputTokens: 0, outputTokens: 0 }
   }
 }
 

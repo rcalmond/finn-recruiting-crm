@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCamps, useSchools } from '@/hooks/useRealtimeData'
-import type { CampWithRelations, CampFinnStatusValue, School } from '@/lib/types'
+import type { CampWithRelations, CampFinnStatusValue, Category, School } from '@/lib/types'
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 
@@ -21,10 +21,11 @@ const LV = {
   tealSoft: '#D7F0ED',
 }
 
-const TIER_STYLE: Record<string, { bg: string; color: string }> = {
+const TIER_STYLE: Record<Category, { bg: string; color: string }> = {
   A: { bg: '#FEE2E2', color: '#991B1B' },
   B: { bg: '#DBEAFE', color: '#1E40AF' },
   C: { bg: '#F3F4F6', color: '#374151' },
+  Nope: { bg: '#E5E7EB', color: '#6B7280' },
 }
 
 const STATUS_COLORS: Record<CampFinnStatusValue, { bg: string; color: string }> = {

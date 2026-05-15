@@ -46,7 +46,7 @@ export const STATUS_COLORS: Record<Status, { bg: string; text: string; dot: stri
   'Inactive':            { bg: '#f1f5f9', text: '#94a3b8', dot: '#cbd5e1' },
 }
 
-export const ADMIT_COLORS: Record<string, string> = {
+export const ADMIT_COLORS: Record<AdmitLikelihood, string> = {
   'Likely':    '#10b981',
   'Target':    '#3b82f6',
   'Reach':     '#f59e0b',

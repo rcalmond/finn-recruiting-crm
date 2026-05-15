@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { Message, SchoolMessagePlanSuggestion } from '@/lib/types'
+import type { Message, MessageType, Category, SchoolMessagePlanSuggestion } from '@/lib/types'
 
 // Design tokens — match SchoolDetailClient's SD
 const SD = {
@@ -10,18 +10,19 @@ const SD = {
   white: '#fff', teal: '#00B2A9', red: '#C8102E',
 }
 
-const TYPE_STYLES: Record<string, { bg: string; color: string; label: string }> = {
+const TYPE_STYLES: Record<MessageType, { bg: string; color: string; label: string }> = {
   update:   { bg: '#DCFCE7', color: '#166534', label: 'Update' },
   question: { bg: '#DBEAFE', color: '#1E40AF', label: 'Question' },
 }
 
-const TIMING_STYLES: Record<string, { bg: string; color: string; label: string }> = {
+type SuggestionTiming = 'send_now' | 'after_event' | 'wait'
+const TIMING_STYLES: Record<SuggestionTiming, { bg: string; color: string; label: string }> = {
   send_now:    { bg: '#DCFCE7', color: '#166534', label: 'Send now' },
   after_event: { bg: '#FEF3C7', color: '#92400E', label: 'After event' },
   wait:        { bg: '#F3F4F6', color: '#374151', label: 'Wait' },
 }
 
-const TIER_COLORS: Record<string, { bg: string; color: string }> = {
+const TIER_COLORS: Record<Category, { bg: string; color: string }> = {
   A: { bg: '#FEE2E2', color: '#991B1B' },
   B: { bg: '#FEF3C7', color: '#92400E' },
   C: { bg: '#E0E7FF', color: '#3730A3' },

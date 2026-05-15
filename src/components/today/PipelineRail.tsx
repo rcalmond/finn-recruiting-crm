@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { PipelineSchool, PipelineStatus } from '@/lib/pipeline-rail'
+import type { Category } from '@/lib/types'
 
 const LV = {
   paper:    '#F6F1E8',
@@ -26,9 +27,11 @@ const STATUS_TONE: Record<PipelineStatus, { dot: string; label: string }> = {
   COLD:    { dot: LV.inkMute,  label: LV.inkMute },
 }
 
-const TIER_STYLE: Record<string, { bg: string; color: string }> = {
+const TIER_STYLE: Record<Category, { bg: string; color: string }> = {
   A: { bg: '#FEE2E2', color: '#991B1B' },
   B: { bg: '#DBEAFE', color: '#1E40AF' },
+  C: { bg: '#F3F4F6', color: '#374151' },
+  Nope: { bg: '#E5E7EB', color: '#6B7280' },
 }
 
 const GROUP_ORDER: PipelineStatus[] = ['HOT', 'ACTIVE', 'WARMING', 'COLD']
@@ -176,7 +179,7 @@ function PipelineRow({ item, divider, onClick }: {
 // ── Tier badge ───────────────────────────────────────────────────────────────
 
 function TierBadge({ tier }: { tier: string }) {
-  const t = TIER_STYLE[tier] ?? { bg: '#F3F4F6', color: '#374151' }
+  const t = TIER_STYLE[tier as Category] ?? { bg: '#F3F4F6', color: '#374151' }
   return (
     <span style={{
       background: t.bg, color: t.color,

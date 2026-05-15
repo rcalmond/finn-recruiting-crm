@@ -30,7 +30,7 @@ const CATEGORIES: QuestionCategory[] = [
 ]
 
 // LV-mapped category badge colors
-const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
+const CATEGORY_COLORS: Record<QuestionCategory, { bg: string; text: string }> = {
   'Formation & Fit':       { bg: LV.tealSoft,  text: LV.tealDeep },
   'Roster & Playing Time': { bg: '#D7EFE0',    text: '#2D6A4F'   },
   'Development':           { bg: '#E9D9FA',    text: '#5B21B6'   },

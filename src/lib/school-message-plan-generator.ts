@@ -193,37 +193,42 @@ Return 2-3 items, ordered by priority (most important first). Use ONLY message_i
 
   usr.push(`Suggest 2-3 next messages with reasoning and timing.`)
 
-  const response = await client.messages.create({
-    model: 'claude-opus-4-7',
-    max_tokens: 1500,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: usr.join('\n') }],
-  })
-
-  const raw = response.content
-    .filter(b => b.type === 'text')
-    .map(b => b.text)
-    .join('')
-    .trim()
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/```\s*$/i, '')
-    .trim()
-
-  const validIds = new Set(input.uncoveredMessages.map(m => m.id))
-
   try {
-    const parsed = JSON.parse(raw) as { items?: Array<{ message_id?: string; reasoning?: string; timing?: string }> }
-    const items: SuggestionItem[] = (parsed.items ?? [])
-      .filter(item => typeof item.message_id === 'string' && validIds.has(item.message_id))
-      .map(item => ({
-        message_id: item.message_id!,
-        reasoning: typeof item.reasoning === 'string' ? item.reasoning : '',
-        timing: VALID_TIMINGS.has(item.timing ?? '') ? item.timing as SuggestionItem['timing'] : 'send_now',
-      }))
+    const response = await client.messages.create({
+      model: 'claude-opus-4-7',
+      max_tokens: 1500,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: usr.join('\n') }],
+    })
 
-    return { items, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
-  } catch {
-    console.error('[school-message-plan] Failed to parse response:', raw.slice(0, 200))
-    return { items: [], inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
+    const raw = response.content
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('')
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim()
+
+    const validIds = new Set(input.uncoveredMessages.map(m => m.id))
+
+    try {
+      const parsed = JSON.parse(raw) as { items?: Array<{ message_id?: string; reasoning?: string; timing?: string }> }
+      const items: SuggestionItem[] = (parsed.items ?? [])
+        .filter(item => typeof item.message_id === 'string' && validIds.has(item.message_id))
+        .map(item => ({
+          message_id: item.message_id!,
+          reasoning: typeof item.reasoning === 'string' ? item.reasoning : '',
+          timing: VALID_TIMINGS.has(item.timing ?? '') ? item.timing as SuggestionItem['timing'] : 'send_now',
+        }))
+
+      return { items, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
+    } catch {
+      console.error('[school-message-plan] Failed to parse response:', raw.slice(0, 200))
+      return { items: [], inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
+    }
+  } catch (error) {
+    console.error('[school-message-plan] Anthropic API error:', error instanceof Error ? error.message : error)
+    return { items: [], inputTokens: 0, outputTokens: 0 }
   }
 }

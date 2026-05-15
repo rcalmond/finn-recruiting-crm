@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Campaign, CampaignSchool, CampaignSchoolStatus, School } from '@/lib/types'
+import type { Campaign, CampaignStatus, CampaignSchool, CampaignSchoolStatus, School } from '@/lib/types'
 import DraftModal from '@/components/DraftModal'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -64,17 +64,17 @@ function channelRec(authored_by: string | null): { label: string; style: React.C
 
 // ── Micro-components ──────────────────────────────────────────────────────────
 
-const STATUS_BADGE: Record<string, React.CSSProperties> = {
+const STATUS_BADGE: Record<CampaignStatus, React.CSSProperties> = {
   draft:     { background: '#F3F4F6', color: '#374151' },
   active:    { background: '#DCFCE7', color: '#166534' },
   paused:    { background: '#FEF9C3', color: '#854D0E' },
   completed: { background: '#E0E7FF', color: '#3730A3' },
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { status: CampaignStatus | string }) {
   return (
     <span style={{
-      ...(STATUS_BADGE[status] ?? STATUS_BADGE.draft),
+      ...(STATUS_BADGE[status as CampaignStatus] ?? STATUS_BADGE.draft),
       fontSize: 10, fontWeight: 700, padding: '3px 10px',
       borderRadius: 4, textTransform: 'uppercase', letterSpacing: 0.5,
     }}>

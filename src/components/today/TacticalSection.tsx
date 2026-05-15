@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import type { TacticalItem } from '@/lib/today-scoring'
+import type { Category } from '@/lib/types'
 
 const LV = {
   paper:    '#F6F1E8',
@@ -16,16 +17,18 @@ const LV = {
   redInk:   '#FFE4E8',
 }
 
-const TIER_STYLE: Record<string, { bg: string; color: string }> = {
+const TIER_STYLE: Record<Category, { bg: string; color: string }> = {
   A: { bg: '#FEE2E2', color: '#991B1B' },
   B: { bg: '#DBEAFE', color: '#1E40AF' },
   C: { bg: '#F3F4F6', color: '#374151' },
+  Nope: { bg: '#E5E7EB', color: '#6B7280' },
 }
 
-const TIER_STYLE_ACCENT: Record<string, { bg: string; color: string }> = {
+const TIER_STYLE_ACCENT: Record<Category, { bg: string; color: string }> = {
   A: { bg: 'rgba(255,255,255,0.18)', color: '#fff' },
   B: { bg: 'rgba(255,255,255,0.18)', color: '#fff' },
   C: { bg: 'rgba(255,255,255,0.18)', color: '#fff' },
+  Nope: { bg: 'rgba(255,255,255,0.18)', color: '#fff' },
 }
 
 interface Props {
@@ -96,7 +99,7 @@ function ChevronRight({ size = 11 }: { size?: number }) {
 // ── Tier badge ───────────────────────────────────────────────────────────────
 
 function TierBadge({ tier, onAccent }: { tier: string; onAccent?: boolean }) {
-  const t = (onAccent ? TIER_STYLE_ACCENT : TIER_STYLE)[tier] ?? TIER_STYLE.C
+  const t = (onAccent ? TIER_STYLE_ACCENT : TIER_STYLE)[tier as Category] ?? TIER_STYLE.C
   return (
     <span style={{
       background: t.bg, color: t.color,

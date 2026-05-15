@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
-import type { CampWithRelations, CampFinnStatusValue } from '@/lib/types'
+import type { CampWithRelations, CampFinnStatusValue, Category } from '@/lib/types'
 import { useCamps, useSchools } from '@/hooks/useRealtimeData'
 import { sortCampsChronological, classifyCampTimeframe } from '@/lib/camps'
 import { todayStr } from '@/lib/utils'
@@ -26,10 +26,11 @@ const LV = {
   tealSoft: '#D7F0ED',
 }
 
-const TIER_STYLE: Record<string, { bg: string; color: string }> = {
+const TIER_STYLE: Record<Category, { bg: string; color: string }> = {
   A: { bg: '#FEE2E2', color: '#991B1B' },
   B: { bg: '#DBEAFE', color: '#1E40AF' },
   C: { bg: '#F3F4F6', color: '#374151' },
+  Nope: { bg: '#E5E7EB', color: '#6B7280' },
 }
 
 const STATUS_STYLE: Record<CampFinnStatusValue, { bg: string; color: string }> = {

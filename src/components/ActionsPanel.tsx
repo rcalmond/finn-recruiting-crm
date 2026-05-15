@@ -1,10 +1,10 @@
 'use client'
 
-import type { School, ActionItem } from '@/lib/types'
+import type { School, ActionItem, Category } from '@/lib/types'
 import { useRef, useState, useMemo } from 'react'
 import { STATUS_COLORS, CATEGORY_COLORS, categoryLabel, formatDate, todayStr } from '@/lib/utils'
 
-const CATEGORY_ORDER: Record<string, number> = { A: 0, B: 1, C: 2, Nope: 3 }
+const CATEGORY_ORDER: Record<Category, number> = { A: 0, B: 1, C: 2, Nope: 3 }
 
 interface Props {
   actionItems: ActionItem[]

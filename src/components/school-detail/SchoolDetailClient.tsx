@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
-import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampWithRelations } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampFinnStatusValue, CampWithRelations } from '@/lib/types'
 import { useSchools, useContactLog, useActionItems, useCoaches, useCamps } from '@/hooks/useRealtimeData'
 import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
 import { getRankedFeaturedAction } from '@/lib/todayLogic'
@@ -1714,7 +1714,7 @@ function Sidebar({
 
 // ─── Sidebar camps section ───────────────────────────────────────────────────
 
-const CAMP_STATUS_STYLE: Record<string, { bg: string; color: string }> = {
+const CAMP_STATUS_STYLE: Record<CampFinnStatusValue, { bg: string; color: string }> = {
   interested: { bg: '#DBEAFE', color: '#1E40AF' },
   targeted:   { bg: '#FEF3C7', color: '#92400E' },
   registered: { bg: '#D7F0ED', color: '#006A65' },
@@ -1722,10 +1722,11 @@ const CAMP_STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   declined:   { bg: '#FEE2E2', color: '#991B1B' },
 }
 
-const CAMP_TIER_STYLE: Record<string, { bg: string; color: string }> = {
+const CAMP_TIER_STYLE: Record<Category, { bg: string; color: string }> = {
   A: { bg: '#FEE2E2', color: '#991B1B' },
   B: { bg: '#DBEAFE', color: '#1E40AF' },
   C: { bg: '#F3F4F6', color: '#374151' },
+  Nope: { bg: '#E5E7EB', color: '#6B7280' },
 }
 
 function SidebarCamps({ school, camps, schools }: {
