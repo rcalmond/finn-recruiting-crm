@@ -1498,6 +1498,35 @@ Selection principle:
 - Structured extraction or pattern matching where review backstops errors → Haiku
 - Middle ground: rule-following extraction without full Opus reasoning → Sonnet
 
+### Tech Debt Audit + Paydown (May 15, 2026)
+
+After shipping the messaging strategy system (Phases 1-3), ran a comprehensive tech debt audit before next feature work. Audit covered 10 areas: duplicate logic, type safety, dead code, error handling, performance, component patterns, migration history, test coverage, documentation, and anything else.
+
+**Chunk A — Shared context helper + parse_status filter + dead code cleanup:**
+
+Created src/lib/school-context.ts with fetchSchoolContext() helper. Single source of truth for school + coaches + contact_log + camps + decline history + action items. Uses Promise.all() for parallel fetching. The parse_status filter (excluding orphan and non_coach rows) is always applied — never optional.
+
+Migrated 5 LLM-calling routes: buildEmailDraftPrompt, buildTopicSuggestPrompt, prep-for-call, message-plan, generate-draft. The generate-draft route's missing parse_status filter was resolved automatically by migration to the helper (was a live bug — orphan/non_coach rows leaking into campaign email prompts).
+
+Dead code removed from src/lib/prompts.ts (net -246 lines): SYSTEM_PROMPT, buildUserPrompt(), EMAIL_TYPE_INSTRUCTIONS, ASSET_TYPE_LABELS. All replaced by buildEmailDraftPrompt on May 13. EmailType union preserved as standalone export for todayLogic.ts compatibility.
+
+**Chunk B — Exhaustive union maps + LLM error handling:**
+
+Converted 15+ Record<string, T> maps to Record<UnionType, T> across 13 component files. Union types now exhaustively checked at compile time: Category (8 maps), CampFinnStatusValue (5 maps), CampaignStatus (3 maps), QuestionCategory (2 maps), MessageType (3 maps), AdmitLikelihood (1 map), SuggestionTiming (1 map). Missing 'Nope' entries for Category maps added. Runtime ?? fallback preserved at all lookup sites.
+
+Result: future additions to any of these union types will fail npm run build with TypeScript errors pinpointing every map that needs the new key. Eliminates the May 11 CAMP_STATUS_STYLE crash pattern systemically.
+
+LLM generators wrapped in try/catch: campaign-email-generator, school-message-plan-generator, message-coverage-detector. Rate limits (429), auth failures (401), and timeouts now degrade to soft empty results instead of cascading as unhandled 500s.
+
+**Deferred tech debt (revisit later):**
+- Modal overlay primitive: 15 components duplicate backdrop pattern. ~300 lines could be cut with shared <Modal>.
+- Campaign personalize flow: semi-dead but harmless. Both legacy campaigns are status=completed.
+- Filter pill duplication: patterns differ enough that abstraction wouldn't save much.
+- Design preview routes: harmless development artifacts.
+- Realtime subscription error handling: low urgency for 2-user app.
+- Test infrastructure: scale doesn't justify it yet.
+- API input validation: private app with trusted users.
+
 ---
 
 ## 10. Session Startup Checklist for Claude Code
@@ -3050,6 +3079,8 @@ for v1. Smoke tests passed.
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-15 | Tech debt Chunk B: 15+ component maps converted to exhaustive Record<UnionType, T>; LLM generators (campaign email, school plan, coverage detector) wrapped in try/catch with empty fallbacks | Quality |
+| 2026-05-15 | Tech debt Chunk A: shared fetchSchoolContext() helper extracted (5 LLM routes migrated); generate-draft parse_status filter bug fixed by inheritance; 246 lines of dead legacy prompt code removed | Quality |
 | 2026-05-15 | Phase 3 polish: communications plan moved above conversation timeline, source links deep-link to contact_log entries with gold flash, contact dates replace detected_at | Polish |
 | 2026-05-15 | Messaging Strategy Phase 3 (migration 045): school_message_plan table, Opus-powered per-school suggestions, communications plan UI on school detail, inventory integration in campaign creation and topic suggester | Feature + Schema |
 | 2026-05-14 | Messaging Strategy Phase 2 (migration 044): school_message_log table, Sonnet 4.6 coverage detector, ingest-side fire-and-forget hooks in gmail-sync and sendgrid-inbound, backfill of 157 outbound rows → 75 matches | Feature + Schema |
