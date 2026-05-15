@@ -1527,6 +1527,59 @@ LLM generators wrapped in try/catch: campaign-email-generator, school-message-pl
 - Test infrastructure: scale doesn't justify it yet.
 - API input validation: private app with trusted users.
 
+### Inventory Enrichment Post-Utah (May 15, 2026)
+
+**Context shift:**
+
+Finn's MLS NEXT team couldn't field enough players for MLS NEXT Cup in Utah. The Utah trip is off. Two inventory items deleted: "MLS NEXT Cup schedule" (update) and "Will you be at MLS NEXT Cup in Utah?" (question).
+
+**Inventory revisions:**
+
+All 7 surviving items rewritten with richer strategic notes following the pattern: situation → why it matters → when/how to use it → exact phrasing. Key reframings:
+- SAT score improvement: reframed from static "scored 1380" to trajectory "1380 with planned fall retakes targeting 1450+", Math 690 / English 690 breakdown
+- Summer team Flatirons FC: enriched with real detail from coach Bailey Rouse — UPSL fall/spring, USL Academy summer (CO/Utah), Wales showcase tour, 3x/week training, 4-2-3-1 setup, College Advisory Program
+- End of season starter at LWB: stripped Utah reference, added strategic framing for declined or stale schools
+
+**5 new items added:**
+
+Core items:
+- Position transition: striker → left wingback (update) — central tactical reintroduction story
+- Olimpico goal at MLS NEXT Cup qualifier (update) — vivid moment to anchor film reviews
+- Academic identity: STEM focus, AP rigor, improving SAT (update) — includes senior-year courseload (AP Physics C, Calculus BC, AP Statistics, Discrete Math)
+- Who's ahead of me at left wingback in 2025 and 2026? (question) — strategic depth-chart fit
+- What does a successful 2027 recruit look like to you? (question) — open-ended fit question
+
+Time-sensitive items (with expires_at):
+- Spring 2026 grades — incoming (expires 2026-06-30)
+- AP exam results — incoming July 2026 (expires 2026-08-31)
+
+Inventory now 14 active items: 8 updates + 6 questions.
+
+**Backfill rerun results:**
+
+Re-processed 157 historical outbound rows. Match count grew from 75 → 113 — richer inventory caught previously-uncovered coverage, primarily Academic identity (21 schools) and Position transition + Olimpico (9 and 8 schools). Two parse failures (~1.3%); detector's error handling returned empty, no false positives.
+
+Coverage distribution post-rerun:
+
+| Message | Type | Schools |
+|---------|------|---------|
+| Are you recruiting 2027 players like Finn? | Question | 48 |
+| Academic identity: STEM focus, AP rigor, improving SAT | Update | 21 |
+| Position transition: striker → left wingback | Update | 9 |
+| Olimpico goal at MLS NEXT Cup qualifier | Update | 8 |
+| Open to a phone call? | Question | 3 |
+| How are you using ID camps this summer/fall? | Question | 2 |
+| How do you play with wingbacks? | Question | 2 |
+| SAT score improvement | Update | 2 |
+| What does a successful 2027 recruit look like to you? | Question | 1 |
+| End of season — starter at LWB | Update | 0 |
+| Summer team: Flatirons FC USL-A | Update | 0 |
+| Who's ahead of me at LWB in 2025/2026? | Question | 0 |
+| Spring 2026 grades — incoming | Update | 0 (timing=wait) |
+| AP exam results — incoming July 2026 | Update | 0 (timing=wait) |
+
+Strategic state: most schools have heard the cold-outreach question and academic pitch. Most have NOT heard end-of-season stats, summer team news, depth-chart or successful-recruit questions, or AP/grades trajectory. Phase 3 Communications plan now has 8-10 uncovered items per active school to surface.
+
 ---
 
 ## 10. Session Startup Checklist for Claude Code
@@ -3079,6 +3132,7 @@ for v1. Smoke tests passed.
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-15 | Utah trip cancelled — 2 inventory items archived. Inventory enriched: 7 existing items rewritten with richer strategic notes, 5 new core items added (Position transition, Olimpico, Academic identity, depth chart question, successful-recruit question), 2 time-sensitive items added (Spring grades, AP results with expires_at). Backfill rerun: 113 coverage matches across 157 historical outbound rows (up from 75). | Feature + Content |
 | 2026-05-15 | Tech debt Chunk B: 15+ component maps converted to exhaustive Record<UnionType, T>; LLM generators (campaign email, school plan, coverage detector) wrapped in try/catch with empty fallbacks | Quality |
 | 2026-05-15 | Tech debt Chunk A: shared fetchSchoolContext() helper extracted (5 LLM routes migrated); generate-draft parse_status filter bug fixed by inheritance; 246 lines of dead legacy prompt code removed | Quality |
 | 2026-05-15 | Phase 3 polish: communications plan moved above conversation timeline, source links deep-link to contact_log entries with gold flash, contact dates replace detected_at | Polish |
