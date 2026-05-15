@@ -1306,6 +1306,198 @@ UI surfaces:
 - Campaign detail header: Archive/Unarchive + Delete buttons near Activate
 - Kebab dropdown uses React portal with edge-aware positioning (flips above kebab when near viewport bottom)
 
+### Email Generation Overhaul + LLM Standardization (May 13, 2026)
+
+**Comprehensive model audit:**
+
+Audited all LLM-powered flows in the codebase. Result:
+
+| Flow | Old Model | New Model | Rationale |
+|------|-----------|-----------|-----------|
+| School detail email body | Haiku 4.5 | Opus 4.7 | High-stakes synthesis with conversation context |
+| Campaign email body | Sonnet 4.6 | Opus 4.7 | Same |
+| Campaign personalize (legacy) | Sonnet 4.5 | Opus 4.7 | Consistency for any remaining legacy paths |
+| Topic suggestions | Haiku 4.5 | Opus 4.7 | Quality matters; volume is low |
+| Prep for call | Sonnet 4.5 | Opus 4.7 | Shapes real conversations |
+| Resume parser | Haiku 4.5 | Sonnet 4.6 | Output feeds every email prompt; structured extraction doesn't need full Opus |
+| Classify inbound | Haiku 4.5 | Keep | Pattern-match task with review queue backstop |
+| Coach scraper | Haiku 4.5 | Keep | Diff-and-review absorbs errors |
+| Camp extractor | Haiku 4.5 | Keep | Same pattern + defense-in-depth date filter |
+
+Strategic prompts (reel_coverage, rq_refresh, stale_tier_a, camp_decisions, pipeline_shape) confirmed pure SQL/code logic — no LLM involvement.
+
+**Migration 042:** updated campaign_email_drafts.model_used default to 'claude-opus-4-7' to match the new standard.
+
+**Email generation context expansion:**
+
+Both buildEmailDraftPrompt (Flow A) and buildTopicSuggestPrompt (Flow T) refactored to pass rich context to Opus:
+
+- Full conversation history — all contact_log rows for the school, chronological (oldest first), no row limit, no truncation, all sources (including manual entries)
+- All active coaches at the school (not just primary)
+- Upcoming camps with status and dates (filtered to start_date >= today)
+- Decline history if applicable (Mines/CMU declined Finn as striker context)
+- Strategic context (tier, division, conference, status)
+- Player profile (stats, schedule, highlights, current reel)
+
+Prompt structure standardized with sections: TODAY, SCHOOL CONTEXT, COACHES, CAMPS AT THIS SCHOOL, DECLINE HISTORY, FINN'S CURRENT CONTEXT, PENDING ACTION ITEMS, FULL CONVERSATION HISTORY.
+
+**Date awareness rule:**
+
+Added shared DATE_AWARENESS_RULE to both flow system prompts. Today's date passed explicitly. Rule forbids treating past events as actionable:
+
+> RULE: Today's date is {currentDate}. Do not suggest or reference topics tied to past dates, completed events, past games, or expired opportunities as if they are still actionable.
+
+Resolved May 13 bug: Cal Poly SLO topic suggester surfaced "Confirm May 9-10 ID camp attendance" — past camp. Root cause: Opus had no date context, read contact_log content literally. Fixed via date injection + rule.
+
+**Topic suggester action_items filter:**
+
+Filter added to exclude completed and past-due items:
+
+    .is('completed_at', null)
+    .or('due_date.is.null,due_date.gte.{today}')
+
+Prevents stale action items from surfacing as suggestions even though the primary fix was prompt-level date awareness.
+
+**Signature standardization:**
+
+All three prompts (school detail, campaign generator, legacy personalize) now enforce sign-off as just "Finn" on its own line. No full signature block (no email, phone, SR profile URL). Gmail's signature appends formal contact info on send.
+
+**Prep-for-call upgrade:**
+
+Beyond the model swap to Opus 4.7, prep-for-call now uses the same rich context pattern as email generation:
+- Full contact_log (no truncation, no row limit)
+- Upcoming camps with status
+- Decline history
+- All active coaches
+- Today's date with date-awareness rule
+
+Server-side context fetching replaces the previous client-side truncated payload (was 5 rows max).
+
+### SR Email Ingestion Cleanup (May 14, 2026)
+
+**Problem:**
+
+SendGrid inbound webhook was preserving raw SR notification template HTML/CSS in contact_log.summary, polluting the classifier (model couldn't see actual message through CSS noise), all downstream LLM calls reading contact_log, and Today screen display.
+
+Example: Caltech email from Rockne DeCoster on May 14 surfaced in classification review with low confidence because summary contained ~3500 chars of CSS comments, HTML rendering hints, and SR boilerplate before the actual 90-char message ("Hi Finn, Hope you're doing well! Any update about the SAT?").
+
+**Fix:**
+
+extractMessageBody() in src/app/api/webhooks/sendgrid-inbound/route.ts rewritten with Phase 0 cleanup that strips CSS comments and @media rules, inline CSS, SR boilerplate lines ("just sent a message", "You received a new message", "To view my full profile..."), and tab-heavy whitespace runs.
+
+Phase 1 then finds the "Subject:" marker and extracts message body up to the reply-thread terminator (e.g., "On [date], Finn Almond wrote:"). raw_source preserved for re-parse safety; only summary is cleaned.
+
+**Backfill:**
+
+scripts/backfill-sr-cleanup.ts processed all polluted rows. Results:
+- UCLA / Sergi Nus: 5505 chars → 785 chars
+- Caltech / Rockne DeCoster: 3736 chars → 176 chars
+
+Both rows re-classified after cleanup with high confidence:
+- UCLA: informational → requires_action (coach sent camp registration links)
+- Caltech: unknown (low) → requires_reply (high) — SAT question now visible
+
+**Detection logic for future SR notifications:**
+
+Sender pattern or body markers ("SportsRecruits", "just sent a message to your SportsRecruits inbox") trigger the SR-specific cleaning path at ingest time. No backfill needed for future rows.
+
+### Messaging Strategy System (May 14-15, 2026)
+
+Closed-loop system for managing what Finn says to which coaches when. Three phases, all shipped.
+
+**Phase 1 — Inventory (migration 043, May 14):**
+
+Global capture surface for things Finn wants to communicate or ask coaches.
+
+Schema (messages table):
+```
+id, title, type (update | question), notes, expires_at,
+status (active | archived), created_at, updated_at
+```
+
+Seed data (9 initial messages):
+- Updates: End of season — starter at LWB (9-2-3, 3G/2A, advancing to MLS NEXT Cup Utah); MLS NEXT Cup schedule (share when known); SAT score improvement (1340 → 1380); Summer team: Flatirons FC USL-A
+- Questions: Will you be at MLS NEXT Cup in Utah?; How do you play with wingbacks?; Are you recruiting 2027 players like Finn?; Open to a phone call?; How are you using ID camps this summer/fall?
+
+UI surfaces:
+- Top-level nav "Messages" between Campaigns and Camps
+- /messages list page with Active/Archived/All and Updates/Questions filter pills
+- Add/Edit modal with title, type, notes, expires_at, archive
+- Type-to-confirm delete
+
+**Phase 2 — Coverage Detection (migration 044, May 14):**
+
+Auto-detects which inventory messages have been communicated to which schools by analyzing outbound emails at ingest time.
+
+Schema (school_message_log):
+```
+id, message_id (FK messages), school_id (FK schools),
+contact_log_id (FK contact_log), detected_at,
+detection_source (auto | manual), notes,
+unique (message_id, school_id, contact_log_id)
+```
+
+**Critical design decision:** detector fires on outbound contact_log row ingest (gmail-sync and sendgrid-inbound webhook), NOT on mark-as-sent button click. This ensures the analyzed body is what was actually sent, not the generated draft (which Finn may have edited).
+
+Detector (src/lib/message-coverage-detector.ts):
+- Model: Sonnet 4.6
+- Input: sent email body, school, active messages
+- Output: matched_message_ids[] with reasoning
+- Strict matching: "substantively communicated" means the email contains the actual content or asks the actual question; passing mentions don't count
+- Bias: under-detect over over-detect
+
+Wired into both outbound paths:
+- gmail-sync after linkOutboundToCampaign hook
+- sendgrid-inbound CC handler (when SR sends arrive via finn@in.finnsoccer.com fallback)
+
+Filters to Outbound direction + school_id present + summary >= 50 chars.
+
+**Phase 3 — Per-school Plan + Integration (migration 045, May 15):**
+
+Schema (school_message_plan):
+```
+id, school_id (unique), finn_notes text, suggestions jsonb,
+suggestions_generated_at, suggestions_model_used,
+created_at, updated_at
+```
+
+Plus: campaigns.source_message_ids uuid[] for tracking which inventory items a campaign references.
+
+Suggestion generator (src/lib/school-message-plan-generator.ts):
+- Model: Opus 4.7
+- Input: school, coaches, contact history (full, no truncation), uncovered messages, covered messages (for context), upcoming camps, decline history, Finn's notes
+- Output: 2-3 ordered suggestions with reasoning and timing (send_now | after_event | wait)
+- Strict rules: only suggest from uncovered list, never invent message_ids, respect Finn's notes
+
+Communications plan UI (school detail page, between hero banner and conversation timeline):
+
+- **Coverage subsection** (collapsible): Shows messages already communicated to this coach. Each row: type badge, title, contact_date (the actual email date, not detected_at), 60-char excerpt, "source" link. Sorted by contact_date desc. Source link uses hash anchor (#contact-log-{id}) that scrolls smoothly to the matching contact_log entry in the timeline with a 1.5s gold flash.
+
+- **Suggested next messages**: "Refresh suggestions" button regenerates via Opus 4.7. Each suggestion: message title, type badge, reasoning, timing chip. Shows generated_at footer. Empty state with "Generate suggestions" CTA.
+
+- **Strategic notes**: Auto-saving textarea for Finn's per-school strategy notes (debounced). Persists in school_message_plan.finn_notes.
+
+**Inventory integration with campaign creation:**
+
+/campaigns/new Step 1 now includes "Select from inventory" picker above the messages textarea. Checkable cards with type filter (All / Updates / Questions). Selecting auto-populates textarea with title + notes. Editable after selection. source_message_ids array stored on campaign for tracking.
+
+**Inventory integration with topic suggester:**
+
+buildTopicSuggestPrompt fetches active messages + coverage for the school, computes uncovered, passes as prioritized context. System prompt instructs: "When suggesting topics, prioritize uncovered inventory messages that fit the conversation state."
+
+### LLM Model Standards (as of May 15, 2026)
+
+Models in use across the app:
+
+- **claude-opus-4-7** — All email generation flows (school detail body, campaign body, campaign personalize legacy, topic suggestions), prep-for-call, school_message_plan suggestions
+- **claude-sonnet-4-6** — Resume parser, message coverage detector
+- **claude-haiku-4-5-20251001** — Classify inbound, coach scraper, camp extractor
+
+Selection principle:
+- High-stakes synthesis with full context → Opus
+- Structured extraction or pattern matching where review backstops errors → Haiku
+- Middle ground: rule-following extraction without full Opus reasoning → Sonnet
+
 ---
 
 ## 10. Session Startup Checklist for Claude Code
@@ -2858,6 +3050,15 @@ for v1. Smoke tests passed.
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-15 | Phase 3 polish: communications plan moved above conversation timeline, source links deep-link to contact_log entries with gold flash, contact dates replace detected_at | Polish |
+| 2026-05-15 | Messaging Strategy Phase 3 (migration 045): school_message_plan table, Opus-powered per-school suggestions, communications plan UI on school detail, inventory integration in campaign creation and topic suggester | Feature + Schema |
+| 2026-05-14 | Messaging Strategy Phase 2 (migration 044): school_message_log table, Sonnet 4.6 coverage detector, ingest-side fire-and-forget hooks in gmail-sync and sendgrid-inbound, backfill of 157 outbound rows → 75 matches | Feature + Schema |
+| 2026-05-14 | Messaging Strategy Phase 1 (migration 043): messages table with 9 seed inventory items, /messages page with filters, type-to-confirm delete | Feature + Schema |
+| 2026-05-14 | SR email ingestion cleanup: extractMessageBody rewritten to strip CSS/HTML/SR boilerplate at ingest time; backfill cleaned UCLA (5505→785 chars) and Caltech (3736→176 chars), both re-classified to higher confidence | Bug fix |
+| 2026-05-13 | LLM model standardization: all email flows + prep-for-call upgraded to Opus 4.7; resume parser upgraded to Sonnet 4.6; high-volume extraction flows (classify, scraper, camp extractor) confirmed correct on Haiku 4.5 | Quality |
+| 2026-05-13 | Email generation context expansion: full conversation history (no truncation), camps, decline history, coach changes, date awareness rule, signature standardization | Quality |
+| 2026-05-13 | Migration 042: campaign_email_drafts.model_used default updated to claude-opus-4-7 | Schema |
+| 2026-05-13 | Topic suggester action_items filter fixed + date awareness in prompts (resolves Cal Poly SLO May 9-10 past-camp suggestion bug) | Bug fix |
 | 2026-05-11 | Campaign list kebab dropdown: React portal + edge-aware positioning (flips above near viewport bottom) | Bug fix |
 | 2026-05-11 | Campaign archive + delete: migration 041 (archived_at), kebab actions, type-to-confirm delete, CASCADE preservation of contact_log | Feature + Schema |
 | 2026-05-11 | Campaign draft modal: subject line restoration, Regenerate with hint input (migration 040 adds last_hint) | Feature + Schema |
