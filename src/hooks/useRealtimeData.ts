@@ -657,3 +657,50 @@ export function useMessages() {
 
   return { messages, loading, insertMessage, updateMessage, archiveMessage, unarchiveMessage, deleteMessage }
 }
+
+// ─── School Message Log (coverage tracking) ─────────────────────────────────
+
+export interface SchoolMessageLogEntry {
+  id: string
+  message_id: string
+  school_id: string
+  contact_log_id: string | null
+  detected_at: string
+  detection_source: 'auto' | 'manual'
+  notes: string | null
+  created_at: string
+  school: { name: string; short_name: string | null; category: string } | null
+}
+
+export function useSchoolMessageLog(messageId: string | null) {
+  const [entries, setEntries] = useState<SchoolMessageLogEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = useMemo(() => createClient(), [])
+
+  const fetchEntries = useCallback(async () => {
+    if (!messageId) { setEntries([]); setLoading(false); return }
+    const { data, error } = await supabase
+      .from('school_message_log')
+      .select('*, school:schools(name, short_name, category)')
+      .eq('message_id', messageId)
+      .order('detected_at', { ascending: false })
+    if (!error && data) setEntries(data as SchoolMessageLogEntry[])
+    setLoading(false)
+  }, [supabase, messageId])
+
+  useEffect(() => {
+    setLoading(true)
+    fetchEntries()
+    if (!messageId) return
+    const channel = supabase
+      .channel(`school-message-log-${messageId}-${Date.now()}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'school_message_log',
+        filter: `message_id=eq.${messageId}`,
+      }, fetchEntries)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [fetchEntries, supabase, messageId])
+
+  return { entries, loading }
+}

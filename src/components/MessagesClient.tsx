@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useMessages } from '@/hooks/useRealtimeData'
+import { useMessages, useSchoolMessageLog } from '@/hooks/useRealtimeData'
 import type { Message, MessageType, MessageStatus } from '@/lib/types'
 
 // ── Design tokens ────────────────────────────────────────────────────────────
@@ -310,7 +310,9 @@ function MessageRow({ msg, onClick, onMenuOpen }: {
   )
 }
 
-// ── Add/Edit modal ───────────────────────────────────────────────────────────
+// ── Add/Edit modal with Coverage tab ─────────────────────────────────────────
+
+type ModalTab = 'edit' | 'coverage'
 
 function MessageModal({ message, onClose, onSave, onArchive }: {
   message: Message | null
@@ -318,11 +320,14 @@ function MessageModal({ message, onClose, onSave, onArchive }: {
   onSave: (data: Partial<Message>) => Promise<void>
   onArchive?: () => Promise<void>
 }) {
+  const [tab, setTab] = useState<ModalTab>('edit')
   const [title, setTitle] = useState(message?.title ?? '')
   const [type, setType] = useState<MessageType>(message?.type ?? 'update')
   const [notes, setNotes] = useState(message?.notes ?? '')
   const [expiresAt, setExpiresAt] = useState(message?.expires_at ? message.expires_at.split('T')[0] : '')
   const [saving, setSaving] = useState(false)
+
+  const { entries: coverageEntries, loading: coverageLoading } = useSchoolMessageLog(message?.id ?? null)
 
   async function handleSave() {
     if (!title.trim()) return
@@ -334,6 +339,13 @@ function MessageModal({ message, onClose, onSave, onArchive }: {
       expires_at: expiresAt ? new Date(expiresAt + 'T23:59:59Z').toISOString() : null,
     })
     setSaving(false)
+  }
+
+  const TIER_COLORS: Record<string, { bg: string; color: string }> = {
+    A: { bg: '#FEE2E2', color: '#991B1B' },
+    B: { bg: '#FEF3C7', color: '#92400E' },
+    C: { bg: '#E0E7FF', color: '#3730A3' },
+    Nope: { bg: '#F3F4F6', color: '#6B7280' },
   }
 
   return (
@@ -348,84 +360,186 @@ function MessageModal({ message, onClose, onSave, onArchive }: {
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: C.white, borderRadius: 12, width: '100%', maxWidth: 520,
-          boxShadow: '0 25px 50px rgba(0,0,0,0.25)', padding: 24,
+          background: C.white, borderRadius: 12, width: '100%', maxWidth: 560,
+          maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
         }}
       >
-        <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700, color: C.ink }}>
-          {message ? 'Edit message' : 'New message'}
-        </h3>
-
-        {/* Title */}
-        <label style={labelStyle}>Title</label>
-        <input
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          placeholder="What do you want to communicate or ask?"
-          style={{ ...inputStyle, marginBottom: 14 }}
-          autoFocus
-        />
-
-        {/* Type */}
-        <label style={labelStyle}>Type</label>
-        <select
-          value={type}
-          onChange={e => setType(e.target.value as MessageType)}
-          style={{ ...inputStyle, marginBottom: 14 }}
-        >
-          <option value="update">Update</option>
-          <option value="question">Question</option>
-        </select>
-
-        {/* Notes */}
-        <label style={labelStyle}>Notes</label>
-        <textarea
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-          placeholder="Context, details, how to use this message..."
-          rows={5}
-          style={{ ...inputStyle, resize: 'vertical', marginBottom: 14 }}
-        />
-
-        {/* Expires at */}
-        <label style={labelStyle}>
-          Expires at
-          <span style={{ fontWeight: 400, color: C.inkLo, marginLeft: 6 }}>
-            When does this stop being relevant?
-          </span>
-        </label>
-        <input
-          type="date"
-          value={expiresAt}
-          onChange={e => setExpiresAt(e.target.value)}
-          style={{ ...inputStyle, marginBottom: 20 }}
-        />
-
-        {/* Actions */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            {message && onArchive && message.status === 'active' && (
-              <button onClick={onArchive} style={ghostBtnStyle}>
-                Archive
-              </button>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={onClose} style={ghostBtnStyle}>Cancel</button>
-            <button
-              onClick={handleSave}
-              disabled={!title.trim() || saving}
-              style={{
-                padding: '8px 20px', borderRadius: 7, border: 'none',
-                background: C.ink, color: C.white, fontSize: 13, fontWeight: 600,
-                cursor: title.trim() && !saving ? 'pointer' : 'not-allowed',
-                fontFamily: 'inherit', opacity: title.trim() && !saving ? 1 : 0.5,
-              }}
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
-          </div>
+        {/* Header + tabs */}
+        <div style={{ padding: '20px 24px 0', flexShrink: 0 }}>
+          <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: C.ink }}>
+            {message ? message.title : 'New message'}
+          </h3>
+          {message && (
+            <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${C.border}` }}>
+              {(['edit', 'coverage'] as ModalTab[]).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  style={{
+                    padding: '8px 16px', border: 'none', background: 'none',
+                    fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                    color: tab === t ? C.ink : C.inkLo,
+                    borderBottom: tab === t ? `2px solid ${C.ink}` : '2px solid transparent',
+                    marginBottom: -1,
+                  }}
+                >
+                  {t === 'edit' ? 'Edit' : `Coverage (${coverageLoading ? '...' : coverageEntries.length})`}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+          {tab === 'edit' ? (
+            <>
+              {/* Title */}
+              <label style={labelStyle}>Title</label>
+              <input
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="What do you want to communicate or ask?"
+                style={{ ...inputStyle, marginBottom: 14 }}
+                autoFocus
+              />
+
+              {/* Type */}
+              <label style={labelStyle}>Type</label>
+              <select
+                value={type}
+                onChange={e => setType(e.target.value as MessageType)}
+                style={{ ...inputStyle, marginBottom: 14 }}
+              >
+                <option value="update">Update</option>
+                <option value="question">Question</option>
+              </select>
+
+              {/* Notes */}
+              <label style={labelStyle}>Notes</label>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Context, details, how to use this message..."
+                rows={5}
+                style={{ ...inputStyle, resize: 'vertical', marginBottom: 14 }}
+              />
+
+              {/* Expires at */}
+              <label style={labelStyle}>
+                Expires at
+                <span style={{ fontWeight: 400, color: C.inkLo, marginLeft: 6 }}>
+                  When does this stop being relevant?
+                </span>
+              </label>
+              <input
+                type="date"
+                value={expiresAt}
+                onChange={e => setExpiresAt(e.target.value)}
+                style={{ ...inputStyle, marginBottom: 20 }}
+              />
+            </>
+          ) : (
+            /* Coverage tab */
+            <div>
+              {coverageLoading ? (
+                <div style={{ fontSize: 13, color: C.inkLo, padding: '16px 0' }}>Loading coverage...</div>
+              ) : coverageEntries.length === 0 ? (
+                <div style={{ fontSize: 13, color: C.inkLo, padding: '16px 0', textAlign: 'center' }}>
+                  Not yet detected as communicated to any schools.
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.ink, marginBottom: 12 }}>
+                    Communicated to {coverageEntries.length} school{coverageEntries.length !== 1 ? 's' : ''}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {coverageEntries.map(entry => {
+                      const tier = entry.school?.category ?? 'C'
+                      const tc = TIER_COLORS[tier] ?? TIER_COLORS.C
+                      return (
+                        <div
+                          key={entry.id}
+                          style={{
+                            padding: '10px 14px', background: '#FAFBFC', borderRadius: 7,
+                            border: `1px solid ${C.border}`,
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 3,
+                              background: tc.bg, color: tc.color,
+                            }}>
+                              {tier}
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>
+                              {entry.school?.short_name ?? entry.school?.name ?? 'Unknown'}
+                            </span>
+                            <span style={{ fontSize: 11, color: C.inkLo, marginLeft: 'auto' }}>
+                              {new Date(entry.detected_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          {entry.notes && (
+                            <div style={{
+                              fontSize: 12, color: C.inkLo, lineHeight: 1.4,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>
+                              {entry.notes}
+                            </div>
+                          )}
+                          {entry.contact_log_id && (
+                            <a
+                              href={`/schools/${entry.school_id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ fontSize: 11, color: '#2563EB', textDecoration: 'none', marginTop: 4, display: 'inline-block' }}
+                            >
+                              View source
+                            </a>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer actions — only on edit tab */}
+        {tab === 'edit' && (
+          <div style={{ padding: '16px 24px', borderTop: `1px solid ${C.border}`, flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              {message && onArchive && message.status === 'active' && (
+                <button onClick={onArchive} style={ghostBtnStyle}>Archive</button>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={onClose} style={ghostBtnStyle}>Cancel</button>
+              <button
+                onClick={handleSave}
+                disabled={!title.trim() || saving}
+                style={{
+                  padding: '8px 20px', borderRadius: 7, border: 'none',
+                  background: C.ink, color: C.white, fontSize: 13, fontWeight: 600,
+                  cursor: title.trim() && !saving ? 'pointer' : 'not-allowed',
+                  fontFamily: 'inherit', opacity: title.trim() && !saving ? 1 : 0.5,
+                }}
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Footer — coverage tab just has close */}
+        {tab === 'coverage' && (
+          <div style={{ padding: '16px 24px', borderTop: `1px solid ${C.border}`, flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={onClose} style={ghostBtnStyle}>Close</button>
+          </div>
+        )}
       </div>
     </div>
   )

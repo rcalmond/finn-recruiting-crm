@@ -312,6 +312,15 @@ export async function GET(req: NextRequest) {
         import('@/lib/campaigns').then(({ linkOutboundToCampaign }) =>
           linkOutboundToCampaign(admin, insertedRow.id)
         ).catch(err => console.error(`[gmail-sync] campaign-link import failed for ${messageId}:`, err))
+
+        // 6h. Fire-and-forget: detect message coverage
+        import('@/lib/message-coverage-detector').then(async ({ detectAndLogCoverage }) => {
+          const { data: sch } = await admin.from('schools').select('name, short_name').eq('id', schoolId).single()
+          await detectAndLogCoverage(admin, {
+            id: insertedRow.id, school_id: schoolId,
+            summary: parsed.body || parsed.snippet, direction: 'Outbound',
+          }, sch?.name ?? null, sch?.short_name ?? null)
+        }).catch(err => console.error(`[gmail-sync] message-coverage failed for ${messageId}:`, err))
       }
 
       console.log(

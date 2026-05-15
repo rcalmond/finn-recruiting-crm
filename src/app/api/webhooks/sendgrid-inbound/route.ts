@@ -528,6 +528,8 @@ async function handleOutboundCC(
 
   // 6. School matching (reuses existing matchSchool — 5-level hierarchy)
   let schoolId: string | null = null
+  let matchedSchoolName: string | null = null
+  let matchedSchoolShortName: string | null = null
   if (!parsedSchoolName) {
     notes.push('Could not extract school name from CC subject')
     parseStatus = 'partial'
@@ -535,6 +537,8 @@ async function handleOutboundCC(
     const { school, matchType } = await matchSchool(admin, parsedSchoolName)
     if (school) {
       schoolId = school.id
+      matchedSchoolName = school.name
+      matchedSchoolShortName = school.short_name
       if (matchType !== 'exact') {
         notes.push(`School matched via ${matchType}: "${parsedSchoolName}" → "${school.name}"`)
       }
@@ -631,6 +635,14 @@ async function handleOutboundCC(
     import('@/lib/campaigns').then(({ linkOutboundToCampaign }) =>
       linkOutboundToCampaign(admin, insertedRow.id)
     ).catch(err => console.error(`[sg-inbound] campaign-link import failed:`, err))
+
+    // 10b. Fire-and-forget: detect message coverage
+    import('@/lib/message-coverage-detector').then(({ detectAndLogCoverage }) =>
+      detectAndLogCoverage(admin, {
+        id: insertedRow.id, school_id: schoolId,
+        summary: outboundMsg.body || srSubject || subject, direction: 'Outbound',
+      }, matchedSchoolName, matchedSchoolShortName)
+    ).catch(err => console.error(`[sg-inbound] message-coverage failed:`, err))
   }
 
   console.log(
