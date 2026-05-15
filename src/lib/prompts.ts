@@ -1,94 +1,9 @@
-import type { School, ContactLogEntry, Asset, Question, PlayerProfile } from '@/lib/types'
+import type { Question } from '@/lib/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { fetchSchoolContext } from '@/lib/school-context'
 
-export const SYSTEM_PROMPT = `You are a college soccer recruiting assistant helping draft emails from Finn Almond to college coaches. You write in Finn's voice — confident, direct, genuine, and specific. Never generic. Never fluff.
-
-=== THE ATHLETE ===
-
-Name: Finn Almond
-Grad Year: Class of 2027
-Position: Left Wingback (PRIMARY — always lead with this)
-  - Transitioned from Striker/Winger to Left Wingback in November 2025
-  - Two-way wingback: overlapping runs, set piece delivery, 1v1 defending, pressing, transition
-Club: Albion SC Boulder County – MLS NEXT Academy U19
-High School: Alexander Dawson School, Lafayette, CO
-Email: finnalmond08@gmail.com
-Phone: (720) 687-8982
-NCAA ID: 2405288624
-Sports Recruits: https://my.sportsrecruits.com/athlete/finn_almond
-
-Academic Profile:
-  - GPA: 3.78 weighted / 3.57 unweighted
-  - SAT: 1340 (Math 690, EBRW 650)
-  - National Honor Society
-  - AP Courses: AP Calculus AB, AP Chemistry, AP U.S. History
-  - Academic interest: Mechanical Engineering or Aerospace Engineering
-
-Athletic Highlights:
-  - 2025-26 Club: MLS NEXT Academy U19, playing left wingback
-  - April 2026: MLS NEXT Cup Qualifiers, Scottsdale AZ — scored an Olimpico (direct corner kick goal)
-  - 2024 HS Season: 29 goals, 14 assists in 16 games
-  - 2024 HS Awards: 2nd Team All-State, 1st Team All-Conference, Team MVP
-
-=== EMAIL RULES ===
-
-LENGTH: Under 200 words. Always.
-SUBJECT LINE: Finn Almond | Left Wingback | Class of 2027 | [School Name]
-  Exception: replies match the existing thread subject.
-
-ADDRESSING: Always address the email to the coach named in GREETING TARGET. Do not let contact history override this — prior messages may be from a different coach, but GREETING TARGET is the current recipient. Use their last name in the salutation.
-
-TONE:
-  - Written by a 17-year-old who is articulate and serious
-  - Confident but not arrogant. Genuine but not sycophantic.
-  - Never open with "I hope this email finds you well" or any filler
-  - No more than one exclamation point per email
-  - No bullet points in the email body — short paragraphs only
-
-STRUCTURE:
-  - Open: who Finn is and why he's reaching out — one sentence
-  - Middle: specific reason this school matters — engineering program, playing style, prior contact — be concrete
-  - Always include highlight reel link (from ASSETS section in user prompt)
-  - Close with one clear ask only
-  - Sign off: brief closing (e.g., "Thank you," or "Best,") then "Finn" on its own line. No full signature block — email client appends contact info.
-
-ALWAYS INCLUDE: highlight reel link, position (Left Wingback), grad year (2027), club
-NEVER INCLUDE: game film unless it appears in assets and coach asked, striker framing, generic school compliments, more than one ask
-SPECIAL RULE: Never draft any email for Colorado School of Mines — outreach is on hold.
-
-SCHOOL-SPECIFIC:
-  - Reference the specific engineering program by name if known
-  - For schools with prior contact, acknowledge it — don't repeat info already shared
-  - D1 schools: acknowledge competitive level directly
-  - D3 schools: acknowledge academic-athletic balance as a genuine draw
-  - NESCAC schools: acknowledge the conference reputation for academics and soccer
-
-=== OUTPUT FORMAT ===
-Respond ONLY with valid JSON. No preamble, no markdown fences.
-{ "subject": "...", "body": "..." }
-Body uses plain line breaks between paragraphs, no HTML.`
-
-const EMAIL_TYPE_INSTRUCTIONS: Record<string, string> = {
-  first_contact: 'First time reaching out. Lead with who Finn is and why this school. Ask if recruiting 2027 LWBs and if open to a conversation.',
-  wingback_update: 'Share updated highlight reel as LWB. Acknowledge prior contact. Note position transition if this is first wingback email to this coach.',
-  follow_up: 'Re-engage a quiet conversation. Reference something specific from contact log. Don\'t be desperate.',
-  post_camp: 'Thank you and follow-up after a camp. Reference something concrete from the experience.',
-  visit_request: 'Request an unofficial visit. Specific timeframe if known. Clear ask.',
-  academic_update: 'Academic and season update. Lead with strongest recent development. Include GPA, SAT, AP courses, recent club performance.',
-  reply: 'Reply to coach\'s message. Address what they said specifically. Move conversation forward with one clear next step.',
-}
-
-export type EmailType = keyof typeof EMAIL_TYPE_INSTRUCTIONS
-
-const ASSET_TYPE_LABELS: Record<string, string> = {
-  highlight_reel: 'Highlight Reel',
-  game_film: 'Game Film',
-  resume: 'Resume',
-  transcript: 'Transcript',
-  sports_recruits: 'Sports Recruits Profile',
-  link: 'Link',
-  other: 'Other',
-}
+// Legacy type alias — used by todayLogic.ts for email draft mode tracking
+export type EmailType = 'first_contact' | 'wingback_update' | 'follow_up' | 'post_camp' | 'visit_request' | 'academic_update' | 'reply'
 
 // Strip coach email signature blocks from contact log summaries.
 // Signatures typically look like: "Coach Name\nHead Men's Soccer Coach\n..."
@@ -103,90 +18,6 @@ function stripSignature(summary: string): string {
     }
   }
   return summary
-}
-
-export function buildUserPrompt(params: {
-  emailType: EmailType
-  school: School
-  recentLogs: ContactLogEntry[]
-  assets: Asset[]
-  coachMessage?: string
-  additionalContext?: string
-  primaryCoachName?: string | null
-  primaryCoachEmail?: string | null
-  primaryCoachRole?: string | null
-}): string {
-  const { emailType, school, recentLogs, assets, coachMessage, additionalContext, primaryCoachName, primaryCoachEmail, primaryCoachRole } = params
-
-  const lines: string[] = []
-
-  // ── GREETING TARGET first — must win over any contact-log context ──
-  if (primaryCoachName) {
-    const lastName = primaryCoachName.trim().split(' ').at(-1) ?? primaryCoachName
-    const rolePart = primaryCoachRole ? ` (${primaryCoachRole})` : ''
-    const emailPart = primaryCoachEmail ? ` <${primaryCoachEmail}>` : ''
-    lines.push(`GREETING TARGET — MANDATORY:`)
-    lines.push(`This email MUST be addressed to: ${primaryCoachName}${rolePart}${emailPart}`)
-    lines.push(`The salutation MUST use "Coach ${lastName}" — do NOT address any other coach, even if prior messages were from someone else.`)
-    lines.push('')
-  } else if (school.head_coach) {
-    const lastName = school.head_coach.trim().split(/[;\s]+/)[0].split(' ').at(-1) ?? school.head_coach
-    lines.push(`GREETING TARGET — MANDATORY:`)
-    lines.push(`This email MUST be addressed to: ${school.head_coach}`)
-    lines.push(`The salutation MUST use "Coach ${lastName}" — do NOT address any other coach.`)
-    lines.push('')
-  }
-
-  lines.push(`EMAIL TYPE: ${emailType}`)
-  lines.push(`INSTRUCTION: ${EMAIL_TYPE_INSTRUCTIONS[emailType]}`)
-  lines.push('')
-
-  lines.push(`SCHOOL: ${school.name}`)
-  lines.push(`Division: ${school.division}${school.conference ? ` — ${school.conference}` : ''}`)
-  lines.push(`Location: ${school.location || 'Unknown'}`)
-  lines.push(`Status: ${school.status}`)
-  if (school.notes) lines.push(`Notes: ${school.notes}`)
-  lines.push('')
-
-  if (assets.length > 0) {
-    lines.push('ASSETS (current versions — use these links, not any hardcoded URLs):')
-    for (const a of assets) {
-      const label = ASSET_TYPE_LABELS[a.type] ?? a.type
-      const ref = a.category === 'link' && a.url ? a.url : a.file_name ?? '(file)'
-      const visibility = a.type === 'game_film' ? ' — UNLISTED, share only if coach asks' : ''
-      lines.push(`  ${label}: ${a.name} — ${ref}${visibility}`)
-    }
-    lines.push('')
-  }
-
-  if (recentLogs.length > 0) {
-    lines.push(`CONTACT HISTORY (${recentLogs.length} entries — note: contact history shows prior coaches; the GREETING TARGET above overrides who this email is addressed to):`)
-    recentLogs.forEach(e => {
-      const summary = stripSignature(e.summary ?? '')
-      lines.push(`  [${e.date}] ${e.direction} via ${e.channel}${e.coach_name ? ` — ${e.coach_name}` : ''}:`)
-      lines.push(`    ${summary}`)
-    })
-    lines.push('')
-  } else {
-    lines.push('CONTACT HISTORY: None — this is a cold outreach.')
-    lines.push('')
-  }
-
-  if (coachMessage) {
-    lines.push(`COACH'S MESSAGE TO REPLY TO:`)
-    lines.push(coachMessage)
-    lines.push('')
-  }
-
-  if (additionalContext) {
-    lines.push(`ADDITIONAL CONTEXT:`)
-    lines.push(additionalContext)
-    lines.push('')
-  }
-
-  lines.push('Draft the email now. Return only valid JSON with "subject" and "body" keys.')
-
-  return lines.join('\n')
 }
 
 // ─── Campaign personalization ─────────────────────────────────────────────────
@@ -365,97 +196,38 @@ export async function buildEmailDraftPrompt(
   admin: SupabaseClient,
   input: EmailDraftInput
 ): Promise<{ system: string; user: string }> {
-  // ── Parallel data fetches ──────────────────────────────────────────────────
   const isReply = !!input.replyToContactLogId
-  const today = todayISO()
 
+  // ── Shared context fetch ────────────────────────────────────────────────
   const [
+    ctx,
     { data: profile },
-    { data: school },
     { data: coach },
-    { data: contactRows },
     { data: voiceRefs },
     { data: replyToRow },
-    { data: allCoaches },
-    { data: campRows },
-    { data: actionItems },
   ] = await Promise.all([
-    // 1. Player profile (singleton)
+    fetchSchoolContext(admin, input.schoolId, { includeActionItems: true }),
     admin.from('player_profile').select('*').limit(1).single(),
-    // 2. School details
-    admin.from('schools')
-      .select('name, short_name, category, division, conference, location, notes, status')
-      .eq('id', input.schoolId)
-      .single(),
-    // 3. Coach details (if provided)
     input.coachId
       ? admin.from('coaches')
           .select('name, role, email, needs_review')
           .eq('id', input.coachId)
           .single()
       : Promise.resolve({ data: null }),
-    // 4. Full contact_log for this school (chronological)
-    admin.from('contact_log')
-      .select('date, sent_at, direction, channel, coach_name, summary, authored_by, intent')
-      .eq('school_id', input.schoolId)
-      .not('parse_status', 'in', '("orphan","non_coach")')
-      .order('sent_at', { ascending: true }),
-    // 5. Voice reference emails (15 most recent substantive outbounds post-wingback)
     admin.rpc('get_voice_references').then(r => r) as unknown as Promise<{ data: VoiceRef[] | null }>,
-    // 6. Reply-to contact_log row (when replying)
     input.replyToContactLogId
       ? admin.from('contact_log')
           .select('date, sent_at, channel, coach_name, summary')
           .eq('id', input.replyToContactLogId)
           .single()
       : Promise.resolve({ data: null }),
-    // 7. All active coaches at this school
-    admin.from('coaches')
-      .select('name, role, email, is_primary, needs_review')
-      .eq('school_id', input.schoolId)
-      .eq('is_active', true)
-      .order('is_primary', { ascending: false }),
-    // 8. Upcoming camps at this school
-    admin.from('camps')
-      .select('name, start_date, end_date, location, registration_deadline, camp_finn_status(status)')
-      .eq('host_school_id', input.schoolId)
-      .gte('start_date', today),
-    // 9. Active action items for this school
-    admin.from('action_items')
-      .select('action, owner, due_date')
-      .eq('school_id', input.schoolId)
-      .is('completed_at', null)
-      .or(`due_date.is.null,due_date.gte.${today}`)
-      .order('sort_order')
-      .limit(5),
   ])
+
+  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems } = ctx
 
   const currentDate = formatCurrentDate()
 
-  // ── Process camps ─────────────────────────────────────────────────────────
-  const camps: CampContext[] = (campRows ?? []).map((c: Record<string, unknown>) => {
-    const fs = c.camp_finn_status as Array<{ status: string }> | null
-    return {
-      name: c.name as string,
-      start_date: c.start_date as string,
-      end_date: c.end_date as string,
-      location: c.location as string | null,
-      registration_deadline: c.registration_deadline as string | null,
-      status: fs?.[0]?.status ?? 'no status',
-    }
-  })
-
-  // ── Process coaches ───────────────────────────────────────────────────────
-  const coaches: CoachContext[] = (allCoaches ?? []).map((c: Record<string, unknown>) => ({
-    name: c.name as string,
-    role: c.role as string | null,
-    email: c.email as string | null,
-    is_primary: c.is_primary as boolean,
-    needs_review: c.needs_review as boolean,
-  }))
-
   // ── Staleness calculation ──────────────────────────────────────────────────
-  const history = contactRows ?? []
   const recentInbound = [...history].reverse().find(
     (r: ContactRow) => r.direction === 'Inbound' &&
       r.authored_by !== 'team_automated' &&
@@ -471,9 +243,6 @@ export async function buildEmailDraftPrompt(
       : stalenessDays <= 90 ? 'Cooling'
       : 'Stale'
   }
-
-  // ── Decline history ───────────────────────────────────────────────────────
-  const declineRows = history.filter((r: ContactRow) => r.intent === 'decline')
 
   // ── Most recent inbound classification ─────────────────────────────────────
   const classifiedInbound = [...history].reverse().find(
@@ -727,83 +496,28 @@ export async function buildTopicSuggestPrompt(
   schoolId: string,
   coachId: string | null
 ): Promise<{ system: string; user: string }> {
-  const today = todayISO()
-
+  // ── Shared context fetch ────────────────────────────────────────────────
   const [
+    ctx,
     { data: profile },
-    { data: school },
     { data: coach },
-    { data: contactRows },
-    { data: actionItems },
-    { data: allCoaches },
-    { data: campRows },
     { data: activeMessages },
     { data: coverageRows },
   ] = await Promise.all([
+    fetchSchoolContext(admin, schoolId, { includeActionItems: true }),
     admin.from('player_profile').select('current_stats, upcoming_schedule, highlights, current_reel_url').limit(1).single(),
-    admin.from('schools')
-      .select('name, category, division, conference, location, notes, status')
-      .eq('id', schoolId)
-      .single(),
     coachId
       ? admin.from('coaches').select('name, role, needs_review').eq('id', coachId).single()
       : Promise.resolve({ data: null }),
-    // Full contact_log (chronological)
-    admin.from('contact_log')
-      .select('date, sent_at, direction, channel, coach_name, summary, authored_by, intent')
-      .eq('school_id', schoolId)
-      .not('parse_status', 'in', '("orphan","non_coach")')
-      .order('sent_at', { ascending: true }),
-    admin.from('action_items')
-      .select('action, owner, due_date')
-      .eq('school_id', schoolId)
-      .is('completed_at', null)
-      .or(`due_date.is.null,due_date.gte.${today}`)
-      .order('sort_order')
-      .limit(5),
-    // All active coaches
-    admin.from('coaches')
-      .select('name, role, email, is_primary, needs_review')
-      .eq('school_id', schoolId)
-      .eq('is_active', true)
-      .order('is_primary', { ascending: false }),
-    // Upcoming camps
-    admin.from('camps')
-      .select('name, start_date, end_date, location, registration_deadline, camp_finn_status(status)')
-      .eq('host_school_id', schoolId)
-      .gte('start_date', today),
-    // Active message inventory
     admin.from('messages').select('id, title, type, notes').eq('status', 'active'),
-    // Coverage for this school
     admin.from('school_message_log').select('message_id').eq('school_id', schoolId),
   ])
 
+  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems } = ctx
+
   const currentDate = formatCurrentDate()
 
-  // Process camps
-  const camps: CampContext[] = (campRows ?? []).map((c: Record<string, unknown>) => {
-    const fs = c.camp_finn_status as Array<{ status: string }> | null
-    return {
-      name: c.name as string,
-      start_date: c.start_date as string,
-      end_date: c.end_date as string,
-      location: c.location as string | null,
-      registration_deadline: c.registration_deadline as string | null,
-      status: fs?.[0]?.status ?? 'no status',
-    }
-  })
-
-  // Process coaches
-  const coaches: CoachContext[] = (allCoaches ?? []).map((c: Record<string, unknown>) => ({
-    name: c.name as string,
-    role: c.role as string | null,
-    email: c.email as string | null,
-    is_primary: c.is_primary as boolean,
-    needs_review: c.needs_review as boolean,
-  }))
-
   // Staleness
-  const history = contactRows ?? []
   const recentInbound = [...history].reverse().find(
     (r: ContactRow) => r.direction === 'Inbound' &&
       r.authored_by !== 'team_automated' &&
@@ -819,9 +533,6 @@ export async function buildTopicSuggestPrompt(
       : stalenessDays <= 90 ? 'Cooling'
       : 'Stale'
   }
-
-  // Decline history
-  const declineRows = history.filter((r: ContactRow) => r.intent === 'decline')
 
   // Uncovered inventory messages
   const coveredIds = new Set((coverageRows ?? []).map((r: Record<string, unknown>) => r.message_id as string))

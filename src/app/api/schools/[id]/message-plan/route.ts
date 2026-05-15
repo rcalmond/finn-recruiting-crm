@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { generateSchoolMessagePlan } from '@/lib/school-message-plan-generator'
+import { fetchSchoolContext } from '@/lib/school-context'
 import type { Message } from '@/lib/types'
 
 function admin() {
@@ -45,41 +46,24 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const today = new Date().toISOString().split('T')[0]
 
-  // Parallel data fetches
+  // Shared context + route-specific fetches
   const [
-    { data: school },
-    { data: allCoaches },
-    { data: contactRows },
+    ctx,
     { data: activeMessages },
     { data: coverageRows },
-    { data: campRows },
     { data: existingPlan },
   ] = await Promise.all([
-    db.from('schools')
-      .select('name, category, division, conference, location, notes, status')
-      .eq('id', schoolId).single(),
-    db.from('coaches')
-      .select('name, role, is_primary, needs_review')
-      .eq('school_id', schoolId).eq('is_active', true)
-      .order('is_primary', { ascending: false }),
-    db.from('contact_log')
-      .select('date, direction, channel, coach_name, summary, intent')
-      .eq('school_id', schoolId)
-      .not('parse_status', 'in', '("orphan","non_coach")')
-      .order('sent_at', { ascending: true }),
+    fetchSchoolContext(db, schoolId),
     db.from('messages').select('*').eq('status', 'active'),
     db.from('school_message_log')
       .select('*, message:messages(*)')
       .eq('school_id', schoolId),
-    db.from('camps')
-      .select('name, start_date, end_date, camp_finn_status(status)')
-      .eq('host_school_id', schoolId)
-      .gte('start_date', today),
     db.from('school_message_plan')
       .select('*').eq('school_id', schoolId).maybeSingle(),
   ])
+
+  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows } = ctx
 
   if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 })
 
@@ -94,26 +78,6 @@ export async function POST(
       message: c.message as Message,
       detected_at: c.detected_at as string,
     }))
-
-  const history = (contactRows ?? []) as Array<{ date: string; direction: string; channel: string; coach_name: string | null; summary: string | null; intent: string | null }>
-  const declineRows = history.filter(r => r.intent === 'decline')
-
-  const camps = (campRows ?? []).map((c: Record<string, unknown>) => {
-    const fs = c.camp_finn_status as Array<{ status: string }> | null
-    return {
-      name: c.name as string,
-      start_date: c.start_date as string,
-      end_date: c.end_date as string,
-      status: fs?.[0]?.status ?? 'no status',
-    }
-  })
-
-  const coaches = (allCoaches ?? []).map((c: Record<string, unknown>) => ({
-    name: c.name as string,
-    role: c.role as string | null,
-    is_primary: c.is_primary as boolean,
-    needs_review: c.needs_review as boolean,
-  }))
 
   try {
     const result = await generateSchoolMessagePlan({

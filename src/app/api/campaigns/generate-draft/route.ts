@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { generateCampaignEmailBody, type GenerateInput } from '@/lib/campaign-email-generator'
+import { fetchSchoolContext } from '@/lib/school-context'
 
 function admin() {
   return createServiceClient(
@@ -75,18 +76,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
   }
 
-  // Fetch school
-  const { data: school } = await db
-    .from('schools')
-    .select('id, name, short_name, category, status, division, conference, location, notes')
-    .eq('id', schoolId)
-    .single()
+  // Shared context + route-specific fetches
+  const [ctx, { data: profile }] = await Promise.all([
+    fetchSchoolContext(db, schoolId),
+    db.from('player_profile').select('current_reel_url').limit(1).maybeSingle(),
+  ])
+
+  const { school, contactLog, upcomingCamps } = ctx
 
   if (!school) {
     return NextResponse.json({ error: 'School not found' }, { status: 404 })
   }
 
-  // Fetch coach
+  // Fetch coach (campaign-specific — uses the campaign's coach_id, not primary)
   let coachName: string | null = null
   let coachRole: string | null = null
   if (coachId) {
@@ -101,37 +103,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Fetch contact history
-  const { data: contactRows } = await db
-    .from('contact_log')
-    .select('date, direction, channel, coach_name, summary')
-    .eq('school_id', schoolId)
-    .order('sent_at', { ascending: true })
-
-  // Fetch targeted camps for this school
-  const { data: campRows } = await db
-    .from('camps')
-    .select('name, start_date, end_date, camp_finn_status(status)')
-    .eq('host_school_id', schoolId)
-    .gte('start_date', new Date().toISOString().split('T')[0])
-
-  const camps = (campRows ?? [])
-    .filter((c: Record<string, unknown>) => {
-      const fs = c.camp_finn_status as Array<{ status: string }> | null
-      return fs && fs.length > 0 && (fs[0].status === 'targeted' || fs[0].status === 'registered')
-    })
-    .map((c: Record<string, unknown>) => ({
-      name: c.name as string,
-      start_date: c.start_date as string,
-      end_date: c.end_date as string,
-    }))
-
-  // Fetch current reel
-  const { data: profile } = await db
-    .from('player_profile')
-    .select('current_reel_url')
-    .limit(1)
-    .maybeSingle()
+  // Filter to targeted/registered camps only (campaign emails only mention committed camps)
+  const camps = upcomingCamps
+    .filter(c => c.status === 'targeted' || c.status === 'registered')
+    .map(c => ({ name: c.name, start_date: c.start_date, end_date: c.end_date }))
 
   const generatorInput: GenerateInput = {
     messageSet: campaign.message_set,
@@ -144,12 +119,12 @@ export async function POST(req: NextRequest) {
     schoolConference: school.conference,
     schoolLocation: school.location,
     schoolNotes: school.notes,
-    contactHistory: (contactRows ?? []).map((r: Record<string, unknown>) => ({
-      date: r.date as string,
+    contactHistory: contactLog.map(r => ({
+      date: r.date,
       direction: r.direction as 'Inbound' | 'Outbound',
-      channel: r.channel as string,
-      coach_name: r.coach_name as string | null,
-      summary: r.summary as string | null,
+      channel: r.channel,
+      coach_name: r.coach_name,
+      summary: r.summary,
     })),
     camps,
     currentReelUrl: (profile as { current_reel_url: string | null } | null)?.current_reel_url ?? null,
