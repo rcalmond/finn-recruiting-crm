@@ -617,7 +617,7 @@ function Timeline({
           if (exp) {
             const hasActions = isUnreplied || !!snoozeState
             return (
-              <div key={id} style={{
+              <div key={id} id={`contact-log-${entry.id}`} style={{
                 display: 'grid', gridTemplateColumns: '60px 1fr', gap: 12,
                 padding: '12px 0', borderBottom: `1px solid ${SD.line}`,
                 opacity: snoozeState ? 0.6 : 1,
@@ -755,7 +755,7 @@ function Timeline({
 
           // Collapsed contact
           return (
-            <div key={id} onClick={() => toggle(id)} style={{
+            <div key={id} id={`contact-log-${entry.id}`} onClick={() => toggle(id)} style={{
               display: 'grid', gridTemplateColumns: '60px 16px 1fr 24px',
               gap: 10, alignItems: 'center',
               padding: '9px 0', borderBottom: `1px solid ${SD.line}`,
@@ -1964,6 +1964,7 @@ export default function SchoolDetailClient({
         paddingBottom: 'clamp(24px, 4vw, 40px)',
       }}>
         <div>
+          <CommunicationsPlan schoolId={school.id} />
           <Timeline
             contactLog={contactLog}
             actionItems={actionItems}
@@ -1980,7 +1981,6 @@ export default function SchoolDetailClient({
             onEditEntry={async (id, updates) => { await updateEntry(id, updates) }}
             onDeleteEntry={async (id) => { await deleteEntry(id) }}
           />
-          <CommunicationsPlan schoolId={school.id} />
         </div>
         <Sidebar
           school={school}

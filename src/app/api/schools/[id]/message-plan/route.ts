@@ -26,7 +26,7 @@ export async function GET(
   const [{ data: plan }, { data: coverage }] = await Promise.all([
     db.from('school_message_plan').select('*').eq('school_id', schoolId).maybeSingle(),
     db.from('school_message_log')
-      .select('*, message:messages(*)')
+      .select('*, message:messages(*), contact_log:contact_log(date, summary)')
       .eq('school_id', schoolId)
       .order('detected_at', { ascending: false }),
   ])

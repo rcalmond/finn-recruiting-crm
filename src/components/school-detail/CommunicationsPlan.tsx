@@ -36,6 +36,7 @@ interface CoverageRow {
   detected_at: string
   notes: string | null
   message: Message | null
+  contact_log: { date: string; summary: string | null } | null
 }
 
 interface PlanData {
@@ -114,7 +115,7 @@ export default function CommunicationsPlan({ schoolId }: Props) {
   if (loading) return null
 
   return (
-    <section style={{ marginTop: 32 }}>
+    <section style={{ marginBottom: 32 }}>
       {/* Section header */}
       <h2 style={{
         margin: '0 0 18px', fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
@@ -146,23 +147,56 @@ export default function CommunicationsPlan({ schoolId }: Props) {
               <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic', padding: '4px 0' }}>
                 Nothing detected as covered yet.
               </div>
-            ) : coverage.map(c => {
+            ) : [...coverage]
+              .sort((a, b) => {
+                const da = a.contact_log?.date ?? a.detected_at
+                const db2 = b.contact_log?.date ?? b.detected_at
+                return db2.localeCompare(da)
+              })
+              .map(c => {
               const msg = c.message
               if (!msg) return null
               const ts = TYPE_STYLES[msg.type] ?? TYPE_STYLES.update
+              const contactDate = c.contact_log?.date
+              const excerpt = c.contact_log?.summary?.slice(0, 60)
               return (
                 <div key={c.id} style={{
                   padding: '8px 12px', background: SD.white, borderRadius: 6,
-                  border: `1px solid ${SD.line}`, display: 'flex', alignItems: 'center', gap: 8,
+                  border: `1px solid ${SD.line}`,
                 }}>
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3,
-                    textTransform: 'uppercase', background: ts.bg, color: ts.color,
-                  }}>{ts.label}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: SD.ink, flex: 1 }}>{msg.title}</span>
-                  <span style={{ fontSize: 11, color: SD.inkLo }}>{new Date(c.detected_at).toLocaleDateString()}</span>
-                  {c.contact_log_id && (
-                    <a href={`/schools/${schoolId}`} style={{ fontSize: 10, color: SD.teal, textDecoration: 'none' }}>source</a>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3,
+                      textTransform: 'uppercase', background: ts.bg, color: ts.color,
+                    }}>{ts.label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: SD.ink, flex: 1 }}>{msg.title}</span>
+                    <span style={{ fontSize: 11, color: SD.inkLo }}>
+                      {contactDate ? new Date(contactDate + 'T00:00:00').toLocaleDateString() : new Date(c.detected_at).toLocaleDateString()}
+                    </span>
+                    {c.contact_log_id && (
+                      <a
+                        href={`#contact-log-${c.contact_log_id}`}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          const el = document.getElementById(`contact-log-${c.contact_log_id}`)
+                          if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                            el.style.transition = 'background 0.3s'
+                            el.style.background = '#FEF3C7'
+                            setTimeout(() => { el.style.background = '' }, 1500)
+                          }
+                        }}
+                        style={{ fontSize: 10, color: SD.teal, textDecoration: 'none', flexShrink: 0 }}
+                      >source</a>
+                    )}
+                  </div>
+                  {excerpt && (
+                    <div style={{
+                      fontSize: 11, color: SD.inkMute, marginTop: 4,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      &ldquo;{excerpt}{(c.contact_log?.summary?.length ?? 0) > 60 ? '...' : ''}&rdquo;
+                    </div>
                   )}
                 </div>
               )
