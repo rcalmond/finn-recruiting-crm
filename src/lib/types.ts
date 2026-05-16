@@ -37,6 +37,8 @@ export interface School {
   notes: string | null
   generic_team_email: string | null
   aliases: string[]
+  latitude: number | null
+  longitude: number | null
   sort_order?: number | null
   created_at: string
   updated_at: string

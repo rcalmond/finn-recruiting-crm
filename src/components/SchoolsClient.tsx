@@ -1,9 +1,15 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import type { User } from '@supabase/supabase-js'
 import { useSchools, useContactLog } from '@/hooks/useRealtimeData'
+
+const SchoolsMap = dynamic(() => import('./schools/SchoolsMap'), {
+  ssr: false,
+  loading: () => <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7A7570' }}>Loading map...</div>,
+})
 import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
 import { deriveSignal } from '@/lib/signals'
 import type { School, ContactLogEntry, Division, Category } from '@/lib/types'
@@ -316,6 +322,19 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
   const { schools, loading: schoolsLoading } = useSchools()
   const { entries: contactLog, loading: logLoading } = useContactLog()
 
+  const searchParams = useSearchParams()
+  const [viewMode, setViewMode] = useState<'list' | 'map'>(
+    searchParams.get('view') === 'map' ? 'map' : 'list'
+  )
+
+  function switchView(mode: 'list' | 'map') {
+    setViewMode(mode)
+    const url = new URL(window.location.href)
+    if (mode === 'map') url.searchParams.set('view', 'map')
+    else url.searchParams.delete('view')
+    window.history.replaceState({}, '', url.toString())
+  }
+
   // ── Filter state ────────────────────────────────────────────────────────────
   const [searchQ,     setSearchQ]     = useState('')
   const [stageFilter, setStageFilter] = useState('All')
@@ -479,17 +498,40 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
               {filtered.length} of {total}
             </div>
           </div>
-          <button style={{
-            padding: '8px 16px', background: SL.ink, color: '#fff',
-            border: 'none', borderRadius: 999, fontSize: 13, fontWeight: 650,
-            cursor: 'pointer', letterSpacing: -0.1,
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-          }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
-            </svg>
-            Add school
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* View mode toggle */}
+            <div style={{ display: 'flex', borderRadius: 999, overflow: 'hidden', border: `1px solid ${SL.line2}` }}>
+              <button
+                onClick={() => switchView('list')}
+                style={{
+                  padding: '6px 12px', border: 'none', cursor: 'pointer',
+                  fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+                  background: viewMode === 'list' ? SL.ink : 'transparent',
+                  color: viewMode === 'list' ? '#fff' : SL.inkLo,
+                }}
+              >List</button>
+              <button
+                onClick={() => switchView('map')}
+                style={{
+                  padding: '6px 12px', border: 'none', cursor: 'pointer',
+                  fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+                  background: viewMode === 'map' ? SL.ink : 'transparent',
+                  color: viewMode === 'map' ? '#fff' : SL.inkLo,
+                }}
+              >Map</button>
+            </div>
+            <button style={{
+              padding: '8px 16px', background: SL.ink, color: '#fff',
+              border: 'none', borderRadius: 999, fontSize: 13, fontWeight: 650,
+              cursor: 'pointer', letterSpacing: -0.1,
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
+              </svg>
+              Add school
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -528,43 +570,52 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
         {/* Filter row */}
         {filterBar}
 
-        {/* Column headers + list */}
-        <div style={{ margin: '14px 40px 0', borderTop: `1px solid ${SL.line}` }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '28px 1fr 100px 170px 180px 16px',
-            gap: 18, alignItems: 'center',
-            padding: '10px 20px', height: 36,
-            fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase',
-            fontWeight: 700, color: SL.inkLo,
-            borderBottom: `1px solid ${SL.line}`,
-            background: SL.paperDeep,
-          }}>
-            <div>Tier</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              School
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
-                <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+        {/* Content: list or map */}
+        {viewMode === 'list' ? (
+          <div style={{ margin: '14px 40px 0', borderTop: `1px solid ${SL.line}` }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '28px 1fr 100px 170px 180px 16px',
+              gap: 18, alignItems: 'center',
+              padding: '10px 20px', height: 36,
+              fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase',
+              fontWeight: 700, color: SL.inkLo,
+              borderBottom: `1px solid ${SL.line}`,
+              background: SL.paperDeep,
+            }}>
+              <div>Tier</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                School
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <div>Stage</div>
+              <div>Progress</div>
+              <div>Signal</div>
+              <div/>
             </div>
-            <div>Stage</div>
-            <div>Progress</div>
-            <div>Signal</div>
-            <div/>
-          </div>
 
-          {filtered.length === 0
-            ? <EmptyState onReset={resetFilters} />
-            : filtered.map((rich, i) => (
-                <DesktopRow
-                  key={rich.school.id}
-                  rich={rich}
-                  even={i % 2 === 0}
-                  onClick={() => openSchool(rich.school)}
-                />
-              ))
-          }
-        </div>
+            {filtered.length === 0
+              ? <EmptyState onReset={resetFilters} />
+              : filtered.map((rich, i) => (
+                  <DesktopRow
+                    key={rich.school.id}
+                    rich={rich}
+                    even={i % 2 === 0}
+                    onClick={() => openSchool(rich.school)}
+                  />
+                ))
+            }
+          </div>
+        ) : (
+          <div style={{ margin: '14px 40px 0' }}>
+            <SchoolsMap
+              schools={filtered.map(r => r.school)}
+              onSchoolClick={(id) => router.push(`/schools/${id}`)}
+            />
+          </div>
+        )}
 
         {/* Footer */}
         <div style={{
