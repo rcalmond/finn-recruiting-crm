@@ -36,7 +36,27 @@ export function useSchools() {
       .from('schools')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
-    if (!error) setSchools(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s))
+    if (!error) {
+      setSchools(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s))
+      // Auto-decline interested camps when school moves to Nope
+      if (updates.category === 'Nope') {
+        const { data: campIds } = await supabase
+          .from('camps')
+          .select('id')
+          .eq('host_school_id', id)
+        if (campIds && campIds.length > 0) {
+          await supabase
+            .from('camp_finn_status')
+            .update({
+              status: 'declined',
+              declined_at: new Date().toISOString(),
+              declined_reason: 'School moved to Nope tier',
+            })
+            .in('camp_id', campIds.map(c => c.id))
+            .eq('status', 'interested')
+        }
+      }
+    }
     return error
   }, [supabase])
 

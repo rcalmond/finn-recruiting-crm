@@ -59,9 +59,14 @@ export default function CampsClient({ user }: { user: User }) {
   const [tierFilter, setTierFilter] = useState<TierFilter>('all')
   const [showAddModal, setShowAddModal] = useState(false)
 
+  // Exclude Nope schools from all views (defense in depth)
+  const activeCamps = useMemo(() =>
+    camps.filter(c => c.hostSchool.category !== 'Nope'),
+  [camps])
+
   // Filtered camps for list view (timeframe + status + tier)
   const filtered = useMemo(() => {
-    let list = sortCampsChronological(camps)
+    let list = sortCampsChronological(activeCamps)
 
     if (timeframe !== 'all') {
       list = list.filter(c => {
@@ -80,11 +85,11 @@ export default function CampsClient({ user }: { user: User }) {
     }
 
     return list
-  }, [camps, today, timeframe, statusFilter, tierFilter])
+  }, [activeCamps, today, timeframe, statusFilter, tierFilter])
 
   // Filtered camps for calendar view (status + tier only, no timeframe)
   const calendarCamps = useMemo(() => {
-    let list = camps
+    let list = activeCamps
 
     if (statusFilter !== 'all') {
       list = list.filter(c => c.finnStatus?.status === statusFilter)
@@ -95,7 +100,7 @@ export default function CampsClient({ user }: { user: User }) {
     }
 
     return list
-  }, [camps, statusFilter, tierFilter])
+  }, [activeCamps, statusFilter, tierFilter])
 
   if (loading) {
     return (
