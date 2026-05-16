@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     db.from('player_profile').select('current_reel_url').limit(1).maybeSingle(),
   ])
 
-  const { school, contactLog, upcomingCamps } = ctx
+  const { school, contactLog, upcomingCamps, strategicNotes } = ctx
 
   if (!school) {
     return NextResponse.json({ error: 'School not found' }, { status: 404 })
@@ -128,6 +128,7 @@ export async function POST(req: NextRequest) {
     })),
     camps,
     currentReelUrl: (profile as { current_reel_url: string | null } | null)?.current_reel_url ?? null,
+    strategicNotes,
     regenerationHint: hint?.trim() || null,
   }
 

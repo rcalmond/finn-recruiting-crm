@@ -223,7 +223,7 @@ export async function buildEmailDraftPrompt(
       : Promise.resolve({ data: null }),
   ])
 
-  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems } = ctx
+  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, strategicNotes } = ctx
 
   const currentDate = formatCurrentDate()
 
@@ -417,6 +417,15 @@ Body uses plain line breaks between paragraphs, no HTML.`)
   }
   usr.push('')
 
+  // ── Strategic notes ──
+  if (strategicNotes) {
+    usr.push(`FINN'S STRATEGIC NOTES FOR THIS SCHOOL:`)
+    usr.push(strategicNotes)
+    usr.push('')
+    usr.push(`These are Finn's own thoughts about how to handle this school. Weigh them when crafting the email.`)
+    usr.push('')
+  }
+
   // ── Pending action items ──
   const actions = actionItems ?? []
   if (actions.length > 0) {
@@ -513,7 +522,7 @@ export async function buildTopicSuggestPrompt(
     admin.from('school_message_log').select('message_id').eq('school_id', schoolId),
   ])
 
-  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems } = ctx
+  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, strategicNotes } = ctx
 
   const currentDate = formatCurrentDate()
 
@@ -628,6 +637,13 @@ Return a JSON array of 3 strings. No preamble.`
   }
   usr.push('')
 
+  // Strategic notes
+  if (strategicNotes) {
+    usr.push(`FINN'S STRATEGIC NOTES FOR THIS SCHOOL:`)
+    usr.push(strategicNotes)
+    usr.push('')
+  }
+
   // Action items
   const actions = actionItems ?? []
   if (actions.length > 0) {
@@ -732,8 +748,9 @@ export function buildPrepPrompt(params: {
     coach_name: string | null
     summary: string | null
   }>
+  strategicNotes?: string | null
 }): string {
-  const { school, contactHistory, globalQuestions, coaches, camps, declineRows } = params
+  const { school, contactHistory, globalQuestions, coaches, camps, declineRows, strategicNotes } = params
   const currentDate = formatCurrentDate()
   const lines: string[] = []
 
@@ -791,6 +808,15 @@ export function buildPrepPrompt(params: {
     lines.push(`- None`)
   }
   lines.push('')
+
+  // Strategic notes
+  if (strategicNotes) {
+    lines.push(`FINN'S STRATEGIC NOTES FOR THIS SCHOOL:`)
+    lines.push(strategicNotes)
+    lines.push('')
+    lines.push(`Address these notes in the call prep — what's Finn trying to figure out? What questions should he prioritize?`)
+    lines.push('')
+  }
 
   // Full conversation history
   if (contactHistory.length > 0) {

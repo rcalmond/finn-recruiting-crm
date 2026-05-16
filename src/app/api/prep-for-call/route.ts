@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     const admin = serviceClient()
 
-    const { school, coaches, contactLog, upcomingCamps: camps, declineHistory: declineRows } =
+    const { school, coaches, contactLog, upcomingCamps: camps, declineHistory: declineRows, strategicNotes } =
       await fetchSchoolContext(admin, schoolId)
 
     if (!school) {
@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
       coaches,
       camps,
       declineRows,
+      strategicNotes,
     })
 
     const message = await anthropic.messages.create({

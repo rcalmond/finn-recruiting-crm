@@ -68,6 +68,7 @@ export interface SchoolContext {
   upcomingCamps: CampRow[]
   declineHistory: ContactLogRow[]
   actionItems: ActionItemRow[]
+  strategicNotes: string | null
 }
 
 export interface SchoolContextOptions {
@@ -108,9 +109,14 @@ export async function fetchSchoolContext(
       .select('name, start_date, end_date, location, registration_deadline, camp_finn_status(status)')
       .eq('host_school_id', schoolId)
       .gte('start_date', today),
+    // 4. Strategic notes (from school_message_plan)
+    admin.from('school_message_plan')
+      .select('finn_notes')
+      .eq('school_id', schoolId)
+      .maybeSingle(),
   ]
 
-  // 4. Action items (optional)
+  // 5. Action items (optional)
   if (options.includeActionItems) {
     queries.push(
       admin.from('action_items')
@@ -129,8 +135,10 @@ export async function fetchSchoolContext(
   const rawCoaches = (results[1].data ?? []) as Array<Record<string, unknown>>
   const rawContactLog = (results[2].data ?? []) as ContactLogRow[]
   const rawCamps = (results[3].data ?? []) as Array<Record<string, unknown>>
+  const planRow = results[4].data as { finn_notes: string | null } | null
+  const strategicNotes = planRow?.finn_notes?.trim() || null
   const rawActions = options.includeActionItems
-    ? (results[4].data ?? []) as ActionItemRow[]
+    ? (results[5].data ?? []) as ActionItemRow[]
     : []
 
   // Process coaches
@@ -165,5 +173,6 @@ export async function fetchSchoolContext(
     upcomingCamps,
     declineHistory,
     actionItems: rawActions,
+    strategicNotes,
   }
 }

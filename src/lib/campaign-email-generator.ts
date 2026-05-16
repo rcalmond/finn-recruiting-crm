@@ -38,6 +38,7 @@ export interface GenerateInput {
   contactHistory: ContactHistoryRow[]
   camps: CampInfo[]
   currentReelUrl: string | null
+  strategicNotes?: string | null
   regenerationHint?: string | null
 }
 
@@ -113,7 +114,7 @@ STRATEGIC CONTEXT:
 - Targeted camps at this school: ${campsSection}
 - Last inbound from this school: ${daysSinceInbound}
 ${input.schoolNotes ? `- Notes: ${input.schoolNotes.slice(0, 300)}` : ''}
-
+${input.strategicNotes ? `\nFINN'S STRATEGIC NOTES FOR THIS SCHOOL:\n${input.strategicNotes}\n` : ''}
 ${historySection}
 
 ---
