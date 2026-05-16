@@ -1580,6 +1580,18 @@ Coverage distribution post-rerun:
 
 Strategic state: most schools have heard the cold-outreach question and academic pitch. Most have NOT heard end-of-season stats, summer team news, depth-chart or successful-recruit questions, or AP/grades trajectory. Phase 3 Communications plan now has 8-10 uncovered items per active school to surface.
 
+### Strategic Notes Wiring (May 16, 2026)
+
+Closed a gap discovered during real-world use of the Communications plan: Finn's per-school strategic notes (school_message_plan.finn_notes) were visible to the Phase 3 suggestion generator but invisible to all four email/topic/call-prep/campaign generation flows.
+
+Symptom: Finn's notes for CMU ("Need to figure out how they use wingbacks") informed the suggestions surfaced in Communications plan but had no effect on the actual email body when Finn clicked Draft. Intent captured in notes was lost between strategy and execution.
+
+Fix: extended fetchSchoolContext to fetch finn_notes from school_message_plan (no option flag — always included since it's lightweight and useful everywhere). Updated the four prompt builders (buildEmailDraftPrompt, buildTopicSuggestPrompt, prep-for-call, campaign generate-draft) to render strategic notes as a dedicated section when present, omit when null.
+
+System prompt instructions added to each flow telling the model to weigh strategic notes when generating content. Section placement varies by flow — strategic notes appear near the top in prep-for-call (since prep doc is itself strategic thinking) and in the standard strategic context section for email body and topic suggestion flows.
+
+Future flows using fetchSchoolContext automatically get strategic notes — no wiring needed.
+
 ---
 
 ## 10. Session Startup Checklist for Claude Code
@@ -3132,6 +3144,7 @@ for v1. Smoke tests passed.
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-16 | Strategic notes wiring: fetchSchoolContext now fetches school_message_plan.finn_notes; rendered in email body, topic suggester, prep-for-call, and campaign generate-draft prompts. Closes loop between Phase 3 suggestions and actual generated content. | Polish |
 | 2026-05-15 | Utah trip cancelled — 2 inventory items archived. Inventory enriched: 7 existing items rewritten with richer strategic notes, 5 new core items added (Position transition, Olimpico, Academic identity, depth chart question, successful-recruit question), 2 time-sensitive items added (Spring grades, AP results with expires_at). Backfill rerun: 113 coverage matches across 157 historical outbound rows (up from 75). | Feature + Content |
 | 2026-05-15 | Tech debt Chunk B: 15+ component maps converted to exhaustive Record<UnionType, T>; LLM generators (campaign email, school plan, coverage detector) wrapped in try/catch with empty fallbacks | Quality |
 | 2026-05-15 | Tech debt Chunk A: shared fetchSchoolContext() helper extracted (5 LLM routes migrated); generate-draft parse_status filter bug fixed by inheritance; 246 lines of dead legacy prompt code removed | Quality |
