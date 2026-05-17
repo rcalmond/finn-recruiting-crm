@@ -1592,6 +1592,27 @@ System prompt instructions added to each flow telling the model to weigh strateg
 
 Future flows using fetchSchoolContext automatically get strategic notes — no wiring needed.
 
+### Map View + Nope Cascade (May 16, 2026)
+
+**Nope school cascade (camps cleanup):**
+
+When Finn moved schools to Nope tier (e.g., Tufts, Hopkins), camps at those schools continued to appear in active camp views. Fixed via app-side handler + one-time backfill.
+
+- Backfill: camp_finn_status rows where status='interested' and host school category='Nope' bulk-updated to status='declined' with declined_reason='School moved to Nope tier'. 5 rows updated.
+- App-side handler: updateSchool in useRealtimeData.ts now bulk-updates camp_finn_status when category becomes 'Nope'. Only transitions interested → declined; targeted and already-declined camps preserved.
+- Defense in depth: camp views (CampsClient list + calendar) filter out Nope schools even if data state slips. Exception: camp_proposals review queue still surfaces Nope-school proposals since that's a back-of-house workflow.
+- Reversal: moving school from Nope back to A/B/C does NOT auto-revert camp status. Camps stay declined; Finn flips manually if needed.
+
+**Map view on /schools:**
+
+Geographic visualization as a tab alongside the existing list view.
+
+- Migration 046: latitude and longitude (double precision) columns on schools table with partial index where coords are not null
+- Geocoding backfill: scripts/backfill-school-coords.ts uses Nominatim (OpenStreetMap's free geocoder) at 1.1s rate limit with proper User-Agent. 54/62 schools geocoded automatically; 8 failures fixed manually via SQL UPDATE with canonical campus coordinates. Final state: 100% of active schools have coordinates.
+- Map component: Leaflet + react-leaflet@4. Dynamic import with ssr:false (Leaflet uses window). OpenStreetMap tiles (free, no API key). Tier-colored circular markers (A green, B blue, C amber, Nope gray) via L.divIcon. Click marker → popup with school name, tier, location, "View school details" link to detail page.
+- Tab toggle: List | Map on /schools page, persists via ?view=map URL param. Existing tier/stage/division/quick filters apply to both views identically.
+- Z-index fix: map container wrapped in div with position:relative + zIndex:0 to create a stacking context at 0, ensuring filter dropdowns render above Leaflet's high-z-index panes.
+
 ---
 
 ## 10. Session Startup Checklist for Claude Code
@@ -3144,6 +3165,8 @@ for v1. Smoke tests passed.
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-16 | Schools map view: Leaflet + OpenStreetMap with tier-colored markers, popup with detail page link. /schools List|Map tab toggle persists in URL. Migration 046 adds lat/lng. Geocoding backfill via Nominatim (54/62 auto, 8 manual fixes). | Feature + Schema |
+| 2026-05-16 | Nope school cascade: when school category becomes Nope, interested camps auto-decline with declined_reason='School moved to Nope tier'. Defense-in-depth filter on camp views. One-time backfill cleaned 5 existing rows. | Feature |
 | 2026-05-16 | Strategic notes wiring: fetchSchoolContext now fetches school_message_plan.finn_notes; rendered in email body, topic suggester, prep-for-call, and campaign generate-draft prompts. Closes loop between Phase 3 suggestions and actual generated content. | Polish |
 | 2026-05-15 | Utah trip cancelled — 2 inventory items archived. Inventory enriched: 7 existing items rewritten with richer strategic notes, 5 new core items added (Position transition, Olimpico, Academic identity, depth chart question, successful-recruit question), 2 time-sensitive items added (Spring grades, AP results with expires_at). Backfill rerun: 113 coverage matches across 157 historical outbound rows (up from 75). | Feature + Content |
 | 2026-05-15 | Tech debt Chunk B: 15+ component maps converted to exhaustive Record<UnionType, T>; LLM generators (campaign email, school plan, coverage detector) wrapped in try/catch with empty fallbacks | Quality |
