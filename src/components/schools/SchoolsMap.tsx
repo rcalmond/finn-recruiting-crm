@@ -69,7 +69,7 @@ export default function SchoolsMap({ schools, onSchoolClick }: Props) {
   const mappable = schools.filter(s => s.latitude != null && s.longitude != null)
 
   return (
-    <div style={{ height: 'calc(100vh - 200px)', minHeight: 400, borderRadius: 12, overflow: 'hidden', border: '1px solid #E2DBC9' }}>
+    <div style={{ height: 'calc(100vh - 200px)', minHeight: 400, borderRadius: 12, overflow: 'hidden', border: '1px solid #E2DBC9', position: 'relative', zIndex: 0 }}>
       <MapContainer
         center={[39.5, -98.5]}
         zoom={4}
