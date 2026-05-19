@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import type { User } from '@supabase/supabase-js'
 import { useSchools, useContactLog } from '@/hooks/useRealtimeData'
@@ -322,38 +322,59 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
   const { schools, loading: schoolsLoading } = useSchools()
   const { entries: contactLog, loading: logLoading } = useContactLog()
 
+  const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [viewMode, setViewMode] = useState<'list' | 'map'>(
-    searchParams.get('view') === 'map' ? 'map' : 'list'
-  )
+
+  // ── URL-backed state helpers ──────────────────────────────────────────────
+  const pushParams = useCallback((updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString())
+    for (const [k, v] of Object.entries(updates)) {
+      if (v === null) params.delete(k); else params.set(k, v)
+    }
+    const q = params.toString()
+    router.push(q ? `${pathname}?${q}` : pathname)
+  }, [router, pathname, searchParams])
+
+  const viewMode = (searchParams.get('view') === 'map' ? 'map' : 'list') as 'list' | 'map'
+  const stageFilter = searchParams.get('stage') ?? 'All'
+  const tierFilter = searchParams.get('tier') ?? 'All'
+  const divFilter = searchParams.get('division') ?? 'All'
+  const quickFilter = (searchParams.get('quick') ?? null) as QuickFilter
 
   function switchView(mode: 'list' | 'map') {
-    setViewMode(mode)
-    const url = new URL(window.location.href)
-    if (mode === 'map') url.searchParams.set('view', 'map')
-    else url.searchParams.delete('view')
-    window.history.replaceState({}, '', url.toString())
+    pushParams({ view: mode === 'list' ? null : mode })
   }
+  function setStageFilter(v: string) { pushParams({ stage: v === 'All' ? null : v }) }
+  function setTierFilter(v: string) { pushParams({ tier: v === 'All' ? null : v }) }
+  function setDivFilter(v: string) { pushParams({ division: v === 'All' ? null : v }) }
+  function setQuickFilter(v: QuickFilter) { pushParams({ quick: v ?? null }) }
 
-  // ── Filter state ────────────────────────────────────────────────────────────
-  const [searchQ,     setSearchQ]     = useState('')
-  const [stageFilter, setStageFilter] = useState('All')
-  const [tierFilter,  setTierFilter]  = useState('All')
-  const [divFilter,   setDivFilter]   = useState('All')
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>(null)
+  // Search: local state for responsive typing, debounced push to URL
+  const [searchQ, setSearchQ] = useState(searchParams.get('search') ?? '')
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const setSearchQWithUrl = useCallback((v: string) => {
+    setSearchQ(v)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = setTimeout(() => {
+      pushParams({ search: v || null })
+    }, 400)
+  }, [pushParams])
 
   const anyFilterActive = !!(searchQ || stageFilter !== 'All' || tierFilter !== 'All' || divFilter !== 'All' || quickFilter)
 
   const resetFilters = useCallback(() => {
     setSearchQ('')
-    setStageFilter('All')
-    setTierFilter('All')
-    setDivFilter('All')
-    setQuickFilter(null)
-  }, [])
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    // Push all filter resets at once
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('stage'); params.delete('tier'); params.delete('division')
+    params.delete('quick'); params.delete('search')
+    const q = params.toString()
+    router.push(q ? `${pathname}?${q}` : pathname)
+  }, [router, pathname, searchParams])
 
   function toggleQuick(q: Exclude<QuickFilter, null>) {
-    setQuickFilter(prev => prev === q ? null : q)
+    setQuickFilter(quickFilter === q ? null : q)
   }
 
   function openSchool(school: School) {
@@ -547,7 +568,7 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
             </svg>
             <input
               value={searchQ}
-              onChange={e => setSearchQ(e.target.value)}
+              onChange={e => setSearchQWithUrl(e.target.value)}
               placeholder="Search by school, coach, or location"
               style={{
                 flex: 1, border: 'none', outline: 'none', background: 'transparent',
@@ -556,7 +577,7 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
             />
             {searchQ && (
               <button
-                onClick={() => setSearchQ('')}
+                onClick={() => setSearchQWithUrl('')}
                 style={{
                   border: 'none', background: 'transparent', cursor: 'pointer',
                   color: SL.inkMute, fontSize: 16, lineHeight: 1, padding: '0 2px',
@@ -676,7 +697,7 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
             </svg>
             <input
               value={searchQ}
-              onChange={e => setSearchQ(e.target.value)}
+              onChange={e => setSearchQWithUrl(e.target.value)}
               placeholder="Search schools, coaches"
               style={{
                 flex: 1, border: 'none', outline: 'none', background: 'transparent',
@@ -685,7 +706,7 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
             />
             {searchQ && (
               <button
-                onClick={() => setSearchQ('')}
+                onClick={() => setSearchQWithUrl('')}
                 style={{
                   border: 'none', background: 'transparent', cursor: 'pointer',
                   color: SL.inkMute, fontSize: 16, lineHeight: 1, padding: '0 2px',

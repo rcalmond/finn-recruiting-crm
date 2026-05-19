@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useMessages, useSchoolMessageLog } from '@/hooks/useRealtimeData'
 import type { Message, MessageType, MessageStatus, Category } from '@/lib/types'
 
@@ -45,10 +46,29 @@ function FilterPill({ label, active, onClick }: { label: string; active: boolean
 // ── Main component ───────────────────────────────────────────────────────────
 
 export default function MessagesClient() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { messages, loading, insertMessage, updateMessage, archiveMessage, unarchiveMessage, deleteMessage } = useMessages()
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active')
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const statusFilter = (searchParams.get('status') ?? 'active') as StatusFilter
+  const typeFilter = (searchParams.get('type') ?? 'all') as TypeFilter
+
+  const pushParams = useCallback((updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString())
+    for (const [k, v] of Object.entries(updates)) {
+      if (v === null) params.delete(k); else params.set(k, v)
+    }
+    const q = params.toString()
+    router.push(q ? `${pathname}?${q}` : pathname)
+  }, [router, pathname, searchParams])
+
+  const setStatusFilter = useCallback((v: StatusFilter) => {
+    pushParams({ status: v === 'active' ? null : v })
+  }, [pushParams])
+  const setTypeFilter = useCallback((v: TypeFilter) => {
+    pushParams({ type: v === 'all' ? null : v })
+  }, [pushParams])
   const [editMsg, setEditMsg] = useState<Message | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [menuOpen, setMenuOpen] = useState<string | null>(null)

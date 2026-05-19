@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import type { Campaign, CampaignStatus } from '@/lib/types'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -65,10 +65,19 @@ type ListFilter = 'active' | 'archived' | 'all'
 
 export default function CampaignsClient() {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([])
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState<string | null>(null)
-  const [filter, setFilter]       = useState<ListFilter>('active')
+
+  const filter = (searchParams.get('filter') ?? 'active') as ListFilter
+  const setFilter = useCallback((v: ListFilter) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (v === 'active') params.delete('filter'); else params.set('filter', v)
+    const q = params.toString()
+    router.push(q ? `${pathname}?${q}` : pathname)
+  }, [router, pathname, searchParams])
   const [menuOpen, setMenuOpen]   = useState<string | null>(null)
   const [menuPos, setMenuPos]     = useState<{ top: number; left: number } | null>(null)
   const kebabRef = useRef<HTMLButtonElement | null>(null)

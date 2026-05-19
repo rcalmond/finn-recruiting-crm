@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useMemo, useCallback } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import type { CampWithRelations, CampFinnStatusValue, Category } from '@/lib/types'
 import { useCamps, useSchools } from '@/hooks/useRealtimeData'
@@ -49,14 +49,43 @@ type TierFilter = 'A' | 'B' | 'C' | 'all'
 
 export default function CampsClient({ user }: { user: User }) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { schools } = useSchools()
   const { camps, loading } = useCamps(schools)
   const today = todayStr()
 
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
-  const [timeframe, setTimeframe] = useState<TimeframeFilter>('upcoming')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [tierFilter, setTierFilter] = useState<TierFilter>('all')
+  // ── URL-backed state ────────────────────────────────────────────────────────
+  const pushParams = useCallback((updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString())
+    for (const [k, v] of Object.entries(updates)) {
+      if (v === null) params.delete(k); else params.set(k, v)
+    }
+    const q = params.toString()
+    router.push(q ? `${pathname}?${q}` : pathname)
+  }, [router, pathname, searchParams])
+
+  const viewMode = (searchParams.get('view') === 'calendar' ? 'calendar' : 'list') as 'list' | 'calendar'
+  const timeframe = (searchParams.get('timeframe') ?? 'upcoming') as TimeframeFilter
+  const statusFilter = (searchParams.get('status') ?? 'all') as StatusFilter
+  const tierFilter = (searchParams.get('tier') ?? 'all') as TierFilter
+
+  const setViewMode = useCallback((v: 'list' | 'calendar') => { pushParams({ view: v === 'list' ? null : v }) }, [pushParams])
+  const setTimeframe = useCallback((v: TimeframeFilter) => { pushParams({ timeframe: v === 'upcoming' ? null : v }) }, [pushParams])
+  const setStatusFilter = useCallback((v: StatusFilter) => { pushParams({ status: v === 'all' ? null : v }) }, [pushParams])
+  const setTierFilter = useCallback((v: TierFilter) => { pushParams({ tier: v === 'all' ? null : v }) }, [pushParams])
+
+  // Calendar month: URL-backed as ?month=YYYY-MM (omit when current month)
+  const nowDate = new Date()
+  const defaultMonth = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}`
+  const monthParam = searchParams.get('month') ?? defaultMonth
+  const calYear = parseInt(monthParam.split('-')[0]) || nowDate.getFullYear()
+  const calMonth = (parseInt(monthParam.split('-')[1]) || nowDate.getMonth() + 1) - 1 // 0-indexed
+  const setCalMonth = useCallback((year: number, month: number) => {
+    const key = `${year}-${String(month + 1).padStart(2, '0')}`
+    pushParams({ month: key === defaultMonth ? null : key })
+  }, [pushParams, defaultMonth])
+
   const [showAddModal, setShowAddModal] = useState(false)
 
   // Exclude Nope schools from all views (defense in depth)
@@ -204,7 +233,7 @@ export default function CampsClient({ user }: { user: User }) {
       {/* Calendar view — desktop only */}
       <div className="hidden md:block">
         {viewMode === 'calendar' && (
-          <CampsCalendar camps={calendarCamps} />
+          <CampsCalendar camps={calendarCamps} viewYear={calYear} viewMonth={calMonth} onMonthChange={setCalMonth} />
         )}
       </div>
 

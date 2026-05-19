@@ -108,13 +108,14 @@ function assignCellSlots(
 
 interface Props {
   camps: CampWithRelations[]
+  viewYear: number
+  viewMonth: number // 0-indexed
+  onMonthChange: (year: number, month: number) => void
 }
 
-export default function CampsCalendar({ camps }: Props) {
+export default function CampsCalendar({ camps, viewYear, viewMonth, onMonthChange }: Props) {
   const router = useRouter()
   const today = new Date()
-  const [viewYear, setViewYear] = useState(today.getFullYear())
-  const [viewMonth, setViewMonth] = useState(today.getMonth())
   const [popoverDate, setPopoverDate] = useState<string | null>(null)
 
   const todayStr = toDateStr(today)
@@ -123,20 +124,19 @@ export default function CampsCalendar({ camps }: Props) {
   const monthLabel = new Date(viewYear, viewMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
   function prevMonth() {
-    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11) }
-    else setViewMonth(m => m - 1)
+    if (viewMonth === 0) onMonthChange(viewYear - 1, 11)
+    else onMonthChange(viewYear, viewMonth - 1)
     setPopoverDate(null)
   }
 
   function nextMonth() {
-    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0) }
-    else setViewMonth(m => m + 1)
+    if (viewMonth === 11) onMonthChange(viewYear + 1, 0)
+    else onMonthChange(viewYear, viewMonth + 1)
     setPopoverDate(null)
   }
 
   function goToday() {
-    setViewYear(today.getFullYear())
-    setViewMonth(today.getMonth())
+    onMonthChange(today.getFullYear(), today.getMonth())
     setPopoverDate(null)
   }
 
