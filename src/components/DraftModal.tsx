@@ -299,7 +299,6 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
 
   return (
     <div
-      onClick={onClose}
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
         zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -307,7 +306,6 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
       }}
     >
       <div
-        onClick={e => e.stopPropagation()}
         style={{
           background: '#fff', borderRadius: 12, width: '100%', maxWidth: 600,
           maxHeight: '90vh', display: 'flex', flexDirection: 'column',
