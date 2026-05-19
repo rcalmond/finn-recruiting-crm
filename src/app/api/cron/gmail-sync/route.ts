@@ -288,6 +288,17 @@ export async function GET(req: NextRequest) {
       stats.inserted++
       if (parseStatus === 'partial') stats.partial++
 
+      // 6e2. Fire-and-forget: update schools.last_contact cache
+      if (schoolId && parsed.isoDate) {
+        void admin.from('schools')
+          .update({ last_contact: parsed.isoDate })
+          .eq('id', schoolId)
+          .or(`last_contact.is.null,last_contact.lt.${parsed.isoDate}`)
+          .then(({ error: lcErr }) => {
+            if (lcErr) console.error(`[gmail-sync] last_contact update failed for ${messageId}:`, lcErr.message)
+          })
+      }
+
       // 6f. Fire-and-forget inbound classification — only for rows with a matched school
       if (parsed.direction === 'Inbound' && insertedRow?.id && schoolId) {
         const rowId = insertedRow.id

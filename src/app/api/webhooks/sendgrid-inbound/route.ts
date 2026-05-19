@@ -648,6 +648,15 @@ async function handleOutboundCC(
     import('@/lib/video-send-detector').then(({ detectAndUpdateVideoSend }) =>
       detectAndUpdateVideoSend(admin, schoolId, outboundMsg.body || srSubject || subject, ccSentAt)
     ).catch(err => console.error(`[sg-inbound] video-send-detect failed:`, err))
+
+    // 10d. Fire-and-forget: update schools.last_contact cache
+    void admin.from('schools')
+      .update({ last_contact: isoDate })
+      .eq('id', schoolId)
+      .or(`last_contact.is.null,last_contact.lt.${isoDate}`)
+      .then(({ error: lcErr }) => {
+        if (lcErr) console.error(`[sg-inbound] last_contact update failed:`, lcErr.message)
+      })
   }
 
   console.log(
@@ -842,6 +851,15 @@ export async function POST(req: NextRequest) {
     import('@/lib/camp-extractor').then(({ extractAndProposeCamps }) =>
       extractAndProposeCamps(rowId, admin)
     ).catch(err => console.error(`[sg-inbound] camp-extract import failed:`, err))
+
+    // Fire-and-forget: update schools.last_contact cache
+    void admin.from('schools')
+      .update({ last_contact: messageDate })
+      .eq('id', schoolId)
+      .or(`last_contact.is.null,last_contact.lt.${messageDate}`)
+      .then(({ error: lcErr }) => {
+        if (lcErr) console.error(`[sg-inbound] last_contact update failed:`, lcErr.message)
+      })
   }
 
   return NextResponse.json({ ok: true })

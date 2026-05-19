@@ -184,7 +184,7 @@ export default function DashboardView({ schools, contactLog, actionItems, onNavi
             {[
               { label: 'Recruiting Questionnaire Done', value: `${rqDone.length} / ${active.length}`, warn: false },
               { label: 'RQ Still To Do',                 value: String(rqToDo.length),                 warn: rqToDo.length > 0 },
-              { label: 'Video Sent',                     value: `${active.filter(s => s.videos_sent).length} / ${active.length}`, warn: false },
+              { label: 'Video Sent',                     value: `${active.filter(s => s.last_video_url != null).length} / ${active.length}`, warn: false },
               { label: 'Contact Log Entries',            value: String(contactLog.length),              warn: false },
             ].map(row => (
               <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

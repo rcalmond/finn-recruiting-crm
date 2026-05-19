@@ -29,6 +29,7 @@ export interface School {
   admit_likelihood: AdmitLikelihood | null
   rq_status: string | null           // "Completed", "To Do", "Updated", etc.
   rq_updated_at: string | null       // timestamptz — when rq_status was last set to "Completed"
+  /** @deprecated Use last_video_url != null instead. Auto-synced by video-send-detector since May 2026. This boolean is no longer maintained. */
   videos_sent: boolean
   last_video_url: string | null
   last_video_title: string | null

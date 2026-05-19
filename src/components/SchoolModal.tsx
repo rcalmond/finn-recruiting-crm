@@ -51,7 +51,6 @@ export default function SchoolModal(props: Props) {
   const [coachEmail, setCoachEmail] = useState(s?.coach_email ?? '')
   const [admit, setAdmit] = useState<AdmitLikelihood | ''>(s?.admit_likelihood ?? 'Target')
   const [rqStatus, setRqStatus] = useState(s?.rq_status ?? '')
-  const [videosSent, setVideosSent] = useState(s?.videos_sent ?? false)
   const [notes, setNotes] = useState(s?.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -142,7 +141,7 @@ export default function SchoolModal(props: Props) {
       status, last_contact: lastContact || null, head_coach: headCoach || null,
       coach_email: coachEmail || null,
       admit_likelihood: (admit || null) as AdmitLikelihood | null,
-      rq_status: rqStatus || null, videos_sent: videosSent,
+      rq_status: rqStatus || null,
       notes: notes || null,
     }
     if (isEdit) {
@@ -362,12 +361,6 @@ export default function SchoolModal(props: Props) {
                     <option value="">—</option>
                     {['To Do', 'Completed', 'Updated', 'Not Available'].map(o => <option key={o}>{o}</option>)}
                   </select>
-                </Field>
-                <Field label="Videos Sent">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', paddingTop: 6 }}>
-                    <input type="checkbox" checked={videosSent} onChange={e => setVideosSent(e.target.checked)} />
-                    Yes
-                  </label>
                 </Field>
               </div>
               <Field label="Notes">
