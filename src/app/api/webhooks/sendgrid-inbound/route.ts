@@ -643,6 +643,11 @@ async function handleOutboundCC(
         summary: outboundMsg.body || srSubject || subject, direction: 'Outbound',
       }, matchedSchoolName, matchedSchoolShortName)
     ).catch(err => console.error(`[sg-inbound] message-coverage failed:`, err))
+
+    // 10c. Fire-and-forget: detect video sends and update schools.last_video_*
+    import('@/lib/video-send-detector').then(({ detectAndUpdateVideoSend }) =>
+      detectAndUpdateVideoSend(admin, schoolId, outboundMsg.body || srSubject || subject, ccSentAt)
+    ).catch(err => console.error(`[sg-inbound] video-send-detect failed:`, err))
   }
 
   console.log(

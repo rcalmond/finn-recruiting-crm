@@ -321,6 +321,11 @@ export async function GET(req: NextRequest) {
             summary: parsed.body || parsed.snippet, direction: 'Outbound',
           }, sch?.name ?? null, sch?.short_name ?? null)
         }).catch(err => console.error(`[gmail-sync] message-coverage failed for ${messageId}:`, err))
+
+        // 6i. Fire-and-forget: detect video sends and update schools.last_video_*
+        import('@/lib/video-send-detector').then(({ detectAndUpdateVideoSend }) =>
+          detectAndUpdateVideoSend(admin, schoolId, parsed.body || parsed.snippet, parsed.sentAt)
+        ).catch(err => console.error(`[gmail-sync] video-send-detect failed for ${messageId}:`, err))
       }
 
       console.log(
