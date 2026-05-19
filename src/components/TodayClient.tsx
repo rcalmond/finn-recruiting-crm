@@ -83,15 +83,20 @@ export default function TodayClient({
         setSkippedKeys(new Set((data ?? []).map((r: { prompt_key: string }) => r.prompt_key)))
         setSkipsLoaded(true)
       })
-    supabase.from('player_profile')
-      .select('current_reel_url, current_reel_title')
+    // Current reel sourced from assets table (canonical source).
+    // Do NOT read from player_profile.current_reel_url — that field is stale.
+    supabase.from('assets')
+      .select('url, name')
+      .eq('type', 'highlight_reel')
+      .eq('is_current', true)
+      .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
       .then(({ data }) => {
-        const d = data as { current_reel_url: string | null; current_reel_title: string | null } | null
-        const url = d?.current_reel_url ?? null
+        const d = data as { url: string | null; name: string | null } | null
+        const url = d?.url ?? null
         setCurrentReelUrl(url)
-        setCurrentReelTitle(d?.current_reel_title ?? null)
+        setCurrentReelTitle(d?.name ?? null)
         setProfileLoaded(true)
         // Load batch reel sends for coverage calculation
         if (url) {

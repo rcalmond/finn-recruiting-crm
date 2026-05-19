@@ -400,8 +400,11 @@ export interface PlayerProfile {
   academic_summary: string | null
   last_parsed_at: string | null
   source_asset_id: string | null
+  /** @deprecated Use assets table (type='highlight_reel', is_current=true) instead. This field is stale — managed via manual SQL only. */
   current_reel_url: string | null
+  /** @deprecated Use assets table instead. */
   current_reel_title: string | null
+  /** @deprecated Use assets table instead. */
   current_reel_updated_at: string | null
   created_at: string
   updated_at: string
