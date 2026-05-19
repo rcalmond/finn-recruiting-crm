@@ -1613,6 +1613,49 @@ Geographic visualization as a tab alongside the existing list view.
 - Tab toggle: List | Map on /schools page, persists via ?view=map URL param. Existing tier/stage/division/quick filters apply to both views identically.
 - Z-index fix: map container wrapped in div with position:relative + zIndex:0 to create a stacking context at 0, ensuring filter dropdowns render above Leaflet's high-z-index panes.
 
+### Cached State Divergence Cleanup (May 19, 2026)
+
+Real-world usage surfaced three bugs in a row, all variants of the same architectural pattern: cached state on schools (or player_profile) diverging from canonical sources elsewhere in the database. Each bug fixed individually, then ran a systematic audit to find and fix the remaining instances proactively.
+
+**The pattern:**
+
+Cache columns get populated by manual SQL or one-time scripts. No runtime hooks keep them synced with canonical sources (assets table, contact_log, etc). Reads happen in production UI and LLM prompts, but writes only happen in narrow paths. Result: cache drifts, reads return stale data, user-facing bugs.
+
+**5 fixes shipped:**
+
+| # | Bug | Stale source | Canonical source wired |
+|---|-----|--------------|------------------------|
+| 1 | Email generation reel URL | hardcoded URL + player_profile.current_reel_url fallback | assets table via fetchSchoolContext.currentAssets |
+| 2 | Video send tracking | manual backfill script only | video-send-detector fires on outbound ingest |
+| 3 | reel_coverage strategic prompt | player_profile.current_reel_url in TodayClient | assets table query (type=highlight_reel, is_current=true) |
+| 4 | schools.last_contact | manual edit only | Fire-and-forget hook in gmail-sync + sendgrid-inbound (both directions) |
+| 5 | schools.videos_sent boolean | manual checkbox | Replaced with last_video_url != null |
+
+**Fixes 1-3 were user-reported.** Each one identified by Finn during active recruiting use. Bug 1 (stale reel URL in generated emails) → Bug 2 (Videos Sent widget showing wrong data) → Bug 3 (Today screen reel_coverage showing 17/17 instead of 12/17).
+
+**Fixes 4-5 came from a systematic audit** after bug 3. Audited all public tables for "cache that summarizes state from elsewhere" patterns. Found 5 candidates: 2 high-risk (these fixes), 1 medium-risk acceptable as manual (rq_status — inherently user-entered), 2 low-risk acceptable (player_profile parser fields stay in sync via upload hook; coach scraper state updated atomically).
+
+**Architectural principle going forward:**
+
+Cached state must be either:
+- Read-only computed from canonical sources at query time (Option A — drop the cache), OR
+- Auto-synced via runtime hooks that fire on EVERY path that changes the canonical source (Option B — sync at write time)
+
+Option C (intentionally manual, document as such) only acceptable when the field IS the canonical source — e.g., user-entered status fields where no DB-side truth exists.
+
+**Deprecated fields (zero runtime readers):**
+
+- player_profile.current_reel_url / current_reel_title / current_reel_updated_at
+- schools.videos_sent
+
+Each marked @deprecated in types.ts with reference to canonical source. Columns not dropped (schema compatibility), but reads are removed.
+
+**Implementation details:**
+
+- video-send-detector.ts: YouTube ID extraction regex, asset library match against type IN ('highlight_reel', 'game_film'), upsert to schools.last_video_url / last_video_sent_at / last_video_title using asset.name as title
+- last_contact hook: guards against backfill resets (only updates if newer than existing value); applied to all 4 ingest paths (gmail-sync inbound + outbound, sendgrid-inbound inbound + outbound)
+- one-time backfill SQL for last_contact: `UPDATE schools SET last_contact = (SELECT MAX(cl.date) FROM contact_log cl WHERE cl.school_id = schools.id AND cl.parse_status NOT IN ('orphan', 'non_coach'))`
+
 ---
 
 ## 10. Session Startup Checklist for Claude Code
@@ -3165,6 +3208,7 @@ for v1. Smoke tests passed.
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-19 | Cached state divergence cleanup: 5 fixes total. Reel URL via assets table (3 surfaces), video send tracking via runtime detector, last_contact via ingest hooks, videos_sent replaced with last_video_url. Systematic audit identified all instances; established architectural principle (canonical source must auto-sync or be queried directly). | Bug fix + Architecture |
 | 2026-05-16 | Schools map view: Leaflet + OpenStreetMap with tier-colored markers, popup with detail page link. /schools List|Map tab toggle persists in URL. Migration 046 adds lat/lng. Geocoding backfill via Nominatim (54/62 auto, 8 manual fixes). | Feature + Schema |
 | 2026-05-16 | Nope school cascade: when school category becomes Nope, interested camps auto-decline with declined_reason='School moved to Nope tier'. Defense-in-depth filter on camp views. One-time backfill cleaned 5 existing rows. | Feature |
 | 2026-05-16 | Strategic notes wiring: fetchSchoolContext now fetches school_message_plan.finn_notes; rendered in email body, topic suggester, prep-for-call, and campaign generate-draft prompts. Closes loop between Phase 3 suggestions and actual generated content. | Polish |
