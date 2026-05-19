@@ -1,6 +1,6 @@
 import type { Question } from '@/lib/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { fetchSchoolContext } from '@/lib/school-context'
+import { fetchSchoolContext, type CurrentAssets } from '@/lib/school-context'
 
 // Legacy type alias — used by todayLogic.ts for email draft mode tracking
 export type EmailType = 'first_contact' | 'wingback_update' | 'follow_up' | 'post_camp' | 'visit_request' | 'academic_update' | 'reply'
@@ -223,7 +223,7 @@ export async function buildEmailDraftPrompt(
       : Promise.resolve({ data: null }),
   ])
 
-  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, strategicNotes } = ctx
+  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, strategicNotes, currentAssets } = ctx
 
   const currentDate = formatCurrentDate()
 
@@ -299,7 +299,7 @@ export async function buildEmailDraftPrompt(
 - No bullet points in the email body — short paragraphs only.
 - No more than one exclamation point per email.
 - Never open with "I hope this email finds you well" or any filler.
-- Always include highlight reel link: https://www.youtube.com/watch?v=Va_Z09OYcs0
+${currentAssets.highlightReelUrl ? `- Always include the highlight reel link: ${currentAssets.highlightReelUrl}` : `- Do not include a highlight reel link — none is currently available.`}
 - Always include position (Left Wingback), grad year (2027), club (Albion SC Boulder County – MLS NEXT Academy).
 - Never include game film unless the coach specifically asked for it.
 - Output must contain only plain text. Never wrap email addresses, URLs, or any other content in markdown link syntax like "[text](url)" or "<url>". Email addresses appear as plain text (e.g., "finnalmond08@gmail.com"). URLs appear as plain text (e.g., "https://..."). The voice references contain markdown link artifacts from email rendering — those are input noise to ignore, not patterns to replicate.
@@ -395,7 +395,9 @@ Body uses plain line breaks between paragraphs, no HTML.`)
   usr.push(`- Position: Left wingback`)
   usr.push(`- Class: 2027`)
   usr.push(`- Club: Albion SC Boulder County MLS NEXT Academy U19`)
-  usr.push(`- Current reel: ${profile?.current_reel_url ?? 'https://www.youtube.com/watch?v=Va_Z09OYcs0'}`)
+  // Reel URL sourced from assets table via fetchSchoolContext.currentAssets.
+  // Do NOT read from player_profile.current_reel_url — that field is stale.
+  usr.push(`- Current reel: ${currentAssets.highlightReelUrl ?? 'no reel available'}`)
   if (profile?.highlights) usr.push(`- Recent highlights: ${profile.highlights}`)
   if (profile?.current_stats) usr.push(`- Current stats: ${profile.current_stats}`)
   if (profile?.upcoming_schedule) usr.push(`- Upcoming schedule: ${profile.upcoming_schedule}`)
@@ -514,7 +516,7 @@ export async function buildTopicSuggestPrompt(
     { data: coverageRows },
   ] = await Promise.all([
     fetchSchoolContext(admin, schoolId, { includeActionItems: true }),
-    admin.from('player_profile').select('current_stats, upcoming_schedule, highlights, current_reel_url').limit(1).single(),
+    admin.from('player_profile').select('current_stats, upcoming_schedule, highlights').limit(1).single(),
     coachId
       ? admin.from('coaches').select('name, role, needs_review').eq('id', coachId).single()
       : Promise.resolve({ data: null }),
@@ -522,7 +524,7 @@ export async function buildTopicSuggestPrompt(
     admin.from('school_message_log').select('message_id').eq('school_id', schoolId),
   ])
 
-  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, strategicNotes } = ctx
+  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, strategicNotes, currentAssets } = ctx
 
   const currentDate = formatCurrentDate()
 
@@ -629,7 +631,9 @@ Return a JSON array of 3 strings. No preamble.`
   usr.push(`- Position: Left wingback`)
   usr.push(`- Class: 2027`)
   usr.push(`- Club: Albion SC Boulder County MLS NEXT Academy U19`)
-  usr.push(`- Current reel: ${profile?.current_reel_url ?? 'https://www.youtube.com/watch?v=Va_Z09OYcs0'}`)
+  // Reel URL sourced from assets table via fetchSchoolContext.currentAssets.
+  // Do NOT read from player_profile.current_reel_url — that field is stale.
+  usr.push(`- Current reel: ${currentAssets.highlightReelUrl ?? 'no reel available'}`)
   if (profile) {
     if (profile.current_stats) usr.push(`- Current stats: ${profile.current_stats}`)
     if (profile.upcoming_schedule) usr.push(`- Upcoming schedule: ${profile.upcoming_schedule}`)
@@ -688,14 +692,19 @@ Return a JSON array of 3 strings. No preamble.`
 
 // ─── Prep for call ────────────────────────────────────────────────────────────
 
-export const PREP_SYSTEM_PROMPT = `You are a college soccer recruiting advisor helping Finn Almond (Class of 2027, left wingback) prepare for a conversation with a college coach.
+// Reel URL sourced from assets table via fetchSchoolContext.currentAssets.
+// Do NOT hardcode a reel URL here — it goes stale.
+export function buildPrepSystemPrompt(currentAssets: CurrentAssets): string {
+  const reelLine = currentAssets.highlightReelUrl
+    ? `- Highlight reel: ${currentAssets.highlightReelUrl}`
+    : ''
+  return `You are a college soccer recruiting advisor helping Finn Almond (Class of 2027, left wingback) prepare for a conversation with a college coach.
 
 Finn's profile:
 - Position: Left Wingback (transitioned from striker Nov 2025)
 - Club: Albion SC Boulder County – MLS NEXT Academy U19
 - GPA: 3.78W / 3.57UW | SAT: 1340
-- Academic interest: Mechanical or Aerospace Engineering
-- Highlight reel: https://www.youtube.com/watch?v=Va_Z09OYcs0
+- Academic interest: Mechanical or Aerospace Engineering${reelLine ? '\n' + reelLine : ''}
 
 Your job:
 1. Review the FULL school record and conversation history provided
@@ -711,6 +720,7 @@ Rules:
 - School-specific questions should be actionable and advance the conversation, not generic
 - For category in school_specific_questions, use ONLY one of these exact strings: "Formation & Fit", "Roster & Playing Time", "Development", "Culture", "Academics & Aid"
 - Return only valid JSON matching the schema provided. No markdown fences, no preamble.`
+}
 
 interface PrepCoach {
   name: string

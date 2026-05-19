@@ -61,6 +61,15 @@ export interface ActionItemRow {
   due_date: string | null
 }
 
+export interface CurrentAssets {
+  highlightReelUrl: string | null
+  highlightReelTitle: string | null
+  fullGameFilmUrl: string | null
+  sportsRecruitsProfileUrl: string | null
+  resumeFileName: string | null
+  transcriptFileName: string | null
+}
+
 export interface SchoolContext {
   school: SchoolRow | null
   coaches: CoachRow[]
@@ -69,6 +78,7 @@ export interface SchoolContext {
   declineHistory: ContactLogRow[]
   actionItems: ActionItemRow[]
   strategicNotes: string | null
+  currentAssets: CurrentAssets
 }
 
 export interface SchoolContextOptions {
@@ -114,9 +124,14 @@ export async function fetchSchoolContext(
       .select('finn_notes')
       .eq('school_id', schoolId)
       .maybeSingle(),
+    // 5. Current assets (canonical source for reel URL, game film, etc.)
+    admin.from('assets')
+      .select('type, name, url, file_name, created_at')
+      .eq('is_current', true)
+      .order('created_at', { ascending: false }),
   ]
 
-  // 5. Action items (optional)
+  // 6. Action items (optional)
   if (options.includeActionItems) {
     queries.push(
       admin.from('action_items')
@@ -137,8 +152,9 @@ export async function fetchSchoolContext(
   const rawCamps = (results[3].data ?? []) as Array<Record<string, unknown>>
   const planRow = results[4].data as { finn_notes: string | null } | null
   const strategicNotes = planRow?.finn_notes?.trim() || null
+  const rawAssets = (results[5].data ?? []) as Array<{ type: string; name: string | null; url: string | null; file_name: string | null }>
   const rawActions = options.includeActionItems
-    ? (results[5].data ?? []) as ActionItemRow[]
+    ? (results[6].data ?? []) as ActionItemRow[]
     : []
 
   // Process coaches
@@ -166,6 +182,25 @@ export async function fetchSchoolContext(
   // Derive decline history from contact_log
   const declineHistory = rawContactLog.filter(r => r.intent === 'decline')
 
+  // Process current assets — first match per type wins (ordered by created_at desc)
+  // Reel URL sourced from assets table. Do NOT read from player_profile.current_reel_url
+  // — that field is stale and managed via manual SQL.
+  const assetByType = (type: string) => rawAssets.find(a => a.type === type)
+  const reelAsset = assetByType('highlight_reel')
+  const filmAsset = assetByType('game_film')
+  const srAsset = assetByType('sports_recruits')
+  const resumeAsset = assetByType('resume')
+  const transcriptAsset = assetByType('transcript')
+
+  const currentAssets: CurrentAssets = {
+    highlightReelUrl: reelAsset?.url ?? null,
+    highlightReelTitle: reelAsset?.name ?? null,
+    fullGameFilmUrl: filmAsset?.url ?? null,
+    sportsRecruitsProfileUrl: srAsset?.url ?? null,
+    resumeFileName: resumeAsset?.file_name ?? null,
+    transcriptFileName: transcriptAsset?.file_name ?? null,
+  }
+
   return {
     school,
     coaches,
@@ -174,5 +209,6 @@ export async function fetchSchoolContext(
     declineHistory,
     actionItems: rawActions,
     strategicNotes,
+    currentAssets,
   }
 }

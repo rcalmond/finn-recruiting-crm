@@ -76,13 +76,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
   }
 
-  // Shared context + route-specific fetches
-  const [ctx, { data: profile }] = await Promise.all([
-    fetchSchoolContext(db, schoolId),
-    db.from('player_profile').select('current_reel_url').limit(1).maybeSingle(),
-  ])
+  // Shared context fetch — currentAssets provides canonical reel URL from assets table.
+  // Do NOT read from player_profile.current_reel_url — that field is stale.
+  const ctx = await fetchSchoolContext(db, schoolId)
 
-  const { school, contactLog, upcomingCamps, strategicNotes } = ctx
+  const { school, contactLog, upcomingCamps, strategicNotes, currentAssets } = ctx
 
   if (!school) {
     return NextResponse.json({ error: 'School not found' }, { status: 404 })
@@ -127,7 +125,7 @@ export async function POST(req: NextRequest) {
       summary: r.summary,
     })),
     camps,
-    currentReelUrl: (profile as { current_reel_url: string | null } | null)?.current_reel_url ?? null,
+    currentReelUrl: currentAssets.highlightReelUrl,
     strategicNotes,
     regenerationHint: hint?.trim() || null,
   }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
-import { PREP_SYSTEM_PROMPT, buildPrepPrompt } from '@/lib/prompts'
+import { buildPrepSystemPrompt, buildPrepPrompt } from '@/lib/prompts'
 import { fetchSchoolContext } from '@/lib/school-context'
 import type { Question, SchoolQuestionOverride, SchoolSpecificQuestion } from '@/lib/types'
 
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     const admin = serviceClient()
 
-    const { school, coaches, contactLog, upcomingCamps: camps, declineHistory: declineRows, strategicNotes } =
+    const { school, coaches, contactLog, upcomingCamps: camps, declineHistory: declineRows, strategicNotes, currentAssets } =
       await fetchSchoolContext(admin, schoolId)
 
     if (!school) {
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     const message = await anthropic.messages.create({
       model: 'claude-opus-4-7',
       max_tokens: 4096,
-      system: PREP_SYSTEM_PROMPT,
+      system: buildPrepSystemPrompt(currentAssets),
       messages: [{ role: 'user', content: userPrompt }],
     })
 
