@@ -1,7 +1,7 @@
 /**
  * classify-inbound.ts
  *
- * Haiku-powered two-axis classifier for inbound contact_log emails.
+ * Sonnet-powered two-axis classifier for inbound contact_log emails.
  *
  * Axes:
  *   authored_by — who wrote the email
@@ -77,6 +77,21 @@ AXIS 2 — intent (what action this email requires from the recruit):
   decline            — Program is full, not recruiting this position, not a fit — no response needed
   unknown            — Genuinely can't tell
 
+CRITICAL RULE — Body content overrides sender signals:
+
+Coaches frequently send mass/blast emails from their personal email addresses. When the body content shows ANY blast indicators, classify as authored_by=team_automated even if the sender is a named coach with a personal email address.
+
+Body blast indicators (any one is sufficient):
+- Group salutation: "Guys-", "All,", "Hi 27s", "Hi 2027s", "Hi 28s", "Team,", any plural addressing
+- Self-identified blast: "shooting this out to", "blasting this to", "sending this to everyone in our database", "all our 2027s"
+- Templated post-RQ language: "Thank you for your interest in our program", "You're receiving this email because you've expressed interest"
+- Generic camp/clinic announcement: ID camp/clinic invitation with date/time/location and no personal reference to the recipient's specific situation, prior interactions, or film
+- Inline embedded program guides, recruiting questionnaires, or FAQ-style content blocks
+
+In all of the above, set intent=informational unless the blast explicitly requires a specific action with a deadline (e.g., "RSVP by Friday" or "Register before June 1").
+
+The key distinction: a PERSONAL email references the specific recruit's situation (their film, their position, prior conversations, specific dates discussed). A BLAST email could be sent identically to 50 recruits with zero changes.
+
 CONFIDENCE calibration (strict):
   high   — Both axes are unambiguous. A clear direct question in plain English, a clear team-inbox sender, a clear program-full decline. No reasonable human would disagree.
   medium — One axis is ambiguous OR the email contains contradictory signals (e.g., personalized opener + boilerplate body, or both an action ask AND a reply ask). If you find yourself saying "probably X", it is medium.
@@ -117,6 +132,21 @@ Example 7 — recruiting-template email with multiple asks:
   (email contains links to questionnaire + camp registration, extensive program marketing, and a 'keep us updated' pleasantry)
   → {"authored_by":"coach_via_platform","intent":"requires_action","confidence":"high","notes":"Template-style recruiting email with concrete asks (fill form, attend camp). 'Keep us updated' is conversational framing, not the primary ask."}
   RULE: when an email contains BOTH a pleasantry phrase ("keep us updated", "stay in touch") AND concrete action links (forms, camps, questionnaires), classify as requires_action. Concrete asks take priority over conversational framing.
+
+Example 8 — Personal sender address + blast body:
+  From: Brian Kelley (bkelley@wpi.edu)
+  Body: "All, After completing our sold out Spring ID clinic this past weekend, we are excited about our current player pool for the class of 2027 as we head into a couple of heavy recruiting months for club events. Looking ahead, I'd like to extend an invitation to our two upcoming Summer ID Clinics..."
+  → {"authored_by":"team_automated","intent":"informational","confidence":"high","notes":"Group salutation ('All,') + generic broadcast to player pool + no personal reference to recipient. Personal sender domain does not override blast body signals."}
+
+Example 9 — Templated post-RQ funnel from personal sender:
+  From: Brandon Bautista (bbautista@calpoly.edu)
+  Body: "Hello! Thanks for filling out our questionnaire. I wanted to share our summer ID camp info with you so you can put it on your radar. Please see the dates below: May 9 & 10, 2026, August 1 & 2, 2026. Our ID Camp is an excellent opportunity to participate in training sessions and game play..."
+  → {"authored_by":"team_automated","intent":"informational","confidence":"high","notes":"Templated post-RQ funnel language ('Thanks for filling out our questionnaire') + generic camp announcement. No personal reference to recruit's situation, film, or prior interactions."}
+
+Example 10 — Personal sender + genuinely personal body (counter-example):
+  From: Sean Streb (sstreb@rochester.edu)
+  Body: "Hi Finn, Thanks for sending the highlight reel. I watched the clips from the Scottsdale qualifier — that Olimpico was incredible. Are you free Wednesday at 2pm MT? I'd like to call and talk about how wingbacks fit in our system."
+  → {"authored_by":"coach_personal","intent":"requires_reply","confidence":"high","notes":"References specific film content (Scottsdale, Olimpico) + direct scheduling question. Clearly personal, not blast."}
 
 Respond ONLY with valid JSON matching this exact shape:
 {"authored_by":"<value>","intent":"<value>","confidence":"<value>","notes":"<string under 200 chars>"}`
@@ -175,7 +205,7 @@ export async function classifyInbound(input: ClassificationInput): Promise<Class
     ].filter(p => p !== null).join('\n')
 
     const message = await getClient().messages.create({
-      model:      'claude-haiku-4-5-20251001',
+      model:      'claude-sonnet-4-6',
       max_tokens: 256,
       system:     SYSTEM_PROMPT,
       messages:   [{ role: 'user', content: parts }],
