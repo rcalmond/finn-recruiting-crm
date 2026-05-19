@@ -1919,7 +1919,18 @@ export default function SchoolDetailClient({
     : null
 
   const stage = deriveStage(school)
-  const primaryCoach = coaches.find(c => c.is_primary) ?? null
+  // Resolve target coach: primary → head coach → most recent active coach
+  const targetCoach = (() => {
+    const active = coaches.filter(c => c.is_active)
+    if (active.length === 0) return null
+    const primary = active.find(c => c.is_primary)
+    if (primary) return primary
+    const head = active.find(c => c.role?.toLowerCase().includes('head'))
+    if (head) return head
+    return [...active].sort((a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )[0]
+  })()
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
@@ -2009,29 +2020,63 @@ export default function SchoolDetailClient({
       `}</style>
 
       {/* ── Modals ── */}
-      {draftTarget && primaryCoach && (
+      {draftTarget && targetCoach && (
         <DraftModal
           mode={draftTarget.kind === 'reply' && draftTarget.replyToContactLogId
             ? {
                 kind: 'reply',
                 schoolId: school.id,
-                coachId: primaryCoach.id,
+                coachId: targetCoach.id,
                 schoolName: school.name,
-                coachName: primaryCoach.name,
+                coachName: targetCoach.name,
                 replyToContactLogId: draftTarget.replyToContactLogId,
                 inboundChannel: draftTarget.inboundChannel,
               }
             : {
                 kind: 'fresh',
                 schoolId: school.id,
-                coachId: primaryCoach.id,
+                coachId: targetCoach.id,
                 schoolName: school.name,
-                coachName: primaryCoach.name,
+                coachName: targetCoach.name,
               }
           }
           userId={user.id}
           onClose={() => setDraftTarget(null)}
         />
+      )}
+      {draftTarget && !targetCoach && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 999,
+            background: 'rgba(0,0,0,0.4)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+          }}
+          onClick={() => setDraftTarget(null)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: 12, padding: '24px 28px',
+              maxWidth: 380, boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>
+              No active coaches
+            </div>
+            <div style={{ fontSize: 13, color: '#64748b', marginBottom: 16, lineHeight: 1.5 }}>
+              Add a coach to {school.short_name || school.name} before drafting an email.
+            </div>
+            <button
+              onClick={() => setDraftTarget(null)}
+              style={{
+                padding: '8px 20px', background: '#0f172a', color: '#fff',
+                border: 'none', borderRadius: 999, fontSize: 13, fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >OK</button>
+          </div>
+        </div>
       )}
       {prepOpen && (
         <PrepForCallModal

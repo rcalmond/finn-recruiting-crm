@@ -443,7 +443,9 @@ export default function SchoolModal(props: Props) {
         </div>
 
         {draftingEmail && isEdit && (() => {
-          const pc = coaches.find(c => c.is_primary) ?? coaches[0] ?? null
+          const pc = coaches.find(c => c.is_primary)
+            ?? coaches.find(c => c.role?.toLowerCase().includes('head'))
+            ?? coaches[0] ?? null
           return pc ? (
             <DraftModal
               mode={{
