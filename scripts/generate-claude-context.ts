@@ -728,6 +728,11 @@ const FALLBACK_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-19 | Classifier upgraded Haiku 4.5 → Sonnet 4.6 with new blast-detection rules and few-shot examples. 6 historical misclassifications manually corrected. | Quality |
+| 2026-05-19 | Pipeline Activity widget: HOT bucket filters by authored_by + 60-day staleness window, per-bucket caps (HOT 5, ACTIVE 5), parse_status filter added. | Bug fix |
+| 2026-05-19 | URL state persistence across /camps, /schools, /campaigns, /messages: ~17 pieces of state moved from useState to useSearchParams + router.push. Back button restores page state naturally. | UX |
+| 2026-05-19 | Modal dismissal protection: DraftModal and PrepForCallModal no longer dismiss on outside-click or Escape. Explicit close only. Simple dialogs unchanged. | UX |
+| 2026-05-19 | Defensive coach fallback in school detail handlers: primary → head coach → most recently added active coach. "No active coaches" dialog instead of silent failure. | Bug fix |
 | 2026-05-19 | Cached state divergence cleanup: 5 fixes total. Reel URL via assets table (3 surfaces), video send tracking via runtime detector, last_contact via ingest hooks, videos_sent replaced with last_video_url. Systematic audit identified all instances; established architectural principle (canonical source must auto-sync or be queried directly). | Bug fix + Architecture |
 | 2026-04-26 | Phase 2a Milestone 3.5: AI personalization in draft review modal — Haiku 4.5, streaming, school + coach + inbound context, stats hallucination guard, no-coach-quote rule | Feature |
 | 2026-04-26 | Phase 2a Milestone 3: draft review modal with copy/mark-sent-Gmail/mark-sent-SR/dismiss; channel value mapping (gmail/sr wire → Email/Sports Recruits DB) | Feature |

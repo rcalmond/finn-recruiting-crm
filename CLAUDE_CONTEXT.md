@@ -1656,6 +1656,83 @@ Each marked @deprecated in types.ts with reference to canonical source. Columns 
 - last_contact hook: guards against backfill resets (only updates if newer than existing value); applied to all 4 ingest paths (gmail-sync inbound + outbound, sendgrid-inbound inbound + outbound)
 - one-time backfill SQL for last_contact: `UPDATE schools SET last_contact = (SELECT MAX(cl.date) FROM contact_log cl WHERE cl.school_id = schools.id AND cl.parse_status NOT IN ('orphan', 'non_coach'))`
 
+### Production UX + Classifier Fixes (May 19, 2026 — pm)
+
+Active recruiting use continued to surface real bugs. Six fixes shipped, all triggered by Finn's actual workflow:
+
+**1. Case Western buttons broken — defensive coach fallback.**
+
+Symptom: Draft email / Draft check-in / Prep for call buttons did nothing on Case Western detail page (no network call, no error). Both browsers same behavior.
+
+Root cause: Case Western had two active coaches (Carter Poe head, Fernando Lisboa assistant) but neither marked is_primary=true. Handlers were doing early-return when primaryCoach was null — silent fail.
+
+Fix: replaced `primaryCoach = coaches.find(c => c.is_primary)` with a fallback chain:
+- Primary coach (existing)
+- Head coach by role (new fallback)
+- Most recently added active coach (final fallback)
+
+Plus: handlers now show a "No active coaches" dialog when targetCoach is null instead of silent fail. User always sees feedback.
+
+**2. Modal dismissal protection on expensive working surfaces.**
+
+Symptom: Finn tabs between Claude UI and Gmail/SR while copying generated drafts. Accidental click outside modal or Escape press dismisses the modal, losing the draft. Forces LLM regeneration + workflow break.
+
+Fix: disabled outside-click and Escape dismissal on DraftModal and PrepForCallModal. Modals only close via explicit Close button, X button, or Mark as sent buttons. Simple dialogs (delete confirmations, no-coaches error) keep dismiss-on-outside behavior.
+
+**3. URL state persistence across major browsing pages.**
+
+Symptom: Finn navigates calendar to July 2026 on /camps, clicks a camp, hits back button — returns to /camps list view instead of calendar at July 2026.
+
+Fix: replaced useState with useSearchParams + router.push pattern across:
+- /camps: view, timeframe, status filter, tier filter, calendar month (?view, ?timeframe, ?status, ?tier, ?month=YYYY-MM)
+- /schools: view, stage, tier, division, quick filter, search (?view, ?stage, ?tier, ?division, ?quick, ?search — 400ms debounced)
+- /campaigns: filter (?filter)
+- /messages: status filter, type filter (?status, ?type)
+
+Default values omitted from URL for clean bookmarkable links. All state changes create history entries.
+
+**4. Pipeline Activity widget — false positives + starved bucket.**
+
+Symptom: HOT bucket contained 8 schools including WPI ("we've done nothing"), Lehigh, Bowdoin. ACTIVE bucket only Cornell + Case Western, missing MSOE despite a May 19 outbound.
+
+Fix to src/lib/pipeline-rail.ts:
+- HOT now requires authored_by IN ('coach_personal', 'coach_via_platform') — team_automated excluded
+- 60-day staleness window on HOT entries
+- parse_status filter (orphan/non_coach excluded)
+- Per-bucket caps: HOT max 5, ACTIVE max 5
+- WARMING/COLD excluded from widget entirely (not actionable on Today page)
+
+**5. Six historical classifications manually corrected.**
+
+Reclassified 6 known blast emails that had been marked coach_personal/requires_action to team_automated/informational:
+- WPI / Coach Kelley / May 7 — ID clinic blast
+- Bucknell / Dave Brandt / May 6 — "shooting this out to all 27s"
+- CMU / May 4 — "expressed strong interest" templated
+- Rochester / May 1 — embedded RQ + Program Guide
+- Cal Poly SLO / April 19 — "Thanks for filling out our questionnaire"
+- CMU / April 8 — "All," opening
+
+**6. Classifier upgrade — Haiku 4.5 → Sonnet 4.6 + blast-detection rules.**
+
+Root cause of the 6 misclassifications: Haiku 4.5 was fooled by personal sender addresses. Fix to src/lib/classify-inbound.ts:
+- Model: claude-haiku-4-5-20251001 → claude-sonnet-4-6 (~$0.50/month additional)
+- New CRITICAL RULE: body content overrides sender signals. Blast indicators (group salutations, self-identified blasts, templated post-RQ funnel language, generic camp announcements) → team_automated regardless of sender.
+- 3 new few-shot examples (8-10): coach blast from personal email, templated post-RQ funnel, counter-example with genuinely personal body.
+
+Updated LLM Model Standards:
+- Classify inbound: **Sonnet 4.6** (was Haiku 4.5)
+- Coach scraper, camp extractor: Haiku 4.5 (unchanged)
+
+Future work flagged: backfill reclassification of recent historical inbound rows (60-90 days). Review queue only surfaces low-confidence rows — high-confidence-but-wrong is invisible (design gap, less critical with improved classifier).
+
+**Architectural principles consolidated from May 19:**
+
+1. Canonical sources must auto-sync or be queried directly (cached state divergence)
+2. Handlers must never silently bail
+3. Working surfaces with expensive content require explicit dismissal
+4. URL is canonical for browsable UI state
+5. Body content trumps sender metadata for classification
+
 ---
 
 ## 10. Session Startup Checklist for Claude Code
@@ -3208,6 +3285,11 @@ for v1. Smoke tests passed.
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-19 | Classifier upgraded Haiku 4.5 → Sonnet 4.6 with new blast-detection rules and few-shot examples. 6 historical misclassifications manually corrected. | Quality |
+| 2026-05-19 | Pipeline Activity widget: HOT bucket filters by authored_by + 60-day staleness window, per-bucket caps (HOT 5, ACTIVE 5), parse_status filter added. | Bug fix |
+| 2026-05-19 | URL state persistence across /camps, /schools, /campaigns, /messages: ~17 pieces of state moved from useState to useSearchParams + router.push. Back button restores page state naturally. | UX |
+| 2026-05-19 | Modal dismissal protection: DraftModal and PrepForCallModal no longer dismiss on outside-click or Escape. Explicit close only. Simple dialogs unchanged. | UX |
+| 2026-05-19 | Defensive coach fallback in school detail handlers: primary → head coach → most recently added active coach. "No active coaches" dialog instead of silent failure. | Bug fix |
 | 2026-05-19 | Cached state divergence cleanup: 5 fixes total. Reel URL via assets table (3 surfaces), video send tracking via runtime detector, last_contact via ingest hooks, videos_sent replaced with last_video_url. Systematic audit identified all instances; established architectural principle (canonical source must auto-sync or be queried directly). | Bug fix + Architecture |
 | 2026-05-16 | Schools map view: Leaflet + OpenStreetMap with tier-colored markers, popup with detail page link. /schools List|Map tab toggle persists in URL. Migration 046 adds lat/lng. Geocoding backfill via Nominatim (54/62 auto, 8 manual fixes). | Feature + Schema |
 | 2026-05-16 | Nope school cascade: when school category becomes Nope, interested camps auto-decline with declined_reason='School moved to Nope tier'. Defense-in-depth filter on camp views. One-time backfill cleaned 5 existing rows. | Feature |
