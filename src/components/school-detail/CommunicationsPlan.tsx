@@ -7,7 +7,7 @@ import type { Message, MessageType, Category, SchoolMessagePlanSuggestion } from
 const SD = {
   paper: '#F6F1E8', ink: '#0E0E0E', inkMid: '#4A4A4A',
   inkLo: '#7A7570', inkMute: '#A8A39B', line: '#E2DBC9',
-  white: '#fff', teal: '#00B2A9', red: '#C8102E',
+  white: '#fff', teal: '#00B2A9', tealDeep: '#006A65', red: '#C8102E',
 }
 
 const TYPE_STYLES: Record<MessageType, { bg: string; color: string; label: string }> = {
@@ -46,6 +46,15 @@ interface PlanData {
   finn_notes: string | null
   suggestions: { items: SchoolMessagePlanSuggestion[] } | null
   suggestions_generated_at: string | null
+  manual_order: string[] | null
+}
+
+interface QARow {
+  id: string
+  school_id: string
+  question: string
+  answer: string
+  created_at: string
 }
 
 interface Props {
@@ -59,8 +68,18 @@ export default function CommunicationsPlan({ schoolId }: Props) {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [coverageOpen, setCoverageOpen] = useState(false)
+  const [showExtras, setShowExtras] = useState(false)
   const [notes, setNotes] = useState('')
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Q&A state
+  const [qaHistory, setQaHistory] = useState<QARow[]>([])
+  const [qaInput, setQaInput] = useState('')
+  const [qaLoading, setQaLoading] = useState(false)
+
+  // Drag state
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
 
   const fetchPlan = useCallback(async () => {
     const res = await fetch(`/api/schools/${schoolId}/message-plan`)
@@ -72,9 +91,16 @@ export default function CommunicationsPlan({ schoolId }: Props) {
     setLoading(false)
   }, [schoolId])
 
-  // Fetch active messages for title lookup
+  const fetchQA = useCallback(async () => {
+    const res = await fetch(`/api/schools/${schoolId}/strategy-question`)
+    if (!res.ok) return
+    const data = await res.json()
+    setQaHistory(data.questions ?? [])
+  }, [schoolId])
+
   useEffect(() => {
     fetchPlan()
+    fetchQA()
     const supabase = (async () => {
       const { createClient } = await import('@/lib/supabase/client')
       const sb = createClient()
@@ -83,7 +109,7 @@ export default function CommunicationsPlan({ schoolId }: Props) {
       return sb
     })()
     return () => { supabase.then(sb => sb.removeAllChannels()) }
-  }, [fetchPlan])
+  }, [fetchPlan, fetchQA])
 
   async function handleGenerate() {
     setGenerating(true)
@@ -110,8 +136,87 @@ export default function CommunicationsPlan({ schoolId }: Props) {
     }, 1000)
   }
 
-  const suggestions = plan?.suggestions?.items ?? []
+  async function handleAsk() {
+    if (!qaInput.trim() || qaLoading) return
+    setQaLoading(true)
+    try {
+      const res = await fetch(`/api/schools/${schoolId}/strategy-question`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: qaInput.trim() }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.question) {
+          setQaHistory(prev => [data.question, ...prev].slice(0, 5))
+          setQaInput('')
+        }
+      }
+    } finally {
+      setQaLoading(false)
+    }
+  }
+
+  // ── Suggestion ordering ──────────────────────────────────────────────────
+
+  const allSuggestions = plan?.suggestions?.items ?? []
   const msgMap = new Map(messages.map(m => [m.id, m]))
+
+  const primaryItems = allSuggestions.filter(s => s.tier !== 'extra')
+  const extraItems = allSuggestions.filter(s => s.tier === 'extra')
+
+  // Apply manual_order to primary items
+  const orderedPrimary = (() => {
+    const order = plan?.manual_order
+    if (!order || order.length === 0) {
+      return [...primaryItems].sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+    }
+    const orderMap = new Map(order.map((id, idx) => [id, idx]))
+    const inOrder = primaryItems.filter(s => orderMap.has(s.message_id))
+      .sort((a, b) => orderMap.get(a.message_id)! - orderMap.get(b.message_id)!)
+    const notInOrder = primaryItems.filter(s => !orderMap.has(s.message_id))
+      .sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+    return [...inOrder, ...notInOrder]
+  })()
+
+  const orderedExtras = [...extraItems].sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+
+  // ── Drag-to-reorder (HTML5 DnD) ──────────────────────────────────────────
+
+  function handleDragStart(idx: number) {
+    setDragIdx(idx)
+  }
+  function handleDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault()
+    setDragOverIdx(idx)
+  }
+  function handleDragLeave() {
+    setDragOverIdx(null)
+  }
+  async function handleDrop(targetIdx: number) {
+    if (dragIdx === null || dragIdx === targetIdx) {
+      setDragIdx(null); setDragOverIdx(null); return
+    }
+    const newOrder = [...orderedPrimary]
+    const [moved] = newOrder.splice(dragIdx, 1)
+    newOrder.splice(targetIdx, 0, moved)
+    setDragIdx(null); setDragOverIdx(null)
+
+    const newManualOrder = newOrder.map(s => s.message_id)
+    // Optimistic: update plan state immediately
+    setPlan(prev => prev ? { ...prev, manual_order: newManualOrder } : prev)
+    // Persist
+    await fetch(`/api/schools/${schoolId}/message-plan`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ manual_order: newManualOrder }),
+    })
+  }
+  function handleDragEnd() {
+    setDragIdx(null); setDragOverIdx(null)
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────
 
   if (loading) return null
 
@@ -123,7 +228,7 @@ export default function CommunicationsPlan({ schoolId }: Props) {
         letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
       }}>Communications plan.</h2>
 
-      {/* Coverage (collapsible) */}
+      {/* ── 1. Coverage (collapsible) ─────────────────────────────────────── */}
       <div style={{ marginBottom: 16 }}>
         <button
           onClick={() => setCoverageOpen(o => !o)}
@@ -206,26 +311,27 @@ export default function CommunicationsPlan({ schoolId }: Props) {
         )}
       </div>
 
-      {/* Suggested next */}
+      {/* ── 2. Suggested next messages ────────────────────────────────────── */}
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: SD.ink }}>Suggested next messages</span>
-          {suggestions.length > 0 && (
+          {orderedPrimary.length > 0 && (
             <button
               onClick={handleGenerate}
               disabled={generating}
+              title="Regenerate based on the latest conversation"
               style={{
                 padding: '4px 12px', borderRadius: 5, border: `1px solid ${SD.line}`,
                 background: SD.white, fontSize: 11, fontWeight: 600, cursor: generating ? 'not-allowed' : 'pointer',
-                fontFamily: 'inherit', color: SD.inkMid, opacity: generating ? 0.5 : 1,
+                fontFamily: 'inherit', color: SD.inkMute, opacity: generating ? 0.5 : 1,
               }}
             >
-              {generating ? 'Generating...' : 'Refresh'}
+              {generating ? 'Updating...' : 'Update suggestions'}
             </button>
           )}
         </div>
 
-        {suggestions.length === 0 && !generating ? (
+        {orderedPrimary.length === 0 && !generating ? (
           <div style={{ textAlign: 'center', padding: '20px 16px' }}>
             <div style={{ fontSize: 13, color: SD.inkLo, marginBottom: 12 }}>
               No suggestions generated yet.
@@ -247,50 +353,72 @@ export default function CommunicationsPlan({ schoolId }: Props) {
             <div style={{ fontSize: 13, color: SD.inkLo }}>Analyzing conversation and inventory...</div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {suggestions.map((s, i) => {
-              const msg = msgMap.get(s.message_id)
-              if (!msg) return null
-              const ts = TYPE_STYLES[msg.type] ?? TYPE_STYLES.update
-              const tm = TIMING_STYLES[s.timing] ?? TIMING_STYLES.send_now
-              return (
-                <div key={i} style={{
-                  padding: '12px 14px', background: SD.white, borderRadius: 8,
-                  border: `1px solid ${SD.line}`,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3,
-                      textTransform: 'uppercase', background: ts.bg, color: ts.color,
-                    }}>{ts.label}</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: SD.ink }}>{msg.title}</span>
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3,
-                      textTransform: 'uppercase', background: tm.bg, color: tm.color, marginLeft: 'auto',
-                    }}>{tm.label}</span>
+          <>
+            {/* Primary list (draggable) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {orderedPrimary.map((s, i) => (
+                <SuggestionRow
+                  key={s.message_id}
+                  suggestion={s}
+                  message={msgMap.get(s.message_id) ?? null}
+                  draggable
+                  isDragging={dragIdx === i}
+                  isDragOver={dragOverIdx === i}
+                  onDragStart={() => handleDragStart(i)}
+                  onDragOver={(e) => handleDragOver(e, i)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={() => handleDrop(i)}
+                  onDragEnd={handleDragEnd}
+                />
+              ))}
+            </div>
+
+            {/* Show me more / Hide extras toggle */}
+            {orderedExtras.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <button
+                  onClick={() => setShowExtras(v => !v)}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                    fontSize: 12, fontWeight: 600, color: SD.tealDeep, padding: '4px 0',
+                  }}
+                >
+                  {showExtras ? 'Hide extras' : `Show me more (${orderedExtras.length})`}
+                </button>
+
+                {showExtras && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+                    {orderedExtras.map(s => (
+                      <SuggestionRow
+                        key={s.message_id}
+                        suggestion={s}
+                        message={msgMap.get(s.message_id) ?? null}
+                        muted
+                      />
+                    ))}
                   </div>
-                  <div style={{ fontSize: 12, color: SD.inkMid, lineHeight: 1.5 }}>{s.reasoning}</div>
-                </div>
-              )
-            })}
+                )}
+              </div>
+            )}
+
             {plan?.suggestions_generated_at && (
-              <div style={{ fontSize: 10, color: SD.inkMute, marginTop: 2 }}>
+              <div style={{ fontSize: 10, color: SD.inkMute, marginTop: 8 }}>
                 Generated {new Date(plan.suggestions_generated_at).toLocaleDateString()}
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
 
-      {/* Strategic notes */}
-      <div>
+      {/* ── 3. Anything else to cover ─────────────────────────────────────── */}
+      <div style={{ marginBottom: 16 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: SD.ink, display: 'block', marginBottom: 6 }}>
-          Strategic notes
+          Anything else to cover
         </span>
         <textarea
           value={notes}
           onChange={e => handleNotesChange(e.target.value)}
-          placeholder="Add notes about your communication strategy for this school..."
+          placeholder="Add anything you want upcoming emails to cover that isn't suggested above — specific points, context, things on your mind."
           rows={3}
           style={{
             width: '100%', padding: '8px 12px', borderRadius: 6,
@@ -300,6 +428,130 @@ export default function CommunicationsPlan({ schoolId }: Props) {
           }}
         />
       </div>
+
+      {/* ── 4. Ask about this school ──────────────────────────────────────── */}
+      <div>
+        <span style={{ fontSize: 13, fontWeight: 700, color: SD.ink, display: 'block', marginBottom: 6 }}>
+          Ask about this school
+        </span>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <input
+            value={qaInput}
+            onChange={e => setQaInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAsk() } }}
+            placeholder="Should I push for a call? Is this going cold?"
+            disabled={qaLoading}
+            style={{
+              flex: 1, padding: '8px 12px', borderRadius: 6,
+              border: `1px solid ${SD.line}`, fontSize: 13, fontFamily: 'inherit',
+              color: SD.ink, background: SD.white, outline: 'none',
+            }}
+          />
+          <button
+            onClick={handleAsk}
+            disabled={qaLoading || !qaInput.trim()}
+            style={{
+              padding: '8px 16px', borderRadius: 6, border: 'none',
+              background: qaLoading || !qaInput.trim() ? SD.line : SD.ink,
+              color: qaLoading || !qaInput.trim() ? SD.inkMute : SD.white,
+              fontSize: 13, fontWeight: 600, cursor: qaLoading || !qaInput.trim() ? 'not-allowed' : 'pointer',
+              fontFamily: 'inherit', flexShrink: 0,
+            }}
+          >
+            {qaLoading ? 'Thinking...' : 'Ask'}
+          </button>
+        </div>
+
+        {qaHistory.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {qaHistory.map(qa => (
+              <div key={qa.id} style={{
+                padding: '10px 14px', background: SD.white, borderRadius: 8,
+                border: `1px solid ${SD.line}`,
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: SD.ink, marginBottom: 4 }}>
+                  {qa.question}
+                </div>
+                <div style={{ fontSize: 12, color: SD.inkMid, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                  {qa.answer}
+                </div>
+                <div style={{ fontSize: 10, color: SD.inkMute, marginTop: 6 }}>
+                  {new Date(qa.created_at).toLocaleDateString('en-US', {
+                    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                    timeZone: 'America/Denver',
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
+  )
+}
+
+// ── Suggestion row component ────────────────────────────────────────────────
+
+function SuggestionRow({
+  suggestion: s,
+  message: msg,
+  draggable: isDraggable,
+  muted,
+  isDragging,
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+}: {
+  suggestion: SchoolMessagePlanSuggestion
+  message: Message | null
+  draggable?: boolean
+  muted?: boolean
+  isDragging?: boolean
+  isDragOver?: boolean
+  onDragStart?: () => void
+  onDragOver?: (e: React.DragEvent) => void
+  onDragLeave?: () => void
+  onDrop?: () => void
+  onDragEnd?: () => void
+}) {
+  if (!msg) return null
+  const ts = TYPE_STYLES[msg.type] ?? TYPE_STYLES.update
+  const tm = TIMING_STYLES[s.timing] ?? TIMING_STYLES.send_now
+
+  return (
+    <div
+      draggable={isDraggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={e => { e.preventDefault(); onDrop?.() }}
+      onDragEnd={onDragEnd}
+      style={{
+        padding: '10px 12px', background: muted ? SD.paper : SD.white,
+        borderRadius: 8, border: `1px solid ${isDragOver ? SD.teal : SD.line}`,
+        opacity: isDragging ? 0.4 : muted ? 0.7 : 1,
+        cursor: isDraggable ? 'grab' : 'default',
+        transition: 'border-color 0.1s, opacity 0.1s',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+        {isDraggable && (
+          <span style={{ color: SD.inkMute, fontSize: 14, cursor: 'grab', userSelect: 'none', flexShrink: 0 }}>⠿</span>
+        )}
+        <span style={{
+          fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3,
+          textTransform: 'uppercase', background: ts.bg, color: ts.color,
+        }}>{ts.label}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: muted ? SD.inkMid : SD.ink, flex: 1 }}>{msg.title}</span>
+        <span style={{
+          fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 3,
+          textTransform: 'uppercase', background: tm.bg, color: tm.color, flexShrink: 0,
+        }}>{tm.label}</span>
+      </div>
+      <div style={{ fontSize: 12, color: SD.inkMid, lineHeight: 1.5, paddingLeft: isDraggable ? 22 : 0 }}>{s.reasoning}</div>
+    </div>
   )
 }

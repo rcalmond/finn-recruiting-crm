@@ -93,6 +93,15 @@ export async function POST(
 
     const suggestions = { items: result.items }
 
+    // Merge manual_order: keep message_ids that survive regeneration, drop stale ones
+    const existingOrder = (existingPlan as Record<string, unknown> | null)?.manual_order as string[] | null
+    let mergedOrder: string[] | null = null
+    if (existingOrder && existingOrder.length > 0) {
+      const newIds = new Set(result.items.map(i => i.message_id))
+      mergedOrder = existingOrder.filter(id => newIds.has(id))
+      if (mergedOrder.length === 0) mergedOrder = null
+    }
+
     // Upsert plan
     const { data: plan, error } = await db
       .from('school_message_plan')
@@ -102,6 +111,7 @@ export async function POST(
         suggestions,
         suggestions_generated_at: new Date().toISOString(),
         suggestions_model_used: 'claude-opus-4-7',
+        manual_order: mergedOrder,
       }, { onConflict: 'school_id' })
       .select('*')
       .single()
@@ -129,16 +139,17 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { finn_notes } = await req.json() as { finn_notes: string }
+  const body = await req.json() as { finn_notes?: string; manual_order?: string[] }
 
   const db = admin()
 
+  const updates: Record<string, unknown> = { school_id: schoolId }
+  if ('finn_notes' in body) updates.finn_notes = body.finn_notes?.trim() || null
+  if ('manual_order' in body) updates.manual_order = body.manual_order ?? null
+
   const { data: plan, error } = await db
     .from('school_message_plan')
-    .upsert({
-      school_id: schoolId,
-      finn_notes: finn_notes?.trim() || null,
-    }, { onConflict: 'school_id' })
+    .upsert(updates, { onConflict: 'school_id' })
     .select('*')
     .single()
 
