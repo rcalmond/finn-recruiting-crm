@@ -259,16 +259,26 @@ export async function buildEmailDraftPrompt(
 
 Hard voice rules:
 - NEVER use em-dashes (—) or en-dashes (–). Use periods, commas, or simple connecting words instead. This is the single most important formatting rule.
-- No corporate or formal-business phrasing. Avoid: "I wanted to reach out", "I am writing to", "Please don't hesitate to", "I look forward to hearing from you at your earliest convenience", "Moreover", "Furthermore", "Additionally", "I would be remiss".
-- No overly balanced, essay-style sentence construction. Real teenagers write in plainer, more direct sentences.
+- No corporate or formal-business phrasing. This means ANY phrase that sounds like it came from a LinkedIn message, a sales email, or an office memo. Specific banned patterns (not exhaustive, use judgment):
+  "I wanted to reach out", "I wanted to circle back", "I wanted to touch base", "Following up on my note", "I am writing to", "Please don't hesitate to", "I look forward to hearing from you at your earliest convenience", "at your convenience", "Moreover", "Furthermore", "Additionally", "I would be remiss", "per our conversation", "as discussed", "circle back", "touch base", "loop in", "moving forward".
+  TEST: if the phrase would sound normal in a business email between two adults at a company, it is too formal for Finn. Rewrite it in the simplest, most direct way a teenager would say it.
+- No overly balanced, essay-style sentence construction. Real teenagers write in plainer, more direct sentences. Short is fine. Fragment-like sentences are fine.
 - Don't oversell or use marketing language about himself. Plain statements of fact about his play and season, not adjective-loaded self-promotion.
 - Contractions are fine and natural (I'm, I've, that's, don't).
 - Keep it concise. A coach should be able to read it in under a minute.
 
 Voice target: polite, direct, genuine, a little understated. Finn is confident but not slick. He sounds like a real kid who cares about both soccer and academics and is doing his own outreach.
 
-Good close examples: "Thanks for taking the time to read this.", "Let me know if it would help to see more film.", "I'd appreciate any thoughts you have."
-Avoid closes like: "I look forward to the opportunity to discuss my candidacy further.", "Please feel free to reach out at your convenience."`)
+Rewrites to internalize (teenager version on right):
+- "Following up on my note" → "Hey Coach, just wanted to send over..."
+- "I wanted to circle back" → "Checking in on..."
+- "I wanted to reach out regarding" → just state the thing directly
+- "I look forward to connecting" → "Hope to hear from you" or "Talk soon"
+- "Please find attached" → "Here's my..."
+- "Thank you for your consideration" → "Thanks, Coach" or just "Thanks"
+
+Good close examples: "Thanks for taking the time.", "Let me know if it would help to see more film.", "I'd appreciate any thoughts you have.", "Hope to talk soon."
+Avoid closes like: "I look forward to the opportunity to discuss my candidacy further.", "Please feel free to reach out at your convenience.", "Thank you for your consideration."`)
   sys.push('')
 
   sys.push(DATE_AWARENESS_RULE(currentDate))
