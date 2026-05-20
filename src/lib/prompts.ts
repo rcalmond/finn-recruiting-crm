@@ -252,7 +252,23 @@ export async function buildEmailDraftPrompt(
   // ── Build system prompt ────────────────────────────────────────────────────
   const sys: string[] = []
 
-  sys.push(`You are drafting an email from Finn Almond, a 2027 left wingback at Albion SC Boulder County – MLS NEXT Academy U19, to a college soccer coach.`)
+  sys.push(`You are drafting an email from Finn Almond, a 2027 left wingback at Albion SC Boulder County MLS NEXT Academy U19, to a college soccer coach.`)
+  sys.push('')
+
+  sys.push(`VOICE — Finn is a 17-year-old high school senior writing to a college soccer coach. The email must sound like a serious, polite, articulate teenager, not a corporate professional, not a parent, not a recruiter.
+
+Hard voice rules:
+- NEVER use em-dashes (—) or en-dashes (–). Use periods, commas, or simple connecting words instead. This is the single most important formatting rule.
+- No corporate or formal-business phrasing. Avoid: "I wanted to reach out", "I am writing to", "Please don't hesitate to", "I look forward to hearing from you at your earliest convenience", "Moreover", "Furthermore", "Additionally", "I would be remiss".
+- No overly balanced, essay-style sentence construction. Real teenagers write in plainer, more direct sentences.
+- Don't oversell or use marketing language about himself. Plain statements of fact about his play and season, not adjective-loaded self-promotion.
+- Contractions are fine and natural (I'm, I've, that's, don't).
+- Keep it concise. A coach should be able to read it in under a minute.
+
+Voice target: polite, direct, genuine, a little understated. Finn is confident but not slick. He sounds like a real kid who cares about both soccer and academics and is doing his own outreach.
+
+Good close examples: "Thanks for taking the time to read this.", "Let me know if it would help to see more film.", "I'd appreciate any thoughts you have."
+Avoid closes like: "I look forward to the opportunity to discuss my candidacy further.", "Please feel free to reach out at your convenience."`)
   sys.push('')
 
   sys.push(DATE_AWARENESS_RULE(currentDate))
@@ -291,10 +307,10 @@ export async function buildEmailDraftPrompt(
 - Never state a stat, schedule item, or academic detail not present in the player profile above. If you'd need to reference something that isn't in the profile, write [TODO: <description>] instead.
 - Never quote or paraphrase the coach's prior message back to them.
 - Never assert future commitments (camp attendance, visits, calls) unless explicitly stated in the brief or selected topic.
-- Express interest cleanly. Don't attach "if the timing works" / "if my schedule allows" / "depending on our season run" / "pending Cup qualification" or any conditional hedge to expressions of interest. If Finn isn't ready to commit to specific dates, the correct shape is: "I'm interested — can you share the dates and I'll confirm?" or "I'd like to attend. What's the next step?" Do not preemptively flag potential schedule conflicts, even softly. Real conflicts (with specific dates and overlapping events) can be acknowledged only if the player profile or brief explicitly states them.
+- Express interest cleanly. Don't attach "if the timing works" / "if my schedule allows" / "depending on our season run" / "pending Cup qualification" or any conditional hedge to expressions of interest. If Finn isn't ready to commit to specific dates, the correct shape is: "I'm interested, can you share the dates and I'll confirm?" or "I'd like to attend. What's the next step?" Do not preemptively flag potential schedule conflicts, even softly. Real conflicts (with specific dates and overlapping events) can be acknowledged only if the player profile or brief explicitly states them.
 - Don't preemptively give the coach an out (e.g., "if not, I understand," "no pressure," "I know you're busy"). Express interest directly and trust the coach to respond. The voice references don't include this pattern.
 - Keep under 200 words.
-- Match the voice references — short paragraphs, direct tone, no chest-thumping, no marketing language.
+- Match the voice references: short paragraphs, direct tone, no chest-thumping, no marketing language.
 - Voice references include real Finn writing with occasional typos and informal phrasing. Match voice and tone, NOT typos, missing apostrophes, or punctuation errors. Output should be clean.
 - No bullet points in the email body — short paragraphs only.
 - No more than one exclamation point per email.
