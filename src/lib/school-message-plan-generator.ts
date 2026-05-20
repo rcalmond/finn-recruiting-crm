@@ -3,8 +3,11 @@
  *
  * Generates per-school message plan suggestions using Opus 4.7.
  * Analyzes conversation history, covered/uncovered messages, camps,
- * decline history, and Finn's strategic notes to recommend the next
- * 2-3 messages to communicate.
+ * decline history, and Finn's strategic notes to recommend a prioritized
+ * list of messages to communicate.
+ *
+ * Returns 3-6 PRIMARY items (main suggestion list) and up to 4 EXTRA
+ * items (lower-priority, surfaced via "show me more" in the UI).
  */
 
 import Anthropic from '@anthropic-ai/sdk'
@@ -60,10 +63,14 @@ export interface GenerateInput {
   finnNotes: string | null
 }
 
+export type SuggestionTier = 'primary' | 'extra'
+
 export interface SuggestionItem {
   message_id: string
   reasoning: string
   timing: 'send_now' | 'after_event' | 'wait'
+  priority: number
+  tier: SuggestionTier
 }
 
 export interface GenerateOutput {
@@ -82,6 +89,7 @@ function formatCurrentDate(): string {
 }
 
 const VALID_TIMINGS = new Set(['send_now', 'after_event', 'wait'])
+const VALID_TIERS = new Set(['primary', 'extra'])
 
 export async function generateSchoolMessagePlan(
   input: GenerateInput
@@ -93,11 +101,15 @@ export async function generateSchoolMessagePlan(
   const currentDate = formatCurrentDate()
   const client = new Anthropic()
 
-  const systemPrompt = `You are Finn Almond's recruiting strategist. Finn is a 2027 left wingback at Albion SC Boulder County MLS NEXT Academy U19. Your job is to suggest the next 2-3 messages Finn should communicate to a specific college coach, drawing from his inventory of things to say and ask.
+  const systemPrompt = `You are Finn Almond's recruiting strategist. Finn is a 2027 left wingback at Albion SC Boulder County MLS NEXT Academy U19. Your job is to recommend a prioritized list of messages Finn should communicate to a specific college coach, drawing from his inventory of things to say and ask.
 
 Today is ${currentDate}.
 
-Your suggestions should be strategically sequenced: consider what the coach already knows, what would be most relevant to the current state of the relationship, and what timing makes sense.
+Return a prioritized list in TWO tiers:
+
+PRIMARY (3-6 items): the strategically most important things to communicate next. These are the main suggestion list Finn sees. Order by priority (1 = highest). Priority should reflect a strategic read of the full conversation arc: what's been said, what's uncovered, what the relationship state calls for, what timing makes sense.
+
+EXTRA (up to 4 items): additional valid but lower-priority suggestions. These appear when Finn clicks "show me more." Continue the priority numbering from where PRIMARY left off.
 
 TIMING GUIDANCE:
 - "send_now" — communicate this in the next email
@@ -109,13 +121,14 @@ STRATEGIC CONSIDERATIONS:
 - Consider conversation flow — if Finn last asked the coach a question, suggesting more questions before a response is premature
 - Match the relationship state — fresh schools get introductory content, established relationships get deeper engagement
 - Respect Finn's notes — if he has strategic notes for this school, defer to them
+- Priority should reflect strategic thinking, not arbitrary ordering. The #1 item should be the single most impactful thing Finn can say next to this specific coach given everything that's happened.
 
 RULE: Do not suggest topics that reference past dates or completed events as if they are future. Only forward-looking content.
 
 Output: JSON only, no markdown fence.
-{"items": [{"message_id": "uuid-from-uncovered-list", "reasoning": "1-2 sentences explaining why this fits", "timing": "send_now"}]}
+{"items": [{"message_id": "uuid-from-uncovered-list", "reasoning": "1-2 sentences", "timing": "send_now", "priority": 1, "tier": "primary"}]}
 
-Return 2-3 items, ordered by priority (most important first). Use ONLY message_ids from the UNCOVERED MESSAGES list — never invent IDs or suggest covered ones.`
+Use ONLY message_ids from the UNCOVERED MESSAGES list — never invent IDs or suggest covered ones. If fewer than 3 uncovered messages exist, return what you have (don't pad).`
 
   // Build user message
   const usr: string[] = []
@@ -191,12 +204,12 @@ Return 2-3 items, ordered by priority (most important first). Use ONLY message_i
     usr.push('')
   }
 
-  usr.push(`Suggest 2-3 next messages with reasoning and timing.`)
+  usr.push(`Return a prioritized list: 3-6 PRIMARY items (most important), then up to 4 EXTRA items (lower-priority). Use the priority and tier fields.`)
 
   try {
     const response = await client.messages.create({
       model: 'claude-opus-4-7',
-      max_tokens: 1500,
+      max_tokens: 2000,
       system: systemPrompt,
       messages: [{ role: 'user', content: usr.join('\n') }],
     })
@@ -213,14 +226,30 @@ Return 2-3 items, ordered by priority (most important first). Use ONLY message_i
     const validIds = new Set(input.uncoveredMessages.map(m => m.id))
 
     try {
-      const parsed = JSON.parse(raw) as { items?: Array<{ message_id?: string; reasoning?: string; timing?: string }> }
+      const parsed = JSON.parse(raw) as {
+        items?: Array<{
+          message_id?: string
+          reasoning?: string
+          timing?: string
+          priority?: number
+          tier?: string
+        }>
+      }
       const items: SuggestionItem[] = (parsed.items ?? [])
-        .filter(item => typeof item.message_id === 'string' && validIds.has(item.message_id))
-        .map(item => ({
+        .filter(item =>
+          typeof item.message_id === 'string' &&
+          validIds.has(item.message_id) &&
+          typeof item.priority === 'number' &&
+          item.priority > 0
+        )
+        .map((item, idx) => ({
           message_id: item.message_id!,
           reasoning: typeof item.reasoning === 'string' ? item.reasoning : '',
           timing: VALID_TIMINGS.has(item.timing ?? '') ? item.timing as SuggestionItem['timing'] : 'send_now',
+          priority: item.priority!,
+          tier: VALID_TIERS.has(item.tier ?? '') ? item.tier as SuggestionTier : (idx < 6 ? 'primary' : 'extra'),
         }))
+        .sort((a, b) => a.priority - b.priority)
 
       return { items, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
     } catch {

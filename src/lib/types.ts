@@ -114,6 +114,8 @@ export interface SchoolMessagePlanSuggestion {
   message_id: string
   reasoning: string
   timing: 'send_now' | 'after_event' | 'wait'
+  priority?: number             // 1 = highest (Phase 1 rework, May 2026)
+  tier?: 'primary' | 'extra'   // primary = main list, extra = "show me more"
 }
 
 export interface SchoolMessagePlan {
@@ -123,6 +125,7 @@ export interface SchoolMessagePlan {
   suggestions: { items: SchoolMessagePlanSuggestion[] } | null
   suggestions_generated_at: string | null
   suggestions_model_used: string | null
+  manual_order: string[] | null  // message_ids in Finn's preferred display order
   created_at: string
   updated_at: string
 }
