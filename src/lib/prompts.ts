@@ -349,14 +349,34 @@ ${currentAssets.highlightReelUrl ? `- Always include the highlight reel link: ${
 - If the coach has needs_review=true, use a generic professional salutation ("Coach,") rather than confidently addressing them by name — they may have departed.`)
   sys.push('')
 
+  // Closing question (individual emails only, not campaign)
+  if (input.context === 'individual') {
+    sys.push(`CLOSING QUESTION:
+End the email with a strategic question that naturally follows from what the email just said and moves the conversation forward. The question should invite a specific, substantive response from the coach.
+
+The closing question must fit the email's content. If the email shares end-of-season stats and a position update, a fitting close asks whether that profile matches what they're recruiting. If the email responds to a coach's camp invitation, a fitting close asks a specific question about the camp or evaluation. Do NOT attach a closing question that doesn't connect to the email's content.
+
+Weave the question into a natural closing paragraph in Finn's voice. Do not bolt it on as a separate line.
+
+Also produce 2-3 ALTERNATIVE closing questions: other strategic questions that would also fit this email, that Finn might prefer. These are just the question text. They should be genuinely different strategic directions, not rewordings of the same question.
+
+Apply the same voice rules to closing questions: a 17-year-old's voice, no em-dashes, direct and genuine.`)
+    sys.push('')
+  }
+
   // Output format
   if (input.context === 'individual' && !isReply) {
     sys.push(`OUTPUT FORMAT:
 Respond ONLY with valid JSON. No preamble, no markdown fences.
-{ "subject": "Finn Almond | Left Wingback | Class of 2027 | [School Name]", "body": "..." }
+{ "subject": "Finn Almond | Left Wingback | Class of 2027 | [School Name]", "body": "...", "closingQuestion": "the question woven into the closing paragraph", "closingAlternatives": ["alt question 1", "alt question 2"] }
+Body uses plain line breaks between paragraphs, no HTML.`)
+  } else if (input.context === 'individual' && isReply) {
+    sys.push(`OUTPUT FORMAT:
+Respond ONLY with valid JSON. No preamble, no markdown fences.
+{ "body": "...", "closingQuestion": "the question woven into the closing paragraph", "closingAlternatives": ["alt question 1", "alt question 2"] }
 Body uses plain line breaks between paragraphs, no HTML.`)
   } else {
-    // Reply mode and campaign mode both return body-only
+    // Campaign mode returns body-only (no closing question handling)
     sys.push(`OUTPUT FORMAT:
 Return ONLY the complete email body — no subject line, no explanation, no markdown fences.
 Body uses plain line breaks between paragraphs, no HTML.`)

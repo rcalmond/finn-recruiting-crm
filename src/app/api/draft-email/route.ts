@@ -28,13 +28,13 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
  * Extract JSON object from model output by finding first { and last }.
  * Handles preamble text, markdown fences, trailing commentary.
  */
-function extractJSON(raw: string): { subject: string; body: string } | null {
+function extractJSON(raw: string): Record<string, unknown> | null {
   const start = raw.indexOf('{')
   const end = raw.lastIndexOf('}')
   if (start === -1 || end === -1 || end <= start) return null
   try {
     const parsed = JSON.parse(raw.slice(start, end + 1))
-    if (parsed.subject && parsed.body) return parsed
+    if (parsed.body) return parsed
     return null
   } catch {
     return null
@@ -92,19 +92,15 @@ export async function POST(req: NextRequest) {
 
     const raw = message.content[0].type === 'text' ? message.content[0].text : ''
 
-    if (isReply) {
-      // Reply mode: body-only output
-      const bodyText = raw
-        .replace(/^```\s*/i, '')
-        .replace(/```\s*$/i, '')
-        .trim()
-      return NextResponse.json({ body: bodyText })
-    }
-
-    // Fresh outreach: JSON {subject, body} output
+    // Both fresh and reply now use JSON output with closing question fields
     const parsed = extractJSON(raw)
     if (parsed) {
-      return NextResponse.json({ subject: parsed.subject, body: parsed.body })
+      return NextResponse.json({
+        subject: parsed.subject as string | undefined,
+        body: parsed.body as string,
+        closingQuestion: parsed.closingQuestion as string | undefined,
+        closingAlternatives: Array.isArray(parsed.closingAlternatives) ? parsed.closingAlternatives : [],
+      })
     }
 
     // First attempt failed — log and retry with tightened instruction
@@ -117,7 +113,7 @@ export async function POST(req: NextRequest) {
       messages: [
         { role: 'user', content: userPrompt },
         { role: 'assistant', content: raw },
-        { role: 'user', content: 'That response was not valid JSON. Please return ONLY the JSON object with "subject" and "body" keys. Start with { and end with }. No other text.' },
+        { role: 'user', content: 'That response was not valid JSON. Please return ONLY the JSON object with "body", "closingQuestion", and "closingAlternatives" keys. Start with { and end with }. No other text.' },
       ],
     })
 
@@ -125,7 +121,12 @@ export async function POST(req: NextRequest) {
     const parsed2 = extractJSON(raw2)
 
     if (parsed2) {
-      return NextResponse.json({ subject: parsed2.subject, body: parsed2.body })
+      return NextResponse.json({
+        subject: parsed2.subject as string | undefined,
+        body: parsed2.body as string,
+        closingQuestion: parsed2.closingQuestion as string | undefined,
+        closingAlternatives: Array.isArray(parsed2.closingAlternatives) ? parsed2.closingAlternatives : [],
+      })
     }
 
     // Both attempts failed

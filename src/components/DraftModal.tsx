@@ -80,6 +80,11 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
   const [sending, setSending] = useState<string | null>(null)
   const [regenHint, setRegenHint] = useState('')
 
+  // Closing question state (fresh/reply only)
+  const [closingQuestion, setClosingQuestion] = useState<string | null>(null)
+  const [closingAlternatives, setClosingAlternatives] = useState<string[]>([])
+  const [swapping, setSwapping] = useState(false)
+
   // Plan-driven state (fresh/reply only)
   const [planData, setPlanData] = useState<PlanData | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -234,10 +239,48 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
       if (json.subject) setSubject(json.subject)
       setBody(json.body ?? '')
       setCachedBody(json.body ?? '')
+      if (json.closingQuestion) setClosingQuestion(json.closingQuestion)
+      if (Array.isArray(json.closingAlternatives)) setClosingAlternatives(json.closingAlternatives)
       setStage('review')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed')
       setStage('pick')
+    }
+  }
+
+  // ── Swap closing question ────────────────────────────────────────────────
+
+  async function handleSwapClosing(newQuestion: string) {
+    if (!closingQuestion || swapping) return
+    setSwapping(true)
+    try {
+      const res = await fetch('/api/draft-email/swap-closing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          body,
+          currentQuestion: closingQuestion,
+          newQuestion,
+          schoolName: mode.schoolName,
+          coachName: mode.coachName,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Swap failed')
+
+      // Rotate: old closing becomes an alternative, new one becomes active
+      const oldQuestion = closingQuestion
+      setClosingAlternatives(prev => {
+        const next = prev.filter(q => q !== newQuestion)
+        next.push(oldQuestion)
+        return next
+      })
+      setClosingQuestion(newQuestion)
+      setBody(json.body)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Swap failed')
+    } finally {
+      setSwapping(false)
     }
   }
 
@@ -757,6 +800,48 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                   }}
                 />
               </div>
+
+              {/* Closing question + alternatives (fresh/reply only) */}
+              {!isCampaign && closingQuestion && (
+                <div style={{
+                  padding: '10px 14px', borderRadius: 8,
+                  background: '#f8fafc', border: '1px solid #e2e8f0',
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
+                    Closing question
+                  </div>
+                  <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 500, marginBottom: closingAlternatives.length > 0 ? 10 : 0 }}>
+                    {closingQuestion}
+                  </div>
+                  {closingAlternatives.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>Swap to:</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {closingAlternatives.map((alt, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleSwapClosing(alt)}
+                            disabled={swapping}
+                            style={{
+                              padding: '6px 10px', borderRadius: 6, textAlign: 'left',
+                              border: '1px solid #e2e8f0', background: '#fff',
+                              fontSize: 12, color: swapping ? '#94a3b8' : '#475569',
+                              cursor: swapping ? 'not-allowed' : 'pointer',
+                              fontFamily: 'inherit', lineHeight: 1.4,
+                              opacity: swapping ? 0.6 : 1,
+                            }}
+                          >
+                            {alt}
+                          </button>
+                        ))}
+                      </div>
+                      {swapping && (
+                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>Rewriting closing...</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Regenerate with hint (campaign + message_set only) */}
               {isCampaign && campaignHasMessageSet && (
