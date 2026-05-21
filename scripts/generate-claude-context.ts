@@ -728,6 +728,7 @@ const FALLBACK_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-20 | Communications Plan rework complete (4 phases, migration 047). Option A model: plan is the planning surface (prioritized draggable suggestions, "show me more", strategic Q&A, custom-cover notes), draft modal is the execution surface (picks from plan, generates from exact selections). Closing questions with swappable alternatives. Email voice fixed to teenager tone (no em-dashes). | Feature + Schema |
 | 2026-05-19 | Classifier upgraded Haiku 4.5 → Sonnet 4.6 with new blast-detection rules and few-shot examples. 6 historical misclassifications manually corrected. | Quality |
 | 2026-05-19 | Pipeline Activity widget: HOT bucket filters by authored_by + 60-day staleness window, per-bucket caps (HOT 5, ACTIVE 5), parse_status filter added. | Bug fix |
 | 2026-05-19 | URL state persistence across /camps, /schools, /campaigns, /messages: ~17 pieces of state moved from useState to useSearchParams + router.push. Back button restores page state naturally. | UX |

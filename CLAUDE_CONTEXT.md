@@ -1733,6 +1733,66 @@ Future work flagged: backfill reclassification of recent historical inbound rows
 4. URL is canonical for browsable UI state
 5. Body content trumps sender metadata for classification
 
+### Communications Plan Rework — Option A Model (May 19-20, 2026)
+
+**The problem this solved:**
+
+Two surfaces overlapped confusingly: the Communications Plan section on the school detail page (Phase 3 of the original messaging strategy work) and the topic suggester in the Draft Email modal. Both drew from the message inventory, both suggested "what to say next," and the relationship between them was never clear. Finn didn't know what the Communications Plan was for or how it connected to drafting an email.
+
+Additional issues: the draft modal's topic suggestions sometimes felt random (e.g., suggesting "which camp should I attend?" tacked onto an unrelated email); Finn couldn't select multiple messages for one email; there was no way to prioritize suggestions; and generated emails read like an adult professional rather than a 17-year-old.
+
+**The model chosen — Option A:**
+
+The Communications Plan is the BRAIN (planning surface): prioritized suggestions, strategic Q&A, Finn's notes. The Draft Email modal is the HANDS (execution surface): it pulls from the plan and generates the email. The draft modal no longer derives its own topics — it executes the plan.
+
+This was shipped in 4 phases.
+
+**Voice fix (shipped first, separately):**
+
+Before the 4-phase rework, a standalone fix to email generation voice. buildEmailDraftPrompt and campaign-email-generator.ts got a VOICE section: Finn is a 17-year-old high school senior, not a corporate professional. Hard rule: never use em-dashes or en-dashes. Avoid formal-business phrasing ("I wanted to reach out", "Moreover", "at your earliest convenience"). Plain, direct, genuine teenager voice. Contractions fine. Concrete rewrite examples provided in the prompt so the model has positive examples, not just negatives.
+
+**Phase 1 — Schema + generator (migration 047):**
+
+- New table school_plan_questions (id, school_id, question, answer, model_used, created_at) — for the strategic Q&A feature.
+- New column school_message_plan.manual_order (uuid[]) — Finn's manual reordering of suggestions, array of message_ids.
+- suggestions jsonb shape extended: each item gains priority (integer, 1 = highest) and tier ('primary' | 'extra').
+- school-message-plan-generator.ts: now returns 3-6 PRIMARY items + up to 4 EXTRA items (was fixed 2-3). Primary = the main prioritized list; extra = lower-priority suggestions surfaced on demand. Generator prompt instructs strategic prioritization over the full conversation arc, not arbitrary ordering.
+- New file school-plan-qa-generator.ts: answerSchoolStrategyQuestion() — Opus 4.7, answers a strategic question about one school using full conversation context. Honest and concise, no useless hedging.
+
+**Phase 2 — Communications Plan UI rebuild:**
+
+CommunicationsPlan.tsx rebuilt into 4 subsections:
+1. Coverage (collapsible) — unchanged.
+2. Suggested next messages — primary items as a prioritized, drag-to-reorder list (HTML5 drag-and-drop, no library). Manual order persists via manual_order. "Show me more" reveals extra-tier items, de-emphasized. "Update suggestions" (quiet styling) replaces the old "Refresh" button — framed as "incorporate the latest conversation," not a reroll. Regeneration merges manual_order (preserves Finn's ordering for surviving message_ids).
+3. "Anything else to cover" — the old "Strategic notes" textarea, relabeled and reframed as the place for items Finn wants in upcoming emails that aren't auto-suggested. Auto-saves to finn_notes.
+4. "Ask about this school" — strategic Q&A box. Single-shot questions, Opus-generated answers, last 5 Q&As shown with timestamps.
+
+New endpoints: POST/GET /api/schools/[id]/strategy-question. The message-plan PATCH now accepts manual_order; the POST merges manual_order on regeneration.
+
+**Phase 3 — Draft modal pulls from the plan:**
+
+The school-detail draft path (Draft email, Draft check-in) was reworked. The draft modal no longer runs its own topic suggester. Instead:
+- Stage 1 (pick): loads the school's Communications Plan. Primary suggestions shown as a checklist — timing='send_now' items pre-checked, 'wait'/'after_event' unchecked. "Show plan extras" reveals extra-tier items as additional checkable rows. An "anything else to cover" textarea is pre-filled from the plan's finn_notes — but it's a per-email WORKING COPY; editing it does NOT write back to the saved plan notes.
+- Stage 2 (generate): sends the selected message_ids (coverageItems: titles + notes) and the textarea content (coverageNotes) to /api/draft-email. The email generates to cover exactly those things — no separate topic derivation.
+- buildEmailDraftPrompt gained coverageItems and coverageNotes; renders a COVER THESE MESSAGES section.
+- The CAMPAIGN draft path is unchanged — campaigns personalize a campaign-wide message_set across many schools and have no per-school plan.
+- The topic suggester (buildTopicSuggestPrompt, /api/draft-email/suggest-topics) is retained but no longer called. Candidate for future deletion.
+
+**Phase 4 — Closing questions:**
+
+Every generated email ends with a strategic closing question that follows logically from the email's content and drives the conversation forward (fixes the "random camp question" problem).
+- The generation call returns: subject, body (with a closing question woven into the closing paragraph), closingQuestion, and closingAlternatives (2-3 alternative questions).
+- System prompt instructs: the closing question must fit the email's actual content, be woven into a natural closing paragraph in Finn's voice, not bolted on. Alternatives must be genuinely different strategic directions.
+- New endpoint POST /api/draft-email/swap-closing — Sonnet 4.6 rewrites ONLY the closing paragraph around a different question, rest of body untouched.
+- Draft modal review stage shows the active closing question + 2-3 alternatives as swap buttons. The alternatives set is fixed (doesn't refresh on swap). Swapping rotates the old question back into the options.
+- Inventory questions that end up in the sent body are caught automatically by the Phase 2 coverage detector — no special handling.
+
+**The model, summarized:**
+
+- Communications Plan = the brain. Prioritized draggable suggestions, "show me more" depth, custom-cover notes, strategic Q&A. Durable per-school strategy.
+- Draft Email modal = the hands. Picks from the plan, generates from exact selections, offers swappable closing questions. Executes; does not re-derive.
+- This applies to the school-detail draft path only. Campaign drafts are unchanged.
+
 ---
 
 ## 10. Session Startup Checklist for Claude Code
@@ -3285,6 +3345,7 @@ for v1. Smoke tests passed.
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-20 | Communications Plan rework complete (4 phases, migration 047). Option A model: plan is the planning surface (prioritized draggable suggestions, "show me more", strategic Q&A, custom-cover notes), draft modal is the execution surface (picks from plan, generates from exact selections). Closing questions with swappable alternatives. Email voice fixed to teenager tone (no em-dashes). | Feature + Schema |
 | 2026-05-19 | Classifier upgraded Haiku 4.5 → Sonnet 4.6 with new blast-detection rules and few-shot examples. 6 historical misclassifications manually corrected. | Quality |
 | 2026-05-19 | Pipeline Activity widget: HOT bucket filters by authored_by + 60-day staleness window, per-bucket caps (HOT 5, ACTIVE 5), parse_status filter added. | Bug fix |
 | 2026-05-19 | URL state persistence across /camps, /schools, /campaigns, /messages: ~17 pieces of state moved from useState to useSearchParams + router.push. Back button restores page state naturally. | UX |
