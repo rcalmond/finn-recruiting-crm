@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import type { Message, MessageType, SchoolMessagePlanSuggestion } from '@/lib/types'
 
 // ─── Mode types ──────────────────────────────────────────────────────────────
 
@@ -30,13 +31,33 @@ interface DraftModalProps {
   taskContext?: TaskContext
 }
 
+// ─── Plan data types ────────────────────────────────────────────────────────
+
+interface PlanData {
+  suggestions: { items: SchoolMessagePlanSuggestion[] } | null
+  finn_notes: string | null
+  manual_order: string[] | null
+}
+
+const TYPE_STYLES: Record<MessageType, { bg: string; color: string; label: string }> = {
+  update:   { bg: '#DCFCE7', color: '#166534', label: 'Update' },
+  question: { bg: '#DBEAFE', color: '#1E40AF', label: 'Question' },
+}
+
+type SuggestionTiming = 'send_now' | 'after_event' | 'wait'
+const TIMING_STYLES: Record<SuggestionTiming, { bg: string; color: string; label: string }> = {
+  send_now:    { bg: '#DCFCE7', color: '#166534', label: 'Send now' },
+  after_event: { bg: '#FEF3C7', color: '#92400E', label: 'After event' },
+  wait:        { bg: '#F3F4F6', color: '#374151', label: 'Wait' },
+}
+
 // ─── Stages ──────────────────────────────────────────────────────────────────
 
 type Stage =
-  | 'suggest'   // Stage 1: loading topics
-  | 'pick'      // Stage 1: topics loaded, Finn picks or writes brief
-  | 'generate'  // Stage 2: generating email
-  | 'review'    // Stage 3: email ready for review/edit/send
+  | 'loading'   // Loading plan data
+  | 'pick'      // Plan loaded, Finn picks what to cover
+  | 'generate'  // Generating email
+  | 'review'    // Email ready for review/edit/send
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -47,13 +68,10 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
   const campaignHasMessageSet = isCampaign && mode.hasMessageSet
   const campaignIsArchived = isCampaign && mode.isArchived
 
-  const [stage, setStage] = useState<Stage>(isCampaign ? (campaignHasMessageSet ? 'generate' : 'review') : 'suggest')
-  const [topics, setTopics] = useState<string[]>([])
-  const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
-  const [brief, setBrief] = useState('')
+  const [stage, setStage] = useState<Stage>(isCampaign ? (campaignHasMessageSet ? 'generate' : 'review') : 'loading')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState(isCampaign && !campaignHasMessageSet ? mode.renderedBody : '')
-  const [cachedBody, setCachedBody] = useState<string | null>(null) // holds LLM-generated draft for "Start over"
+  const [cachedBody, setCachedBody] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copiedBody, setCopiedBody] = useState(false)
   const [copiedSubject, setCopiedSubject] = useState(false)
@@ -62,32 +80,47 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
   const [sending, setSending] = useState<string | null>(null)
   const [regenHint, setRegenHint] = useState('')
 
-  // ── Stage 1: fetch topic suggestions on mount ─────────────────────────────
+  // Plan-driven state (fresh/reply only)
+  const [planData, setPlanData] = useState<PlanData | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [showExtras, setShowExtras] = useState(false)
+  const [coverageNotes, setCoverageNotes] = useState('')
 
-  const fetchTopics = useCallback(async () => {
-    setStage('suggest')
-    setError(null)
+  // ── Load plan data for fresh/reply ──────────────────────────────────────
+
+  const loadPlan = useCallback(async () => {
+    if (isCampaign) return
+    setStage('loading')
     try {
-      const res = await fetch('/api/draft-email/suggest-topics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          schoolId: mode.schoolId,
-          coachId: mode.coachId,
-          taskContext: taskContext ?? undefined,
-        }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Failed to load topics')
-      setTopics(json.topics ?? [])
-      setStage('pick')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load topics')
-      setStage('pick') // still allow manual brief
-    }
-  }, [mode.schoolId, mode.coachId])
+      const [planRes, msgRes] = await Promise.all([
+        fetch(`/api/schools/${mode.schoolId}/message-plan`),
+        (async () => {
+          const { createClient } = await import('@/lib/supabase/client')
+          const sb = createClient()
+          return sb.from('messages').select('*').eq('status', 'active')
+        })(),
+      ])
+      const planJson = planRes.ok ? await planRes.json() : { plan: null }
+      const plan = planJson.plan as PlanData | null
+      setPlanData(plan)
+      if (plan?.finn_notes) setCoverageNotes(plan.finn_notes)
+      if (msgRes.data) setMessages(msgRes.data as Message[])
 
-  useEffect(() => { if (!isCampaign) fetchTopics() }, [fetchTopics, isCampaign])
+      // Pre-check send_now items
+      const items = plan?.suggestions?.items ?? []
+      const primaryItems = items.filter(s => s.tier !== 'extra')
+      const preChecked = new Set(
+        primaryItems.filter(s => s.timing === 'send_now').map(s => s.message_id)
+      )
+      setCheckedIds(preChecked)
+      setStage('pick')
+    } catch {
+      setStage('pick') // Still allow manual coverage notes
+    }
+  }, [mode.schoolId, isCampaign])
+
+  useEffect(() => { if (!isCampaign) loadPlan() }, [loadPlan, isCampaign])
 
   // ── Campaign LLM draft: fetch or generate on mount ────────────────────────
 
@@ -113,7 +146,6 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
       if (!res.ok) throw new Error(json.error ?? 'Generation failed')
 
       if (json.fallback) {
-        // No message set — fall back to template
         setBody(mode.renderedBody)
         setCachedBody(mode.renderedBody)
       } else if (json.draft) {
@@ -124,7 +156,6 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
       setStage('review')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed')
-      // Fall back to template body
       setBody(mode.renderedBody)
       setCachedBody(mode.renderedBody)
       setStage('review')
@@ -138,7 +169,30 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── Stage 2: generate email ───────────────────────────────────────────────
+  // ── Ordered suggestions ──────────────────────────────────────────────────
+
+  const allSuggestions = planData?.suggestions?.items ?? []
+  const msgMap = new Map(messages.map(m => [m.id, m]))
+
+  const primaryItems = allSuggestions.filter(s => s.tier !== 'extra')
+  const extraItems = allSuggestions.filter(s => s.tier === 'extra')
+
+  const orderedPrimary = (() => {
+    const order = planData?.manual_order
+    if (!order || order.length === 0) {
+      return [...primaryItems].sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+    }
+    const orderMap = new Map(order.map((id, idx) => [id, idx]))
+    const inOrder = primaryItems.filter(s => orderMap.has(s.message_id))
+      .sort((a, b) => orderMap.get(a.message_id)! - orderMap.get(b.message_id)!)
+    const notInOrder = primaryItems.filter(s => !orderMap.has(s.message_id))
+      .sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+    return [...inOrder, ...notInOrder]
+  })()
+
+  const orderedExtras = [...extraItems].sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+
+  // ── Generate email (fresh/reply — plan-driven) ──────────────────────────
 
   async function handleGenerate() {
     setStage('generate')
@@ -146,14 +200,28 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
     setSubject('')
     setBody('')
     try {
+      // Build coverage items from checked messages
+      const coverageItems = Array.from(checkedIds)
+        .map(id => {
+          const msg = msgMap.get(id)
+          if (!msg) return null
+          return { title: msg.title, type: msg.type, notes: msg.notes }
+        })
+        .filter(Boolean) as Array<{ title: string; type: string; notes: string | null }>
+
       const payload: Record<string, unknown> = {
         schoolId: mode.schoolId,
         coachId: mode.coachId,
       }
-      if (selectedTopic) payload.selectedTopic = selectedTopic
-      if (brief.trim()) payload.brief = brief.trim()
+      if (coverageItems.length > 0) payload.coverageItems = coverageItems
+      if (coverageNotes.trim()) payload.coverageNotes = coverageNotes.trim()
       if (isReply) payload.replyToContactLogId = mode.replyToContactLogId
       if (taskContext) payload.taskContext = taskContext
+
+      // Fallback: if nothing checked and no notes, pass a generic brief
+      if (coverageItems.length === 0 && !coverageNotes.trim()) {
+        payload.brief = 'General check-in and update'
+      }
 
       const res = await fetch('/api/draft-email', {
         method: 'POST',
@@ -165,6 +233,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
 
       if (json.subject) setSubject(json.subject)
       setBody(json.body ?? '')
+      setCachedBody(json.body ?? '')
       setStage('review')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed')
@@ -172,7 +241,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
     }
   }
 
-  // ── Stage 3: actions ──────────────────────────────────────────────────────
+  // ── Actions ──────────────────────────────────────────────────────────────
 
   function copyToClipboard(text: string, setCopied: (v: boolean) => void) {
     navigator.clipboard.writeText(text).then(() => {
@@ -183,7 +252,6 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
 
   async function handleMarkSent(channel: 'gmail' | 'sr') {
     if (isCampaign) {
-      // Campaign mode: PATCH campaign_schools status to 'sent'
       setSending(channel)
       setError(null)
       try {
@@ -200,7 +268,6 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
         setSending(null)
       }
     } else {
-      // Fresh + reply modes: no DB write. CC pipeline captures the real send.
       onSent?.(channel)
       onClose()
     }
@@ -266,26 +333,25 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
     }
   }
 
-  async function handleRegenerate() {
-    if (campaignHasMessageSet) {
-      const hint = regenHint.trim() || undefined
-      setRegenHint('')
-      await fetchCampaignDraft(true, hint)
-    } else {
-      setSelectedTopic(null)
-      setBrief('')
-      await fetchTopics()
-    }
-  }
-
   function handleStartOver() {
     if (isCampaign && cachedBody !== null) {
-      // Revert to cached LLM-generated draft (not template)
       setBody(cachedBody)
+    } else if (!isCampaign) {
+      // Go back to pick stage
+      setStage('pick')
+      setBody('')
+      setSubject('')
+      setCachedBody(null)
     }
   }
 
-  // ── Campaign subject (templated, not LLM-generated) ────────────────────────
+  async function handleCampaignRegenerate() {
+    const hint = regenHint.trim() || undefined
+    setRegenHint('')
+    await fetchCampaignDraft(true, hint)
+  }
+
+  // ── Campaign subject (templated) ──────────────────────────────────────────
 
   const campaignSubject = isCampaign
     ? `Finn Almond | Left Wingback | Class of 2027 | ${mode.schoolName}`
@@ -293,7 +359,18 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
 
   // ── Can generate? ─────────────────────────────────────────────────────────
 
-  const canGenerate = !!selectedTopic || brief.trim().length > 0
+  const canGenerate = checkedIds.size > 0 || coverageNotes.trim().length > 0
+
+  // ── Toggle checkbox ────────────────────────────────────────────────────────
+
+  function toggleCheck(messageId: string) {
+    setCheckedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(messageId)) next.delete(messageId)
+      else next.add(messageId)
+      return next
+    })
+  }
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -332,7 +409,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                 }}>{mode.schoolTier}</span>
               )}
               {mode.coachName && (
-                <span> — {mode.coachName}{isCampaign && mode.coachRole ? ` (${mode.coachRole})` : ''}</span>
+                <span> &middot; {mode.coachName}{isCampaign && mode.coachRole ? ` (${mode.coachRole})` : ''}</span>
               )}
             </div>
             {isReply && mode.inboundChannel && (
@@ -388,67 +465,142 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
             </div>
           )}
 
-          {/* ── Stage 1: Suggest / Pick ────────────────────────────────── */}
-          {(stage === 'suggest' || stage === 'pick') && (
+          {/* ── Loading plan ──────────────────────────────────────────── */}
+          {stage === 'loading' && (
+            <div style={{ padding: '24px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+              Loading plan...
+            </div>
+          )}
+
+          {/* ── Pick: plan-driven checklist (fresh/reply) ─────────────── */}
+          {stage === 'pick' && !isCampaign && (
             <>
-              {stage === 'suggest' && (
-                <div style={{
-                  padding: '24px 0', textAlign: 'center', color: '#94a3b8',
-                  fontSize: 13,
-                }}>
-                  Suggesting topics...
+              {orderedPrimary.length > 0 && (
+                <div>
+                  <Label>What to cover</Label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+                    {orderedPrimary.map(s => {
+                      const msg = msgMap.get(s.message_id)
+                      if (!msg) return null
+                      const ts = TYPE_STYLES[msg.type] ?? TYPE_STYLES.update
+                      const tm = TIMING_STYLES[s.timing] ?? TIMING_STYLES.send_now
+                      const checked = checkedIds.has(s.message_id)
+                      return (
+                        <label
+                          key={s.message_id}
+                          style={{
+                            display: 'flex', alignItems: 'flex-start', gap: 10,
+                            padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+                            border: `1px solid ${checked ? '#7c3aed' : '#e2e8f0'}`,
+                            background: checked ? '#f5f3ff' : '#fff',
+                            transition: 'border-color 0.1s, background 0.1s',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleCheck(s.message_id)}
+                            style={{ marginTop: 2, accentColor: '#7c3aed' }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span style={{
+                                fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                                textTransform: 'uppercase', background: ts.bg, color: ts.color,
+                              }}>{ts.label}</span>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{msg.title}</span>
+                              <span style={{
+                                fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                                textTransform: 'uppercase', background: tm.bg, color: tm.color,
+                              }}>{tm.label}</span>
+                            </div>
+                            {s.reasoning && (
+                              <div style={{ fontSize: 11, color: '#64748b', marginTop: 3, lineHeight: 1.4 }}>
+                                {s.reasoning.length > 120 ? s.reasoning.slice(0, 120) + '...' : s.reasoning}
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+
+                  {/* Show plan extras */}
+                  {orderedExtras.length > 0 && (
+                    <div style={{ marginTop: 6 }}>
+                      <button
+                        onClick={() => setShowExtras(v => !v)}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          fontSize: 11, fontWeight: 600, color: '#6366f1', padding: '4px 0',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        {showExtras ? 'Hide extras' : `Show plan extras (${orderedExtras.length})`}
+                      </button>
+                      {showExtras && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                          {orderedExtras.map(s => {
+                            const msg = msgMap.get(s.message_id)
+                            if (!msg) return null
+                            const ts = TYPE_STYLES[msg.type] ?? TYPE_STYLES.update
+                            const checked = checkedIds.has(s.message_id)
+                            return (
+                              <label
+                                key={s.message_id}
+                                style={{
+                                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                                  padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+                                  border: `1px solid ${checked ? '#7c3aed' : '#f1f5f9'}`,
+                                  background: checked ? '#f5f3ff' : '#f8fafc',
+                                  opacity: 0.8,
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleCheck(s.message_id)}
+                                  style={{ marginTop: 2, accentColor: '#7c3aed' }}
+                                />
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{
+                                      fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                                      textTransform: 'uppercase', background: ts.bg, color: ts.color,
+                                    }}>{ts.label}</span>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>{msg.title}</span>
+                                  </div>
+                                </div>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {stage === 'pick' && topics.length > 0 && (
-                <div>
-                  <Label>Suggested topics</Label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
-                    {topics.map((topic, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setSelectedTopic(selectedTopic === topic ? null : topic)}
-                        style={{
-                          padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
-                          border: selectedTopic === topic
-                            ? '2px solid #7c3aed'
-                            : '1px solid #e2e8f0',
-                          background: selectedTopic === topic ? '#f5f3ff' : '#fff',
-                          fontSize: 13, fontFamily: 'inherit', textAlign: 'left',
-                          color: '#1e293b', fontWeight: selectedTopic === topic ? 600 : 400,
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        {topic}
-                      </button>
-                    ))}
-                  </div>
+              {orderedPrimary.length === 0 && (
+                <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>
+                  No plan suggestions yet. Generate them on the school page, or describe what to cover below.
                 </div>
               )}
 
               <div>
-                <Label>
-                  {topics.length > 0
-                    ? 'Or describe what you want this email to do'
-                    : 'Describe what you want this email to do'}
-                </Label>
+                <Label>Anything else to cover</Label>
                 <textarea
-                  value={brief}
-                  onChange={e => setBrief(e.target.value)}
+                  value={coverageNotes}
+                  onChange={e => setCoverageNotes(e.target.value)}
                   rows={3}
-                  placeholder={isReply
-                    ? "e.g. Thank them for the invite, confirm interest, share upcoming schedule..."
-                    : "e.g. Follow up on Arizona conversation, mention Olimpico, ask about 2027 recruiting..."
-                  }
-                  style={{
-                    ...fieldStyle, resize: 'vertical', marginTop: 4,
-                  }}
+                  placeholder="Add specific points, context, or things on your mind for this email..."
+                  style={{ ...fieldStyle, resize: 'vertical', marginTop: 4 }}
                 />
               </div>
             </>
           )}
 
-          {/* ── Stage 2: Generating ────────────────────────────────────── */}
+          {/* ── Generating ────────────────────────────────────────────── */}
           {stage === 'generate' && (
             <div style={{
               padding: '40px 0', textAlign: 'center', color: '#94a3b8',
@@ -458,7 +610,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
             </div>
           )}
 
-          {/* ── Stage 3: Review ────────────────────────────────────────── */}
+          {/* ── Review ────────────────────────────────────────────────── */}
           {stage === 'review' && (
             <>
               {/* Subject (fresh only) */}
@@ -495,7 +647,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                 </div>
               )}
 
-              {/* Subject (campaign — display only) */}
+              {/* Subject (campaign) */}
               {isCampaign && (
                 <div>
                   <div style={{
@@ -608,14 +760,12 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
 
               {/* Regenerate with hint (campaign + message_set only) */}
               {isCampaign && campaignHasMessageSet && (
-                <div style={{
-                  display: 'flex', gap: 6, alignItems: 'center',
-                }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <input
                     type="text"
                     value={regenHint}
                     onChange={e => setRegenHint(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !generating) handleRegenerate() }}
+                    onKeyDown={e => { if (e.key === 'Enter' && !generating) handleCampaignRegenerate() }}
                     placeholder="What should change? (e.g., 'shorter', 'lead with camp')"
                     disabled={generating || sending !== null}
                     style={{
@@ -626,7 +776,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                     }}
                   />
                   <button
-                    onClick={handleRegenerate}
+                    onClick={handleCampaignRegenerate}
                     disabled={generating || sending !== null}
                     style={{
                       ...copyBtnStyle(false),
@@ -650,7 +800,6 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                     This campaign is archived. Unarchive to send.
                   </div>
                 )}
-                {/* Mark as sent */}
                 {!campaignIsArchived && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button
                     onClick={() => handleMarkSent('gmail')}
@@ -676,7 +825,6 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                   </button>
                 </div>}
 
-                {/* Dismiss (campaign only) */}
                 {isCampaign && (
                   <button
                     onClick={handleDismiss}
@@ -704,7 +852,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
         }}>
           <button onClick={onClose} style={cancelBtnStyle}>Close</button>
 
-          {(stage === 'pick') && (
+          {stage === 'pick' && (
             <button
               onClick={handleGenerate}
               disabled={!canGenerate}
@@ -720,7 +868,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
 
           {stage === 'review' && !isCampaign && (
             <button
-              onClick={handleRegenerate}
+              onClick={handleStartOver}
               style={{ ...generateBtnStyle, background: '#475569' }}
             >
               Start over

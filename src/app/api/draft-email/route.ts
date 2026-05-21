@@ -52,6 +52,8 @@ export async function POST(req: NextRequest) {
       coachId?: string | null
       brief?: string
       selectedTopic?: string
+      coverageItems?: Array<{ title: string; type: string; notes: string | null }>
+      coverageNotes?: string
       replyToContactLogId?: string
       taskContext?: { type: string; metadata?: { reelUrl?: string; reelTitle?: string } }
     }
@@ -67,6 +69,8 @@ export async function POST(req: NextRequest) {
       coachId: body.coachId ?? null,
       brief: body.brief,
       selectedTopic: body.selectedTopic,
+      coverageItems: body.coverageItems,
+      coverageNotes: body.coverageNotes,
       context: 'individual',
       replyToContactLogId: body.replyToContactLogId,
     })

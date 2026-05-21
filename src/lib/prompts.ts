@@ -123,6 +123,10 @@ export interface EmailDraftInput {
   coachId: string | null
   brief?: string
   selectedTopic?: string
+  /** Plan-driven: explicit messages to cover in this email */
+  coverageItems?: Array<{ title: string; type: string; notes: string | null }>
+  /** Plan-driven: free-text "anything else to cover" */
+  coverageNotes?: string
   context: 'individual' | 'campaign'
   campaignTemplate?: string
   replyToContactLogId?: string  // when set, output is body-only (no subject)
@@ -488,7 +492,20 @@ Body uses plain line breaks between paragraphs, no HTML.`)
     usr.push('')
   }
 
-  // ── User guidance ──
+  // ── What to cover (plan-driven or legacy topic/brief) ──
+  if (input.coverageItems && input.coverageItems.length > 0) {
+    usr.push(`COVER THESE MESSAGES in the email (Finn selected these from his communications plan):`)
+    for (const item of input.coverageItems) {
+      usr.push(`- [${item.type}] ${item.title}${item.notes ? `: ${item.notes}` : ''}`)
+    }
+    usr.push('')
+    usr.push(`Weave these naturally into a single email. Don't use bullet points or enumerate them. The email should read as one coherent message that happens to touch on these points.`)
+    usr.push('')
+  }
+  if (input.coverageNotes) {
+    usr.push(`ADDITIONAL CONTEXT FROM FINN: ${input.coverageNotes}`)
+    usr.push('')
+  }
   if (input.brief) {
     usr.push(`USER GUIDANCE: ${input.brief}`)
     usr.push('')
