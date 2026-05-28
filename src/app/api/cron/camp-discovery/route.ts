@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { searchTavily } from '@/lib/tavily'
-import { extractCampsFromText, shouldSkipProposal } from '@/lib/camp-extractor'
+import { extractCampsFromText, shouldSkipProposal, classifyCampUpdate } from '@/lib/camp-extractor'
 import { startRun, completeRun } from '@/lib/cron-runs'
 
 function serviceClient() {
@@ -149,6 +149,22 @@ export async function GET(req: NextRequest) {
               continue
             }
 
+            // Materiality gate: for matched existing camps, only surface if
+            // a new tracked school is associated (host or attendee)
+            let updateSummary: string | null = null
+            if (dedup.matchedCampId) {
+              const materiality = await classifyCampUpdate(
+                admin, dedup.matchedCampId,
+                { attendee_school_ids: camp.attendee_school_ids },
+                school.id,
+              )
+              if (!materiality.material) {
+                stats.proposalsSkipped++
+                continue
+              }
+              updateSummary = materiality.updateSummary ?? null
+            }
+
             const { error: insertErr } = await admin.from('camp_proposals').insert({
               source: 'web_search',
               source_ref: sourceRef,
@@ -165,6 +181,7 @@ export async function GET(req: NextRequest) {
                 attendee_school_ids: camp.attendee_school_ids,
               },
               matched_camp_id: dedup.matchedCampId ?? null,
+              update_summary: updateSummary,
               confidence: camp.confidence,
               notes: camp.reasoning,
             })

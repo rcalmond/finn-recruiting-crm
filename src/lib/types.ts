@@ -220,6 +220,7 @@ export interface CampProposal {
   status: CampProposalStatus
   confidence: CampProposalConfidence
   notes: string | null
+  update_summary: string | null
   created_at: string
   reviewed_at: string | null
 }

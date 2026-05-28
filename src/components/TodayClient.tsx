@@ -279,7 +279,7 @@ export default function TodayClient({
   )
 
   // ── Pipeline rail data ──────────────────────────────────────────────────────
-  const pipelineItems = useMemo(() =>
+  const pipelineBuckets = useMemo(() =>
     getPipelineSchools(schools, contactLog),
     [schools, contactLog]
   )
@@ -420,13 +420,13 @@ export default function TodayClient({
 
         {/* Desktop pipeline rail */}
         <div className="hidden md:block">
-          <PipelineRail items={pipelineItems} />
+          <PipelineRail buckets={pipelineBuckets} />
         </div>
       </div>
 
       {/* Mobile pipeline rail — full width at bottom, padded for bottom nav */}
       <div className="block md:hidden" style={{ paddingBottom: 80 }}>
-        <PipelineRail items={pipelineItems} mobile />
+        <PipelineRail buckets={pipelineBuckets} mobile />
       </div>
 
       {/* Batch reel send modal */}

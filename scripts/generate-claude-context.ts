@@ -728,6 +728,9 @@ const FALLBACK_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-05-28 | Pipeline widget cap raised 5 → 8 with "+N more →" overflow link routing to /schools?signal=hot or ?signal=active. Map pin tier-ring removed — signal fill + tier letter only. | UX |
+| 2026-05-28 | School recency state consolidation. New classifySchoolRecency() in school-recency-state.ts is canonical for /schools list, /schools map, Today pipeline widget. Six distinct states (HOT/ACTIVE/COOLING/COLD/PROSPECTING/DECLINED) each with distinct color. Decline precedence over going-cold. A/B/C all eligible. Map signal overlay + filter (URL-persisted via ?signal=). src/lib/signals.ts retired. | Feature |
+| 2026-05-28 | Camp discovery materiality gate (migration 048). classifyCampUpdate() suppresses immaterial re-scrape proposals — only new camps and newly-associated A/B/C tracked schools (host or attendee) reach the queue. Review UI split into New camps / Updates sections with descriptive badges. Backlog of 27 noise proposals cleared via reclassify-camp-proposals.ts (dry-run verified first). | Bug fix |
 | 2026-05-20 | Communications Plan rework complete (4 phases, migration 047). Option A model: plan is the planning surface (prioritized draggable suggestions, "show me more", strategic Q&A, custom-cover notes), draft modal is the execution surface (picks from plan, generates from exact selections). Closing questions with swappable alternatives. Email voice fixed to teenager tone (no em-dashes). | Feature + Schema |
 | 2026-05-19 | Classifier upgraded Haiku 4.5 → Sonnet 4.6 with new blast-detection rules and few-shot examples. 6 historical misclassifications manually corrected. | Quality |
 | 2026-05-19 | Pipeline Activity widget: HOT bucket filters by authored_by + 60-day staleness window, per-bucket caps (HOT 5, ACTIVE 5), parse_status filter added. | Bug fix |

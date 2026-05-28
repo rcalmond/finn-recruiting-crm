@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import type { PipelineSchool, PipelineStatus } from '@/lib/pipeline-rail'
+import type { PipelineBucket, PipelineSchool, PipelineStatus } from '@/lib/pipeline-rail'
 import type { Category } from '@/lib/types'
 
 const LV = {
@@ -34,22 +34,21 @@ const TIER_STYLE: Record<Category, { bg: string; color: string }> = {
   Nope: { bg: '#E5E7EB', color: '#6B7280' },
 }
 
-const GROUP_ORDER: PipelineStatus[] = ['HOT', 'ACTIVE', 'WARMING', 'COLD']
+/** Maps pipeline status to the /schools signal filter value. */
+const STATUS_TO_SIGNAL: Record<PipelineStatus, string> = {
+  HOT: 'hot',
+  ACTIVE: 'active',
+  WARMING: 'cooling',
+  COLD: 'cold',
+}
 
 interface Props {
-  items: PipelineSchool[]
+  buckets: PipelineBucket[]
   mobile?: boolean
 }
 
-export default function PipelineRail({ items, mobile }: Props) {
+export default function PipelineRail({ buckets, mobile }: Props) {
   const router = useRouter()
-
-  const grouped = GROUP_ORDER
-    .map(status => ({
-      status,
-      items: items.filter(i => i.status === status),
-    }))
-    .filter(g => g.items.length > 0)
 
   return (
     <aside
@@ -88,29 +87,48 @@ export default function PipelineRail({ items, mobile }: Props) {
         borderRadius: 14,
         padding: '6px 16px',
       }}>
-        {grouped.map((g, gi) => (
-          <div key={g.status}>
-            {/* Group label */}
-            <div style={{
-              fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
-              color: STATUS_TONE[g.status].label,
-              textTransform: 'uppercase',
-              padding: gi === 0 ? '12px 0 4px' : '14px 0 4px',
-              borderTop: gi > 0 ? `1px solid ${LV.line}` : 'none',
-              marginTop: gi > 0 ? 4 : 0,
-            }}>{g.status}</div>
+        {buckets.map((bucket, gi) => {
+          const overflow = bucket.totalCount - bucket.schools.length
+          return (
+            <div key={bucket.status}>
+              {/* Group label */}
+              <div style={{
+                fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
+                color: STATUS_TONE[bucket.status].label,
+                textTransform: 'uppercase',
+                padding: gi === 0 ? '12px 0 4px' : '14px 0 4px',
+                borderTop: gi > 0 ? `1px solid ${LV.line}` : 'none',
+                marginTop: gi > 0 ? 4 : 0,
+              }}>{bucket.status}</div>
 
-            {/* Rows */}
-            {g.items.map((item, ri) => (
-              <PipelineRow
-                key={item.school.id}
-                item={item}
-                divider={ri > 0}
-                onClick={() => router.push(`/schools/${item.school.id}`)}
-              />
-            ))}
-          </div>
-        ))}
+              {/* Rows */}
+              {bucket.schools.map((item, ri) => (
+                <PipelineRow
+                  key={item.school.id}
+                  item={item}
+                  divider={ri > 0}
+                  onClick={() => router.push(`/schools/${item.school.id}`)}
+                />
+              ))}
+
+              {/* Overflow link */}
+              {overflow > 0 && (
+                <Link
+                  href={`/schools?signal=${STATUS_TO_SIGNAL[bucket.status]}`}
+                  style={{
+                    display: 'block',
+                    padding: '8px 4px 6px',
+                    fontSize: 12, fontWeight: 600, color: LV.inkMute,
+                    textDecoration: 'none', letterSpacing: -0.1,
+                    borderTop: `1px solid ${LV.line}`,
+                  }}
+                >
+                  +{overflow} more →
+                </Link>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {/* Footnote */}

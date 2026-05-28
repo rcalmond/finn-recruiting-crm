@@ -11,9 +11,13 @@ const SchoolsMap = dynamic(() => import('./schools/SchoolsMap'), {
   loading: () => <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7A7570' }}>Loading map...</div>,
 })
 import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
-import { deriveSignal } from '@/lib/signals'
+import {
+  classifySchoolRecency,
+  SCHOOL_RECENCY_STYLE,
+  RECENCY_STATE_ORDER,
+} from '@/lib/school-recency-state'
+import type { SchoolRecencyState, SchoolRecencyResult } from '@/lib/school-recency-state'
 import type { School, ContactLogEntry, Division, Category } from '@/lib/types'
-import type { Signal } from '@/lib/signals'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -26,12 +30,6 @@ const SL = {
   inkMute:   '#A8A39B',
   line:      '#E2DBC9',
   line2:     '#D3CAB3',
-  teal:      '#00B2A9',
-  tealDeep:  '#006A65',
-  tealSoft:  '#D7F0ED',
-  goldSoft:  '#FBF3C4',
-  goldInk:   '#5A4E0F',
-  goldDeep:  '#C8B22E',
   ink0:      '#0E0E0E',
 }
 
@@ -40,7 +38,7 @@ const SL = {
 interface RichSchool {
   school: School
   stage:  number
-  signal: Signal | null
+  recency: SchoolRecencyResult
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -80,20 +78,34 @@ function StageDots({ stage, size = 8 }: { stage: number; size?: number }) {
   )
 }
 
-function SignalPill({ signal, compact }: { signal: Signal; compact?: boolean }) {
-  const p = signal.kind === 'cold'
-    ? { bg: SL.goldSoft, fg: SL.goldInk, dot: SL.goldDeep }
-    : { bg: SL.tealSoft, fg: SL.tealDeep, dot: SL.teal }
+function RecencyPill({ recency, compact }: { recency: SchoolRecencyResult; compact?: boolean }) {
+  if (!recency.state) return <span style={{ fontSize: 12, color: SL.inkMute }}>—</span>
+
+  const style = SCHOOL_RECENCY_STYLE[recency.state]
+  const isDeclined = recency.state === 'declined'
+  const isProspecting = recency.state === 'prospecting'
+
+  // Build label text
+  let labelText = style.label
+  if (recency.state === 'hot' && recency.daysSinceUnrepliedInbound != null) {
+    labelText = `${style.label} · ${recency.daysSinceUnrepliedInbound}d`
+  }
+
   return (
     <div style={{
       display: 'inline-flex', alignItems: 'center', gap: 6,
       padding: compact ? '2px 8px' : '3px 10px',
-      borderRadius: 999, background: p.bg, color: p.fg,
+      borderRadius: 999, background: style.bgColor, color: style.textColor,
       fontSize: compact ? 11 : 12, fontWeight: 650, letterSpacing: -0.1,
       whiteSpace: 'nowrap',
+      textDecoration: isDeclined ? 'line-through' : 'none',
     }}>
-      <span style={{ width: 5, height: 5, borderRadius: '50%', background: p.dot, flexShrink: 0 }} />
-      {signal.text}
+      <span style={{
+        width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+        background: isProspecting ? 'transparent' : style.dotColor,
+        border: isProspecting ? `1.5px solid ${style.dotColor}` : 'none',
+      }} />
+      {labelText}
     </div>
   )
 }
@@ -206,7 +218,7 @@ function Chip({ label, count, active, onClick, color }: ChipProps) {
 // ─── Desktop row ──────────────────────────────────────────────────────────────
 
 function DesktopRow({ rich, even, onClick }: { rich: RichSchool; even: boolean; onClick: () => void }) {
-  const { school, stage, signal } = rich
+  const { school, stage, recency } = rich
   return (
     <div
       role="button" tabIndex={0}
@@ -237,9 +249,7 @@ function DesktopRow({ rich, even, onClick }: { rich: RichSchool; even: boolean; 
       <div style={{ fontSize: 12, color: SL.inkMid, fontWeight: 500 }}>{stageLabel(stage)}</div>
       <StageDots stage={stage} />
       <div>
-        {signal
-          ? <SignalPill signal={signal} />
-          : <span style={{ fontSize: 12, color: SL.inkMute }}>—</span>}
+        <RecencyPill recency={recency} />
       </div>
       <div style={{ color: SL.inkMute, fontSize: 12, textAlign: 'right' }}>›</div>
     </div>
@@ -249,7 +259,7 @@ function DesktopRow({ rich, even, onClick }: { rich: RichSchool; even: boolean; 
 // ─── Mobile row ───────────────────────────────────────────────────────────────
 
 function MobileRow({ rich, onClick }: { rich: RichSchool; onClick: () => void }) {
-  const { school, stage, signal } = rich
+  const { school, stage, recency } = rich
   return (
     <div
       role="button" tabIndex={0}
@@ -269,7 +279,7 @@ function MobileRow({ rich, onClick }: { rich: RichSchool; onClick: () => void })
         }}>{school.name}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <StageDots stage={stage} size={6} />
-          {signal && <SignalPill signal={signal} compact />}
+          {recency.state && <RecencyPill recency={recency} compact />}
         </div>
       </div>
       <div style={{ color: SL.inkMute, fontSize: 14 }}>›</div>
@@ -307,13 +317,22 @@ function EmptyState({ onReset }: { onReset: () => void }) {
 
 // ─── Filter state types ───────────────────────────────────────────────────────
 
-type QuickFilter = 'awaiting' | 'cold' | 'active' | null
-
 const TIER_OPTIONS   = ['All', 'A', 'B', 'C']
 const DIV_OPTIONS    = ['All', 'D1', 'D2', 'D3']
 const STAGE_OPTIONS  = ['All', ...STAGE_LABELS]
 
 const TIER_ORDER: Record<string, number> = { A: 0, B: 1, C: 2 }
+
+// ─── Signal filter chip config ──────────────────────────────────────────────
+
+const SIGNAL_CHIP_CONFIG: Record<SchoolRecencyState, { label: string; bg: string; fg: string; bgOn: string; fgOn: string }> = {
+  hot:         { label: 'Awaiting Finn', bg: '#FBEAE8', fg: '#7A1E16', bgOn: '#D03A2E', fgOn: '#fff' },
+  active:      { label: 'Active',        bg: '#D7F0ED', fg: '#006A65', bgOn: '#006A65', fgOn: '#fff' },
+  cooling:     { label: 'Cooling',       bg: '#FCF0DB', fg: '#7A4F0E', bgOn: '#E8A33C', fgOn: '#fff' },
+  cold:        { label: 'Cold',          bg: '#EFF1F3', fg: '#5A6168', bgOn: '#5A6168', fgOn: '#fff' },
+  prospecting: { label: 'Prospecting',   bg: '#F7F6F2', fg: '#7A7570', bgOn: '#7A7570', fgOn: '#fff' },
+  declined:    { label: 'Declined',      bg: '#EFF1F3', fg: '#9CA3A8', bgOn: '#9CA3A8', fgOn: '#fff' },
+}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -339,7 +358,19 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
   const stageFilter = searchParams.get('stage') ?? 'All'
   const tierFilter = searchParams.get('tier') ?? 'All'
   const divFilter = searchParams.get('division') ?? 'All'
-  const quickFilter = (searchParams.get('quick') ?? null) as QuickFilter
+
+  // Signal filter: comma-separated states in URL, e.g. ?signal=hot,active
+  const signalParam = searchParams.get('signal')
+  const signalFilter: Set<SchoolRecencyState> = new Set(
+    signalParam ? signalParam.split(',').filter(s => RECENCY_STATE_ORDER.includes(s as SchoolRecencyState)) as SchoolRecencyState[] : []
+  )
+  const signalFilterActive = signalFilter.size > 0
+
+  function toggleSignalFilter(state: SchoolRecencyState) {
+    const next = new Set(signalFilter)
+    if (next.has(state)) next.delete(state); else next.add(state)
+    pushParams({ signal: next.size > 0 ? Array.from(next).join(',') : null })
+  }
 
   function switchView(mode: 'list' | 'map') {
     pushParams({ view: mode === 'list' ? null : mode })
@@ -347,7 +378,6 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
   function setStageFilter(v: string) { pushParams({ stage: v === 'All' ? null : v }) }
   function setTierFilter(v: string) { pushParams({ tier: v === 'All' ? null : v }) }
   function setDivFilter(v: string) { pushParams({ division: v === 'All' ? null : v }) }
-  function setQuickFilter(v: QuickFilter) { pushParams({ quick: v ?? null }) }
 
   // Search: local state for responsive typing, debounced push to URL
   const [searchQ, setSearchQ] = useState(searchParams.get('search') ?? '')
@@ -360,22 +390,17 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
     }, 400)
   }, [pushParams])
 
-  const anyFilterActive = !!(searchQ || stageFilter !== 'All' || tierFilter !== 'All' || divFilter !== 'All' || quickFilter)
+  const anyFilterActive = !!(searchQ || stageFilter !== 'All' || tierFilter !== 'All' || divFilter !== 'All' || signalFilterActive)
 
   const resetFilters = useCallback(() => {
     setSearchQ('')
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
-    // Push all filter resets at once
     const params = new URLSearchParams(searchParams.toString())
     params.delete('stage'); params.delete('tier'); params.delete('division')
-    params.delete('quick'); params.delete('search')
+    params.delete('signal'); params.delete('search')
     const q = params.toString()
     router.push(q ? `${pathname}?${q}` : pathname)
   }, [router, pathname, searchParams])
-
-  function toggleQuick(q: Exclude<QuickFilter, null>) {
-    setQuickFilter(quickFilter === q ? null : q)
-  }
 
   function openSchool(school: School) {
     router.push(`/schools/${school.id}`)
@@ -394,19 +419,17 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
   }
 
   // ── Derive and sort all active schools ──────────────────────────────────────
-  // Computed once; filter functions below reference these pre-computed values.
   const allRich: RichSchool[] = schools
     .filter(s => s.category !== 'Nope' && s.status !== 'Inactive')
     .map(school => ({
       school,
-      stage:  deriveStage(school),
-      signal: deriveSignal(school, contactLog),
+      stage:   deriveStage(school),
+      recency: classifySchoolRecency(school, contactLog),
     }))
     .sort((a, b) => {
       const ta = TIER_ORDER[a.school.category] ?? 9
       const tb = TIER_ORDER[b.school.category] ?? 9
       if (ta !== tb) return ta - tb
-      // last_contact desc within tier (null sorts last)
       const la = a.school.last_contact ?? ''
       const lb = b.school.last_contact ?? ''
       return lb.localeCompare(la)
@@ -414,36 +437,50 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
 
   const total = allRich.length
 
-  // ── Chip counts (computed over full list, not filtered) ─────────────────────
-  const awaitingCount = allRich.filter(r => r.signal?.kind === 'awaiting').length
-  const coldCount     = allRich.filter(r => r.signal?.kind === 'cold').length
-  const activeCount   = allRich.filter(r => r.signal?.kind === 'awaiting' || r.signal?.kind === 'active').length
+  // ── Signal chip counts (computed over full list, not filtered) ─────────────
+  const signalCounts: Record<SchoolRecencyState, number> = {
+    hot: 0, active: 0, cooling: 0, cold: 0, prospecting: 0, declined: 0,
+  }
+  for (const r of allRich) {
+    if (r.recency.state) signalCounts[r.recency.state]++
+  }
 
   // ── Apply filters ───────────────────────────────────────────────────────────
   const q = searchQ.toLowerCase().trim()
 
-  const filtered = allRich.filter(({ school, stage, signal }) => {
-    // Search: name, head_coach, location
+  const filtered = allRich.filter(({ school, stage, recency }) => {
     if (q) {
       const haystack = [school.name, school.head_coach ?? '', school.location ?? ''].join(' ').toLowerCase()
       if (!haystack.includes(q)) return false
     }
-
-    // Stage dropdown
     if (stageFilter !== 'All' && stageLabel(stage) !== stageFilter) return false
-
-    // Tier dropdown
     if (tierFilter !== 'All' && school.category !== (tierFilter as Category)) return false
-
-    // Division dropdown
     if (divFilter !== 'All' && school.division !== (divFilter as Division)) return false
 
-    // Quick filters (mutually exclusive)
-    if (quickFilter === 'awaiting' && signal?.kind !== 'awaiting') return false
-    if (quickFilter === 'cold'     && signal?.kind !== 'cold')     return false
-    if (quickFilter === 'active'   && signal?.kind !== 'awaiting' && signal?.kind !== 'active') return false
+    // Signal filter: multi-select
+    if (signalFilterActive) {
+      if (!recency.state || !signalFilter.has(recency.state)) return false
+    }
 
     return true
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Signal filter chips (shared between desktop and mobile)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  const signalChips = RECENCY_STATE_ORDER.map(state => {
+    const cfg = SIGNAL_CHIP_CONFIG[state]
+    return (
+      <Chip
+        key={state}
+        label={cfg.label}
+        count={signalCounts[state]}
+        active={signalFilter.has(state)}
+        onClick={() => toggleSignalFilter(state)}
+        color={cfg}
+      />
+    )
   })
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -462,27 +499,7 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
       {/* Divider */}
       <div style={{ width: 1, height: 20, background: SL.line2, margin: '0 4px' }} />
 
-      <Chip
-        label="Awaiting reply"
-        count={awaitingCount}
-        active={quickFilter === 'awaiting'}
-        onClick={() => toggleQuick('awaiting')}
-        color={{ bg: SL.tealSoft, fg: SL.tealDeep, bgOn: SL.tealDeep, fgOn: '#fff' }}
-      />
-      <Chip
-        label="Going cold"
-        count={coldCount}
-        active={quickFilter === 'cold'}
-        onClick={() => toggleQuick('cold')}
-        color={{ bg: SL.goldSoft, fg: SL.goldInk, bgOn: SL.goldInk, fgOn: '#fff' }}
-      />
-      <Chip
-        label="Active conversations"
-        count={activeCount}
-        active={quickFilter === 'active'}
-        onClick={() => toggleQuick('active')}
-        color={{ bg: SL.tealSoft, fg: SL.tealDeep, bgOn: SL.tealDeep, fgOn: '#fff' }}
-      />
+      {signalChips}
 
       {anyFilterActive && (
         <button
@@ -632,7 +649,7 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
         ) : (
           <div style={{ margin: '14px 40px 0' }}>
             <SchoolsMap
-              schools={filtered.map(r => r.school)}
+              schools={filtered.map(r => ({ school: r.school, state: r.recency.state }))}
               onSchoolClick={(id) => router.push(`/schools/${id}`)}
             />
           </div>
@@ -719,7 +736,6 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
 
         {/* Mobile filter chips — horizontal scroll */}
         <div style={{ padding: '0 16px 10px', display: 'flex', gap: 6, overflowX: 'auto' }}>
-          {/* Stage chip as native select on mobile for simplicity */}
           <select
             value={stageFilter}
             onChange={e => setStageFilter(e.target.value)}
@@ -760,27 +776,7 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
             {DIV_OPTIONS.map(o => <option key={o} value={o}>{o === 'All' ? 'Division' : o}</option>)}
           </select>
 
-          <Chip
-            label="Awaiting"
-            count={awaitingCount}
-            active={quickFilter === 'awaiting'}
-            onClick={() => toggleQuick('awaiting')}
-            color={{ bg: SL.tealSoft, fg: SL.tealDeep, bgOn: SL.tealDeep, fgOn: '#fff' }}
-          />
-          <Chip
-            label="Cold"
-            count={coldCount}
-            active={quickFilter === 'cold'}
-            onClick={() => toggleQuick('cold')}
-            color={{ bg: SL.goldSoft, fg: SL.goldInk, bgOn: SL.goldInk, fgOn: '#fff' }}
-          />
-          <Chip
-            label="Active"
-            count={activeCount}
-            active={quickFilter === 'active'}
-            onClick={() => toggleQuick('active')}
-            color={{ bg: SL.tealSoft, fg: SL.tealDeep, bgOn: SL.tealDeep, fgOn: '#fff' }}
-          />
+          {signalChips}
         </div>
 
         {/* Mobile column label */}

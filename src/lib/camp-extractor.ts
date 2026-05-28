@@ -246,6 +246,104 @@ export async function shouldSkipProposal(
   return { skip: false }
 }
 
+// ─── Materiality classifier ─────────────────────────────────────────────────
+
+export interface CampUpdateMateriality {
+  material: boolean
+  reason?: string
+  updateSummary?: string
+  newSchools?: Array<{ schoolId: string; shortName: string; role: 'host' | 'attendee' }>
+}
+
+/**
+ * Determines whether an update to an existing camp is worth surfacing
+ * in the proposal queue. Only "new tracked school associated" counts
+ * as material. Date/description/URL/cost changes are not material.
+ */
+export async function classifyCampUpdate(
+  supabase: SupabaseClient,
+  matchedCampId: string,
+  proposedData: {
+    attendee_school_ids: string[]
+  },
+  proposedHostSchoolId: string,
+): Promise<CampUpdateMateriality> {
+  // Fetch existing camp's host + current attendee schools
+  const [campResult, attendeesResult] = await Promise.all([
+    supabase.from('camps').select('host_school_id').eq('id', matchedCampId).single(),
+    supabase.from('camp_school_attendees').select('school_id').eq('camp_id', matchedCampId),
+  ])
+
+  const existingHostId = (campResult.data as { host_school_id: string } | null)?.host_school_id
+  const existingAttendeeIds = new Set(
+    ((attendeesResult.data ?? []) as Array<{ school_id: string }>).map(a => a.school_id)
+  )
+
+  // Compute newly-associated schools
+  const candidateNew: Array<{ schoolId: string; role: 'host' | 'attendee' }> = []
+
+  // Check if proposed host is different from existing host
+  if (proposedHostSchoolId !== existingHostId) {
+    candidateNew.push({ schoolId: proposedHostSchoolId, role: 'host' })
+  }
+
+  // Check proposed attendees not already on the camp
+  for (const sid of proposedData.attendee_school_ids) {
+    if (!existingAttendeeIds.has(sid) && sid !== existingHostId) {
+      candidateNew.push({ schoolId: sid, role: 'attendee' })
+    }
+  }
+
+  if (candidateNew.length === 0) {
+    return { material: false }
+  }
+
+  // Filter to A/B/C active schools only
+  const candidateIds = candidateNew.map(c => c.schoolId)
+  const { data: trackedSchools } = await supabase
+    .from('schools')
+    .select('id, short_name, name, category, status')
+    .in('id', candidateIds)
+
+  const tracked = new Map(
+    ((trackedSchools ?? []) as Array<{ id: string; short_name: string | null; name: string; category: string; status: string }>)
+      .filter(s => ['A', 'B', 'C'].includes(s.category) && s.status !== 'Inactive')
+      .map(s => [s.id, s])
+  )
+
+  const newSchools = candidateNew
+    .filter(c => tracked.has(c.schoolId))
+    .map(c => {
+      const s = tracked.get(c.schoolId)!
+      return { schoolId: c.schoolId, shortName: s.short_name || s.name, role: c.role }
+    })
+
+  if (newSchools.length === 0) {
+    return { material: false }
+  }
+
+  // Build human-readable summary
+  const hostSchools = newSchools.filter(s => s.role === 'host')
+  const attendeeSchools = newSchools.filter(s => s.role === 'attendee')
+  const parts: string[] = []
+  if (hostSchools.length > 0) {
+    parts.push(`${hostSchools.map(s => s.shortName).join(' and ')} added as host`)
+  }
+  if (attendeeSchools.length > 0) {
+    const names = attendeeSchools.map(s => s.shortName)
+    const label = names.length === 1 ? 'attending school' : 'attending schools'
+    parts.push(`${names.join(', ')} added as ${label}`)
+  }
+  const updateSummary = parts.join('; ')
+
+  return {
+    material: true,
+    reason: updateSummary,
+    updateSummary,
+    newSchools,
+  }
+}
+
 // ─── Live trigger ────────────────────────────────────────────────────────────
 
 const CAMP_PATTERN = /\b(camp|clinic|showcase|ID camp|prospect day|elite training)\b/i
@@ -319,7 +417,7 @@ export async function extractAndProposeCamps(
 
     if (extracted.length === 0) return
 
-    // 6. Insert proposals with dedup
+    // 6. Insert proposals with dedup + materiality gate
     for (const camp of extracted) {
       const dedup = await shouldSkipProposal(admin, {
         hostSchoolId: school.id,
@@ -328,6 +426,19 @@ export async function extractAndProposeCamps(
       })
 
       if (dedup.skip) continue
+
+      // Materiality gate: for matched existing camps, only surface if
+      // a new tracked school is associated (host or attendee)
+      let updateSummary: string | null = null
+      if (dedup.matchedCampId) {
+        const materiality = await classifyCampUpdate(
+          admin, dedup.matchedCampId,
+          { attendee_school_ids: camp.attendee_school_ids },
+          school.id,
+        )
+        if (!materiality.material) continue
+        updateSummary = materiality.updateSummary ?? null
+      }
 
       await admin.from('camp_proposals').insert({
         source: 'email_extract',
@@ -345,6 +456,7 @@ export async function extractAndProposeCamps(
           attendee_school_ids: camp.attendee_school_ids,
         },
         matched_camp_id: dedup.matchedCampId ?? null,
+        update_summary: updateSummary,
         confidence: camp.confidence,
         notes: camp.reasoning,
       })

@@ -46,13 +46,23 @@ export default function CampProposalsClient({ proposals: initialProposals, schoo
   const schoolMap = new Map(schools.map(s => [s.id, s]))
   const pending = proposals.filter(p => p.status === 'pending')
 
-  // Group by host school
-  const grouped = new Map<string, ProposalRow[]>()
-  for (const p of pending) {
-    const key = p.host_school_id ?? 'unknown'
-    if (!grouped.has(key)) grouped.set(key, [])
-    grouped.get(key)!.push(p)
+  // Split into new camps vs material updates, surface new camps first
+  const newCamps = pending.filter(p => !p.matched_camp_id)
+  const materialUpdates = pending.filter(p => p.matched_camp_id)
+
+  // Group each section by host school
+  function groupByHost(items: ProposalRow[]) {
+    const grouped = new Map<string, ProposalRow[]>()
+    for (const p of items) {
+      const key = p.host_school_id ?? 'unknown'
+      if (!grouped.has(key)) grouped.set(key, [])
+      grouped.get(key)!.push(p)
+    }
+    return grouped
   }
+
+  const newCampsGrouped = groupByHost(newCamps)
+  const updatesGrouped = groupByHost(materialUpdates)
 
   async function handleAction(id: string, action: 'apply' | 'reject', editedData?: CampProposalProposedData) {
     setProcessing(prev => new Set(prev).add(id))
@@ -110,44 +120,85 @@ export default function CampProposalsClient({ proposals: initialProposals, schoo
         </div>
       )}
 
-      {/* Grouped proposals */}
-      {Array.from(grouped.entries()).map(([schoolId, group]) => {
-        const school = schoolMap.get(schoolId) ?? group[0]?.schools
-        const schoolName = school?.short_name || school?.name || 'Unknown School'
-        const tier = TIER_STYLE[school?.category ?? 'C'] ?? TIER_STYLE.C
-
-        return (
-          <div key={schoolId} style={{ marginBottom: 28 }}>
-            {/* School header */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              marginBottom: 10,
-            }}>
-              <span style={{
-                fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
-                background: tier.bg, color: tier.color,
-              }}>{school?.category}</span>
-              <span style={{
-                fontSize: 11, fontWeight: 700, color: LV.inkLo,
-                textTransform: 'uppercase', letterSpacing: '0.08em',
-              }}>{schoolName}</span>
-            </div>
-
-            {/* Cards */}
-            {group.map(p => (
-              <ProposalCard
-                key={p.id}
-                proposal={p}
-                schools={schools}
-                schoolMap={schoolMap}
-                isProcessing={processing.has(p.id)}
-                onApply={(edited) => handleAction(p.id, 'apply', edited)}
-                onReject={() => handleAction(p.id, 'reject')}
-              />
-            ))}
+      {/* New camps section */}
+      {newCamps.length > 0 && (
+        <div style={{ marginBottom: 32 }}>
+          <div style={{
+            fontSize: 11, fontWeight: 800, color: LV.green,
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+            marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span>New camps ({newCamps.length})</span>
           </div>
-        )
-      })}
+          {Array.from(newCampsGrouped.entries()).map(([schoolId, group]) =>
+            <ProposalGroup key={schoolId} schoolId={schoolId} group={group}
+              schoolMap={schoolMap} processing={processing}
+              onAction={handleAction} schools={schools} />
+          )}
+        </div>
+      )}
+
+      {/* Material updates section */}
+      {materialUpdates.length > 0 && (
+        <div style={{ marginBottom: 32 }}>
+          <div style={{
+            fontSize: 11, fontWeight: 800, color: LV.tealDeep,
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+            marginBottom: 14,
+          }}>
+            Updates ({materialUpdates.length})
+          </div>
+          {Array.from(updatesGrouped.entries()).map(([schoolId, group]) =>
+            <ProposalGroup key={schoolId} schoolId={schoolId} group={group}
+              schoolMap={schoolMap} processing={processing}
+              onAction={handleAction} schools={schools} />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Proposal group (by host school) ────────────────────────────────────────
+
+function ProposalGroup({ schoolId, group, schoolMap, processing, onAction, schools }: {
+  schoolId: string
+  group: ProposalRow[]
+  schoolMap: Map<string, Pick<School, 'id' | 'name' | 'short_name' | 'category'>>
+  processing: Set<string>
+  onAction: (id: string, action: 'apply' | 'reject', editedData?: CampProposalProposedData) => void
+  schools: Pick<School, 'id' | 'name' | 'short_name' | 'category'>[]
+}) {
+  const school = schoolMap.get(schoolId) ?? group[0]?.schools
+  const schoolName = school?.short_name || school?.name || 'Unknown School'
+  const tier = TIER_STYLE[school?.category ?? 'C'] ?? TIER_STYLE.C
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        marginBottom: 10,
+      }}>
+        <span style={{
+          fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
+          background: tier.bg, color: tier.color,
+        }}>{school?.category}</span>
+        <span style={{
+          fontSize: 11, fontWeight: 700, color: LV.inkLo,
+          textTransform: 'uppercase', letterSpacing: '0.08em',
+        }}>{schoolName}</span>
+      </div>
+      {group.map(p => (
+        <ProposalCard
+          key={p.id}
+          proposal={p}
+          schools={schools}
+          schoolMap={schoolMap}
+          isProcessing={processing.has(p.id)}
+          onApply={(edited) => onAction(p.id, 'apply', edited)}
+          onReject={() => onAction(p.id, 'reject')}
+        />
+      ))}
     </div>
   )
 }
@@ -194,9 +245,15 @@ function ProposalCard({ proposal, schools, schoolMap, isProcessing, onApply, onR
           background: confStyle.bg, color: confStyle.color,
           textTransform: 'capitalize',
         }}>{proposal.confidence}</span>
+        {!proposal.matched_camp_id && (
+          <span style={{
+            fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
+            background: '#D1FAE5', color: '#065F46',
+          }}>New camp</span>
+        )}
         {proposal.matched_camp_id && (
           <span style={{ fontSize: 11, fontWeight: 600, color: LV.tealDeep }}>
-            Updates existing camp
+            {proposal.update_summary || 'Updates existing camp'}
           </span>
         )}
       </div>
