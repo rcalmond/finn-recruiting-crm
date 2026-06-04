@@ -1864,6 +1864,76 @@ Fix:
 
 4. *Doc-structure decisions are output quality, not visual polish.* When generating documents, the choice between "bold inline text" and "Heading 2" is not aesthetic — the former creates flat content, the latter creates a proper document outline. Heading hierarchy makes documents navigable, copy-paste-able, and convertible to other formats (PDF, structured data). Default to heading levels for any text that would appear in a table of contents, even if visual styling could be achieved with bold runs.
 
+### Prep-for-Call PDF Migration + Deploy Discipline (June 4, 2026)
+
+**1. call_prep_docs RLS policy gap.**
+
+call_prep_docs was created in migration 049 with RLS enabled but no policies — Postgres default in that state is deny-all for non-service-role connections. Service-role inserts from the API route succeeded; client SELECTs returned 200 + empty array + error: null. All 4 uploaded Rochester prep docs were invisible in CallPrepSection despite existing in the DB.
+
+Diagnostic path: Network tab confirmed the query was firing correctly with the right school_id and getting an empty result with no error. SQL editor returned the rows fine — which proved nothing, because the SQL editor uses the service role. pg_policies check revealed the gap.
+
+Fix: migration 051 added "auth users full access on call_prep_docs" FOR ALL TO authenticated USING (true) WITH CHECK (true), mirroring contact_log.
+
+Fingerprint to remember: 200 + empty array + error: null = silent RLS deny. Service-role verification (SQL editor, supabase admin client) proves nothing because it bypasses RLS entirely. Always verify with the actual client role.
+
+**2. Coach archival — silent FK failure.**
+
+The school modal's red-X coach delete was doing a hard DELETE on coaches, which fails on FK constraints from contact_log.coach_id (ON DELETE SET NULL is set, but other FKs RESTRICT). The handler had `if (!error) { ... refresh }` which swallowed the failure: the row didn't delete, the UI refreshed anyway, and the coach appeared "gone" until the next page load brought them back.
+
+Fix (migration 052): added archived_at timestamptz to coaches with index on (school_id, archived_at). Red-X replaced with neutral Archive button + inline confirmation. Active-coaches queries filter archived_at IS NULL; contact_log/prep_doc coach_id resolution doesn't filter so historical references remain intact. PATCH /api/coaches/{id}/archive and /unarchive endpoints with school-ownership auth.
+
+Pattern: every Supabase mutation needs an explicit error-surfacing branch, not just an `if (!error)` happy path. FK violations are invisible if you only check the truthy side of the error object.
+
+**3. Prep-for-call docx → PDF migration (the long arc).**
+
+Motivation: Finn doesn't have MS Word and docx renders unreliably in Apple Pages. Full replacement, no docx fallback in the generation path (existing .docx docs still readable via the unchanged download route).
+
+Attempt 1 — @react-pdf/renderer with JSX (call-prep-pdf.tsx, 5 LETTER pages, Helvetica built-in, nested `<Text>` for split-runs). Failed on Vercel with React error #31 ("Objects are not valid as a React child, found: object with keys {$$typeof, type, key, ref, props}") thrown from inside the @react-pdf reconciler (Wt/Bn/wr/wl/Sl/bl/Ge in reconciler-23.js). Local `npx tsx scripts/test-pdf-render.ts` with real Colby data PASSED, ruling out the source code. A minimal test endpoint with just `<Document><Page><Text>Hello</Text></Page></Document>` ALSO failed on Vercel with the identical error — confirming @react-pdf is fundamentally incompatible with Next.js 16's bundler, not a code-level bug we could fix.
+
+Attempt 2 — pdfmake (declarative JSON doc definition, no React reconciler). Local generation produced valid 12-page PDFs. Deployed and hit ENOENT for /ROOT/node_modules/pdfkit/js/data/Helvetica-Bold.afm — pdfkit hardcodes `__dirname + '/data/Helvetica-Bold.afm'` and __dirname after Next.js's file tracing doesn't match where the .afm files end up (foliojs/pdfkit issue #1549).
+
+First fix attempt: outputFileTracingIncludes in next.config. Initial attempt used the wrong route key ('/api/prep-for-call/generate/route' with /route suffix per my own bad guidance) — silent no-op. App Router keys use URL path WITHOUT /route. Corrected to '/api/prep-for-call/generate' + '/api/**/*' fallback glob. File trace verified locally, but Vercel runtime still failed with the same ENOENT — because pdfkit's __dirname resolution doesn't survive bundling regardless of what files are traced.
+
+Final fix: bundle @fontsource/arimo TTFs (Arimo-Regular, Arimo-Bold, Arimo-Italic, Arimo-BoldItalic) into ./fonts/. Use pdfmake's PdfPrinter (not the default front door) with explicit font definitions, keyed as 'Helvetica' but pointing to Arimo TTFs via path.join(process.cwd(), 'fonts', ...). outputFileTracingIncludes includes './fonts/**/*'. This bypasses pdfkit's standard-font path entirely — pdfmake never looks for the .afm files because we never ask for the standard fonts.
+
+Result: 13-page Colby PDF generates successfully in production. Helvetica throughout (rendered from Arimo TTFs, visually identical for practical purposes), heading hierarchy preserved, split-run question labels render inline, why-it-matters bold-italic label + italic body, page breaks at Part 1/2/3/4, POST-CALL section with horizontal rule.
+
+**4. LLM JSON output parsing robustness.**
+
+Even after the PDF rendering worked, generation failed at "Research iteration 6" with "Unexpected non-whitespace character after JSON at position 2183". JSON.parse in call-prep-research.ts line 258 was choking on Claude's structured response.
+
+Root cause: the model occasionally returns JSON wrapped in markdown fences mid-string (not just at the boundaries), or with brief commentary text alongside the JSON. The previous parser used anchored regexes (^/$) that only matched fences at the absolute start/end of the string, and a greedy `\{[\s\S]*\}` fallback that over-matched when commentary contained braces (function bodies in code examples, set notation in math, etc.).
+
+Fix: non-anchored fence stripping (/```json\s*/gi + /```\s*/g) plus balanced-brace extraction with explicit string-boundary tracking — track `inString` flag, handle escape sequences so an escaped quote inside a string doesn't flip the flag, only count braces when not inside a string. Surfaces the actual JSON object regardless of where it sits in the response.
+
+**5. Deploy/git discipline crisis.**
+
+Mid-debug discovery: `git status` revealed the entire call_prep_docs feature had been uncommitted for a week. The last commit (May 28, camps/schools/pipeline) was itself local-only — 1 commit ahead of origin/main. All today's work plus the prior week's work was untracked.
+
+Root cause: parallel deploy paths created an illusion. `vercel --prod` CLI deploys ship the working tree directly (including untracked files) but label the resulting deploy with the LOCAL HEAD SHA in the dashboard. So the dashboard showed "deployed: SHA abc123" matching local HEAD, while the actual content was working-tree state including untracked files. When CC subsequently pushed actual git commits, auto-deploy from main built from committed state only, effectively reverting working-tree-only state from prod.
+
+Resolution: backup branch backup-todays-work-2026-06-04 created at HEAD before any cleanup. Single catch-up commit consolidated the week's work. CLAUDE.md updated with Deployment & Git Discipline section enforcing: (a) no Vercel CLI use, all deploys via git push + auto-deploy; (b) `git status` required before every `git add` and after every `git commit`, with the status output being the proof of "committed and pushed" rather than the verbal claim.
+
+**Architectural patterns reinforced today:**
+
+1. *RLS-enabled-with-no-policy is silent deny-all.* Fingerprint: 200 status + empty array + error: null. Service-role verification (SQL editor, admin client) proves nothing because it bypasses RLS. When a SELECT returns no rows but the query looks right, check pg_policies for the table BEFORE re-checking the query.
+
+2. *FK constraints + `if (!error)` swallow pattern equals silent UI failure.* Every Supabase mutation needs an explicit error-surfacing branch. Refreshing on the implicit truthy side hides RESTRICT violations and similar constraint errors.
+
+3. *@react-pdf/renderer is fundamentally incompatible with Next.js 16's bundler.* A minimal test endpoint reproduces React error #31 from inside the reconciler. Don't reach for @react-pdf in this stack. pdfmake is the working alternative.
+
+4. *pdfkit standard fonts don't survive Next.js file tracing.* pdfkit hardcodes `__dirname + '/data/*.afm'`, which breaks after bundling regardless of outputFileTracingIncludes config. Bundle custom TTF fonts and use pdfmake's PdfPrinter with explicit font defs — avoid the standard-font path entirely.
+
+5. *Production behavior doesn't match source code → suspect the deployed bundle first.* When local execution succeeds and Vercel execution fails with environment-specific errors (React reconciler errors, ENOENT on bundled files, __dirname mismatches), the source code is rarely the problem. Build a minimal repro endpoint to isolate environment from code.
+
+6. *Test fixtures with mock data don't prove anything about real-data code paths.* A test that passes with hand-written mock objects can completely miss a bug that fires on the actual data shape from production. When debugging a real-data failure, capture real prepData/payload from logs and use THAT in tests, not synthesized fixtures.
+
+7. *LLM JSON output parsing must handle the messy edge cases.* Non-anchored fence stripping, balanced-brace extraction with string-boundary tracking. The model will sometimes wrap, sometimes commentate, sometimes both — the parser has to survive all of it.
+
+8. *Vercel CLI deploys + uncommitted working tree = misleading SHAs and partial reverts.* The dashboard's "deployed: SHA xyz" can be a lie when the deploy was shipped from working-tree state but labeled with local HEAD. Establish git-only deploys as policy (see CLAUDE.md) and `git status` checks as the proof-of-commit ritual.
+
+9. *Diagnostic-first beats theorize-first.* Multiple times today, hypothesized fixes failed because the theory didn't match the actual behavior. Adding instrumentation (console.log, minimal test endpoints, real-data capture) cut faster to the root cause than static analysis. When stalled, bisect.
+
 ---
 
 ## 10. Session Startup Checklist for Claude Code
@@ -1878,7 +1948,7 @@ Fix:
 
 ---
 
-## 11. Live Pipeline — Generated June 3, 2026
+## 11. Live Pipeline — Generated June 4, 2026
 
 **Active schools: 23** | Overdue actions: 8
 (Category Nope and status Inactive excluded)
@@ -2060,9 +2130,6 @@ SCHOOL: University of Rochester
   Last Contact: 2026-05-19
   RQ Status: Completed
   Videos Sent: Yes
-  Notes: Got a personalized email back from Coach Cross.
-
-Thanks for reaching out about your interest. I am impressed with your film as you show great technical skill to take on defenders and provide amazing services from the wide areas. I also like how seriously you take your academics and are interested in
   Contact Log (3 shown):
     [2026-05-20] Outbound via Email — Sean Streb:
       Hey Coach,
@@ -2253,17 +2320,6 @@ SCHOOL: Lehigh University
       
       Finn Almond
     [2026-05-21] Inbound via Email — Ryan Hess:
-      Finn,
-      
-      We're very excited to have confirmed our staff for ID Camp, with the latest addition of the Georgetown to our experienced staff!
-      
-      We have a few field players spots open for June 6-7 and look forward to working with you this summer.
-      
-      							_______
-      Ryan Hess
-      Lehigh University
-      Associate Head...
-    [2026-05-21] Inbound via Email — Ryan Hess:
       Finn
       
       Sorry to hear you couldn't make the cup, but we hope to see you soon.
@@ -2273,6 +2329,16 @@ SCHOOL: Lehigh University
       
       We just added Georgetown University to our June 6-7 camp! As well as have a
       few other dates...
+    [2026-05-21] Inbound via Sports Recruits — Ryan Hess:
+      .unsubscribe_email_
+      .unsubscribe_email_Finn,
+      
+      We're very excited to have confirmed our staff for ID Camp, with the latest addition of the Georgetown to our experienced staff!
+      
+      We have a few field players spots open for June 6-7 and look forward to working with you this summer.
+      
+      							_______
+      Rya...
 
 SCHOOL: Milwaukee School of Engineering (MSOE)
   Status: Ongoing Conversation
@@ -2291,36 +2357,12 @@ SCHOOL: Milwaukee School of Engineering (MSOE)
   Notes: What do you want to study?
   Next Action: Reply to "Let's connect in May" (Finn) — due 2026-05-03
   Contact Log (3 shown):
-    [2026-05-19] Outbound via Sports Recruits — Rob Harrington:
-      Coach Harrington,
-      
-      Following up on your note about connecting in May
-      
-      A quick end-of-season update: we finished league play 9W-2L-3D and I started every game at left wingback with 3 goals and 2 assists. We qualified for MLS NEXT Cup but unfortunately we don't have the numbers to attend.
-      
-      I also w...
-    [2026-05-19] Inbound via Phone — Rob Harrington:
-      Coach Harrington texted that he wants to connect directly with a phone call.  Finn said that would be great and left things at that.
-    [2026-04-08] Inbound via Sports Recruits — Rob Harrington:
-      Finn,
-      
-      Let's connect in May.
-      
-      Rob H
-      
-      Rob Harrington
-      
-      Head Men’s Soccer Coach
-      
-      414-803-4769 cell
-      
-      NACC Regular or Conference Tournament Champs in 2025, 24, 23, 22, 21 Spring
-      Covid, 2018, 2015, 2014
-      
-      Over 80% of MSOE soccer players received internships in their field (over
-      50% get two or more)
-      
-      99%...
+    [2026-06-03] Outbound via Phone:
+      Sounds great!
+    [2026-06-03] Inbound via Phone — Rob Harrington:
+      Friday at 1 pm
+    [2026-06-03] Outbound via Phone:
+      Can you do tomorrow at 4pm, Friday at 1pm or Friday at 3pm?
 
 SCHOOL: Rochester Institute of Technology (RIT)
   Status: Intro Sent
@@ -2449,17 +2491,6 @@ SCHOOL: WPI
   Videos Sent: Yes
   Contact Log (3 shown):
     [2026-05-29] Inbound via Email — Brian Kelley:
-      Hi Finn,
-      
-      We teach our wingbacks and backs along with every other position the fundamentals of the game which sets them up for success.  How hard each player competes is the real deciding factor.
-      
-      
-      FYI and reminder.
-      
-      Thank you for emailing, I am catching up on some emails tonight.
-      
-      Please conside...
-    [2026-05-29] Inbound via Email — Brian Kelley:
       Okay, thanks for letting me know and let me know when you sign up.
       
       Coach Kelley
@@ -2470,6 +2501,17 @@ SCHOOL: WPI
       Subject: [EXT] Re: ID Clinic Registration
       
       You don't often get email from finnalmond08@gmail.com<m...
+    [2026-05-29] Inbound via Email — Brian Kelley:
+      Hi Finn,
+      
+      We teach our wingbacks and backs along with every other position the fundamentals of the game which sets them up for success.  How hard each player competes is the real deciding factor.
+      
+      
+      FYI and reminder.
+      
+      Thank you for emailing, I am catching up on some emails tonight.
+      
+      Please conside...
     [2026-05-27] Outbound via Email — Brian Kelley:
       Hi Coach,
       
@@ -2517,8 +2559,10 @@ SCHOOL: Amherst
       Best,
       
       Finn Almond
-    [2026-05-28] Inbound via Sports Recruits — Justin Serpone:
-      Awesome Finn....I'll be at both of those sessions (and the others as well).
+    [2026-05-28] Inbound via Sports Recruits — Rye  Jaran:
+      Hey Finn,
+      
+      Thanks for the update, and your continued interest! In regards to our formation, we have played both, but I'd say we lean more towards playing with a back 4! Would love to work with you at camp this summer!
       
       Coach
 
@@ -2718,7 +2762,7 @@ SCHOOL: Emory
       Here is my schedule in...
 
 SCHOOL: Illinois Institute of Technology (Illinois Tech)
-  Status: Intro Sent
+  Status: Ongoing Conversation
   Division: D3 — Northern Athletics Collegiate Conference (NACC)
   Location: Chicago, IL (Bronzeville, near downtown)
   Admit Likelihood: Target
@@ -2731,20 +2775,22 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
   RQ Status: Completed
   Videos Sent: Yes
   Contact Log (3 shown):
-    [2026-06-01] Outbound via Phone:
+    [2026-06-04] Inbound via Phone — Dylan Milkent:
+      Phone call with Coach Milkent and Finn
+      
+      Nice guy.  Seemed super interested.
+      Went to the wedding of the Colby head coach who's currently on honeymoon in Italy.
+      Wants to see a full game film
+      Wants to see a game film from a USL game when we have one
+      70% of roster is upper classmen and most defenders...
+    [2026-06-01] Outbound via Text — Dylan Milkent:
       That’s should work perfectly. Looking forward to it
-    [2026-06-01] Inbound via Phone:
-      Very impressive film! What USL team are you with?
+    [2026-06-01] Outbound via Text:
+      I am currently playing with flatirons FC, which has been great for improving my 1v1 defending and just being aggressive out of the air. 
       
-      What do you think would be the right fit and what schools are you looking at? Could we also hop on a call this week and what is your availability?
-    [2026-06-01] Inbound via Phone:
-      Hey Finn,
+      I am looking at a couple other engineering school in the northeast as well. 
       
-      My name is Dylan Milkent and I am the new head men’s soccer coach at Illinois Tech in Chicago, IL. 
-      
-      I am getting our recruiting sorted for the class of 2027 and noticed you have expressed interest and filled out our recruiting form. 
-      
-      How has the recruiting process gone for you? Are y...
+      As for availability, I just got my Wisdom teeth out today so I am available all d...
 
 SCHOOL: Princeton
   Status: Ongoing Conversation
@@ -2829,7 +2875,10 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
-| 2026-06-04 | Prep-for-call output switched from docx to PDF via @react-pdf/renderer. Helvetica font (PDF built-in). Same heading hierarchy, accent colors, split-run question labels. New file: call-prep-pdf.tsx replaces call-prep-docx.ts. Storage path now .pdf, content type application/pdf. Download route already handles both formats — existing .docx docs still work. | Feature |
+| 2026-06-04 | CLAUDE.md Deployment & Git Discipline rules added. Two constraints: never run Vercel CLI directly (all deploys via git push + auto-deploy from main); `git status` required before every `git add` and after every `git commit`. Existing "Before shipping" section's old `vercel --prod` reference updated to `git push` for consistency. Established after a multi-hour debug session where a week of feature work sat uncommitted in the working tree while CLI deploys silently shipped working-tree state with misleading dashboard SHAs. | Process |
+| 2026-06-04 | Prep-for-call research JSON parsing made robust (src/lib/call-prep-research.ts). Model occasionally wraps its final structured response in markdown code fences mid-string or adds commentary alongside the JSON. Previous parser used anchored fence-stripping (^/$) that missed mid-string fences, with a greedy `{[\s\S]*}` fallback that over-matched on commentary containing braces. Replaced with non-anchored fence stripping plus balanced-brace extraction tracking string boundaries and escape sequences so quoted braces don't miscount. | Bug fix |
+| 2026-06-04 | call_prep_docs RLS gap — migration 051 added missing SELECT policy. The table was created with RLS enabled (migration 049) but ZERO policies, producing default deny-all for the authenticated client. Service-role writes via server route succeeded; client SELECTs returned 200 + empty array + error: null (the silent fingerprint). All uploaded and generated prep docs were invisible until the policy was added. Policy mirrors contact_log's pattern: "auth users full access on call_prep_docs" FOR ALL TO authenticated USING (true) WITH CHECK (true). | Bug fix |
+| 2026-06-04 | Prep-for-call output switched docx → PDF. Initial @react-pdf/renderer attempt failed in Vercel + Next.js 16 with React error #31 from inside the @react-pdf reconciler (reproduced even on a minimal Document/Page/Text test endpoint — fundamental bundler incompatibility). Migrated to pdfmake; pdfkit's standard-font __dirname lookup then failed in Vercel's traced bundle (ENOENT on Helvetica-Bold.afm). Resolved by bundling Arimo TTFs into ./fonts/ and using pdfmake's PdfPrinter with explicit font defs (alias 'Helvetica' → Arimo paths), bypassing the standard-font path entirely. New files: call-prep-pdf.ts (now .ts, not .tsx), fonts/Arimo-*.ttf. next.config outputFileTracingIncludes adds './fonts/**/*' under the '/api/prep-for-call/generate' key (no /route suffix — App Router keys use the URL path). Download route handles both .docx and .pdf; existing .docx docs still work. | Feature + Bug fix |
 | 2026-06-04 | Coach archival: migration 052 (archived_at on coaches). Archive replaces hard-delete (which silently failed due to FK constraints). Inline confirmation, archived coaches disclosure with unarchive. Legacy Fields section removed from SchoolModal. useCoaches hook returns archivedCoaches + archiveCoach/unarchiveCoach. | Feature + Bug fix |
 | 2026-06-04 | Prep doc upload capability added (migration 050: source column). UploadPrepDocModal for .docx/.pdf files with coach dropdown + date picker. Redundant "+ Generate" button removed from CallPrepSection — generation stays on coach card only. Source badges (Generated/Uploaded) on all docs. Upload API at /api/call-prep-docs/upload. | Feature |
 | 2026-06-04 | Prep docs moved out of asset library into dedicated call_prep_docs table (migration 049). New CallPrepSection on school detail page between Communications Plan and Contact Log. New download route /api/call-prep-docs/[id]. useCallPrepDocs hook. 'call_prep' removed from AssetType. Generation writes to call_prep_docs instead of assets. | Schema + Feature |
