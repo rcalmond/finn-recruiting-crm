@@ -134,7 +134,22 @@ export async function POST(req: NextRequest) {
 
         send('progress', { stage: 'pdf', message: 'Building PDF...' })
 
-        const pdfBuffer = await generateCallPrepPdf(prepData)
+        console.log('[prep-for-call/generate] prepData for PDF renderer:', JSON.stringify(prepData, null, 2))
+
+        let pdfBuffer: Buffer
+        try {
+          pdfBuffer = await generateCallPrepPdf(prepData)
+        } catch (pdfErr) {
+          const pdfError = pdfErr instanceof Error ? pdfErr : new Error(String(pdfErr))
+          console.error('[prep-for-call/generate] PDF RENDER FAILED')
+          console.error('[prep-for-call/generate] error.message:', pdfError.message)
+          console.error('[prep-for-call/generate] error.stack:', pdfError.stack)
+          console.error('[prep-for-call/generate] prepData keys:', Object.keys(prepData))
+          console.error('[prep-for-call/generate] prepData.part_4_questions.categories:', JSON.stringify(prepData.part_4_questions?.categories?.map(c => ({ name: c.name, qCount: c.questions?.length }))))
+          send('error', { message: `PDF render failed: ${pdfError.message}` })
+          controller.close()
+          return
+        }
 
         // ── Step 5: Upload PDF + insert call_prep_docs row ──────────────
 
