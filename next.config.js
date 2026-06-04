@@ -5,6 +5,9 @@ const nextConfig = {
     '/api/prep-for-call/generate': [
       './node_modules/pdfkit/js/data/**/*',
     ],
+    '/api/**/*': [
+      './node_modules/pdfkit/js/data/**/*',
+    ],
   },
 }
 
