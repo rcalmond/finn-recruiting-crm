@@ -247,22 +247,51 @@ export async function runAgenticResearch(params: {
         }
       }
 
+      // Strip markdown code fences (non-anchored — handles surrounding text)
       jsonText = jsonText
-        .replace(/^```json\s*/i, '')
-        .replace(/^```\s*/i, '')
-        .replace(/```\s*$/i, '')
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/g, '')
         .trim()
 
       let prepData: CallPrepOutput
       try {
         prepData = JSON.parse(jsonText)
       } catch {
-        // Try to extract JSON from surrounding text
-        const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
-        if (jsonMatch) {
-          prepData = JSON.parse(jsonMatch[0])
+        // Fallback: balanced-brace extraction (handles JSON with surrounding commentary)
+        const start = jsonText.indexOf('{')
+        if (start >= 0) {
+          let depth = 0
+          let end = -1
+          let inString = false
+          let escaped = false
+          for (let i = start; i < jsonText.length; i++) {
+            const c = jsonText[i]
+            if (escaped) { escaped = false; continue }
+            if (c === '\\' && inString) { escaped = true; continue }
+            if (c === '"') { inString = !inString; continue }
+            if (inString) continue
+            if (c === '{') depth++
+            else if (c === '}') { depth--; if (depth === 0) { end = i; break } }
+          }
+          if (end > start) {
+            try {
+              prepData = JSON.parse(jsonText.slice(start, end + 1))
+            } catch (innerErr) {
+              console.error('[call-prep-research] JSON parse failed at both attempts. Raw response:')
+              console.error(jsonText.slice(0, 4000))
+              console.error('[call-prep-research] ...around position 2183:')
+              console.error(jsonText.slice(2100, 2300))
+              throw new Error(`Model returned invalid JSON after ${toolCallCount} tool calls (balanced-brace extraction also failed). First 500 chars: ${jsonText.slice(0, 500)}`)
+            }
+          } else {
+            console.error('[call-prep-research] JSON parse failed — no balanced closing brace found. Raw response:')
+            console.error(jsonText.slice(0, 4000))
+            throw new Error(`Model returned invalid JSON after ${toolCallCount} tool calls (no balanced closing brace). First 500 chars: ${jsonText.slice(0, 500)}`)
+          }
         } else {
-          throw new Error(`Model returned invalid JSON after ${toolCallCount} tool calls. First 500 chars: ${jsonText.slice(0, 500)}`)
+          console.error('[call-prep-research] JSON parse failed — no opening brace found. Raw response:')
+          console.error(jsonText.slice(0, 4000))
+          throw new Error(`Model returned invalid JSON after ${toolCallCount} tool calls (no opening brace). First 500 chars: ${jsonText.slice(0, 500)}`)
         }
       }
 
