@@ -3,10 +3,10 @@ const nextConfig = {
   serverExternalPackages: [],
   outputFileTracingIncludes: {
     '/api/prep-for-call/generate': [
-      './node_modules/pdfkit/js/data/**/*',
+      './fonts/**/*',
     ],
     '/api/**/*': [
-      './node_modules/pdfkit/js/data/**/*',
+      './fonts/**/*',
     ],
   },
 }

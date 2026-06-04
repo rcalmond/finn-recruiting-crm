@@ -294,29 +294,40 @@ function buildDocDefinition(data: CallPrepOutput): TDocumentDefinitions {
 
 // ─── PDF generation ───────────────────────────────────────────────────────
 
+import path from 'path'
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const PdfmakeBase = require('pdfmake/js/base').default
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const OutputDocServer = require('pdfmake/js/OutputDocumentServer').default
+const PdfPrinterModule = require('pdfmake/js/Printer')
+const PdfPrinterClass = PdfPrinterModule.default ?? PdfPrinterModule
+
+const fontDir = path.join(process.cwd(), 'fonts')
 
 const FONTS = {
   Helvetica: {
-    normal: 'Helvetica',
-    bold: 'Helvetica-Bold',
-    italics: 'Helvetica-Oblique',
-    bolditalics: 'Helvetica-BoldOblique',
+    normal: path.join(fontDir, 'Arimo-Regular.ttf'),
+    bold: path.join(fontDir, 'Arimo-Bold.ttf'),
+    italics: path.join(fontDir, 'Arimo-Italic.ttf'),
+    bolditalics: path.join(fontDir, 'Arimo-BoldItalic.ttf'),
   },
 }
+
+// pdfmake 0.3.x PdfPrinter requires a urlResolver (3rd constructor arg)
+// to avoid crashing on resolveUrls(). We don't use URLs in docs, so noop.
+const noopUrlResolver = { resolve: () => {}, resolved: () => [] }
 
 export async function generateCallPrepPdf(data: CallPrepOutput): Promise<Buffer> {
   const docDefinition = buildDocDefinition(data)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const maker = new (PdfmakeBase as any)()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  maker._transformToDocument = (doc: any) => new (OutputDocServer as any)(doc)
-  maker.setFonts(FONTS)
+  const printer = new (PdfPrinterClass as any)(FONTS, undefined, noopUrlResolver)
+  // pdfmake 0.3.x returns a Promise<PDFDocument> from createPdfKitDocument
+  const pdfDoc = await printer.createPdfKitDocument(docDefinition)
 
-  const pdf = maker.createPdf(docDefinition)
-  return pdf.getBuffer() as Promise<Buffer>
+  return new Promise<Buffer>((resolve, reject) => {
+    const chunks: Buffer[] = []
+    pdfDoc.on('data', (chunk: Buffer) => chunks.push(chunk))
+    pdfDoc.on('end', () => resolve(Buffer.concat(chunks)))
+    pdfDoc.on('error', reject)
+    pdfDoc.end()
+  })
 }
