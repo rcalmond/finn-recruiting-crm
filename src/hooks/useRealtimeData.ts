@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFinnStatus, CampFinnStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFinnStatus, CampFinnStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message, CallPrepDoc } from '@/lib/types'
 import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp as updateCampMutation, updateFinnStatus as updateFinnStatusMutation, deleteCamp as deleteCampMutation, addSchoolAttendee as addSchoolAttendeeMutation, removeSchoolAttendee as removeSchoolAttendeeMutation } from '@/lib/camps'
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
@@ -453,23 +453,35 @@ export function useQuestions() {
 
 export function useCoaches(schoolId?: string) {
   const [coaches, setCoaches] = useState<Coach[]>([])
+  const [archivedCoaches, setArchivedCoaches] = useState<Coach[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = useMemo(() => createClient(), [])
 
   const fetchCoaches = useCallback(async () => {
     if (!schoolId) {
       setCoaches([])
+      setArchivedCoaches([])
       setLoading(false)
       return
     }
+    // Fetch active coaches
     const { data, error } = await supabase
       .from('coaches')
       .select('*')
       .eq('school_id', schoolId)
       .eq('is_active', true)
+      .is('archived_at', null)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true })
     if (!error && data) setCoaches(data as Coach[])
+    // Fetch archived coaches
+    const { data: archived } = await supabase
+      .from('coaches')
+      .select('*')
+      .eq('school_id', schoolId)
+      .not('archived_at', 'is', null)
+      .order('archived_at', { ascending: false })
+    if (archived) setArchivedCoaches(archived as Coach[])
     setLoading(false)
   }, [supabase, schoolId])
 
@@ -496,9 +508,28 @@ export function useCoaches(schoolId?: string) {
     return error
   }, [supabase])
 
-  const deleteCoach = useCallback(async (id: string) => {
-    const { error } = await supabase.from('coaches').delete().eq('id', id)
-    if (!error) setCoaches(prev => prev.filter(c => c.id !== id))
+  const archiveCoach = useCallback(async (id: string) => {
+    const now = new Date().toISOString()
+    const { error } = await supabase.from('coaches').update({ archived_at: now, is_active: false }).eq('id', id)
+    if (!error) {
+      setCoaches(prev => {
+        const coach = prev.find(c => c.id === id)
+        if (coach) setArchivedCoaches(ap => [{ ...coach, archived_at: now, is_active: false }, ...ap])
+        return prev.filter(c => c.id !== id)
+      })
+    }
+    return error
+  }, [supabase])
+
+  const unarchiveCoach = useCallback(async (id: string) => {
+    const { error } = await supabase.from('coaches').update({ archived_at: null, is_active: true }).eq('id', id)
+    if (!error) {
+      setArchivedCoaches(prev => {
+        const coach = prev.find(c => c.id === id)
+        if (coach) setCoaches(cp => [...cp, { ...coach, archived_at: null, is_active: true }].sort((a, b) => a.sort_order - b.sort_order))
+        return prev.filter(c => c.id !== id)
+      })
+    }
     return error
   }, [supabase])
 
@@ -526,7 +557,7 @@ export function useCoaches(schoolId?: string) {
     return error
   }, [supabase, coaches, fetchCoaches])
 
-  return { coaches, loading, insertCoach, updateCoach, deleteCoach, setPrimary, refetch: fetchCoaches }
+  return { coaches, archivedCoaches, loading, insertCoach, updateCoach, archiveCoach, unarchiveCoach, setPrimary, refetch: fetchCoaches }
 }
 
 // ─── Camps ───────────────────────────────────────────────────────────────────
@@ -723,4 +754,35 @@ export function useSchoolMessageLog(messageId: string | null) {
   }, [fetchEntries, supabase, messageId])
 
   return { entries, loading }
+}
+
+// ─── Call Prep Docs ─────────────────────────────────────────────────────────
+
+export function useCallPrepDocs(schoolId?: string) {
+  const [docs, setDocs] = useState<CallPrepDoc[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = useMemo(() => createClient(), [])
+
+  const fetchDocs = useCallback(async () => {
+    if (!schoolId) {
+      setDocs([])
+      setLoading(false)
+      return
+    }
+    const { data, error } = await supabase
+      .from('call_prep_docs')
+      .select('*')
+      .eq('school_id', schoolId)
+      .order('generated_at', { ascending: false })
+    if (error) {
+      console.error('[useCallPrepDocs] fetch error:', error)
+    } else if (data) {
+      setDocs(data as CallPrepDoc[])
+    }
+    setLoading(false)
+  }, [supabase, schoolId])
+
+  useEffect(() => { fetchDocs() }, [fetchDocs])
+
+  return { docs, loading, refetch: fetchDocs }
 }

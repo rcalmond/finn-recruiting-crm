@@ -308,6 +308,23 @@ export interface PrepResult {
   call_summary: string
 }
 
+// ─── Call Prep Docs ──────────────────────────────────────────────────────────
+
+export type CallPrepSource = 'generated' | 'uploaded'
+
+export interface CallPrepDoc {
+  id: string
+  school_id: string
+  coach_id: string | null
+  coach_name_snapshot: string
+  framing_notes: string | null
+  docx_storage_path: string
+  tool_call_count: number | null
+  source: CallPrepSource
+  generated_at: string
+  created_at: string
+}
+
 // ─── Coaches ──────────────────────────────────────────────────────────────────
 
 export type CoachRole =
@@ -329,6 +346,7 @@ export interface Coach {
   needs_review: boolean
   sort_order: number
   notes: string | null
+  archived_at: string | null
   created_at: string
   updated_at: string
 }

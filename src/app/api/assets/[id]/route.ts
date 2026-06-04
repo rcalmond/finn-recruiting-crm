@@ -9,6 +9,44 @@ function serviceClient() {
   )
 }
 
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const admin = serviceClient()
+
+  const { data: asset, error: fetchError } = await admin
+    .from('assets')
+    .select('storage_path, file_name, mime_type')
+    .eq('id', id)
+    .single()
+
+  if (fetchError || !asset?.storage_path) {
+    return NextResponse.json({ error: 'Asset not found' }, { status: 404 })
+  }
+
+  const { data: fileData, error: downloadError } = await admin.storage
+    .from('assets')
+    .download(asset.storage_path)
+
+  if (downloadError || !fileData) {
+    return NextResponse.json({ error: 'Download failed' }, { status: 500 })
+  }
+
+  const buffer = Buffer.from(await fileData.arrayBuffer())
+  return new NextResponse(buffer, {
+    headers: {
+      'Content-Type': asset.mime_type ?? 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${asset.file_name ?? 'download'}"`,
+    },
+  })
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

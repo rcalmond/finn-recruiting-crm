@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampFinnStatusValue, CampWithRelations } from '@/lib/types'
-import { useSchools, useContactLog, useActionItems, useCoaches, useCamps } from '@/hooks/useRealtimeData'
+import { useSchools, useContactLog, useActionItems, useCoaches, useCamps, useCallPrepDocs } from '@/hooks/useRealtimeData'
 import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
 import { getRankedFeaturedAction } from '@/lib/todayLogic'
 import { getCampsForSchool } from '@/lib/camps'
@@ -15,6 +15,7 @@ import PrepForCallModal from '@/components/PrepForCallModal'
 import AddCampModal from '@/components/AddCampModal'
 import EditableActionRow from '@/components/EditableActionRow'
 import CommunicationsPlan from '@/components/school-detail/CommunicationsPlan'
+import CallPrepSection from '@/components/school-detail/CallPrepSection'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -1889,6 +1890,7 @@ export default function SchoolDetailClient({
   const { items: actionItems, completedItems, loading: actionsLoading, completeItem, insertItem, updateItem } = useActionItems(initialSchool.id)
   const { coaches, setPrimary } = useCoaches(initialSchool.id)
   const { camps } = useCamps(schools)
+  const { docs: callPrepDocs, refetch: refetchPrepDocs } = useCallPrepDocs(initialSchool.id)
 
   const loading = schoolsLoading || logLoading || actionsLoading
 
@@ -1977,6 +1979,13 @@ export default function SchoolDetailClient({
       }}>
         <div>
           <CommunicationsPlan schoolId={school.id} />
+          <CallPrepSection
+            docs={callPrepDocs}
+            schoolId={school.id}
+            schoolName={school.short_name ?? school.name}
+            coaches={coaches}
+            onRefetch={refetchPrepDocs}
+          />
           <Timeline
             contactLog={contactLog}
             actionItems={actionItems}
@@ -2081,7 +2090,9 @@ export default function SchoolDetailClient({
       {prepOpen && (
         <PrepForCallModal
           school={school}
+          coaches={coaches}
           onClose={() => setPrepOpen(false)}
+          onGenerated={refetchPrepDocs}
         />
       )}
     </div>

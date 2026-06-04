@@ -67,11 +67,13 @@ export default function SchoolModal(props: Props) {
   const { entries: contactLog } = useContactLog(s?.id)
 
   // Coaches (edit mode only)
-  const { coaches, insertCoach, updateCoach, deleteCoach, setPrimary } = useCoaches(s?.id)
+  const { coaches, archivedCoaches, insertCoach, updateCoach, archiveCoach, unarchiveCoach, setPrimary } = useCoaches(s?.id)
   const [editingCoachId, setEditingCoachId] = useState<string | null>(null)
   const [coachEditDraft, setCoachEditDraft] = useState<{ name: string; role: CoachRole; email: string }>({ name: '', role: 'Head Coach', email: '' })
   const [addingCoach, setAddingCoach] = useState(false)
   const [newCoachDraft, setNewCoachDraft] = useState<{ name: string; role: CoachRole; email: string }>({ name: '', role: 'Head Coach', email: '' })
+  const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
 
   function startEditCoach(coach: Coach) {
     setEditingCoachId(coach.id)
@@ -95,11 +97,12 @@ export default function SchoolModal(props: Props) {
       name: newCoachDraft.name.trim(),
       role: newCoachDraft.role,
       email: newCoachDraft.email.trim() || null,
-      is_primary: coaches.length === 0,   // first coach added becomes primary automatically
+      is_primary: coaches.length === 0,
       is_active: true,
       needs_review: false,
       sort_order: coaches.length * 10,
       notes: null,
+      archived_at: null,
     })
     setNewCoachDraft({ name: '', role: 'Head Coach', email: '' })
     setAddingCoach(false)
@@ -286,6 +289,14 @@ export default function SchoolModal(props: Props) {
                           <button type="button" onClick={saveEditCoach} style={actionBtnStyle('#0f172a', '#fff')}>Save</button>
                           <button type="button" onClick={() => setEditingCoachId(null)} style={actionBtnStyle('#f1f5f9', '#475569')}>×</button>
                         </div>
+                      ) : confirmArchiveId === coach.id ? (
+                        <div key={coach.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fffbeb', borderRadius: 6, padding: '8px 10px', border: '1px solid #fde68a' }}>
+                          <div style={{ flex: 1, fontSize: 12, color: '#78350f' }}>
+                            Archive {coach.name}? They&apos;ll be hidden from active staff but contact history is preserved.
+                          </div>
+                          <button type="button" onClick={async () => { await archiveCoach(coach.id); setConfirmArchiveId(null) }} style={actionBtnStyle('#78350f', '#fff')}>Archive</button>
+                          <button type="button" onClick={() => setConfirmArchiveId(null)} style={actionBtnStyle('#f1f5f9', '#475569')}>Cancel</button>
+                        </div>
                       ) : (
                         <div key={coach.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fafbfc', borderRadius: 6, padding: '8px 10px', border: '1px solid #f1f5f9' }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
@@ -314,7 +325,7 @@ export default function SchoolModal(props: Props) {
                             </button>
                           )}
                           <button type="button" onClick={() => startEditCoach(coach)} style={{ ...actionBtnStyle('#f1f5f9', '#475569'), fontSize: 11 }}>Edit</button>
-                          <button type="button" onClick={() => deleteCoach(coach.id)} style={{ ...actionBtnStyle('#fef2f2', '#dc2626'), fontSize: 11 }}>✕</button>
+                          <button type="button" onClick={() => setConfirmArchiveId(coach.id)} title="Archive coach" style={{ ...actionBtnStyle('#f1f5f9', '#94a3b8'), fontSize: 11 }}>Archive</button>
                         </div>
                       )
                     ))}
@@ -334,24 +345,41 @@ export default function SchoolModal(props: Props) {
                     {coaches.length === 0 && !addingCoach && (
                       <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No coach records yet. Click + Add to create one.</div>
                     )}
+
+                    {/* Archived coaches disclosure */}
+                    {archivedCoaches.length > 0 && (
+                      <div style={{ marginTop: 6 }}>
+                        <button
+                          type="button"
+                          onClick={() => setShowArchived(o => !o)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#94a3b8', fontFamily: 'inherit', padding: '4px 0', display: 'flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <span style={{ display: 'inline-block', transform: showArchived ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>▾</span>
+                          Archived coaches ({archivedCoaches.length})
+                        </button>
+                        {showArchived && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                            {archivedCoaches.map(coach => (
+                              <div key={coach.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fafbfc', borderRadius: 6, padding: '6px 10px', border: '1px solid #f1f5f9', opacity: 0.7 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>{coach.name}</span>
+                                  <span style={{ fontSize: 10, color: '#cbd5e1', marginLeft: 6 }}>{coach.role}</span>
+                                  {coach.archived_at && (
+                                    <span style={{ fontSize: 10, color: '#cbd5e1', marginLeft: 6 }}>
+                                      Archived {new Date(coach.archived_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </span>
+                                  )}
+                                </div>
+                                <button type="button" onClick={() => unarchiveCoach(coach.id)} style={{ ...actionBtnStyle('#f1f5f9', '#64748b'), fontSize: 10 }}>Unarchive</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
-
-              {/* Legacy fields — read only */}
-              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Legacy fields (read only — coach data now lives in Coaches above)
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <Field label="Head Coach (legacy)">
-                    <input value={headCoach} readOnly style={{ ...fieldStyle, background: '#f8fafc', color: '#94a3b8', cursor: 'default' }} />
-                  </Field>
-                  <Field label="Coach Email (legacy)">
-                    <input value={coachEmail} readOnly style={{ ...fieldStyle, background: '#f8fafc', color: '#94a3b8', cursor: 'default' }} />
-                  </Field>
-                </div>
-              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                 <Field label="Last Contact">
                   <input type="date" value={lastContact} onChange={e => setLastContact(e.target.value)} style={fieldStyle} />
@@ -463,6 +491,7 @@ export default function SchoolModal(props: Props) {
         {preppingCall && isEdit && (
           <PrepForCallModal
             school={s!}
+            coaches={coaches}
             onClose={() => setPreppingCall(false)}
           />
         )}
