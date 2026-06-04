@@ -6,6 +6,7 @@ import { runAgenticResearch } from '@/lib/call-prep-research'
 import { buildCallPrepSystemPrompt, buildCallPrepUserPrompt } from '@/lib/call-prep-prompt'
 import { generateCallPrepPdf } from '@/lib/call-prep-pdf'
 
+export const runtime = 'nodejs'
 export const maxDuration = 300
 
 function serviceClient() {
