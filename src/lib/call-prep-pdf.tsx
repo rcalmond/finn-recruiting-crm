@@ -12,7 +12,7 @@
  */
 
 import React from 'react'
-import { Document, Page, Text, View, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import type { CallPrepOutput } from './call-prep-prompt'
 
 // ─── School accent colors (darker, refined shades) ────────────────────────
@@ -346,6 +346,7 @@ function CallPrepDocument({ data }: { data: CallPrepOutput }) {
 // ─── Public API ───────────────────────────────────────────────────────────
 
 export async function generateCallPrepPdf(data: CallPrepOutput): Promise<Buffer> {
+  const { renderToBuffer } = await import('@react-pdf/renderer')
   const element = <CallPrepDocument data={data} />
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const buffer = await renderToBuffer(element as any)
