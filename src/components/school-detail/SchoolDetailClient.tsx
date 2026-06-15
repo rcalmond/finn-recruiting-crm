@@ -1756,12 +1756,13 @@ function SidebarCampRow({ camp, showHost, onClick }: {
 
 // ─── Collapsed call prep docs ────────────────────────────────────────────────
 
-function CollapsedCallPrep({ docs, schoolId, schoolName, coaches, onRefetch }: {
+function CollapsedCallPrep({ docs, schoolId, schoolName, coaches, onRefetch, onPrepForCall }: {
   docs: ReturnType<typeof useCallPrepDocs>['docs']
   schoolId: string
   schoolName: string
   coaches: Coach[]
   onRefetch: () => void
+  onPrepForCall: () => void
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -1784,6 +1785,17 @@ function CollapsedCallPrep({ docs, schoolId, schoolName, coaches, onRefetch }: {
       </button>
       {open && (
         <div style={{ marginTop: 10 }}>
+          <div style={{ marginBottom: 12 }}>
+            <button
+              onClick={onPrepForCall}
+              style={{
+                padding: '7px 14px', borderRadius: 6,
+                border: `1.3px solid ${SD.line2}`, background: 'transparent',
+                fontSize: 12, fontWeight: 600, color: SD.inkMid,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >Prep for call</button>
+          </div>
           <CallPrepSection
             docs={docs}
             schoolId={schoolId}
@@ -1903,8 +1915,12 @@ export default function SchoolDetailClient({
         paddingBottom: 'clamp(24px, 4vw, 40px)',
       }}>
         <div>
-          {/* 1. Conversation Summary Card */}
+          {/* 1. Summary and Next Steps */}
           <section style={{ marginBottom: 28 }}>
+            <h2 style={{
+              margin: '0 0 18px', fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
+              letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
+            }}>Summary and Next Steps.</h2>
             <ConversationSummaryCard
               schoolId={school.id}
               schoolName={school.short_name ?? school.name}
@@ -1912,23 +1928,7 @@ export default function SchoolDetailClient({
             />
           </section>
 
-          {/* 2. Secondary action row */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-            marginBottom: 24,
-          }}>
-            <button
-              onClick={() => setPrepOpen(true)}
-              style={{
-                padding: '7px 14px', borderRadius: 6,
-                border: `1.3px solid ${SD.line2}`, background: 'transparent',
-                fontSize: 12, fontWeight: 600, color: SD.inkMid,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >Prep for call</button>
-          </div>
-
-          {/* 3. Conversation timeline */}
+          {/* 2. Conversation timeline */}
           <Timeline
             contactLog={contactLog}
             actionItems={actionItems}
@@ -1953,6 +1953,7 @@ export default function SchoolDetailClient({
             schoolName={school.short_name ?? school.name}
             coaches={coaches}
             onRefetch={refetchPrepDocs}
+            onPrepForCall={() => setPrepOpen(true)}
           />
         </div>
         <Sidebar
