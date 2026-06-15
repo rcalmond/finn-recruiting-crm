@@ -339,6 +339,13 @@ export async function GET(req: NextRequest) {
         ).catch(err => console.error(`[gmail-sync] video-send-detect failed for ${messageId}:`, err))
       }
 
+      // 6j. Fire-and-forget: regenerate conversation summary (both directions)
+      if (schoolId && insertedRow?.id && ['full', 'partial'].includes(parseStatus)) {
+        import('@/lib/school-conversation-summary-generator').then(({ generateAndStoreConversationSummary }) =>
+          generateAndStoreConversationSummary(admin, schoolId)
+        ).catch(err => console.error(`[gmail-sync] conv-summary failed for ${messageId}:`, err))
+      }
+
       console.log(
         `[gmail-sync] ${startedAt} — ${parsed.direction} | ${parsed.isoDate} | ` +
         `school=${schoolId ? schoolId.slice(0, 8) + '…' : 'null'} | ` +

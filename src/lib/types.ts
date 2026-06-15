@@ -130,6 +130,31 @@ export interface SchoolMessagePlan {
   updated_at: string
 }
 
+// ─── School Conversation Summary ─────────────────────────────────────────────
+
+export type RecommendedActionCategory = 'reply' | 'follow_up' | 'check_in' | 'wait' | 'introduce' | 'new_topic'
+
+export interface RecommendedAction {
+  description: string
+  rationale: string
+  category: RecommendedActionCategory
+  source_message_ids?: string[]
+}
+
+export interface SchoolConversationSummary {
+  id: string
+  school_id: string
+  summary: string
+  recommended_action: RecommendedAction
+  last_contact_log_id: string | null
+  generated_at: string
+  model_used: string
+  input_tokens: number | null
+  output_tokens: number | null
+  created_at: string
+  updated_at: string
+}
+
 // ─── ID Camps ────────────────────────────────────────────────────────────────
 
 export type CampFinnStatusValue = 'interested' | 'targeted' | 'registered' | 'attended' | 'declined'

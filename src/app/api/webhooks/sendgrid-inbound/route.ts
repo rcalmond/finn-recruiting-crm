@@ -657,6 +657,13 @@ async function handleOutboundCC(
       .then(({ error: lcErr }) => {
         if (lcErr) console.error(`[sg-inbound] last_contact update failed:`, lcErr.message)
       })
+
+    // 10e. Fire-and-forget: regenerate conversation summary
+    if (['full', 'partial'].includes(parseStatus)) {
+      import('@/lib/school-conversation-summary-generator').then(({ generateAndStoreConversationSummary }) =>
+        generateAndStoreConversationSummary(admin, schoolId)
+      ).catch(err => console.error(`[sg-inbound] conv-summary failed:`, err))
+    }
   }
 
   console.log(
@@ -860,6 +867,13 @@ export async function POST(req: NextRequest) {
       .then(({ error: lcErr }) => {
         if (lcErr) console.error(`[sg-inbound] last_contact update failed:`, lcErr.message)
       })
+
+    // Fire-and-forget: regenerate conversation summary
+    if (['full', 'partial'].includes(parseStatus)) {
+      import('@/lib/school-conversation-summary-generator').then(({ generateAndStoreConversationSummary }) =>
+        generateAndStoreConversationSummary(admin, schoolId)
+      ).catch(err => console.error(`[sg-inbound] conv-summary failed:`, err))
+    }
   }
 
   return NextResponse.json({ ok: true })

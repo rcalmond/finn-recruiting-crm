@@ -1,20 +1,20 @@
 'use client'
 
-import { useState, useMemo, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampFinnStatusValue, CampWithRelations } from '@/lib/types'
 import { useSchools, useContactLog, useActionItems, useCoaches, useCamps, useCallPrepDocs } from '@/hooks/useRealtimeData'
 import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
-import { getRankedFeaturedAction } from '@/lib/todayLogic'
 import { getCampsForSchool } from '@/lib/camps'
+import { classifySchoolRecency, SCHOOL_RECENCY_STYLE } from '@/lib/school-recency-state'
 import { todayStr } from '@/lib/utils'
 import DraftModal from '@/components/DraftModal'
 import PrepForCallModal from '@/components/PrepForCallModal'
 import AddCampModal from '@/components/AddCampModal'
 import EditableActionRow from '@/components/EditableActionRow'
-import CommunicationsPlan from '@/components/school-detail/CommunicationsPlan'
+import ConversationSummaryCard from '@/components/school-detail/ConversationSummaryCard'
 import CallPrepSection from '@/components/school-detail/CallPrepSection'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -81,14 +81,17 @@ function StageDots({ stage, size = 9 }: { stage: number; size?: number }) {
 // ─── Header ───────────────────────────────────────────────────────────────────
 
 function DetailHeader({
-  school, stage, prevSchool, nextSchool, onTierChange,
+  school, stage, prevSchool, nextSchool, contactLog, onTierChange,
 }: {
   school: School; stage: number
   prevSchool: School | null; nextSchool: School | null
+  contactLog: ContactLogEntry[]
   onTierChange?: (tier: string) => void
 }) {
   const router = useRouter()
   const metaParts = [school.division, school.conference, school.location].filter(Boolean).join(' · ')
+  const recency = classifySchoolRecency(school, contactLog)
+  const recencyStyle = recency.state ? SCHOOL_RECENCY_STYLE[recency.state] : null
 
   return (
     <div style={{
@@ -228,7 +231,22 @@ function DetailHeader({
           </>
         )}
 
-        {school.status !== 'Not Contacted' && (
+        {recencyStyle && (
+          <>
+            <div style={{ width: 1, height: 14, background: SD.line2, flexShrink: 0 }} />
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '3px 10px', borderRadius: 999,
+              background: recencyStyle.bgColor, color: recencyStyle.textColor,
+              fontSize: 11, fontWeight: 700, letterSpacing: -0.1,
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: recencyStyle.dotColor }} />
+              {recencyStyle.label}
+              {recency.daysSinceLastContact !== null && ` · ${recency.daysSinceLastContact}d`}
+            </div>
+          </>
+        )}
+        {!recencyStyle && school.status !== 'Not Contacted' && (
           <>
             <div style={{ width: 1, height: 14, background: SD.line2, flexShrink: 0 }} />
             <div style={{
@@ -243,162 +261,6 @@ function DetailHeader({
           </>
         )}
       </div>
-    </div>
-  )
-}
-
-// ─── Action bar ───────────────────────────────────────────────────────────────
-
-function ActionBar({
-  school, actionItems, contactLog, today, onDraft, onComplete,
-}: {
-  school: School
-  actionItems: ActionItem[]
-  contactLog: ContactLogEntry[]
-  today: string
-  onDraft: (kind: 'fresh' | 'reply', entryId?: string, channel?: string) => void
-  onComplete: (id: string) => Promise<void>
-}) {
-  const featured = getRankedFeaturedAction(actionItems, contactLog, [school], today)
-  const schoolLabel = school.short_name || school.name
-
-  // ── Caught up ──────────────────────────────────────────────────────────────
-  if (!featured) {
-    return (
-      <div style={{
-        margin: 'clamp(14px, 3vw, 20px) clamp(16px, 4vw, 40px) 0',
-        background: SD.tealSoft, borderRadius: 14, padding: '18px 24px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 16, flexWrap: 'wrap',
-      }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: SD.tealDeep, marginBottom: 2 }}>
-            You&apos;re caught up on {schoolLabel}.
-          </div>
-          <div style={{ fontSize: 12, color: SD.tealDeep, opacity: 0.8 }}>
-            No urgent actions. Keep the conversation moving.
-          </div>
-        </div>
-        <button
-          onClick={() => onDraft('fresh')}
-          style={{
-            padding: '8px 16px', background: SD.tealDeep, color: '#fff',
-            border: 'none', borderRadius: 999, fontSize: 13, fontWeight: 650,
-            cursor: 'pointer', letterSpacing: -0.1, flexShrink: 0,
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-          }}
-        >
-          Draft check-in
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-            <path d="M5 12h14m-5-6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-      </div>
-    )
-  }
-
-  // ── Priority action ────────────────────────────────────────────────────────
-  const isOverdue = !!(featured.actionItem?.due_date && featured.actionItem.due_date < today)
-  const badgeText = `Next for ${schoolLabel}${isOverdue ? ' · overdue' : ''}`
-
-  async function handleCTA() {
-    if (!featured) return
-    if (featured.type === 'action_item' && featured.actionItem) {
-      await onComplete(featured.actionItem.id)
-    } else {
-      if (featured.inboundEntry) {
-        onDraft('reply', featured.inboundEntry.id, featured.inboundEntry.channel)
-      } else {
-        onDraft('fresh')
-      }
-    }
-  }
-
-  return (
-    <div style={{
-      margin: 'clamp(14px, 3vw, 20px) clamp(16px, 4vw, 40px) 0',
-      background: SD.red, borderRadius: 16, overflow: 'hidden', position: 'relative',
-      boxShadow: '0 1px 2px rgba(0,0,0,0.06), 0 18px 42px -22px rgba(200,16,46,0.38)',
-    }}>
-      {/* Decorative arrow watermark */}
-      <div style={{
-        position: 'absolute', right: -10, bottom: -40,
-        fontSize: 'clamp(120px, 18vw, 200px)', fontWeight: 800, lineHeight: 1,
-        letterSpacing: -10, color: 'rgba(0,0,0,0.16)', fontStyle: 'italic',
-        pointerEvents: 'none', userSelect: 'none',
-      }}>→</div>
-
-      <div
-        className="action-bar-grid"
-        style={{
-          padding: 'clamp(18px, 3vw, 24px) clamp(20px, 4vw, 30px)',
-          display: 'grid',
-          gridTemplateColumns: '1fr auto',
-          gap: 'clamp(16px, 3vw, 28px)', alignItems: 'center',
-          position: 'relative',
-        }}
-      >
-        {/* Left: label + title + context */}
-        <div>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 7,
-            padding: '3px 9px', borderRadius: 999, background: 'rgba(0,0,0,0.22)',
-            fontSize: 10, fontWeight: 800, letterSpacing: 1.4,
-            textTransform: 'uppercase', color: '#fff', marginBottom: 10,
-          }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#fff' }} />
-            {badgeText}
-          </div>
-          <div style={{
-            fontSize: 'clamp(18px, 3vw, 26px)', fontWeight: 700,
-            letterSpacing: -0.6, lineHeight: 1.15, color: '#fff',
-          }}>
-            {featured.title}
-          </div>
-          <div style={{ marginTop: 6, fontSize: 13, color: SD.redInk, opacity: 0.9 }}>
-            {featured.context}
-          </div>
-        </div>
-
-        {/* Right: CTA + snooze */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
-          <button
-            onClick={handleCTA}
-            style={{
-              background: '#fff', color: SD.red, border: 'none', borderRadius: 12,
-              padding: 'clamp(11px, 2vw, 14px) clamp(16px, 2.5vw, 22px)',
-              fontSize: 'clamp(13px, 1.5vw, 15px)', fontWeight: 700,
-              letterSpacing: -0.2, cursor: 'pointer',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between',
-              gap: 12, minWidth: 170,
-              boxShadow: '0 1px 0 rgba(0,0,0,0.08), 0 6px 18px -8px rgba(0,0,0,0.25)',
-            }}
-          >
-            {featured.ctaLabel}
-            <span style={{
-              width: 24, height: 24, borderRadius: '50%',
-              background: SD.red, color: '#fff', flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-                <path d="M5 12h14m-5-6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </span>
-          </button>
-          <div style={{
-            fontSize: 11, color: SD.redInk, opacity: 0.8, cursor: 'default',
-            textAlign: 'center', letterSpacing: 0.4, textTransform: 'uppercase', fontWeight: 600,
-          }}>
-            Snooze 1 day
-          </div>
-        </div>
-      </div>
-
-      <style>{`
-        @media (max-width: 640px) {
-          .action-bar-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </div>
   )
 }
@@ -1255,7 +1117,7 @@ function AboutRow({ label, value }: { label: string; value: string }) {
 }
 
 function Sidebar({
-  school, coaches, actionItems, completedItems, camps, schools, today, onComplete, onAddAction, onUpdateAction, onUpdateSchool, onDraft, onPrepForCall, onSetPrimary,
+  school, coaches, actionItems, completedItems, camps, schools, today, onComplete, onAddAction, onUpdateAction, onUpdateSchool, onDraftForCoach, onSetPrimary,
 }: {
   school: School
   coaches: Coach[]
@@ -1268,8 +1130,7 @@ function Sidebar({
   onAddAction: (action: string, dueDate: string, owner: string) => Promise<void>
   onUpdateAction: (id: string, updates: { action?: string; due_date?: string | null }) => Promise<void>
   onUpdateSchool: (updates: Partial<School>) => Promise<void>
-  onDraft: (kind: 'fresh' | 'reply') => void
-  onPrepForCall: () => void
+  onDraftForCoach: (coachId: string) => void
   onSetPrimary: (id: string) => Promise<unknown>
 }) {
   const [editingNotes, setEditingNotes] = useState(false)
@@ -1279,6 +1140,39 @@ function Sidebar({
   const [rqLinkText, setRqLinkText] = useState(school.rq_link ?? '')
   const [editingTier, setEditingTier] = useState(false)
   const [editingAdmit, setEditingAdmit] = useState(false)
+  // Strategic notes (from school_message_plan.finn_notes)
+  const [stratNotes, setStratNotes] = useState('')
+  const [stratNotesLoaded, setStratNotesLoaded] = useState(false)
+  const stratNotesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Fetch strategic notes on mount
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const res = await fetch(`/api/schools/${school.id}/message-plan`)
+      if (!res.ok || cancelled) return
+      const data = await res.json()
+      if (!cancelled) {
+        setStratNotes(data.plan?.finn_notes ?? '')
+        setStratNotesLoaded(true)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [school.id])
+
+  function handleStratNotesChange(value: string) {
+    setStratNotes(value)
+    if (stratNotesTimer.current) clearTimeout(stratNotesTimer.current)
+    stratNotesTimer.current = setTimeout(async () => {
+      await fetch(`/api/schools/${school.id}/message-plan`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ finn_notes: value }),
+      })
+    }, 1000)
+  }
+
   // ── About rows — only non-null values ────────────────────────────────────────
   const aboutRows: [string, string][] = [
     ['Division',     school.division                                                            ],
@@ -1293,6 +1187,58 @@ function Sidebar({
       display: 'flex', flexDirection: 'column', gap: 16,
       position: 'sticky', top: 20,
     }}>
+      {/* Action items panel — PROMOTED to top */}
+      <SidebarCard label={`Actions${actionItems.length > 0 ? ` · ${actionItems.length}` : ''}`}>
+        {actionItems.length === 0 ? (
+          <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>
+            No open actions.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {actionItems.map(item => (
+              <EditableActionRow
+                key={item.id}
+                item={item}
+                today={today}
+                onComplete={onComplete}
+                onUpdate={onUpdateAction}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Add action inline form */}
+        <AddActionForm onAdd={onAddAction} />
+
+        {/* Recently completed */}
+        {completedItems.length > 0 && (
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${SD.line}` }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700, color: SD.inkLo,
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+              marginBottom: 8,
+            }}>Recently completed</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {completedItems.map(item => (
+                <div key={item.id}>
+                  <div style={{
+                    fontSize: 12, color: SD.inkLo,
+                    textDecoration: 'line-through', lineHeight: 1.4,
+                  }}>{item.action}</div>
+                  <div style={{
+                    fontSize: 10, color: SD.inkMute, marginTop: 1,
+                  }}>
+                    Completed {item.completed_at
+                      ? new Date(item.completed_at).toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' })
+                      : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </SidebarCard>
+
       {/* Coach card — coaches table if populated, legacy fallback otherwise */}
       <SidebarCard label="Coach">
         {coaches.length > 0 ? (
@@ -1366,31 +1312,23 @@ function Sidebar({
                         }}
                       >Set as primary</button>
                     )}
+                    {/* Per-coach draft */}
+                    <div style={{ marginTop: 6 }}>
+                      <button
+                        onClick={() => onDraftForCoach(coach.id)}
+                        style={{
+                          padding: '3px 10px', borderRadius: 999,
+                          background: SD.ink, color: '#fff', border: 'none',
+                          fontSize: 10, fontWeight: 700,
+                          cursor: 'pointer', fontFamily: 'inherit',
+                        }}
+                      >Draft email</button>
+                    </div>
                   </div>
                 </div>
               )
             })}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
-              <button
-                onClick={() => onDraft('fresh')}
-                style={{
-                  width: '100%', padding: '8px 0',
-                  background: SD.ink, color: '#fff', border: 'none',
-                  borderRadius: 999, fontSize: 11, fontWeight: 700,
-                  cursor: 'pointer', letterSpacing: -0.1, fontFamily: 'inherit',
-                }}
-              >Draft email</button>
-              <button
-                onClick={onPrepForCall}
-                style={{
-                  width: '100%', padding: '7px 0',
-                  background: 'transparent', border: `1.3px solid ${SD.line2}`,
-                  borderRadius: 999, fontSize: 11, fontWeight: 700, color: SD.inkMid,
-                  cursor: 'pointer', letterSpacing: -0.1, fontFamily: 'inherit',
-                }}
-              >Prep for call</button>
-            </div>
           </div>
         ) : school.head_coach ? (
           // ── Legacy fallback — parse head_coach string ────────────────────────
@@ -1431,26 +1369,6 @@ function Sidebar({
                 </div>
               </div>
             ))}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
-              <button
-                onClick={() => onDraft('fresh')}
-                style={{
-                  width: '100%', padding: '8px 0',
-                  background: SD.ink, color: '#fff', border: 'none',
-                  borderRadius: 999, fontSize: 11, fontWeight: 700,
-                  cursor: 'pointer', letterSpacing: -0.1, fontFamily: 'inherit',
-                }}
-              >Draft email</button>
-              <button
-                onClick={onPrepForCall}
-                style={{
-                  width: '100%', padding: '7px 0',
-                  background: 'transparent', border: `1.3px solid ${SD.line2}`,
-                  borderRadius: 999, fontSize: 11, fontWeight: 700, color: SD.inkMid,
-                  cursor: 'pointer', letterSpacing: -0.1, fontFamily: 'inherit',
-                }}
-              >Prep for call</button>
-            </div>
           </div>
         ) : (
           <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>No coach on file.</div>
@@ -1652,59 +1570,30 @@ function Sidebar({
               >{school.notes || 'Add a note'}</div>
             )}
           </div>
-        </div>
-      </SidebarCard>
 
-      {/* Action items panel */}
-      <SidebarCard label={`Actions${actionItems.length > 0 ? ` · ${actionItems.length}` : ''}`}>
-        {actionItems.length === 0 ? (
-          <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>
-            No open actions.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {actionItems.map(item => (
-              <EditableActionRow
-                key={item.id}
-                item={item}
-                today={today}
-                onComplete={onComplete}
-                onUpdate={onUpdateAction}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Add action inline form */}
-        <AddActionForm onAdd={onAddAction} />
-
-        {/* Recently completed */}
-        {completedItems.length > 0 && (
-          <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${SD.line}` }}>
-            <div style={{
-              fontSize: 10, fontWeight: 700, color: SD.inkLo,
-              textTransform: 'uppercase', letterSpacing: '0.08em',
-              marginBottom: 8,
-            }}>Recently completed</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {completedItems.map(item => (
-                <div key={item.id}>
-                  <div style={{
-                    fontSize: 12, color: SD.inkLo,
-                    textDecoration: 'line-through', lineHeight: 1.4,
-                  }}>{item.action}</div>
-                  <div style={{
-                    fontSize: 10, color: SD.inkMute, marginTop: 1,
-                  }}>
-                    Completed {item.completed_at
-                      ? new Date(item.completed_at).toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' })
-                      : ''}
-                  </div>
-                </div>
-              ))}
+          {/* Strategic notes — auto-saving, writes to school_message_plan.finn_notes */}
+          <div style={{ marginTop: 6, paddingTop: 10, borderTop: `1px solid ${SD.line}` }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, marginBottom: 6 }}>
+              Strategic notes
             </div>
+            {stratNotesLoaded ? (
+              <textarea
+                value={stratNotes}
+                onChange={e => handleStratNotesChange(e.target.value)}
+                placeholder="What's the strategy for this school? What should upcoming emails prioritize?"
+                rows={3}
+                style={{
+                  width: '100%', padding: '6px 8px', border: `1px solid ${SD.line}`,
+                  borderRadius: 6, fontSize: 12, fontFamily: 'inherit',
+                  color: SD.ink, resize: 'vertical', boxSizing: 'border-box',
+                  background: '#fff', outline: 'none', lineHeight: 1.5,
+                }}
+              />
+            ) : (
+              <div style={{ fontSize: 11, color: SD.inkMute }}>Loading...</div>
+            )}
           </div>
-        )}
+        </div>
       </SidebarCard>
 
       {/* Camps */}
@@ -1865,12 +1754,56 @@ function SidebarCampRow({ camp, showHost, onClick }: {
   )
 }
 
+// ─── Collapsed call prep docs ────────────────────────────────────────────────
+
+function CollapsedCallPrep({ docs, schoolId, schoolName, coaches, onRefetch }: {
+  docs: ReturnType<typeof useCallPrepDocs>['docs']
+  schoolId: string
+  schoolName: string
+  coaches: Coach[]
+  onRefetch: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <section style={{ marginTop: 28 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+          display: 'flex', alignItems: 'center', gap: 8, padding: 0,
+        }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 700, color: SD.ink }}>
+          Prep docs{docs.length > 0 ? ` (${docs.length})` : ''}
+        </span>
+        <span style={{
+          fontSize: 11, color: SD.inkMute,
+          transform: open ? 'rotate(180deg)' : 'none',
+          transition: 'transform 0.15s', display: 'inline-block',
+        }}>&#9660;</span>
+      </button>
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          <CallPrepSection
+            docs={docs}
+            schoolId={schoolId}
+            schoolName={schoolName}
+            coaches={coaches}
+            onRefetch={onRefetch}
+          />
+        </div>
+      )}
+    </section>
+  )
+}
+
 // ─── Main client component ────────────────────────────────────────────────────
 
 interface DraftTarget {
   kind: 'fresh' | 'reply'
   replyToContactLogId?: string
   inboundChannel?: string
+  coachId?: string  // when set, targets a specific coach instead of the fallback chain
 }
 
 export default function SchoolDetailClient({
@@ -1955,19 +1888,11 @@ export default function SchoolDetailClient({
         stage={stage}
         prevSchool={prevSchool}
         nextSchool={nextSchool}
+        contactLog={contactLog}
         onTierChange={async (tier) => { await updateSchool(school.id, { category: tier as School['category'] }) }}
       />
 
-      <ActionBar
-        school={school}
-        actionItems={actionItems}
-        contactLog={contactLog}
-        today={today}
-        onDraft={(kind, entryId, channel) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel })}
-        onComplete={async (id) => { await completeItem(id) }}
-      />
-
-      {/* ── Content: timeline (left) + sidebar placeholder (right) ── */}
+      {/* ── Content: summary + timeline (left) + sidebar (right) ── */}
       <div className="detail-content" style={{
         padding: '0 clamp(16px, 4vw, 40px)',
         marginTop: 'clamp(24px, 4vw, 40px)',
@@ -1978,14 +1903,32 @@ export default function SchoolDetailClient({
         paddingBottom: 'clamp(24px, 4vw, 40px)',
       }}>
         <div>
-          <CommunicationsPlan schoolId={school.id} />
-          <CallPrepSection
-            docs={callPrepDocs}
-            schoolId={school.id}
-            schoolName={school.short_name ?? school.name}
-            coaches={coaches}
-            onRefetch={refetchPrepDocs}
-          />
+          {/* 1. Conversation Summary Card */}
+          <section style={{ marginBottom: 28 }}>
+            <ConversationSummaryCard
+              schoolId={school.id}
+              schoolName={school.short_name ?? school.name}
+              onDraft={(kind, entryId, channel) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel })}
+            />
+          </section>
+
+          {/* 2. Secondary action row */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            marginBottom: 24,
+          }}>
+            <button
+              onClick={() => setPrepOpen(true)}
+              style={{
+                padding: '7px 14px', borderRadius: 6,
+                border: `1.3px solid ${SD.line2}`, background: 'transparent',
+                fontSize: 12, fontWeight: 600, color: SD.inkMid,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >Prep for call</button>
+          </div>
+
+          {/* 3. Conversation timeline */}
           <Timeline
             contactLog={contactLog}
             actionItems={actionItems}
@@ -2002,6 +1945,15 @@ export default function SchoolDetailClient({
             onEditEntry={async (id, updates) => { await updateEntry(id, updates) }}
             onDeleteEntry={async (id) => { await deleteEntry(id) }}
           />
+
+          {/* 4. Call prep docs — collapsed disclosure */}
+          <CollapsedCallPrep
+            docs={callPrepDocs}
+            schoolId={school.id}
+            schoolName={school.short_name ?? school.name}
+            coaches={coaches}
+            onRefetch={refetchPrepDocs}
+          />
         </div>
         <Sidebar
           school={school}
@@ -2017,8 +1969,7 @@ export default function SchoolDetailClient({
           }}
           onUpdateAction={async (id, updates) => { await updateItem(id, updates) }}
           onUpdateSchool={async (updates) => { await updateSchool(school.id, updates) }}
-          onDraft={(kind) => setDraftTarget({ kind })}
-          onPrepForCall={() => setPrepOpen(true)}
+          onDraftForCoach={(coachId) => setDraftTarget({ kind: 'fresh', coachId })}
           onSetPrimary={setPrimary}
         />
       </div>
@@ -2029,31 +1980,37 @@ export default function SchoolDetailClient({
       `}</style>
 
       {/* ── Modals ── */}
-      {draftTarget && targetCoach && (
-        <DraftModal
-          mode={draftTarget.kind === 'reply' && draftTarget.replyToContactLogId
-            ? {
-                kind: 'reply',
-                schoolId: school.id,
-                coachId: targetCoach.id,
-                schoolName: school.name,
-                coachName: targetCoach.name,
-                replyToContactLogId: draftTarget.replyToContactLogId,
-                inboundChannel: draftTarget.inboundChannel,
-              }
-            : {
-                kind: 'fresh',
-                schoolId: school.id,
-                coachId: targetCoach.id,
-                schoolName: school.name,
-                coachName: targetCoach.name,
-              }
-          }
-          userId={user.id}
-          onClose={() => setDraftTarget(null)}
-        />
-      )}
-      {draftTarget && !targetCoach && (
+      {draftTarget && (() => {
+        const resolvedCoach = draftTarget.coachId
+          ? coaches.find(c => c.id === draftTarget.coachId) ?? targetCoach
+          : targetCoach
+        if (!resolvedCoach) return null
+        return (
+          <DraftModal
+            mode={draftTarget.kind === 'reply' && draftTarget.replyToContactLogId
+              ? {
+                  kind: 'reply',
+                  schoolId: school.id,
+                  coachId: resolvedCoach.id,
+                  schoolName: school.name,
+                  coachName: resolvedCoach.name,
+                  replyToContactLogId: draftTarget.replyToContactLogId,
+                  inboundChannel: draftTarget.inboundChannel,
+                }
+              : {
+                  kind: 'fresh',
+                  schoolId: school.id,
+                  coachId: resolvedCoach.id,
+                  schoolName: school.name,
+                  coachName: resolvedCoach.name,
+                }
+            }
+            userId={user.id}
+            onClose={() => setDraftTarget(null)}
+          />
+        )
+      })()}
+      {draftTarget && !targetCoach && !draftTarget.coachId && (
         <div
           style={{
             position: 'fixed', inset: 0, zIndex: 999,
