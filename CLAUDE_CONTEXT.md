@@ -1940,6 +1940,34 @@ Resolution: backup branch backup-todays-work-2026-06-04 created at HEAD before a
 
 The Communications Plan as a standalone surface was designed when most schools were cold or prospecting and "what should I say next?" needed real pre-thinking. As conversations became active back-and-forth, that planning surface became out of place at the top of every school visit — most opens are "I got a Today nudge, what do I do?" not "I'm doing strategic planning." The ConversationSummaryCard (June 15) is the active-phase equivalent: a synthesized Gmail-style summary + a contextually-labeled recommended action — with the original strategic planning material (uncovered inventory suggestions) absorbed into the "Show alternatives" expander. Features earn their real estate based on the dominant use case of the moment; surfaces should be re-evaluated as that changes.
 
+### School Detail + Home Page Reworks (June 15, 2026)
+
+**1. School detail page rework.**
+
+Communications Plan retired as a top-of-page surface. New ConversationSummaryCard (Opus 4.7-generated Gmail-style 2-3 sentence synthesis + contextually-labeled primary action button + Show alternatives expander that absorbs the prior Suggested next messages list). Migration 053 adds school_conversation_summary table. Fire-and-forget regen on every contact_log insert for A/B/C tier schools via hooks in gmail-sync and sendgrid-inbound paths. Manual refresh endpoint at /api/schools/[id]/conversation-summary. Layout reorganized: timeline near top, action items promoted to top of sidebar, About panel below with Strategic notes field migrated from old Communications Plan's "Anything else to cover" textarea. Coverage UI removed (school_message_log + detector kept running, no surface). Strategic Q&A UI removed (school_plan_questions table stays unused). Initial backfill ran across 23 active A/B/C schools.
+
+**2. Per-coach button iteration.**
+
+Initial rework removed all coach card action buttons. Restored per-coach Draft email after user feedback — per-coach context still valuable for emailing non-primary coaches (e.g., emailing the HC when the primary contact is an AC, or vice versa). Prep for call removed from per-coach cards entirely — prep docs are realistically only generated for the primary contact at a school. School-level "Prep for call" then moved out of a top-of-page action row and into the Prep docs collapsed disclosure where it semantically belongs (the button generates a prep doc; it belongs with the prep docs). Added "Summary and Next Steps." header above the ConversationSummaryCard to match the existing section header style ("Conversation.", "Coach", etc.).
+
+**3. Home page rebuild.**
+
+Today renamed to Home (nav label + route). Tactical scoring approach dropped — neither user used TacticalSection, HeroSection, HandledSection, or PipelineRail. New layout: compact stats strip with 6 metrics (active schools by tier, pipeline phase distribution as inline-labeled stacked bar, camps registered + upcoming, emails this month with in/out split, response rate, schools awaiting response), recency-sorted stack of compact ConversationSummaryCard variants (top 5 visible by default + "Show all" expand), Think section relocated below the cards. Wait-state cards hidden from default top 5 (revealed via Show all in a separate subsection below non-wait cards). Left-edge color stripes on cards keyed to recommended_action.category: red=reply, orange=follow_up, amber=check_in, blue=introduce/new_topic, gray=wait. "Awaiting Finn" metric clickable, navigates to /schools?signal=hot. Driven by direct user research ("Finn never uses Today" + structured questions about actual usage).
+
+**4. Home → Schools count alignment bug.**
+
+Home stat initially used recommended_action.category = 'reply' (strict — 3 schools). The /schools?signal=hot link target used classifySchoolRecency = 'HOT' (broader — 5 schools). Two surfaces, same intent, different filters, user-visible mismatch. Resolved by aligning the home stat to the canonical recency-state model (classifySchoolRecency). Wording updated from "N coaches awaiting reply" to "N schools awaiting your response" — accurate to the broader set, which includes cases where the coach has replied and Finn owes the next move (e.g., Clark, Middlebury).
+
+**Architectural patterns reinforced today:**
+
+1. *Surfaces follow the dominant use case.* Communications Plan was designed for cold and prospecting schools; the ConversationSummaryCard works for active back-and-forth. Today's tactical scoring was designed for task-driven users; Home's recency-sorted cards work for school-driven users. As usage patterns evolve, re-evaluate surface design rather than accreting features on existing surfaces.
+
+2. *One canonical classifier, used everywhere (reinforced).* When two surfaces compute a related answer, they MUST call the same function — otherwise definitional drift creates user-visible mismatches. The home-stat / schools-filter discrepancy was a textbook instance of the classifier-drift pattern May 28 was supposed to have eliminated.
+
+3. *User research before design.* The Home rework was driven by the simplest possible signal — "Finn never uses it" — followed by structured questions about who actually uses the page, where they start, and what they care about. Design choices fell out of the answers rather than being imposed from architectural preferences. When a surface isn't working, the first move is to understand the actual usage pattern, not to redesign blind.
+
+4. *Cached LLM artifacts are infrastructure.* The school_conversation_summary table was built for the school detail page in the morning and became the data source for the Home card stack by afternoon. When LLM outputs are cached durably (via a regen-on-data-change pattern) instead of regenerated per request, they become composable infrastructure for multiple surfaces at no additional cost. Worth designing future LLM-generated artifacts with this composability in mind.
+
 ---
 
 ## 10. Session Startup Checklist for Claude Code
