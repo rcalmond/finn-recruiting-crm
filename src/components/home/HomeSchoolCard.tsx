@@ -28,6 +28,15 @@ const TIER_DOT_COLOR: Record<string, string> = {
   C: SD.inkMute,
 }
 
+const CATEGORY_STRIPE: Record<RecommendedActionCategory, string> = {
+  reply:     '#D03A2E',  // red (matches HOT recency)
+  follow_up: '#E8A33C',  // orange (matches COOLING recency)
+  check_in:  '#D4A017',  // amber
+  introduce: '#1E40AF',  // blue
+  new_topic: '#1E40AF',  // blue
+  wait:      '#9CA3A8',  // gray (matches COLD recency)
+}
+
 function relativeTime(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime()
   const hours = Math.floor(diff / 3_600_000)
@@ -47,6 +56,9 @@ export default function HomeSchoolCard({ school, summary, contactLog }: Props) {
   const router = useRouter()
   const recencyResult = classifySchoolRecency(school, contactLog)
   const recencyStyle = recencyResult.state ? SCHOOL_RECENCY_STYLE[recencyResult.state] : null
+  const stripeColor = summary
+    ? CATEGORY_STRIPE[summary.recommended_action.category] ?? SD.inkMute
+    : SD.inkMute
 
   return (
     <div
@@ -54,7 +66,8 @@ export default function HomeSchoolCard({ school, summary, contactLog }: Props) {
       style={{
         background: '#fff',
         border: `1px solid ${SD.line}`,
-        borderRadius: 12,
+        borderLeft: `3.5px solid ${stripeColor}`,
+        borderRadius: '0 12px 12px 0',
         padding: '16px 18px',
         cursor: 'pointer',
         transition: 'box-shadow 0.15s ease',

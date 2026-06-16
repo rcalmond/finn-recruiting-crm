@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import Link from 'next/link'
 import type { School, ContactLogEntry, CampWithRelations } from '@/lib/types'
 import { isAwaitingReply, isTargetTier } from '@/lib/awaiting-reply'
 
@@ -223,7 +224,17 @@ export default function StatsStrip({ schools, contactLog, camps }: Props) {
         <div style={{ minWidth: 100 }}>
           <p style={LABEL}>Awaiting Finn</p>
           <p style={{ ...VALUE, color: awaitingCount > 0 ? SD.red : SD.ink }}>
-            {awaitingCount} coaches awaiting reply
+            <Link
+              href="/schools?signal=hot"
+              style={{
+                color: 'inherit',
+                textDecoration: 'none',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'underline' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none' }}
+            >
+              {awaitingCount} coaches awaiting reply
+            </Link>
           </p>
         </div>
       </div>
@@ -232,23 +243,47 @@ export default function StatsStrip({ schools, contactLog, camps }: Props) {
       <div style={{
         marginTop: 12,
         width: '100%',
-        height: 8,
-        borderRadius: 4,
+        height: 28,
+        borderRadius: 6,
         overflow: 'hidden',
         display: 'flex',
         backgroundColor: SD.line,
       }}>
-        {pipelineSegments.map(seg => (
-          <div
-            key={seg.status}
-            title={`${seg.status}: ${seg.count} (${Math.round(seg.pct)}%)`}
-            style={{
-              width: `${seg.pct}%`,
-              height: '100%',
-              backgroundColor: PIPELINE_COLORS[seg.status],
-            }}
-          />
-        ))}
+        {pipelineSegments.map(seg => {
+          const shortLabel: Record<string, string> = {
+            'Not Contacted': 'Not Contacted',
+            'Intro Sent': 'Intro Sent',
+            'Ongoing Conversation': 'Ongoing Conv.',
+            'Visit Scheduled': 'Visit Sched.',
+            'Offer': 'Offer',
+          }
+          return (
+            <div
+              key={seg.status}
+              title={`${seg.status}: ${seg.count} (${Math.round(seg.pct)}%)`}
+              style={{
+                width: `${seg.pct}%`,
+                height: '100%',
+                backgroundColor: PIPELINE_COLORS[seg.status],
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                position: 'relative',
+              }}
+            >
+              <span style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: PIPELINE_TEXT_COLORS[seg.status] || SD.inkMid,
+                whiteSpace: 'nowrap',
+                padding: '0 4px',
+              }}>
+                {seg.pct >= 20 ? `${shortLabel[seg.status]} ${seg.count}` : `${seg.count}`}
+              </span>
+            </div>
+          )
+        })}
       </div>
       {pipelineSegments.length > 0 && (
         <div style={{

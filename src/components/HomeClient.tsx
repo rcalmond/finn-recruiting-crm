@@ -131,12 +131,11 @@ export default function HomeClient({
     return map
   }, [contactLog])
 
-  const activeSchools = useMemo(() => {
+  const { nonWaitSchools, waitSchools } = useMemo(() => {
     const eligible = schools.filter(s => isTargetTier(s) && s.status !== 'Inactive')
 
-    // Sort by most recent contact_log sent_at (from summary's last_contact_log_id
-    // or from contact_log directly). Schools with no contact go to bottom.
-    return eligible.sort((a, b) => {
+    // Sort by most recent contact_log sent_at. Schools with no contact go to bottom.
+    const sortByRecency = (list: School[]) => [...list].sort((a, b) => {
       const aEntries = schoolContactMap.get(a.id) ?? []
       const bEntries = schoolContactMap.get(b.id) ?? []
       const aLatest = aEntries.length > 0
@@ -147,9 +146,27 @@ export default function HomeClient({
         : ''
       return bLatest.localeCompare(aLatest)
     })
-  }, [schools, schoolContactMap])
 
-  const visibleSchools = showAll ? activeSchools : activeSchools.slice(0, 5)
+    const nonWait = sortByRecency(
+      eligible.filter(s => {
+        const summary = summaryMap.get(s.id)
+        return !summary || summary.recommended_action.category !== 'wait'
+      })
+    )
+    const wait = sortByRecency(
+      eligible.filter(s => {
+        const summary = summaryMap.get(s.id)
+        return summary?.recommended_action.category === 'wait'
+      })
+    )
+
+    return { nonWaitSchools: nonWait, waitSchools: wait }
+  }, [schools, schoolContactMap, summaryMap])
+
+  const allActiveCount = nonWaitSchools.length + waitSchools.length
+
+  // Edge case: if ALL schools are wait, show them in default view
+  const defaultSchools = nonWaitSchools.length > 0 ? nonWaitSchools.slice(0, 5) : waitSchools.slice(0, 5)
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
@@ -208,7 +225,7 @@ export default function HomeClient({
           }}>Schools.</h2>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {visibleSchools.map(school => (
+            {(showAll ? nonWaitSchools : defaultSchools).map(school => (
               <HomeSchoolCard
                 key={school.id}
                 school={school}
@@ -218,7 +235,34 @@ export default function HomeClient({
             ))}
           </div>
 
-          {activeSchools.length > 5 && (
+          {/* Wait-state schools (only in expanded view) */}
+          {showAll && waitSchools.length > 0 && (
+            <>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                margin: '20px 0 12px',
+              }}>
+                <div style={{ flex: 1, height: 1, background: SD.inkMute, opacity: 0.3 }} />
+                <span style={{
+                  fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                  letterSpacing: '0.08em', color: SD.inkMute, whiteSpace: 'nowrap',
+                }}>Waiting on coaches</span>
+                <div style={{ flex: 1, height: 1, background: SD.inkMute, opacity: 0.3 }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {waitSchools.map(school => (
+                  <HomeSchoolCard
+                    key={school.id}
+                    school={school}
+                    summary={summaryMap.get(school.id) ?? null}
+                    contactLog={schoolContactMap.get(school.id) ?? []}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+
+          {allActiveCount > defaultSchools.length && (
             <button
               onClick={() => setShowAll(v => !v)}
               style={{
@@ -228,7 +272,7 @@ export default function HomeClient({
                 color: SD.inkLo, cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
-              {showAll ? 'Show less' : `Show all (${activeSchools.length})`}
+              {showAll ? 'Show less' : `Show all (${allActiveCount})`}
             </button>
           )}
         </section>
