@@ -3,7 +3,8 @@
 import { useMemo } from 'react'
 import Link from 'next/link'
 import type { School, ContactLogEntry, CampWithRelations } from '@/lib/types'
-import { isAwaitingReply, isTargetTier } from '@/lib/awaiting-reply'
+import { isTargetTier } from '@/lib/awaiting-reply'
+import { classifySchoolRecency } from '@/lib/school-recency-state'
 
 const SD = {
   paper: '#F6F1E8', paperDeep: '#EFE8D8',
@@ -150,27 +151,13 @@ export default function StatsStrip({ schools, contactLog, camps }: Props) {
     return Math.round((responded / outboundRows.length) * 100)
   }, [contactLog, schools])
 
-  // 6. Awaiting Finn
+  // 6. Awaiting Finn — count schools where recency state is HOT
   const awaitingCount = useMemo(() => {
-    const activeSchoolIds = new Set(
-      schools
-        .filter(s => isTargetTier(s) && s.status !== 'Inactive')
-        .map(s => s.id)
-    )
-
-    const nowIso = new Date().toISOString()
-
-    return contactLog.filter(entry => {
-      if (entry.direction !== 'Inbound') return false
-      if (!activeSchoolIds.has(entry.school_id)) return false
-      if (entry.authored_by !== 'coach_personal' && entry.authored_by !== 'coach_via_platform') return false
-      if (entry.intent !== 'requires_reply' && entry.intent !== 'requires_action') return false
-      if (entry.handled_at) return false
-      if (entry.dismissed_at) return false
-      if (entry.snoozed_until && entry.snoozed_until > nowIso) return false
-
-      const schoolEntries = contactLog.filter(e => e.school_id === entry.school_id)
-      return isAwaitingReply(entry, schoolEntries)
+    const active = schools.filter(s => isTargetTier(s) && s.status !== 'Inactive')
+    return active.filter(s => {
+      const entries = contactLog.filter(e => e.school_id === s.id)
+      const result = classifySchoolRecency(s, entries)
+      return result.state === 'hot'
     }).length
   }, [contactLog, schools])
 
@@ -233,7 +220,7 @@ export default function StatsStrip({ schools, contactLog, camps }: Props) {
               onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'underline' }}
               onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none' }}
             >
-              {awaitingCount} coaches awaiting reply
+              {awaitingCount} schools awaiting your response
             </Link>
           </p>
         </div>
