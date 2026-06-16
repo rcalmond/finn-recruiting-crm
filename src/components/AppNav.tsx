@@ -31,7 +31,7 @@ const TOOLS_PATHS = [
 
 function buildTopNavItems(): NavItem[] {
   return [
-    { label: 'Today',     href: '/'          },
+    { label: 'Home',      href: '/'          },
     { label: 'Schools',   href: '/schools'   },
     { label: 'Campaigns', href: '/campaigns' },
     { label: 'Messages',  href: '/messages'  },
@@ -262,7 +262,7 @@ export function AppBottomNav({
   const totalToolsBadge = pendingCoachChanges + pendingGmailPartials + pendingClassification + pendingCampProposals
 
   const MOBILE_ITEMS: NavItem[] = [
-    { label: 'Today',     href: '/'          },
+    { label: 'Home',      href: '/'          },
     { label: 'Schools',   href: '/schools'   },
     { label: 'Campaigns', href: '/campaigns' },
     { label: 'Messages',  href: '/messages'  },
