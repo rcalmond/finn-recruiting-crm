@@ -258,8 +258,8 @@ account, Sports Recruits profile management).
 | Position | **Left Wingback** (primary) — transitioned from Striker/Winger in Nov 2025 |
 | Club | Albion SC Colorado MLS NEXT Academy (U19) |
 | High School | Alexander Dawson School, Lafayette, CO |
-| GPA | 3.78 weighted / 3.57 unweighted |
-| SAT | 1340 |
+| GPA | 3.81 weighted / 3.56 unweighted |
+| SAT | 1380 (Math 690 / English 690) |
 | Honors | National Honor Society |
 | AP Courses | AP Calculus AB, AP Chemistry, AP U.S. History |
 | Academic Interest | Mechanical Engineering or Aerospace Engineering |

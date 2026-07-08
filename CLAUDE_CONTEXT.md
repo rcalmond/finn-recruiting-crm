@@ -30,8 +30,8 @@ account, Sports Recruits profile management).
 | Position | **Left Wingback** (primary) — transitioned from Striker/Winger in Nov 2025 |
 | Club | Albion SC Boulder County – MLS NEXT Academy U19 |
 | High School | Alexander Dawson School, Lafayette, CO |
-| GPA | 3.78 weighted / 3.57 unweighted |
-| SAT | 1340 |
+| GPA | 3.81 weighted / 3.56 unweighted |
+| SAT | 1380 (Math 690 / English 690) |
 | Honors | National Honor Society |
 | AP Courses | AP Calculus AB, AP Chemistry, AP U.S. History |
 | Academic Interest | Mechanical Engineering or Aerospace Engineering |
@@ -1982,9 +1982,9 @@ Home stat initially used recommended_action.category = 'reply' (strict — 3 sch
 
 ---
 
-## 11. Live Pipeline — Generated June 15, 2026
+## 11. Live Pipeline — Generated July 8, 2026
 
-**Active schools: 23** | Overdue actions: 8
+**Active schools: 22** | Overdue actions: 13
 (Category Nope and status Inactive excluded)
 
 ### Tier A — Highest Priority (5 schools)
@@ -1996,13 +1996,19 @@ SCHOOL: Case Western
   Admit Likelihood: Reach
   Coach: Carter Poe — Head Coach <ccp51@case.edu> [primary]
   Coach: Fernando Lisboa — Assistant Coach <fxm272@case.edu>
-  Last Contact: 2026-06-09
+  Last Contact: 2026-06-18
   RQ Status: Completed
   Videos Sent: Yes
   Notes: In AZ
 Complete Schedule Form
 Filled out schedule form for MLS NEXT Fest
   Contact Log (3 shown):
+    [2026-06-18] Inbound via Sports Recruits — Carter Poe:
+      Finn,
+      
+      Thanks for reaching out.  We won't be able to get out to game.  We typically don't travel that far for just one game.
+      
+      Coach Poe
     [2026-06-09] Outbound via Sports Recruits — Carter Poe:
       Coach Poe,
       
@@ -2015,20 +2021,14 @@ Filled out schedule form for MLS NEXT Fest
       Thanks for the update, and congrats on the opportunity.  As far as things to see, I think the main things include mentality, work rate, and technical ability.
       
       Coach Poe
-    [2026-05-27] Outbound via Sports Recruits — Carter Poe:
-      Coach Poe,
-      
-      Thanks for the breakdown on how you use wingbacks, that was helpful. I see myself in the attacking profile, getting forward and being involved in the attack is the part of the role I've grown into most since the switch from striker.
-      
-      Unfortunately I can't make the Future 500 camp, but...
 
 SCHOOL: CO School of Mines
   Status: Ongoing Conversation
   Division: D2 — RMAC
   Location: Golden, CO
   Admit Likelihood: Target
-  Coach: Ben Fredrickson — Assistant Coach <ben.fredrickson@mines.edu> [primary] ⚠ needs_review
-  Last Contact: 2026-02-20
+  Coach: Ben Fredrickson — Interim Head Coach <ben.fredrickson@mines.edu> [primary] ⚠ needs_review
+  Last Contact: 2026-06-17
   RQ Status: Completed
   Videos Sent: Yes
   Notes: Yes, absolutely follow up — and the timing actually sets up well. Here's the reasoning:Why this rejection doesn't close the door:
@@ -2048,6 +2048,13 @@ Emailed about PHX on 2/12 (responded)
   Also: Test AI 2 (Randy) — due 2026-04-28
   Also: Check for new HC (Finn) — due 2026-05-06
   Contact Log (3 shown):
+    [2026-06-17] Outbound via Email — Ben Fredrickson:
+      Coach Fredrickson,
+      
+      Congrats on the interim head coach role. Reintroducing myself with an
+      update, you may remember me from Mines ID camps last year when I was
+      playing as a striker. Since then I've moved to left wingback with Albion SC
+      Colorado's MLS NEXT U19 team, and it's been a much better fit ...
     [2026-02-20] Inbound via Email — Ben Fredrickson:
       Finn Almond,
       We hope this email finds you well.
@@ -2071,14 +2078,6 @@ Emailed about PHX on 2/12 (responded)
       Main Highlight Video
       
       MLS NEXT Highlight...
-    [2025-12-29] Outbound via Sports Recruits — Greg Mulholland:
-      Hi Coach,
-      
-      I wanted to follow up with you after MLS NEXT Fest.
-      
-      I’m a 2027 forward/winger with Albion SC Colorado MLS NEXT and played approximately 135 minutes across three matches at Fest. We went 1–2, including a 1–0 win and two competitive losses.
-      
-      I also made a MLS NEXT Fest specific highligh...
 
 SCHOOL: Colby
   Status: Ongoing Conversation
@@ -2088,11 +2087,12 @@ SCHOOL: Colby
   Coach: Sean Elvert — Head Coach <selvert@colby.edu>
   Coach: Ben Manoogian — Assistant Coach <bmanoogi@colby.edu> [primary]
   Coach: Yuri Nascimento — Other <ynascime@colby.edu>
-  Coach: Karl Schroeder — Other ⚠ needs_review
+  Coach: Karl Schroeder — Assistant Coach
   Last Contact: 2026-05-30
   RQ Status: Completed
   Videos Sent: Yes
   Notes: Yes in Arizona
+  Next Action: decide which ID camp to go to (Finn) — due 2026-07-01
   Contact Log (3 shown):
     [2026-05-30] Outbound via Sports Recruits — Ben Manoogian:
       Hi Coach,
@@ -2130,6 +2130,7 @@ SCHOOL: Middlebury
   Videos Sent: Yes
   Notes: Personal Intro
 ID Camp Info
+  Next Action: decide about the camp on 8/15 - 8/16 (Finn) — due 2026-07-12
   Contact Log (3 shown):
     [2026-06-10] Inbound via Sports Recruits — Tim Peng:
       Excellent boss
@@ -2162,39 +2163,25 @@ SCHOOL: University of Rochester
   Coach: Ben Cross — Head Coach <bc006j@sports.rochester.edu>
   Coach: Sean Streb — Assistant Coach <sstreb3@ur.rochester.edu> [primary]
   Coach: Andrew Crawford — Assistant Coach <acrawf10@sports.rochester.edu>
-  Last Contact: 2026-05-19
+  Last Contact: 2026-06-21
   RQ Status: Completed
   Videos Sent: Yes
   Contact Log (3 shown):
-    [2026-05-20] Outbound via Email — Sean Streb:
-      Hey Coach,
-      
-      Thanks for the feedback, as I'm preparing for the camp I'll focus on those areas.
-      
-       
-      
-      One other question, as I'm getting flights I'm going to have time all day Friday and part of the day Sunday free. Is there anything you recommend I should do in the Rochester area?
-      
-       
-      
-      Best,
-      
-      Finn Al...
-    [2026-05-19] Outbound via Sports Recruits — Sean Streb; Ben Cross; Andrew Crawford:
-      Coach Streb,
-      
-      Thanks for the spring update — sounds like a strong finish against Buffalo State and Canisius.
-      
-      I registered for the June 20 ID camp and I am looking forward to getting on campus and meeting in person.
-      
-      A quick end-of-season update: we finished league play 9W-2L-3D, and I started at...
-    [2026-05-19] Inbound via Sports Recruits — Sean Streb:
+    [2026-06-29] Inbound via Sports Recruits — Sean Streb:
       Finn,
       
-      Thanks for sending the updated highlight! I am also glad to hear you will be attending the June 20th clinic! For wingbacks, we like to see them fit to cover the line for extended periods of time, quick, technical to take players on in the final third,
-       strong 1v1 defender, and they recogni...
+      Thanks again for coming to the clinic! It was great to meet you, have you on campus, and I'm glad you enjoyed your time. You are a strong defender. You were confident in 1v1s with proper timing of tackles and using your body to win the ball. You showed great
+       awareness by tracking players ...
+    [2026-06-21] Outbound via Sports Recruits — Sean Streb:
+      Coach Streb,
+      
+      Thanks again for having me out yesterday. The campus was really beautiful, and I enjoyed getting to meet you, Coach Cross, and Coach Crawford. It was also great to meet the current players, they were welcoming and gave me a good feel for the group.
+      
+      I liked the coaching style a lot....
+    [2026-06-20] Inbound via In Person:
+      Finn did the June 20 ID camp.  He met Coach Streb, Coach Cross, and Coach Crawford in person.  He loved the campus.  It's super beautiful. He really liked all the Rochester players that he met.  Liked their coaching approach and how they gave clear feedback and positive reinforcement. Would love ...
 
-### Tier B (9 schools)
+### Tier B (8 schools)
 
 SCHOOL: Bowdoin
   Status: Ongoing Conversation
@@ -2287,26 +2274,12 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
   RQ Status: Completed
   Videos Sent: Yes
   Contact Log (3 shown):
-    [2026-06-04] Inbound via Phone — Dylan Milkent:
-      Phone call with Coach Milkent and Finn
-      
-      - Super nice coach
-      - Seemed super interested in me
-      - Giving starting spots to whoever earns it regardless of age
-      - Went to the Colby coaches wedding
-      - Said I am super valuable because of my left foot
-      - Wingbacks are super necessary with 70% of their 2026 se...
-    [2026-06-01] Outbound via Text — Dylan Milkent:
-      Hi Coach, 
-      
-      I’m still interested in IIT, I’ve been playing left wingback with Albion Boulder SC MLS Next Academy.  I’m also starting for a USL academy team here in Colorado as well. 
-      
-      As for recruiting, I’m doing a lot of work this summer with the goal of finding the right fit. 
-      
-      Best,
-      Finn Almon...
-    [2026-06-01] Inbound via Text:
-      Oh man! How about Thursday? Give you a couple extra days to feel better. 12pm mst?
+    [2026-07-08] Inbound via Phone:
+      Hey Finn! Would you be free for a call this week sometime?
+    [2026-07-08] Outbound via Phone:
+      Hi Coach, I am available anytime on Saturday! Let me know if anytime then works for you!
+    [2026-07-08] Inbound via Phone — Dylan Milkent:
+      Hey Finn! I’d love to hop on a call to hear about the games. Are you free this week?
 
 SCHOOL: Lafayette College
   Status: Ongoing Conversation
@@ -2390,16 +2363,6 @@ SCHOOL: Lehigh University
       Best,
       
       Finn Almond
-    [2026-05-21] Inbound via Sports Recruits — Ryan Hess:
-      .unsubscribe_email_
-      .unsubscribe_email_Finn,
-      
-      We're very excited to have confirmed our staff for ID Camp, with the latest addition of the Georgetown to our experienced staff!
-      
-      We have a few field players spots open for June 6-7 and look forward to working with you this summer.
-      
-      							_______
-      Rya...
     [2026-05-21] Inbound via Email — Ryan Hess:
       Finn
       
@@ -2410,42 +2373,16 @@ SCHOOL: Lehigh University
       
       We just added Georgetown University to our June 6-7 camp! As well as have a
       few other dates...
-
-SCHOOL: Rochester Institute of Technology (RIT)
-  Status: Intro Sent
-  Division: D3 — Liberty League
-  Location: Rochester, NY (Henrietta suburb)
-  Admit Likelihood: Target
-  Coach: Bill Garno — Head Coach <bill.garno@rit.edu> [primary]
-  Coach: Yuri Lavrynenko — Associate Head Coach
-  Coach: Kevin May — Assistant Coach
-  Coach: Travis Wood — Other
-  Last Contact: 2026-05-20
-  RQ Status: Completed
-  Videos Sent: Yes
-  Contact Log (3 shown):
-    [2026-05-20] Outbound via Email — Bill Garno:
-      Coach Garno,
+    [2026-05-21] Inbound via Sports Recruits — Ryan Hess:
+      .unsubscribe_email_
+      .unsubscribe_email_Finn,
       
-      I'm Finn Almond, a 2027 left wingback with Albion SC Boulder County MLS
-      NEXT Academy U19. RIT stands out to me for the combination of a top
-      engineering program — I'm targeting mechanical or aerospace — and
-      competitive Liberty League soccer.
+      We're very excited to have confirmed our staff for ID Camp, with the latest addition of the Georgetown to our experienced staff!
       
-      I moved from striker to left wingback mid...
-    [2026-04-02] Outbound via Sports Recruits — Bill Garno; Yuri Lavrynenko; Kevin May; Travis Wood:
-      Coach Garno,
+      We have a few field players spots open for June 6-7 and look forward to working with you this summer.
       
-      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. RIT's combination of a top engineering college and competitive Liberty League soccer is exactly the profile I'm looking for.
-      
-      I play an attacking wingback role on the left side — strong in 1v1 situations...
-    [2025-12-03] Outbound via Sports Recruits — Bill Garno; Yuri Lavrynenko; Kevin May; Travis Wood:
-      Hi Coach,
-      I wanted to follow up quickly in case my earlier email got buried.
-      
-      I’m Finn Almond, a 2027 left-footed striker/winger with Albion SC Colorado MLS NEXT. I’m very interested in your program and would love it if you could check out one of my games at MLS Next Fest.
-      
-      Here is my schedule in...
+      							_______
+      Rya...
 
 SCHOOL: RPI
   Status: Intro Sent
@@ -2536,6 +2473,7 @@ SCHOOL: WPI
   Last Contact: 2026-05-29
   RQ Status: Completed
   Videos Sent: Yes
+  Next Action: Decide whether this ID camp works or the crimson (Finn) — due 2026-07-01
   Contact Log (3 shown):
     [2026-05-29] Inbound via Email — Brian Kelley:
       Hi Finn,
@@ -2619,20 +2557,6 @@ SCHOOL: Clark
   Notes: Sent MIT camp follow up email
 Has a shared engineering program with Columbia
   Contact Log (3 shown):
-    [2026-06-10] Inbound via Email — Samuel Matteson:
-      Hi Finn,
-      
-      Sounds good, we are looking forward to connecting soon!
-      
-      Thank you,
-      
-      Sam Matteson
-      Head Men's Soccer Coach
-      smatteson@clarku.edu
-      (860)-514-2237
-      Complete Clark Men's Soccer Questionnaire<https://questionnaires.armssoftware.com/f4bb9a13e9ba>
-      [cid:698f31be-c07a-4d75-a994-141b731c2ff3]
-      ______...
     [2026-06-10] Outbound via Phone:
       Coach Matteson,
       
@@ -2652,6 +2576,20 @@ Has a shared engineering program with Columbia
       smatteson@clarku.edu
       (860)-514-2237
       Complete Clark Men's Soccer Questionnaire
+    [2026-06-10] Inbound via Email — Samuel Matteson:
+      Hi Finn,
+      
+      Sounds good, we are looking forward to connecting soon!
+      
+      Thank you,
+      
+      Sam Matteson
+      Head Men's Soccer Coach
+      smatteson@clarku.edu
+      (860)-514-2237
+      Complete Clark Men's Soccer Questionnaire<https://questionnaires.armssoftware.com/f4bb9a13e9ba>
+      [cid:698f31be-c07a-4d75-a994-141b731c2ff3]
+      ______...
 
 SCHOOL: Colgate
   Status: Ongoing Conversation
@@ -2706,6 +2644,7 @@ SCHOOL: Cornell
   Last Contact: 2026-05-19
   RQ Status: Completed
   Videos Sent: Yes
+  Next Action: reach out before ppa camp (Finn) — due 2026-07-01
   Contact Log (3 shown):
     [2026-05-19] Outbound via Email — Daniel P. Wood:
       Coach,
@@ -2789,6 +2728,7 @@ SCHOOL: Emory
   Last Contact: 2026-05-27
   Videos Sent: Yes
   Next Action: Email coach directly.  Wingback intro.  Camp interest. How do they use wingbacks. (Finn) — due 2026-05-15
+  Also: reach out before ppa camp (Finn) — due 2026-07-01
   Contact Log (3 shown):
     [2026-05-27] Outbound via Email — Cory Greiner:
       Coach Greiner,
@@ -2832,13 +2772,10 @@ SCHOOL: Milwaukee School of Engineering (MSOE)
       -Asked for full game
       -Wants my coaches number to ask him about me
       -Kind of a strange call, gave me short answers that didn't really answer my questions
-    [2026-06-03] Inbound via Phone — Rob Harrington:
-      Finn
-      We never connected
-      I apologize.
-      Pick a day
     [2026-06-03] Outbound via Phone:
-      Can you do tomorrow at 4pm, Friday at 1pm or Friday at 3pm?
+      Sounds great!
+    [2026-06-03] Inbound via Phone — Rob Harrington:
+      Friday at 1 pm
 
 SCHOOL: Princeton
   Status: Ongoing Conversation
@@ -2890,6 +2827,7 @@ SCHOOL: Williams
   Coach: Bill Schmid — Assistant Coach <williamsmenssoccer@gmail.com>
   Last Contact: 2026-05-27
   Videos Sent: Yes
+  Next Action: reach out before ppa camp (Finn) — due 2026-07-01
   Contact Log (3 shown):
     [2026-05-27] Outbound via Sports Recruits — Steffen Siebert; Bill Schmid:
       Coach Siebert,
@@ -2926,6 +2864,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-07-08 | Data correction: Finn's academic numbers updated everywhere — GPA 3.81W/3.56UW (was 3.78/3.57), SAT 1380 (was 1340 in athlete profile). Verified LLM prompt builders pull from live sources rather than hardcoding. Checked player_profile.academic_summary for staleness. Historical trajectory references (1340 → 1380) intentionally preserved. | Data |
 | 2026-06-15 | Bug fix: Home page "Awaiting Finn" stat now uses classifySchoolRecency = 'HOT' (matches the /schools?signal=hot filter it links to) instead of the stricter recommended_action.category = 'reply' filter. Wording updated from "N coaches awaiting reply" to "N schools awaiting your response" — accurate to the broader set, which includes cases where the coach has replied and Finn owes the next move. | Bug fix |
 | 2026-06-15 | Home page polish: stats strip pipeline distribution bar now has inline segment labels + hover tooltips (taller bar, labels inside when segment wide enough, count-only for narrow segments). "Awaiting Finn" metric clickable, navigates to /schools?signal=hot. School cards: wait-state cards excluded from default top-5 (visible only via Show all expand, in a separate "Waiting on coaches" subsection below non-wait cards). Left-edge color stripe added to cards keyed to recommended_action.category (red=reply, orange=follow_up, amber=check_in, blue=introduce/new_topic, gray=wait). | UX |
 | 2026-06-15 | Today page rebuilt as Home. Renamed nav label Today → Home (route stays at /). New layout: compact stats strip (6 metrics — active schools by tier, pipeline phase distribution stacked bar, camps registered+upcoming, emails this month, response rate, coaches awaiting Finn), recency-sorted stack of compact school summary cards (top 5 with Show all expand, click → school detail, reuses school_conversation_summary data), Think section (existing 4-5 strategic prompts relocated below cards). Removed: TacticalSection (scored top 3), HandledSection, PipelineRail visual widget. Underlying lib files (pipeline-rail.ts, today-scoring.ts, today-selection.ts, todayLogic.ts) kept as they have no cost and may be reused. Ingestion health banner preserved. Old TodayClient.tsx deleted. | Feature + UX |

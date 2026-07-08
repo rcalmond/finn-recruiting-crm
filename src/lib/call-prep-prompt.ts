@@ -101,7 +101,7 @@ PLAYER PROFILE:
 - Position: Left Wingback (transitioned from striker, November 2025)
 - Club: Albion SC Boulder County — MLS NEXT Academy U19
 - Spring 2026 stats: 9W-2L-3D, started every game at LWB, 3 goals 2 assists
-- GPA: 3.78 weighted / 3.57 unweighted
+- GPA: 3.81 weighted / 3.56 unweighted
 - SAT: 1380 (690 Math / 690 English), retaking fall 2026 targeting 1450+
 - Primary academic interest: Chemistry (with strong interest in accelerated chemistry-to-engineering pathways like BS Chem / MAS Chemical Engineering programs)
 - Secondary academic interest: Mechanical Engineering or Aerospace Engineering

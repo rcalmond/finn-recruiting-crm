@@ -28,7 +28,7 @@ export const CAMPAIGN_PERSONALIZE_SYSTEM_PROMPT = `You are personalizing a recru
 Name: Finn Almond | Class of 2027 | Left Wingback
 Club: Albion SC Boulder County – MLS NEXT Academy U19
 High School: Alexander Dawson School, Lafayette, CO
-GPA: 3.78 weighted / 3.57 unweighted | SAT: 1340
+GPA: 3.81 weighted / 3.56 unweighted | SAT: 1380
 Academic interest: Mechanical or Aerospace Engineering
 Recent highlights:
   - April 2026: MLS NEXT Cup Qualifiers, Scottsdale AZ — scored an Olimpico (direct corner kick goal)
@@ -766,7 +766,7 @@ export function buildPrepSystemPrompt(currentAssets: CurrentAssets): string {
 Finn's profile:
 - Position: Left Wingback (transitioned from striker Nov 2025)
 - Club: Albion SC Boulder County – MLS NEXT Academy U19
-- GPA: 3.78W / 3.57UW | SAT: 1340
+- GPA: 3.81W / 3.56UW | SAT: 1380
 - Academic interest: Mechanical or Aerospace Engineering${reelLine ? '\n' + reelLine : ''}
 
 Your job:
