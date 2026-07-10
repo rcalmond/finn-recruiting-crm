@@ -20,6 +20,24 @@ const CATEGORY_ORDER: Record<Category, number> = { A: 0, B: 1, C: 2, Nope: 3 }
 const STATUS_ORDER: Record<Status, number> = { 'Not Contacted': 0, 'Intro Sent': 1, 'Ongoing Conversation': 2, 'Visit Scheduled': 3, 'Offer': 4, 'Inactive': 5 }
 const ADMIT_ORDER: Record<string, number> = { 'Likely': 0, 'Target': 1, 'Reach': 2, 'Far Reach': 3 }
 
+// ─── Design tokens ───────────────────────────────────────────────────────────
+const T = {
+  paper:     '#F6F1E8',
+  paperDeep: '#EFE8D8',
+  ink:       '#0E0E0E',
+  inkMid:    '#4A4A4A',
+  inkLo:     '#7A7570',
+  inkMute:   '#A8A39B',
+  line:      '#E2DBC9',
+  line2:     '#D3CAB3',
+  white:     '#FFFFFF',
+  red:       '#C8102E',
+  redSoft:   '#FCE4E8',
+  teal:      '#00B2A9',
+  tealDeep:  '#006A65',
+  tealSoft:  '#D7F0ED',
+}
+
 interface Props {
   schools: School[]
   actionItems?: ActionItem[]
@@ -115,7 +133,6 @@ export default function PipelineTable({ schools, actionItems = [], camps = [], o
     const reordered = [...sorted]
     const [moved] = reordered.splice(fromIndex, 1)
     reordered.splice(dropIndex, 0, moved)
-    // Build full ordered list: reordered visible items merged back with any hidden schools
     const visibleIds = new Set(reordered.map(s => s.id))
     const hidden = schools.filter(s => !visibleIds.has(s.id)).sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999))
     onReorderSchools([...reordered.map(s => s.id), ...hidden.map(s => s.id)])
@@ -133,24 +150,25 @@ export default function PipelineTable({ schools, actionItems = [], camps = [], o
   return (
     <div>
       {/* Sort mode toggle */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sort</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: T.inkLo, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Sort</span>
         {(['manual', 'smart'] as const).map(mode => (
           <button
             key={mode}
             onClick={() => setSortMode(mode)}
             style={{
-              padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+              padding: '4px 12px', borderRadius: 999, border: 'none', cursor: 'pointer',
               fontSize: 12, fontWeight: sortMode === mode ? 700 : 500, fontFamily: 'inherit',
-              background: sortMode === mode ? '#0f172a' : '#f1f5f9',
-              color: sortMode === mode ? '#fff' : '#475569',
+              letterSpacing: '-0.01em',
+              background: sortMode === mode ? T.ink : 'transparent',
+              color: sortMode === mode ? T.white : T.inkLo,
             }}
           >
             {mode === 'manual' ? 'Manual' : 'Smart (column sort)'}
           </button>
         ))}
         {sortMode === 'manual' && (
-          <span style={{ fontSize: 11, color: hasFilters ? '#f59e0b' : '#94a3b8', marginLeft: 2 }}>
+          <span style={{ fontSize: 11, color: hasFilters ? '#C8B22E' : T.inkMute, marginLeft: 2 }}>
             {hasFilters ? 'Clear filters to reorder' : 'Drag to reorder'}
           </span>
         )}
@@ -170,23 +188,22 @@ export default function PipelineTable({ schools, actionItems = [], camps = [], o
         <FilterSelect label="Admit"    value={filters.admit}    onChange={v => setFilters(f => ({ ...f, admit: v as AdmitLikelihood | '' }))} options={ADMITS} />
         <FilterSelect label="Owner"    value={filters.owner}    onChange={v => setFilters(f => ({ ...f, owner: v as ActionOwner | '' }))}   options={OWNERS} />
         {hasFilters && (
-          <button onClick={() => setFilters(DEFAULT_FILTERS)} style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Clear</button>
+          <button onClick={() => setFilters(DEFAULT_FILTERS)} style={{ background: 'none', border: 'none', color: T.tealDeep, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>Clear</button>
         )}
       </div>
       {specialLabel && (
-        <div style={{ marginBottom: 8, padding: '6px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 12, color: '#1d4ed8', fontWeight: 600, display: 'inline-block' }}>
+        <div style={{ marginBottom: 8, padding: '6px 14px', background: T.tealSoft, border: `1px solid ${T.teal}40`, borderRadius: 999, fontSize: 12, color: T.tealDeep, fontWeight: 650, display: 'inline-block' }}>
           {specialLabel}
         </div>
       )}
-      <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>{sorted.length} of {schools.length} schools</div>
+      <div style={{ fontSize: 11, color: T.inkMute, marginBottom: 8 }}>{sorted.length} of {schools.length} schools</div>
 
       {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+      <div style={{ background: T.white, borderRadius: 14, border: `1px solid ${T.line}`, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
             <thead>
-              <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                {/* Drag handle column header */}
+              <tr style={{ borderBottom: `2px solid ${T.line}` }}>
                 {sortMode === 'manual' && <th style={{ padding: '10px 8px', width: 24 }} />}
                 {([
                   ['School', 'name'],
@@ -203,8 +220,8 @@ export default function PipelineTable({ schools, actionItems = [], camps = [], o
                     key={i}
                     onClick={() => key && toggleSort(key)}
                     style={{
-                      padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#64748b',
-                      fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                      padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: T.inkLo,
+                      fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap',
                       cursor: key && sortMode === 'smart' ? 'pointer' : 'default',
                       userSelect: 'none',
                       opacity: sortMode === 'manual' && key ? 0.45 : 1,
@@ -226,7 +243,7 @@ export default function PipelineTable({ schools, actionItems = [], camps = [], o
                 const firstAction = schoolActions[0]
                 const overdue = !!firstAction?.due_date && firstAction.due_date < today
                 const sc = STATUS_COLORS[s.status] || STATUS_COLORS['Not Contacted']
-                const ac = s.admit_likelihood ? ADMIT_COLORS[s.admit_likelihood] : '#94a3b8'
+                const ac = s.admit_likelihood ? ADMIT_COLORS[s.admit_likelihood] : T.inkMute
                 const cc = CATEGORY_COLORS[s.category]
                 const isDragTarget = dragOverIndex === index && dragIndexRef.current !== null && dragIndexRef.current !== index
 
@@ -240,60 +257,60 @@ export default function PipelineTable({ schools, actionItems = [], camps = [], o
                     onDragEnd={canDrag ? handleDragEnd : undefined}
                     onClick={() => onSelectSchool(s)}
                     style={{
-                      borderBottom: '1px solid #f5f5f5',
-                      borderTop: isDragTarget ? '2px solid #6366f1' : undefined,
+                      borderBottom: `1px solid ${T.line}`,
+                      borderTop: isDragTarget ? `2px solid ${T.teal}` : undefined,
                       cursor: canDrag ? 'grab' : 'pointer',
                       opacity: dragIndexRef.current === index ? 0.4 : 1,
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
+                    onMouseEnter={e => (e.currentTarget.style.background = T.paperDeep)}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
                     {sortMode === 'manual' && (
-                      <td style={{ padding: '10px 8px', color: canDrag ? '#cbd5e1' : '#e5e7eb', fontSize: 14, userSelect: 'none', textAlign: 'center' }}>
+                      <td style={{ padding: '10px 8px', color: canDrag ? T.line2 : T.line, fontSize: 14, userSelect: 'none', textAlign: 'center' }}>
                         ⠿
                       </td>
                     )}
                     <td style={{ padding: '10px 12px', fontWeight: 600 }}>
                       <div>{s.short_name || s.name}</div>
-                      {s.location && <div style={{ fontWeight: 400, color: '#94a3b8', fontSize: 11 }}>{s.location}</div>}
+                      {s.location && <div style={{ fontWeight: 400, color: T.inkMute, fontSize: 11 }}>{s.location}</div>}
                     </td>
                     <td style={{ padding: '10px 12px' }}>
-                      <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: '#f1f5f9', color: '#475569' }}>{s.division}</span>
+                      <span style={{ display: 'inline-block', padding: '1px 8px', borderRadius: 999, fontSize: 10, fontWeight: 650, background: T.paperDeep, color: T.inkMid }}>{s.division}</span>
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       <select
                         value={s.status}
                         onClick={e => e.stopPropagation()}
                         onChange={e => { e.stopPropagation(); onUpdateSchool(s.id, { status: e.target.value as Status }) }}
-                        style={{ padding: '2px 8px', borderRadius: 4, border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', background: sc.bg, color: sc.text, fontFamily: 'inherit', outline: 'none' }}
+                        style={{ padding: '2px 8px', borderRadius: 999, border: 'none', fontSize: 11, fontWeight: 650, cursor: 'pointer', background: sc.bg, color: sc.text, fontFamily: 'inherit', outline: 'none' }}
                       >
                         {STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
                       </select>
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       {s.admit_likelihood && (
-                        <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: ac + '18', color: ac }}>{s.admit_likelihood}</span>
+                        <span style={{ display: 'inline-block', padding: '1px 8px', borderRadius: 999, fontSize: 10, fontWeight: 650, background: ac + '18', color: ac }}>{s.admit_likelihood}</span>
                       )}
                     </td>
                     <td style={{ padding: '10px 12px' }}>
-                      <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: cc + '14', color: cc }}>{categoryLabel(s.category)}</span>
+                      <span style={{ display: 'inline-block', padding: '1px 8px', borderRadius: 999, fontSize: 10, fontWeight: 650, background: cc + '14', color: cc }}>{categoryLabel(s.category)}</span>
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '10px 12px', color: T.inkMid, whiteSpace: 'nowrap' }}>
                       {formatDate(s.last_contact)}
-                      {s.last_contact && <span style={{ color: '#94a3b8', fontSize: 11 }}> ({daysBetween(s.last_contact)}d)</span>}
+                      {s.last_contact && <span style={{ color: T.inkMute, fontSize: 11 }}> ({daysBetween(s.last_contact)}d)</span>}
                     </td>
                     <td style={{ padding: '10px 12px', maxWidth: 200 }}>
                       {firstAction && (
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            {overdue && <span style={{ padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: '#fef2f2', color: '#dc2626' }}>OVERDUE</span>}
-                            <span style={{ color: overdue ? '#dc2626' : '#475569', fontSize: 12 }}>{firstAction.action}</span>
+                            {overdue && <span style={{ padding: '1px 8px', borderRadius: 999, fontSize: 10, fontWeight: 650, background: T.redSoft, color: T.red }}>OVERDUE</span>}
+                            <span style={{ color: overdue ? T.red : T.inkMid, fontSize: 12 }}>{firstAction.action}</span>
                             {schoolActions.length > 1 && (
-                              <span style={{ padding: '1px 5px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: '#f1f5f9', color: '#64748b' }}>+{schoolActions.length - 1}</span>
+                              <span style={{ padding: '1px 6px', borderRadius: 999, fontSize: 10, fontWeight: 650, background: T.paperDeep, color: T.inkLo }}>+{schoolActions.length - 1}</span>
                             )}
                           </div>
                           {(firstAction.owner || firstAction.due_date) && (
-                            <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 2 }}>
+                            <div style={{ fontSize: 10.5, color: T.inkMute, marginTop: 2 }}>
                               {firstAction.owner}{firstAction.due_date ? `${firstAction.owner ? ' · ' : ''}due ${formatDate(firstAction.due_date)}` : ''}
                             </div>
                           )}
@@ -303,9 +320,9 @@ export default function PipelineTable({ schools, actionItems = [], camps = [], o
                     <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
                       {(() => {
                         const next = getNextUpcomingCamp(camps, s.id, today)
-                        if (!next) return <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>
+                        if (!next) return <span style={{ fontSize: 11, color: T.inkMute }}>—</span>
                         return (
-                          <div style={{ fontSize: 11, fontWeight: 600, color: '#0369a1', background: '#e0f2fe', borderRadius: 4, padding: '1px 6px', display: 'inline-block' }}>
+                          <div style={{ fontSize: 11, fontWeight: 650, color: T.tealDeep, background: T.tealSoft, borderRadius: 999, padding: '1px 8px', display: 'inline-block' }}>
                             {formatDate(next.camp.start_date)}
                           </div>
                         )
@@ -314,14 +331,14 @@ export default function PipelineTable({ schools, actionItems = [], camps = [], o
                     <td style={{ padding: '10px 8px' }}>
                       <button
                         onClick={e => { e.stopPropagation(); onSelectSchool(s) }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, padding: 4 }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.inkMute, fontSize: 14, padding: 4 }}
                       >✎</button>
                     </td>
                   </tr>
                 )
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={sortMode === 'manual' ? 10 : 9} style={{ padding: 30, textAlign: 'center', color: '#94a3b8' }}>No schools match your filters.</td></tr>
+                <tr><td colSpan={sortMode === 'manual' ? 10 : 9} style={{ padding: 30, textAlign: 'center', color: T.inkMute }}>No schools match your filters.</td></tr>
               )}
             </tbody>
           </table>
@@ -332,8 +349,9 @@ export default function PipelineTable({ schools, actionItems = [], camps = [], o
 }
 
 const inputStyle: React.CSSProperties = {
-  padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6,
+  padding: '7px 12px', border: `1px solid #E2DBC9`, borderRadius: 8,
   fontSize: 12.5, fontFamily: 'inherit', width: 160, outline: 'none',
+  background: '#FFFFFF', color: '#0E0E0E',
 }
 
 function FilterSelect<T extends string>({
@@ -345,7 +363,11 @@ function FilterSelect<T extends string>({
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      style={{ padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, fontFamily: 'inherit', background: '#fff', color: '#475569', cursor: 'pointer', outline: 'none' }}
+      style={{
+        padding: '7px 10px', border: `1px solid #E2DBC9`, borderRadius: 8,
+        fontSize: 12, fontFamily: 'inherit', background: '#FFFFFF',
+        color: '#4A4A4A', cursor: 'pointer', outline: 'none',
+      }}
     >
       <option value="">All {label}s</option>
       {options.map(o => <option key={o} value={o}>{optionLabel ? optionLabel(o) : o}</option>)}
