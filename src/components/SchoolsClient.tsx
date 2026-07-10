@@ -18,7 +18,8 @@ import {
   RECENCY_STATE_ORDER,
 } from '@/lib/school-recency-state'
 import type { SchoolRecencyState, SchoolRecencyResult } from '@/lib/school-recency-state'
-import type { School, ContactLogEntry, Division, Category } from '@/lib/types'
+import type { School, ContactLogEntry, Division, Category, SchoolConversationSummary, RecommendedActionCategory } from '@/lib/types'
+import { createClient } from '@/lib/supabase/client'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -32,6 +33,35 @@ const SL = {
   line:      '#E2DBC9',
   line2:     '#D3CAB3',
   ink0:      '#0E0E0E',
+}
+
+// ─── Category pill colors (matches Home cards) ──────────────────────────────
+
+const CATEGORY_BADGE_COLORS: Record<RecommendedActionCategory, { bg: string; text: string }> = {
+  reply:     { bg: '#D7F0ED', text: '#006A65' },
+  follow_up: { bg: '#DBEAFE', text: '#1E40AF' },
+  check_in:  { bg: '#FEF3C7', text: '#92400E' },
+  new_topic: { bg: '#E0E7FF', text: '#3730A3' },
+  introduce: { bg: '#DCFCE7', text: '#166534' },
+  wait:      { bg: '#F3F4F6', text: '#374151' },
+}
+
+const CATEGORY_STRIPE: Record<RecommendedActionCategory, string> = {
+  reply:     '#D03A2E',
+  follow_up: '#E8A33C',
+  check_in:  '#D4A017',
+  introduce: '#1E40AF',
+  new_topic: '#1E40AF',
+  wait:      '#9CA3A8',
+}
+
+function relativeTime(isoString: string): string {
+  const diff = Date.now() - new Date(isoString).getTime()
+  const hours = Math.floor(diff / 3_600_000)
+  if (hours < 1) return 'Updated just now'
+  if (hours < 24) return `Updated ${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `Updated ${days}d ago`
 }
 
 // ─── Enriched school record (computed once, passed to rows) ───────────────────
@@ -60,24 +90,6 @@ function TierBadge({ tier }: { tier: string }) {
   )
 }
 
-function StageDots({ stage, size = 8 }: { stage: number; size?: number }) {
-  return (
-    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-      {STAGE_LABELS.map((_, i) => {
-        const filled  = i < stage
-        const current = i === stage - 1
-        return (
-          <div key={i} style={{
-            width: size, height: size, borderRadius: '50%',
-            background: filled ? SL.ink : 'transparent',
-            border:     filled ? 'none' : `1.3px solid ${SL.inkMute}`,
-            boxShadow:  current ? `0 0 0 2px ${SL.paper}, 0 0 0 3px ${SL.ink}` : 'none',
-          }} />
-        )
-      })}
-    </div>
-  )
-}
 
 function RecencyPill({ recency, compact }: { recency: SchoolRecencyResult; compact?: boolean }) {
   if (!recency.state) return <span style={{ fontSize: 12, color: SL.inkMute }}>—</span>
@@ -218,49 +230,158 @@ function Chip({ label, count, active, onClick, color }: ChipProps) {
 
 // ─── Desktop row ──────────────────────────────────────────────────────────────
 
-function DesktopRow({ rich, even, onClick }: { rich: RichSchool; even: boolean; onClick: () => void }) {
-  const { school, stage, recency } = rich
+function DesktopRow({ rich, even, onClick, summary, expanded, onToggleExpand }: {
+  rich: RichSchool; even: boolean; onClick: () => void;
+  summary: SchoolConversationSummary | null; expanded: boolean; onToggleExpand: () => void;
+}) {
+  const { school, recency } = rich
+  const cat = summary?.recommended_action.category
+  const badgeColors = cat ? CATEGORY_BADGE_COLORS[cat] : null
+  const bgBase = even ? 'transparent' : 'rgba(239,232,216,0.3)'
+
   return (
-    <div
-      role="button" tabIndex={0}
-      onClick={onClick}
-      onKeyDown={e => e.key === 'Enter' && onClick()}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '28px 1fr 100px 170px 180px 16px',
-        gap: 18, alignItems: 'center',
-        padding: '0 20px', height: 40,
-        borderBottom: `1px solid ${SL.line}`,
-        background: even ? 'transparent' : 'rgba(239,232,216,0.3)',
-        cursor: 'pointer', transition: 'background 0.1s',
-      }}
-      onMouseEnter={e => (e.currentTarget.style.background = SL.paperDeep)}
-      onMouseLeave={e => (e.currentTarget.style.background = even ? 'transparent' : 'rgba(239,232,216,0.3)')}
-    >
-      <TierBadge tier={school.category} />
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
-        <div style={{
-          fontSize: 14, fontWeight: 600, color: SL.ink, letterSpacing: -0.2,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>{school.name}</div>
-        <div style={{ fontSize: 11, color: SL.inkLo, fontWeight: 500, letterSpacing: 0.2 }}>
-          {school.division}
+    <div style={{ borderBottom: `1px solid ${SL.line}` }}>
+      {/* Main row */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '28px 1fr minmax(180px, 2fr) 150px 28px',
+          gap: 14, alignItems: 'center',
+          padding: '0 20px', height: 40,
+          background: expanded ? SL.paperDeep : bgBase,
+          cursor: 'pointer', transition: 'background 0.1s',
+        }}
+        onMouseEnter={e => { if (!expanded) e.currentTarget.style.background = SL.paperDeep }}
+        onMouseLeave={e => { if (!expanded) e.currentTarget.style.background = bgBase }}
+      >
+        <TierBadge tier={school.category} />
+        <div
+          role="button" tabIndex={0}
+          onClick={onClick}
+          onKeyDown={e => e.key === 'Enter' && onClick()}
+          style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0, cursor: 'pointer' }}
+        >
+          <div style={{
+            fontSize: 14, fontWeight: 600, color: SL.ink, letterSpacing: -0.2,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>{school.name}</div>
+          <div style={{ fontSize: 11, color: SL.inkLo, fontWeight: 500, letterSpacing: 0.2 }}>
+            {school.division}
+          </div>
+        </div>
+        {/* Next step */}
+        <div
+          role="button" tabIndex={0}
+          onClick={e => { e.stopPropagation(); onToggleExpand() }}
+          onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); onToggleExpand() } }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, cursor: 'pointer' }}
+        >
+          {summary ? (
+            <>
+              <span style={{
+                fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
+                padding: '2px 5px', borderRadius: 4, flexShrink: 0,
+                backgroundColor: badgeColors?.bg ?? '#F3F4F6',
+                color: badgeColors?.text ?? '#374151',
+                whiteSpace: 'nowrap',
+              }}>
+                {cat!.replace('_', ' ')}
+              </span>
+              <span style={{
+                fontSize: 12, color: SL.inkMid, fontWeight: 450,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {summary.recommended_action.description}
+              </span>
+            </>
+          ) : (
+            <span style={{ fontSize: 12, color: SL.inkMute }}>—</span>
+          )}
+        </div>
+        <div><RecencyPill recency={recency} /></div>
+        {/* Expand chevron */}
+        <div
+          role="button" tabIndex={0}
+          onClick={e => { e.stopPropagation(); onToggleExpand() }}
+          onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); onToggleExpand() } }}
+          style={{ color: SL.inkMute, fontSize: 12, textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{
+            transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.15s ease',
+          }}>
+            <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </div>
       </div>
-      <div style={{ fontSize: 12, color: SL.inkMid, fontWeight: 500 }}>{stageLabel(stage)}</div>
-      <StageDots stage={stage} />
-      <div>
-        <RecencyPill recency={recency} />
-      </div>
-      <div style={{ color: SL.inkMute, fontSize: 12, textAlign: 'right' }}>›</div>
+
+      {/* Expanded panel */}
+      {expanded && summary && (
+        <div style={{
+          padding: '14px 20px 16px 66px', // indent past tier badge + gap
+          background: '#fff',
+          borderTop: `1px solid ${SL.line}`,
+          borderLeft: `3px solid ${CATEGORY_STRIPE[summary.recommended_action.category] ?? SL.inkMute}`,
+        }}>
+          {/* Summary */}
+          <div style={{ fontSize: 13, color: SL.inkMid, lineHeight: 1.6, marginBottom: 12 }}>
+            {summary.summary}
+          </div>
+          {/* Recommended action */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <span style={{
+                fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
+                padding: '2px 5px', borderRadius: 4,
+                backgroundColor: badgeColors?.bg ?? '#F3F4F6',
+                color: badgeColors?.text ?? '#374151',
+              }}>
+                {summary.recommended_action.category.replace('_', ' ')}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: SL.ink }}>
+                {summary.recommended_action.description}
+              </span>
+            </div>
+            {summary.recommended_action.rationale && (
+              <div style={{ fontSize: 12, color: SL.inkLo, lineHeight: 1.5, marginLeft: 1 }}>
+                {summary.recommended_action.rationale}
+              </div>
+            )}
+          </div>
+          {/* Action button + timestamp */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              onClick={e => { e.stopPropagation(); onClick() }}
+              style={{
+                padding: '6px 14px', borderRadius: 999,
+                background: CATEGORY_STRIPE[summary.recommended_action.category] ?? SL.ink,
+                color: '#fff', border: 'none', cursor: 'pointer',
+                fontSize: 12, fontWeight: 650, letterSpacing: -0.1,
+              }}
+            >
+              {summary.recommended_action.category === 'reply' ? 'Draft reply' :
+               summary.recommended_action.category === 'follow_up' ? 'Draft follow-up' :
+               summary.recommended_action.category === 'check_in' ? 'Draft check-in' :
+               summary.recommended_action.category === 'introduce' ? 'Draft intro' :
+               summary.recommended_action.category === 'new_topic' ? 'Draft email' :
+               'View school'}
+            </button>
+            <span style={{ fontSize: 11, color: SL.inkMute }}>
+              {relativeTime(summary.generated_at)}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // ─── Mobile row ───────────────────────────────────────────────────────────────
 
-function MobileRow({ rich, onClick }: { rich: RichSchool; onClick: () => void }) {
-  const { school, stage, recency } = rich
+function MobileRow({ rich, onClick, summary }: { rich: RichSchool; onClick: () => void; summary: SchoolConversationSummary | null }) {
+  const { school, recency } = rich
+  const cat = summary?.recommended_action.category
+  const badgeColors = cat ? CATEGORY_BADGE_COLORS[cat] : null
   return (
     <div
       role="button" tabIndex={0}
@@ -279,8 +400,18 @@ function MobileRow({ rich, onClick }: { rich: RichSchool; onClick: () => void })
           marginBottom: 5,
         }}>{school.name}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <StageDots stage={stage} size={6} />
           {recency.state && <RecencyPill recency={recency} compact />}
+          {cat && (
+            <span style={{
+              fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
+              padding: '1px 5px', borderRadius: 4,
+              backgroundColor: badgeColors?.bg ?? '#F3F4F6',
+              color: badgeColors?.text ?? '#374151',
+              whiteSpace: 'nowrap',
+            }}>
+              {cat.replace('_', ' ')}
+            </span>
+          )}
         </div>
       </div>
       <div style={{ color: SL.inkMute, fontSize: 14 }}>›</div>
@@ -342,6 +473,65 @@ export default function SchoolsClient({ user }: { user: User }) {
   const { schools, loading: schoolsLoading, insertSchool } = useSchools()
   const [showAddModal, setShowAddModal] = useState(false)
   const { entries: contactLog, loading: logLoading } = useContactLog()
+
+  // ── Conversation summaries ────────────────────────────────────────────────
+  const supabase = useState(() => createClient())[0]
+  const [summaries, setSummaries] = useState<SchoolConversationSummary[]>([])
+  const [summariesLoaded, setSummariesLoaded] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const { data } = await supabase
+        .from('school_conversation_summary')
+        .select('*')
+      if (!cancelled && data) {
+        setSummaries(data as SchoolConversationSummary[])
+        setSummariesLoaded(true)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [supabase])
+
+  const summaryMap = new Map(summaries.map(s => [s.school_id, s]))
+
+  // ── Expanded row (accordion — one at a time) ──────────────────────────────
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  // ── Refresh summaries ─────────────────────────────────────────────────────
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshProgress, setRefreshProgress] = useState<{ done: number; total: number } | null>(null)
+
+  const handleRefreshSummaries = useCallback(async () => {
+    const activeSchools = schools.filter(s => s.category !== 'Nope' && s.status !== 'Inactive' && ['A', 'B', 'C'].includes(s.category))
+    const count = activeSchools.length
+    if (!confirm(`Regenerate summaries for all ${count} active schools? Takes about a minute and costs a few dollars in API usage. Summaries auto-update when emails arrive — this is only needed after time-sensitive changes.`)) return
+
+    setRefreshing(true)
+    setRefreshProgress({ done: 0, total: count })
+    let done = 0
+
+    for (const school of activeSchools) {
+      try {
+        const res = await fetch(`/api/schools/${school.id}/conversation-summary`, { method: 'POST' })
+        if (res.ok) {
+          const updated = await res.json() as SchoolConversationSummary
+          setSummaries(prev => {
+            const filtered = prev.filter(s => s.school_id !== school.id)
+            return [...filtered, updated]
+          })
+        }
+      } catch { /* swallow — best-effort */ }
+      done++
+      setRefreshProgress({ done, total: count })
+      // Rate limit: ~1 req/sec
+      if (done < count) await new Promise(r => setTimeout(r, 1000))
+    }
+
+    setRefreshing(false)
+    setRefreshProgress(null)
+  }, [schools])
 
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -560,6 +750,22 @@ export default function SchoolsClient({ user }: { user: User }) {
                 }}
               >Map</button>
             </div>
+            {/* Refresh summaries */}
+            <button
+              onClick={handleRefreshSummaries}
+              disabled={refreshing}
+              style={{
+                padding: '6px 12px', borderRadius: 999,
+                border: `1px solid ${SL.line2}`, background: 'transparent',
+                color: refreshing ? SL.inkMute : SL.inkLo,
+                fontSize: 12, fontWeight: 600, cursor: refreshing ? 'default' : 'pointer',
+                fontFamily: 'inherit', opacity: refreshing ? 0.7 : 1,
+              }}
+            >
+              {refreshing && refreshProgress
+                ? `Refreshing ${refreshProgress.done}/${refreshProgress.total}…`
+                : 'Refresh summaries'}
+            </button>
             <button
               onClick={() => setShowAddModal(true)}
               style={{
@@ -617,8 +823,8 @@ export default function SchoolsClient({ user }: { user: User }) {
           <div style={{ margin: '14px 40px 0', borderTop: `1px solid ${SL.line}` }}>
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '28px 1fr 100px 170px 180px 16px',
-              gap: 18, alignItems: 'center',
+              gridTemplateColumns: '28px 1fr minmax(180px, 2fr) 150px 28px',
+              gap: 14, alignItems: 'center',
               padding: '10px 20px', height: 36,
               fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase',
               fontWeight: 700, color: SL.inkLo,
@@ -632,8 +838,7 @@ export default function SchoolsClient({ user }: { user: User }) {
                   <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <div>Stage</div>
-              <div>Progress</div>
+              <div>Next Step</div>
               <div>Signal</div>
               <div/>
             </div>
@@ -646,6 +851,9 @@ export default function SchoolsClient({ user }: { user: User }) {
                     rich={rich}
                     even={i % 2 === 0}
                     onClick={() => openSchool(rich.school)}
+                    summary={summaryMap.get(rich.school.id) ?? null}
+                    expanded={expandedId === rich.school.id}
+                    onToggleExpand={() => setExpandedId(prev => prev === rich.school.id ? null : rich.school.id)}
                   />
                 ))
             }
@@ -815,7 +1023,7 @@ export default function SchoolsClient({ user }: { user: User }) {
           </div>
         ) : (
           filtered.map(rich => (
-            <MobileRow key={rich.school.id} rich={rich} onClick={() => openSchool(rich.school)} />
+            <MobileRow key={rich.school.id} rich={rich} onClick={() => openSchool(rich.school)} summary={summaryMap.get(rich.school.id) ?? null} />
           ))
         )}
       </div>

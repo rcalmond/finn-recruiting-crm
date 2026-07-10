@@ -8,7 +8,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-export type CronName = 'gmail-sync' | 'coach-roster-sync' | 'camp-discovery'
+export type CronName = 'gmail-sync' | 'coach-roster-sync' | 'camp-discovery' | 'summary-refresh'
 
 /**
  * Insert a 'running' row at the start of a cron job.
