@@ -261,8 +261,8 @@ account, Sports Recruits profile management).
 | GPA | 3.81 weighted / 3.56 unweighted |
 | SAT | 1380 (Math 690 / English 690) |
 | Honors | National Honor Society |
-| AP Courses | AP Calculus AB, AP Chemistry, AP U.S. History |
-| Academic Interest | Mechanical Engineering or Aerospace Engineering |
+| AP Courses | AP Calculus AB (5), AP Chemistry (3), AP U.S. History (4) |
+| Academic Interest | Mechanical or Aerospace Engineering (schools with engineering); Chemistry or Math (SLACs, with 3/2 engineering path) |
 | Email | finnalmond08@gmail.com |
 
 ---
@@ -700,6 +700,42 @@ If an existing Head Coach gets re-classified to a lower role AND no new Head Coa
 
 **Do NOT add:** heuristics based on username character count or missing letters. Emory's policy proves that truncated usernames are real. Trust the scraped page.
 
+### Status Updates, Schools List Rework + Session Cleanups (July 9, 2026)
+
+**1. Per-school status updates (migration 054).**
+
+New school_status_updates table: dated log of Finn's current state and intentions per school (camps, timing, recruiting decisions) — distinct from contact_log (things that happened), Strategic notes (email guidance), and schools.notes (freeform). Each entry carries a share_with_coach flag (yes/no/undecided) enforcing a hard contract: share='no' entries inform advisory surfaces (summaries, recommendations, prep docs) but are barred from generated outbound email content; share='yes' entries get worked in where relevant; 'undecided' may be referenced only when clearly valuable, flagged for Finn's review. Wired into fetchSchoolContext (10 most recent, always) and all five LLM prompt builders. New StatusUpdatesPanel on school detail sidebar between Actions and Coach. Any insert/update/delete triggers a forced conversation-summary regen. Leak test verified in prod: share='no' camp-conflict entry correctly excluded from a generated draft; flipped to 'yes', correctly incorporated.
+
+**2. Schools list rework.**
+
+Stage and Progress columns removed (Finn didn't use them; schools.status field and the Stage filter dropdown preserved — status still drives Home's pipeline distribution). Replaced by a Next-step column: recommended_action category pill (same color scheme as Home card stripes) + truncated description from school_conversation_summary. Expandable accordion rows show full summary, rationale, contextual action button, and updated timestamp; expand affordance is distinct from row-click navigation. Mobile rows show the category pill alongside the recency pill.
+
+**3. Summary staleness regeneration.**
+
+Event-driven regen (contact_log inserts, status update changes) covers most freshness, but summaries also drift stale from time alone — camp dates passing, "wait" recommendations aging out. New weekly cron summary-refresh (Sundays 13:00 UTC) regenerates summaries older than 7 days for active A/B/C schools, 1 req/sec, wired into cron_runs (migration 055 extended the cron_name check constraint). Manual "Refresh summaries" button on the schools list with a cost-aware confirm dialog (~$3, ~1 min for the full pipeline) — a deliberate escape hatch, not a routine action.
+
+**4. "+ Add school" button was never wired.**
+
+The button on the schools list did nothing — not a regression, but a visual-only placeholder from the April Phase 3 restyle (commit 5a64da3) that was never connected. Unnoticed for ~3 months because schools entered via SQL and imports. Fix wired it to SchoolModal in add mode with insertSchool + error surfacing per the no-silent-bail principle.
+
+**5. Visual cleanup: SchoolModal + pipeline page.**
+
+SchoolModal (legacy add/edit modal) restyled to the current design language (warm parchment palette, bold-italic section headers, pill buttons/badges); coaches and action items confirmed edit-mode-only. The legacy pipeline page (URL-only, never in nav) was audited: Dashboard tab dropped (superseded by Home), Question Bank tab dropped (redundant with the questions route), redundant Add School header button dropped. Pipeline table, Actions, and Contact Log tabs kept — each is a still-unique global view (inline status editing + drag reorder; cross-school action items; cross-school contact log) — and restyled. Copy for Claude payload untouched, button restyled. Default tab is now Pipeline.
+
+**6. Data corrections + auth.**
+
+Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), SAT 1380 (was 1340 in the athlete profile). Five files fixed including two hardcoded instances in prompts.ts; historical trajectory references (1340 → 1380) intentionally preserved; player_profile.academic_summary verified already current. Git auth switched from HTTPS+token to SSH after a GitHub token rotation broke pushes — token rotations no longer touch the git workflow. New schools added via SQL for PPA Penn 1 (Haverford, St. Lawrence + head coaches); camp coach list also supplied Amherst assistant email, new Emory and Cornell assistant coach records.
+
+**Architectural patterns reinforced today:**
+
+1. *Advisory context vs. outbound content is a hard boundary.* The share_with_coach flag formalizes a distinction that matters for any LLM system holding user confidences: information the model should KNOW (to advise well) vs. information it may SAY (in generated output). Enforce it as an explicit per-item contract in the prompt, and verify with a leak test — "don't mention X" instructions are historically leaky and pass/fail is observable.
+
+2. *Cached LLM artifacts compound (reinforced).* school_conversation_summary now powers three surfaces — school detail, Home cards, and the schools list Next-step column + expanded rows — from one generation cost. Freshness is layered: event-driven regen for data changes, weekly staleness cron for time drift, manual refresh as a deliberate escape hatch with visible cost.
+
+3. *Buttons that were never wired look identical to buttons that broke.* The Add School placeholder survived ~3 months because its failure mode (click, nothing) is indistinguishable from a silent-bail regression. When shipping visual-first, either wire a stub that surfaces "not implemented" or don't ship the control.
+
+4. *Unused columns cost attention.* Stage and Progress were accurate but unused — every glance at the table paid a small scan tax on them. Removing display columns while preserving the underlying field and its filter keeps the data model intact and reclaims the space for what Finn actually wants (next steps).
+
 ---
 
 ## 10. Session Startup Checklist for Claude Code
@@ -819,8 +855,10 @@ const FALLBACK_FOOTER = `
 
 ## 14. "Copy for Claude" Export (strategy sessions in Claude.ai)
 
-The app has (or will have) a "Copy for Claude" button that copies a formatted plaintext
-pipeline summary to the clipboard for pasting into Claude.ai strategy sessions.
+The app has a "Copy for Claude" button on the \`/pipeline\` page (\`src/components/DashboardClient.tsx\`),
+which now defaults to the Pipeline tab (Dashboard and Question Bank tabs removed July 2026).
+The button copies a formatted plaintext pipeline summary to the clipboard for pasting into Claude.ai
+strategy sessions.
 
 Format per school:
 \`\`\`
