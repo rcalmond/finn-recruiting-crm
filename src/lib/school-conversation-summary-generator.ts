@@ -70,6 +70,7 @@ function buildPrompt(
   upcomingCamps: Awaited<ReturnType<typeof fetchSchoolContext>>['upcomingCamps'],
   declineHistory: Awaited<ReturnType<typeof fetchSchoolContext>>['declineHistory'],
   strategicNotes: string | null,
+  statusUpdates: Awaited<ReturnType<typeof fetchSchoolContext>>['statusUpdates'],
   uncoveredMessages: Message[],
   coveredMessages: Message[],
   currentDate: string,
@@ -164,6 +165,16 @@ Return ONLY the JSON object. No commentary before or after.`
     parts.push('')
   }
 
+  // Status updates from Finn
+  if (statusUpdates && statusUpdates.length > 0) {
+    parts.push(`STATUS UPDATES FROM FINN:`)
+    parts.push(`These describe Finn's current state, decisions, and intentions for this school. Weight them heavily when determining the recommended action — they take precedence over inferences from conversation history.`)
+    for (const u of statusUpdates) {
+      parts.push(`[${u.created_at.split('T')[0]}, share: ${u.share_with_coach}] ${u.body}`)
+    }
+    parts.push('')
+  }
+
   // Uncovered inventory messages
   if (uncoveredMessages.length > 0) {
     parts.push('UNCOVERED INVENTORY MESSAGES (not yet communicated to this school):')
@@ -224,7 +235,7 @@ export async function generateConversationSummary(
       .eq('school_id', schoolId),
   ])
 
-  const { school, coaches, contactLog, upcomingCamps, declineHistory, strategicNotes } = ctx
+  const { school, coaches, contactLog, upcomingCamps, declineHistory, strategicNotes, statusUpdates } = ctx
   if (!school) return null
 
   // Skip non-target tiers
@@ -238,7 +249,7 @@ export async function generateConversationSummary(
 
   const { system, user } = buildPrompt(
     school, coaches, contactLog, upcomingCamps, declineHistory,
-    strategicNotes, uncoveredMessages, coveredMessages, currentDate,
+    strategicNotes, statusUpdates, uncoveredMessages, coveredMessages, currentDate,
   )
 
   const client = new Anthropic()

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFinnStatus, CampFinnStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message, CallPrepDoc } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFinnStatus, CampFinnStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message, CallPrepDoc, SchoolStatusUpdate, ShareWithCoach } from '@/lib/types'
 import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp as updateCampMutation, updateFinnStatus as updateFinnStatusMutation, deleteCamp as deleteCampMutation, addSchoolAttendee as addSchoolAttendeeMutation, removeSchoolAttendee as removeSchoolAttendeeMutation } from '@/lib/camps'
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
@@ -785,4 +785,56 @@ export function useCallPrepDocs(schoolId?: string) {
   useEffect(() => { fetchDocs() }, [fetchDocs])
 
   return { docs, loading, refetch: fetchDocs }
+}
+
+// ─── School Status Updates ────────────────────────────────────────────────────
+
+export function useStatusUpdates(schoolId?: string) {
+  const [updates, setUpdates] = useState<SchoolStatusUpdate[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = useMemo(() => createClient(), [])
+
+  const fetchUpdates = useCallback(async () => {
+    if (!schoolId) {
+      setUpdates([])
+      setLoading(false)
+      return
+    }
+    const { data, error } = await supabase
+      .from('school_status_updates')
+      .select('*')
+      .eq('school_id', schoolId)
+      .order('created_at', { ascending: false })
+    if (!error && data) setUpdates(data as SchoolStatusUpdate[])
+    setLoading(false)
+  }, [supabase, schoolId])
+
+  useEffect(() => {
+    fetchUpdates()
+    const channel = supabase
+      .channel(`status-updates-${schoolId ?? 'none'}-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'school_status_updates' }, fetchUpdates)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [fetchUpdates, supabase, schoolId])
+
+  const insertUpdate = useCallback(async (update: { school_id: string; body: string; share_with_coach: ShareWithCoach }) => {
+    const { data, error } = await supabase.from('school_status_updates').insert(update).select().single()
+    if (!error && data) setUpdates(prev => [data as SchoolStatusUpdate, ...prev])
+    return { data, error }
+  }, [supabase])
+
+  const updateUpdate = useCallback(async (id: string, fields: { body?: string; share_with_coach?: ShareWithCoach }) => {
+    const { error } = await supabase.from('school_status_updates').update(fields).eq('id', id)
+    if (!error) setUpdates(prev => prev.map(u => u.id === id ? { ...u, ...fields } : u))
+    return error
+  }, [supabase])
+
+  const deleteUpdate = useCallback(async (id: string) => {
+    const { error } = await supabase.from('school_status_updates').delete().eq('id', id)
+    if (!error) setUpdates(prev => prev.filter(u => u.id !== id))
+    return error
+  }, [supabase])
+
+  return { updates, loading, insertUpdate, updateUpdate, deleteUpdate, refetch: fetchUpdates }
 }

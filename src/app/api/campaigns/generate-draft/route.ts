@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
   // Do NOT read from player_profile.current_reel_url — that field is stale.
   const ctx = await fetchSchoolContext(db, schoolId)
 
-  const { school, contactLog, upcomingCamps, strategicNotes, currentAssets } = ctx
+  const { school, contactLog, upcomingCamps, strategicNotes, statusUpdates, currentAssets } = ctx
 
   if (!school) {
     return NextResponse.json({ error: 'School not found' }, { status: 404 })
@@ -127,6 +127,7 @@ export async function POST(req: NextRequest) {
     camps,
     currentReelUrl: currentAssets.highlightReelUrl,
     strategicNotes,
+    statusUpdates,
     regenerationHint: hint?.trim() || null,
   }
 

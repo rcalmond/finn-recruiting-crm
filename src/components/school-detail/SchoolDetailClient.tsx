@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampFinnStatusValue, CampWithRelations } from '@/lib/types'
-import { useSchools, useContactLog, useActionItems, useCoaches, useCamps, useCallPrepDocs } from '@/hooks/useRealtimeData'
+import { useSchools, useContactLog, useActionItems, useCoaches, useCamps, useCallPrepDocs, useStatusUpdates } from '@/hooks/useRealtimeData'
 import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
 import { getCampsForSchool } from '@/lib/camps'
 import { classifySchoolRecency, SCHOOL_RECENCY_STYLE } from '@/lib/school-recency-state'
@@ -16,6 +16,7 @@ import AddCampModal from '@/components/AddCampModal'
 import EditableActionRow from '@/components/EditableActionRow'
 import ConversationSummaryCard from '@/components/school-detail/ConversationSummaryCard'
 import CallPrepSection from '@/components/school-detail/CallPrepSection'
+import StatusUpdatesPanel from '@/components/school-detail/StatusUpdatesPanel'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -1118,6 +1119,7 @@ function AboutRow({ label, value }: { label: string; value: string }) {
 
 function Sidebar({
   school, coaches, actionItems, completedItems, camps, schools, today, onComplete, onAddAction, onUpdateAction, onUpdateSchool, onDraftForCoach, onSetPrimary,
+  statusUpdates, onInsertUpdate, onUpdateUpdate, onDeleteUpdate,
 }: {
   school: School
   coaches: Coach[]
@@ -1132,6 +1134,10 @@ function Sidebar({
   onUpdateSchool: (updates: Partial<School>) => Promise<void>
   onDraftForCoach: (coachId: string) => void
   onSetPrimary: (id: string) => Promise<unknown>
+  statusUpdates: import('@/lib/types').SchoolStatusUpdate[]
+  onInsertUpdate: (u: { school_id: string; body: string; share_with_coach: import('@/lib/types').ShareWithCoach }) => Promise<{ error: unknown }>
+  onUpdateUpdate: (id: string, fields: { body?: string; share_with_coach?: import('@/lib/types').ShareWithCoach }) => Promise<unknown>
+  onDeleteUpdate: (id: string) => Promise<unknown>
 }) {
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesText, setNotesText] = useState(school.notes ?? '')
@@ -1237,6 +1243,17 @@ function Sidebar({
             </div>
           </div>
         )}
+      </SidebarCard>
+
+      {/* Status updates */}
+      <SidebarCard label={`Status updates${statusUpdates.length > 0 ? ` · ${statusUpdates.length}` : ''}`}>
+        <StatusUpdatesPanel
+          schoolId={school.id}
+          updates={statusUpdates}
+          onInsert={onInsertUpdate}
+          onUpdate={onUpdateUpdate}
+          onDelete={onDeleteUpdate}
+        />
       </SidebarCard>
 
       {/* Coach card — coaches table if populated, legacy fallback otherwise */}
@@ -1836,8 +1853,14 @@ export default function SchoolDetailClient({
   const { coaches, setPrimary } = useCoaches(initialSchool.id)
   const { camps } = useCamps(schools)
   const { docs: callPrepDocs, refetch: refetchPrepDocs } = useCallPrepDocs(initialSchool.id)
+  const { updates: statusUpdates, insertUpdate, updateUpdate, deleteUpdate } = useStatusUpdates(initialSchool.id)
 
   const loading = schoolsLoading || logLoading || actionsLoading
+
+  // Fire-and-forget conversation summary regen after status update changes
+  const regenSummary = () => {
+    fetch(`/api/schools/${initialSchool.id}/conversation-summary`, { method: 'POST' }).catch(() => {})
+  }
 
   // Keep school record fresh via the schools realtime subscription
   const school = useMemo(
@@ -1972,6 +1995,10 @@ export default function SchoolDetailClient({
           onUpdateSchool={async (updates) => { await updateSchool(school.id, updates) }}
           onDraftForCoach={(coachId) => setDraftTarget({ kind: 'fresh', coachId })}
           onSetPrimary={setPrimary}
+          statusUpdates={statusUpdates}
+          onInsertUpdate={async (u) => { const r = await insertUpdate(u); regenSummary(); return r }}
+          onUpdateUpdate={async (id, f) => { const r = await updateUpdate(id, f); regenSummary(); return r }}
+          onDeleteUpdate={async (id) => { const r = await deleteUpdate(id); regenSummary(); return r }}
         />
       </div>
       <style>{`

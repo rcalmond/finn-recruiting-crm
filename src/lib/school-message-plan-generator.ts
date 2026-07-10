@@ -61,6 +61,7 @@ export interface GenerateInput {
   upcomingCamps: CampContext[]
   declineHistory: ContactRow[]
   finnNotes: string | null
+  statusUpdates?: Array<{ body: string; share_with_coach: string; created_at: string }>
 }
 
 export type SuggestionTier = 'primary' | 'extra'
@@ -173,6 +174,15 @@ Use ONLY message_ids from the UNCOVERED MESSAGES list — never invent IDs or su
   usr.push(`FINN'S STRATEGIC NOTES FOR THIS SCHOOL:`)
   usr.push(input.finnNotes || 'No notes set')
   usr.push('')
+
+  if (input.statusUpdates && input.statusUpdates.length > 0) {
+    usr.push(`STATUS UPDATES FROM FINN:`)
+    usr.push(`These describe Finn's current state and intentions — weight them heavily when prioritizing suggestions.`)
+    for (const u of input.statusUpdates) {
+      usr.push(`[${u.created_at.split('T')[0]}, share: ${u.share_with_coach}] ${u.body}`)
+    }
+    usr.push('')
+  }
 
   if (input.coveredMessages.length > 0) {
     usr.push(`ALREADY COVERED (for context — do not suggest these):`)

@@ -458,6 +458,19 @@ export interface PlayerProfile {
   updated_at: string
 }
 
+// ─── School Status Updates ────────────────────────────────────────────────────
+
+export type ShareWithCoach = 'yes' | 'no' | 'undecided'
+
+export interface SchoolStatusUpdate {
+  id: string
+  school_id: string
+  body: string
+  share_with_coach: ShareWithCoach
+  created_at: string
+  updated_at: string
+}
+
 // ─── Filter state ─────────────────────────────────────────────────────────────
 
 export interface PipelineFilters {

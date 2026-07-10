@@ -1,6 +1,6 @@
 import type { Question } from '@/lib/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { fetchSchoolContext, type CurrentAssets } from '@/lib/school-context'
+import { fetchSchoolContext, type CurrentAssets, type StatusUpdateRow } from '@/lib/school-context'
 
 // Legacy type alias — used by todayLogic.ts for email draft mode tracking
 export type EmailType = 'first_contact' | 'wingback_update' | 'follow_up' | 'post_camp' | 'visit_request' | 'academic_update' | 'reply'
@@ -227,7 +227,7 @@ export async function buildEmailDraftPrompt(
       : Promise.resolve({ data: null }),
   ])
 
-  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, strategicNotes, currentAssets } = ctx
+  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, strategicNotes, statusUpdates, currentAssets } = ctx
 
   const currentDate = formatCurrentDate()
 
@@ -478,6 +478,16 @@ Body uses plain line breaks between paragraphs, no HTML.`)
     usr.push('')
   }
 
+  // ── Status updates from Finn ──
+  if (statusUpdates && statusUpdates.length > 0) {
+    usr.push(`STATUS UPDATES FROM FINN:`)
+    usr.push(`These describe Finn's current state and intentions. Entries with share='no' MUST NOT be mentioned, referenced, or implied in the generated email. Entries with share='yes' should be worked in where relevant. Entries with share='undecided' may be referenced only if clearly valuable — if used, note it so Finn can review.`)
+    for (const u of statusUpdates) {
+      usr.push(`[${u.created_at.split('T')[0]}, share: ${u.share_with_coach}] ${u.body}`)
+    }
+    usr.push('')
+  }
+
   // ── Pending action items ──
   const actions = actionItems ?? []
   if (actions.length > 0) {
@@ -587,7 +597,7 @@ export async function buildTopicSuggestPrompt(
     admin.from('school_message_log').select('message_id').eq('school_id', schoolId),
   ])
 
-  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, strategicNotes, currentAssets } = ctx
+  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, strategicNotes, statusUpdates, currentAssets } = ctx
 
   const currentDate = formatCurrentDate()
 
@@ -711,6 +721,16 @@ Return a JSON array of 3 strings. No preamble.`
     usr.push('')
   }
 
+  // Status updates from Finn
+  if (statusUpdates && statusUpdates.length > 0) {
+    usr.push(`STATUS UPDATES FROM FINN:`)
+    usr.push(`These describe Finn's current state and intentions — weight them heavily when suggesting topics.`)
+    for (const u of statusUpdates) {
+      usr.push(`[${u.created_at.split('T')[0]}, share: ${u.share_with_coach}] ${u.body}`)
+    }
+    usr.push('')
+  }
+
   // Action items
   const actions = actionItems ?? []
   if (actions.length > 0) {
@@ -822,8 +842,9 @@ export function buildPrepPrompt(params: {
     summary: string | null
   }>
   strategicNotes?: string | null
+  statusUpdates?: StatusUpdateRow[]
 }): string {
-  const { school, contactHistory, globalQuestions, coaches, camps, declineRows, strategicNotes } = params
+  const { school, contactHistory, globalQuestions, coaches, camps, declineRows, strategicNotes, statusUpdates } = params
   const currentDate = formatCurrentDate()
   const lines: string[] = []
 
@@ -888,6 +909,16 @@ export function buildPrepPrompt(params: {
     lines.push(strategicNotes)
     lines.push('')
     lines.push(`Address these notes in the call prep — what's Finn trying to figure out? What questions should he prioritize?`)
+    lines.push('')
+  }
+
+  // Status updates from Finn
+  if (statusUpdates && statusUpdates.length > 0) {
+    lines.push(`STATUS UPDATES FROM FINN:`)
+    lines.push(`These describe Finn's current state, decisions, and intentions. Use them to inform call prep advice and questions. All entries are usable regardless of share flag (this is an advisory surface, not outbound content).`)
+    for (const u of statusUpdates) {
+      lines.push(`[${u.created_at.split('T')[0]}, share: ${u.share_with_coach}] ${u.body}`)
+    }
     lines.push('')
   }
 

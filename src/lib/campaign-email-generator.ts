@@ -39,6 +39,7 @@ export interface GenerateInput {
   camps: CampInfo[]
   currentReelUrl: string | null
   strategicNotes?: string | null
+  statusUpdates?: Array<{ body: string; share_with_coach: string; created_at: string }>
   regenerationHint?: string | null
 }
 
@@ -124,7 +125,7 @@ STRATEGIC CONTEXT:
 - Targeted camps at this school: ${campsSection}
 - Last inbound from this school: ${daysSinceInbound}
 ${input.schoolNotes ? `- Notes: ${input.schoolNotes.slice(0, 300)}` : ''}
-${input.strategicNotes ? `\nFINN'S STRATEGIC NOTES FOR THIS SCHOOL:\n${input.strategicNotes}\n` : ''}
+${input.strategicNotes ? `\nFINN'S STRATEGIC NOTES FOR THIS SCHOOL:\n${input.strategicNotes}\n` : ''}${input.statusUpdates && input.statusUpdates.length > 0 ? `\nSTATUS UPDATES FROM FINN:\nEntries with share='no' MUST NOT be mentioned or implied in the email. share='yes' should be worked in. share='undecided' may be referenced if clearly valuable.\n${input.statusUpdates.map(u => `[${u.created_at.split('T')[0]}, share: ${u.share_with_coach}] ${u.body}`).join('\n')}\n` : ''}
 ${historySection}
 
 ---

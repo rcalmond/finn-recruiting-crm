@@ -63,7 +63,7 @@ export async function POST(
       .select('*').eq('school_id', schoolId).maybeSingle(),
   ])
 
-  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows } = ctx
+  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, statusUpdates } = ctx
 
   if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 })
 
@@ -89,6 +89,7 @@ export async function POST(
       upcomingCamps: camps,
       declineHistory: declineRows,
       finnNotes: (existingPlan as Record<string, unknown> | null)?.finn_notes as string | null ?? null,
+      statusUpdates,
     })
 
     const suggestions = { items: result.items }

@@ -70,6 +70,12 @@ export interface CurrentAssets {
   transcriptFileName: string | null
 }
 
+export interface StatusUpdateRow {
+  body: string
+  share_with_coach: string
+  created_at: string
+}
+
 export interface SchoolContext {
   school: SchoolRow | null
   coaches: CoachRow[]
@@ -78,6 +84,7 @@ export interface SchoolContext {
   declineHistory: ContactLogRow[]
   actionItems: ActionItemRow[]
   strategicNotes: string | null
+  statusUpdates: StatusUpdateRow[]
   currentAssets: CurrentAssets
 }
 
@@ -144,6 +151,15 @@ export async function fetchSchoolContext(
     )
   }
 
+  // 7. Status updates (always — lightweight, max 10)
+  queries.push(
+    admin.from('school_status_updates')
+      .select('body, share_with_coach, created_at')
+      .eq('school_id', schoolId)
+      .order('created_at', { ascending: false })
+      .limit(10)
+  )
+
   const results = await Promise.all(queries)
 
   const school = results[0].data as SchoolRow | null
@@ -156,6 +172,9 @@ export async function fetchSchoolContext(
   const rawActions = options.includeActionItems
     ? (results[6].data ?? []) as ActionItemRow[]
     : []
+  // Status updates index: 7 if no action items, 6+1=7 if action items
+  const statusUpdatesIdx = options.includeActionItems ? 7 : 6
+  const rawStatusUpdates = (results[statusUpdatesIdx]?.data ?? []) as StatusUpdateRow[]
 
   // Process coaches
   const coaches: CoachRow[] = rawCoaches.map(c => ({
@@ -209,6 +228,7 @@ export async function fetchSchoolContext(
     declineHistory,
     actionItems: rawActions,
     strategicNotes,
+    statusUpdates: rawStatusUpdates,
     currentAssets,
   }
 }
