@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import type { User } from '@supabase/supabase-js'
 import { useSchools, useContactLog } from '@/hooks/useRealtimeData'
+import SchoolModal from './SchoolModal'
 
 const SchoolsMap = dynamic(() => import('./schools/SchoolsMap'), {
   ssr: false,
@@ -336,9 +337,10 @@ const SIGNAL_CHIP_CONFIG: Record<SchoolRecencyState, { label: string; bg: string
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function SchoolsClient({ user: _user }: { user: User }) {
+export default function SchoolsClient({ user }: { user: User }) {
   const router = useRouter()
-  const { schools, loading: schoolsLoading } = useSchools()
+  const { schools, loading: schoolsLoading, insertSchool } = useSchools()
+  const [showAddModal, setShowAddModal] = useState(false)
   const { entries: contactLog, loading: logLoading } = useContactLog()
 
   const pathname = usePathname()
@@ -558,7 +560,9 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
                 }}
               >Map</button>
             </div>
-            <button style={{
+            <button
+              onClick={() => setShowAddModal(true)}
+              style={{
               padding: '8px 16px', background: SL.ink, color: '#fff',
               border: 'none', borderRadius: 999, fontSize: 13, fontWeight: 650,
               cursor: 'pointer', letterSpacing: -0.1,
@@ -815,6 +819,21 @@ export default function SchoolsClient({ user: _user }: { user: User }) {
           ))
         )}
       </div>
+
+      {showAddModal && (
+        <SchoolModal
+          school={null}
+          userId={user.id}
+          onInsert={async (school) => {
+            const error = await insertSchool(school)
+            if (error) {
+              alert(`Failed to create school: ${error.message}`)
+              throw new Error(error.message)
+            }
+          }}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
     </>
   )
 }
