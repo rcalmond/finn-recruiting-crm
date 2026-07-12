@@ -2018,7 +2018,7 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 
 ---
 
-## 11. Live Pipeline — Generated July 10, 2026
+## 11. Live Pipeline — Generated July 12, 2026
 
 **Active schools: 27** | Overdue actions: 13
 (Category Nope and status Inactive excluded)
@@ -2062,7 +2062,7 @@ SCHOOL: CO School of Mines
   Status: Ongoing Conversation
   Division: D2 — RMAC
   Location: Golden, CO
-  Admit Likelihood: Target
+  Admit Likelihood: Likely
   Coach: Ben Fredrickson — Interim Head Coach <ben.fredrickson@mines.edu> [primary] ⚠ needs_review
   Last Contact: 2026-06-17
   RQ Status: Completed
@@ -2119,7 +2119,7 @@ SCHOOL: Colby
   Status: Ongoing Conversation
   Division: D3 — NESCAC
   Location: Waterville, ME
-  Admit Likelihood: Far Reach
+  Admit Likelihood: Reach
   Coach: Sean Elvert — Head Coach <selvert@colby.edu>
   Coach: Ben Manoogian — Assistant Coach <bmanoogi@colby.edu> [primary]
   Coach: Yuri Nascimento — Other <ynascime@colby.edu>
@@ -2231,29 +2231,44 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
   Status: Ongoing Conversation
   Division: D3 — Northern Athletics Collegiate Conference (NACC)
   Location: Chicago, IL (Bronzeville, near downtown)
-  Admit Likelihood: Target
+  Admit Likelihood: Likely
   Coach: Marlon McKenzie — Head Coach <mmckenzie1@illinoistech.edu>
   Coach: Aziz Tahir — Assistant Coach <atahir2@illinoistech.edu>
   Coach: Julian Soto — Assistant Coach
   Coach: Mateo Sanchez — Assistant Coach
-  Coach: Dylan Milkent — Head Coach [primary]
+  Coach: Dylan Milkent — Head Coach <dmilkent@illinoistech.edu> [primary]
   Coach: Marlon McKenzie — Head Coach
-  Last Contact: 2026-04-02
+  Last Contact: 2026-07-12
   RQ Status: Completed
   Videos Sent: Yes
   Contact Log (3 shown):
-    [2026-07-08] Inbound via Phone:
-      Hey Finn! Would you be free for a call this week sometime?
-    [2026-07-08] Outbound via Phone:
-      Hi Coach, I am free Thursday between 8am-9am Chicago time or Sunday 1pm-4pm Chicago time.
-    [2026-07-08] Inbound via Phone — Dylan Milkent:
-      Sorry I missed this - are you free to talk tomorrow or Wednesday?
+    [2026-07-12] Outbound via Phone — Dylan Milkent:
+      Had a call with Coach Milkent to discuss where we are and what's next.  
+      
+      He asked what I've been up to recently.  We discussed the different ID camps I've been to and the ones I'm going to next.  We talked about high school soccer and academics in general.  We talked about next steps which is an...
+    [2026-07-12] Inbound via Email — Dylan Milkent:
+      Here is the application: https://apply.illinoistech.edu/register/?id=2f9d7dbe-decf-4002-9bb1-1c645ac4080f.
+      
+      Please make sure all documents that you upload are PDF files! And let me know once you get the application submitted.
+      
+      Best,
+      
+      Dylan Milkent
+      Illinois Tech Men's Soccer
+    [2026-07-12] Outbound via Email — Dylan Milkent:
+      Hey Coach,
+      
+      I just finished filling out this form. I had a couple things to note.
+      
+      For the SAT I wasn't able to send a super scored report so the PDF I sent
+      shows a 1370, while my super score is actually a 1380 (Math 690, English
+      690). And for my class schedule my school doesn't have it officiall...
 
 SCHOOL: Lafayette College
   Status: Ongoing Conversation
   Division: D1 — Patriot League
   Location: Easton, PA
-  Admit Likelihood: Reach
+  Admit Likelihood: Target
   Coach: Dennis Bohn — Head Coach <bohnd@lafayette.edu>
   Coach: Gabriel Robinson — Associate Head Coach <robingab@lafayette.edu> [primary]
   Coach: Ismar Tandir — Assistant Coach <tandiri@lafayette.edu>
@@ -2354,7 +2369,7 @@ SCHOOL: University of Rochester
   Status: Ongoing Conversation
   Division: D3 — UAA
   Location: Rochester, NY
-  Admit Likelihood: Target
+  Admit Likelihood: Reach
   Coach: Ben Cross — Head Coach <bc006j@sports.rochester.edu>
   Coach: Sean Streb — Assistant Coach <sstreb3@ur.rochester.edu> [primary]
   Coach: Andrew Crawford — Assistant Coach <acrawf10@sports.rochester.edu>
@@ -2384,7 +2399,7 @@ SCHOOL: WPI
   Status: Intro Sent
   Division: D3 — NEWMAC
   Location: Worcester, MA
-  Admit Likelihood: Target
+  Admit Likelihood: Likely
   Coach: Brian Kelley — Head Coach <bkelley@wpi.edu> [primary]
   Coach: Alex Wolfel — Assistant Coach <arwolfel@wpi.edu>
   Coach: Taskin Guven — Assistant Coach
@@ -2396,17 +2411,6 @@ SCHOOL: WPI
   Next Action: Decide whether this ID camp works or the crimson (Finn) — due 2026-07-01
   Contact Log (3 shown):
     [2026-05-29] Inbound via Email — Brian Kelley:
-      Hi Finn,
-      
-      We teach our wingbacks and backs along with every other position the fundamentals of the game which sets them up for success.  How hard each player competes is the real deciding factor.
-      
-      
-      FYI and reminder.
-      
-      Thank you for emailing, I am catching up on some emails tonight.
-      
-      Please conside...
-    [2026-05-29] Inbound via Email — Brian Kelley:
       Okay, thanks for letting me know and let me know when you sign up.
       
       Coach Kelley
@@ -2417,6 +2421,17 @@ SCHOOL: WPI
       Subject: [EXT] Re: ID Clinic Registration
       
       You don't often get email from finnalmond08@gmail.com<m...
+    [2026-05-29] Inbound via Email — Brian Kelley:
+      Hi Finn,
+      
+      We teach our wingbacks and backs along with every other position the fundamentals of the game which sets them up for success.  How hard each player competes is the real deciding factor.
+      
+      
+      FYI and reminder.
+      
+      Thank you for emailing, I am catching up on some emails tonight.
+      
+      Please conside...
     [2026-05-27] Outbound via Email — Brian Kelley:
       Hi Coach,
       
@@ -2468,7 +2483,7 @@ SCHOOL: Babson
   Status: Not Contacted
   Division: D3 — NEWMAC
   Location: Babson Park, MA
-  Admit Likelihood: Target
+  Admit Likelihood: Reach
   RQ Status: To Do
   Videos Sent: No
 
@@ -2528,25 +2543,6 @@ SCHOOL: Clark
 Has a shared engineering program with Columbia
   Next Action: Pre Crimson camp email (Finn) — due 2026-07-15
   Contact Log (3 shown):
-    [2026-06-10] Inbound via Phone — Samuel Matteson:
-      Hi Finn,
-      
-      Sounds good, we are looking forward to connecting soon!
-      
-      Thank you,
-      
-      Sam Matteson
-      Head Men's Soccer Coach
-      smatteson@clarku.edu
-      (860)-514-2237
-      Complete Clark Men's Soccer Questionnaire
-    [2026-06-10] Outbound via Phone:
-      Coach Matteson,
-      
-      I just filled out the recruiting questionnaire. I will look at my schedule in the next few days and get back to you with a good time for me to connect.
-      
-      Best,
-      Finn Almond
     [2026-06-10] Inbound via Email — Samuel Matteson:
       Hi Finn,
       
@@ -2561,12 +2557,31 @@ Has a shared engineering program with Columbia
       Complete Clark Men's Soccer Questionnaire<https://questionnaires.armssoftware.com/f4bb9a13e9ba>
       [cid:698f31be-c07a-4d75-a994-141b731c2ff3]
       ______...
+    [2026-06-10] Outbound via Phone:
+      Coach Matteson,
+      
+      I just filled out the recruiting questionnaire. I will look at my schedule in the next few days and get back to you with a good time for me to connect.
+      
+      Best,
+      Finn Almond
+    [2026-06-10] Inbound via Phone — Samuel Matteson:
+      Hi Finn,
+      
+      Sounds good, we are looking forward to connecting soon!
+      
+      Thank you,
+      
+      Sam Matteson
+      Head Men's Soccer Coach
+      smatteson@clarku.edu
+      (860)-514-2237
+      Complete Clark Men's Soccer Questionnaire
 
 SCHOOL: Colgate
   Status: Ongoing Conversation
   Division: D1 — Patriot League
   Location: Hamilton, NY
-  Admit Likelihood: Reach
+  Admit Likelihood: Far Reach
   Coach: Erik Ronning — Head Coach <eronning@colgate.edu>
   Coach: Ricky Brown — Assistant Coach [primary]
   Coach: Tim Stanton — Assistant Coach
@@ -2694,7 +2709,7 @@ SCHOOL: Emory
   Status: Intro Sent
   Division: D3 — UAA
   Location: Atlanta, GA
-  Admit Likelihood: Reach
+  Admit Likelihood: Far Reach
   Coach: Cory Greiner — Head Coach <cgreine@emory.edu>
   Coach: Clayton Schmitt — Associate Head Coach <ceschmi@emory.edu>
   Coach: Felipe Quintero — Other
@@ -2741,7 +2756,7 @@ SCHOOL: Haverford College
   Status: Not Contacted
   Division: D3 — Centennial Conference
   Location: Haverford, PA
-  Admit Likelihood: Reach
+  Admit Likelihood: Far Reach
   Coach: Kyle Brenner — Head Coach <kbrenner@haverford.edu> [primary]
   Last Contact: 2026-07-08
   Videos Sent: No
@@ -2792,13 +2807,13 @@ SCHOOL: Milwaukee School of Engineering (MSOE)
       -Asked for full game
       -Wants my coaches number to ask him about me
       -Kind of a strange call, gave me short answers that didn't really answer my questions
-    [2026-06-03] Outbound via Phone:
-      Sounds great!
     [2026-06-03] Inbound via Phone — Rob Harrington:
       Finn
       We never connected
       I apologize.
       Pick a day
+    [2026-06-03] Outbound via Phone:
+      Sounds great!
 
 SCHOOL: Northwestern
   Status: Ongoing Conversation
@@ -2928,7 +2943,7 @@ SCHOOL: St. Lawrence University
   Status: Not Contacted
   Division: D3 — Liberty League
   Location: Canton, NY
-  Admit Likelihood: Target
+  Admit Likelihood: Likely
   Coach: Matt Toshack — Head Coach <mtoshack@stlawu.edu> [primary]
   Last Contact: 2026-07-09
   Videos Sent: No
@@ -3039,6 +3054,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-07-12 | Coach scraper fixes: (1) cron_runs completion gap — two early-return paths and unhandled exceptions in the scrape loop skipped completeRun, leaving rows stuck as 'running' and causing false "scraper stale" health banner; all exit paths now complete the run. (2) Pending-proposal dedup added — proposals with an existing pending (manual) row matching the same signature are now skipped, preventing duplicate proposals stacking across runs; 1 Nope-tier DU proposal cleaned up. (3) Tier filter — scraper now only runs A/B/C active schools (Nope and Inactive schools skipped; historical coach records untouched). Karl Schroeder (Colby) investigated: role ping-pong between Assistant Coach and Other caused by ambiguous page text; departed+re-added cycle is correct scraper behavior given is_active=false exclusion from diff. | Bug fix |
 | 2026-07-10 | Schools list rework: Stage and Progress columns removed (status field and Stage filter preserved), replaced with Next-step column showing recommended_action category pill plus truncated description from school_conversation_summary. Rows expandable (accordion) to full summary, rationale, and action button. Weekly staleness cron (summary-refresh, Sundays 7 AM MT, migration 055 extends cron_runs check constraint) regenerates summaries older than 7 days for active A, B, C schools. Manual "Refresh summaries" button with cost-aware confirm dialog. | Feature + UX |
 | 2026-07-10 | Per-school status updates: new school_status_updates table (migration 054) — dated log of Finn's current state/intentions per school, each entry with a share_with_coach flag (yes/no/undecided). Share flag is a hard contract: share='no' entries inform advice (summaries, recommendations, prep docs) but are barred from generated outbound email content. Wired into fetchSchoolContext + all five LLM prompt builders. New Status updates sidebar panel on school detail (below Action items). Adding/editing an update triggers conversation summary regen. Strategic notes edit surface confirmed present in About panel — no restoration needed. | Feature + Schema |
 | 2026-07-10 | Visual design cleanup: SchoolModal restyled to current design language (warm parchment palette, bold-italic section headers, pill buttons, coaches/actions hidden in add mode). /pipeline legacy page restyled — Dashboard tab and Question Bank tab dropped (superseded by Home and /questions), "+ Add School" header button removed (/schools owns that flow), Pipeline now default tab. Pipeline table, Actions panel, and shell all restyled to match. No functional changes. | UX |

@@ -524,10 +524,12 @@ async function applyChanges(
       }
     }
 
-    // ── Check rejection history before logging ──────────────────────────────────
-    // If the most recent terminal (applied/rejected) coach_changes row for this
-    // exact proposal signature is 'rejected', skip the insert. This prevents
-    // re-surfacing proposals that were already intentionally dismissed.
+    // ── Check for existing proposals before logging ─────────────────────────────
+    // Skip the insert if:
+    //   1. The most recent terminal (applied/rejected) row for this exact
+    //      proposal signature is 'rejected' (Bug A fix — May 5, 2026), OR
+    //   2. A pending ('manual') row with the same signature already exists
+    //      (prevents duplicate proposals stacking across runs)
 
     let skipLog = false
     if (change.wouldStatus === 'manual') {
@@ -536,7 +538,7 @@ async function applyChanges(
         .select('status')
         .eq('school_id', schoolId)
         .eq('change_type', change.changeType)
-        .in('status', ['applied', 'rejected'])
+        .in('status', ['applied', 'rejected', 'manual'])
         .order('created_at', { ascending: false })
         .limit(1)
 
@@ -574,8 +576,12 @@ async function applyChanges(
       }
 
       const { data: priorRows } = await query
-      if (priorRows && priorRows.length > 0 && priorRows[0].status === 'rejected') {
-        skipLog = true
+      if (priorRows && priorRows.length > 0) {
+        const priorStatus = priorRows[0].status
+        // Skip if rejected (don't re-surface) or manual (pending — already queued)
+        if (priorStatus === 'rejected' || priorStatus === 'manual') {
+          skipLog = true
+        }
       }
     }
 

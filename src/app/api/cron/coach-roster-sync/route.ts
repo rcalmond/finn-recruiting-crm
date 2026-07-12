@@ -70,6 +70,8 @@ export async function GET(req: NextRequest) {
     .from('schools')
     .select('id, name, coach_page_scrape_enabled')
     .not('coach_page_url', 'is', null)
+    .in('category', ['A', 'B', 'C'])
+    .neq('status', 'Inactive')
     .order('name')
 
   if (fetchErr) {
@@ -80,6 +82,7 @@ export async function GET(req: NextRequest) {
 
   if (!allSchools || allSchools.length === 0) {
     console.log(`[coach-roster-sync] ${startedAt} — no schools with coach_page_url; nothing to do`)
+    await completeRun(admin, runId, 'success', { schools_scraped: 0, reason: 'no schools with coach_page_url' })
     return NextResponse.json({ ok: true, schoolsProcessed: 0 })
   }
 
@@ -95,6 +98,7 @@ export async function GET(req: NextRequest) {
 
   if (schools.length === 0) {
     console.log(`[coach-roster-sync] ${startedAt} — all schools skipped; nothing to do`)
+    await completeRun(admin, runId, 'success', { schools_scraped: 0, skipped: skipped.length, reason: 'all schools scrape_enabled=false' })
     return NextResponse.json({ ok: true, schoolsProcessed: 0, skipped: skipped.length })
   }
 
@@ -118,35 +122,42 @@ export async function GET(req: NextRequest) {
   }
   const errorsPerSchool: Array<{ school: string; error: string }> = []
 
-  for (let i = 0; i < schools.length; i++) {
-    if (i > 0) await sleep(2_000)
+  try {
+    for (let i = 0; i < schools.length; i++) {
+      if (i > 0) await sleep(2_000)
 
-    const school = schools[i]
-    const result = await scrapeSchool(admin, school.id, options)
+      const school = schools[i]
+      const result = await scrapeSchool(admin, school.id, options)
 
-    if (result.error) {
-      stats.errors++
-      errorsPerSchool.push({ school: school.name, error: result.error })
-      console.error(
-        `[coach-roster-sync] ${startedAt} — ${school.name}: ERROR — ${result.error}`
+      if (result.error) {
+        stats.errors++
+        errorsPerSchool.push({ school: school.name, error: result.error })
+        console.error(
+          `[coach-roster-sync] ${startedAt} — ${school.name}: ERROR — ${result.error}`
+        )
+        continue
+      }
+
+      if (result.changes.length === 0) {
+        stats.noChange++
+        console.log(`[coach-roster-sync] ${startedAt} — ${school.name}: no changes (${result.scrapedCount} scraped, ${result.dbCount} in DB)`)
+        continue
+      }
+
+      stats.changes  += result.changes.length
+      stats.applied  += result.appliedCount
+
+      const summary = result.changes.map(c => `${c.changeType}[${c.wouldStatus}]`).join(', ')
+      console.log(
+        `[coach-roster-sync] ${startedAt} — ${school.name}: ` +
+        `${result.changes.length} change(s) — ${summary} — applied ${result.appliedCount}`
       )
-      continue
     }
-
-    if (result.changes.length === 0) {
-      stats.noChange++
-      console.log(`[coach-roster-sync] ${startedAt} — ${school.name}: no changes (${result.scrapedCount} scraped, ${result.dbCount} in DB)`)
-      continue
-    }
-
-    stats.changes  += result.changes.length
-    stats.applied  += result.appliedCount
-
-    const summary = result.changes.map(c => `${c.changeType}[${c.wouldStatus}]`).join(', ')
-    console.log(
-      `[coach-roster-sync] ${startedAt} — ${school.name}: ` +
-      `${result.changes.length} change(s) — ${summary} — applied ${result.appliedCount}`
-    )
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    console.error(`[coach-roster-sync] ${startedAt} — fatal error during scrape loop: ${errMsg}`)
+    errorsPerSchool.push({ school: '(fatal)', error: errMsg })
+    stats.errors++
   }
 
   console.log(
