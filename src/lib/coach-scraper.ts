@@ -583,6 +583,38 @@ async function applyChanges(
           skipLog = true
         }
       }
+
+      // ── Role oscillation guard ──────────────────────────────────────────────
+      // If this is a role_changed and the INVERSE change (before/after swapped)
+      // was applied within the last 30 days, skip it. A human already picked a
+      // direction; the scraper shouldn't relitigate it every run when Haiku
+      // alternates between two parses of ambiguous page text.
+      if (!skipLog && change.changeType === 'role_changed' && change.coachId) {
+        const d = change.details as Record<string, unknown>
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+        const { data: inverseRows } = await admin
+          .from('coach_changes')
+          .select('id')
+          .eq('school_id', schoolId)
+          .eq('change_type', 'role_changed')
+          .eq('coach_id', change.coachId)
+          .eq('status', 'applied')
+          .gte('created_at', thirtyDaysAgo)
+          .contains('details', {
+            role_before: d.role_after,  // swapped
+            role_after: d.role_before,  // swapped
+          })
+          .limit(1)
+
+        if (inverseRows && inverseRows.length > 0) {
+          skipLog = true
+          console.log(
+            `  [dedup] Skipping role_changed for "${change.coachName}" — ` +
+            `inverse change (${d.role_after}→${d.role_before}) was applied within 30 days (role_oscillation)`
+          )
+        }
+      }
     }
 
     // ── Write to coach_changes audit table ────────────────────────────────────
