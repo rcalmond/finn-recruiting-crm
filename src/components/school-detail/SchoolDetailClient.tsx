@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/client'
 import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampFinnStatusValue, CampWithRelations } from '@/lib/types'
 import { useSchools, useContactLog, useActionItems, useCoaches, useCamps, useCallPrepDocs, useStatusUpdates } from '@/hooks/useRealtimeData'
 import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
@@ -1833,6 +1834,7 @@ interface DraftTarget {
   replyToContactLogId?: string
   inboundChannel?: string
   coachId?: string  // when set, targets a specific coach instead of the fallback chain
+  recommendedAction?: import('@/lib/types').RecommendedAction
 }
 
 export default function SchoolDetailClient({
@@ -1843,8 +1845,11 @@ export default function SchoolDetailClient({
   user: User
 }) {
   const today = todayStr()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [draftTarget, setDraftTarget] = useState<DraftTarget | null>(null)
   const [prepOpen, setPrepOpen]       = useState(false)
+  const autoOpenHandled = useRef(false)
 
   // ── Realtime subscriptions ─────────────────────────────────────────────────
   const { schools, loading: schoolsLoading, updateSchool } = useSchools()
@@ -1861,6 +1866,30 @@ export default function SchoolDetailClient({
   const regenSummary = () => {
     fetch(`/api/schools/${initialSchool.id}/conversation-summary`, { method: 'POST' }).catch(() => {})
   }
+
+  // Auto-open draft modal when navigated with ?action=draft (from schools list / home)
+  useEffect(() => {
+    if (autoOpenHandled.current) return
+    if (searchParams.get('action') !== 'draft') return
+    if (loading) return  // wait for coaches to load
+    autoOpenHandled.current = true
+    // Clear the URL param
+    router.replace(`/schools/${initialSchool.id}`, { scroll: false })
+    // Fetch summary to get recommended_action
+    const sb = createClient()
+    sb.from('school_conversation_summary')
+      .select('recommended_action')
+      .eq('school_id', initialSchool.id)
+      .maybeSingle()
+      .then(({ data }: { data: { recommended_action?: import('@/lib/types').RecommendedAction } | null }) => {
+        const action = data?.recommended_action
+        setDraftTarget({
+          kind: action?.category === 'reply' ? 'reply' : 'fresh',
+          recommendedAction: action ?? undefined,
+        })
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, searchParams])
 
   // Keep school record fresh via the schools realtime subscription
   const school = useMemo(
@@ -1947,7 +1976,7 @@ export default function SchoolDetailClient({
             <ConversationSummaryCard
               schoolId={school.id}
               schoolName={school.short_name ?? school.name}
-              onDraft={(kind, entryId, channel) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel })}
+              onDraft={(kind, entryId, channel, recommendedAction) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel, recommendedAction })}
             />
           </section>
 
@@ -2009,9 +2038,13 @@ export default function SchoolDetailClient({
 
       {/* ── Modals ── */}
       {draftTarget && (() => {
+        // Coach resolution: explicit coachId > recommended_coach_id > default fallback chain
+        const recCoachId = draftTarget.recommendedAction?.recommended_coach_id
         const resolvedCoach = draftTarget.coachId
           ? coaches.find(c => c.id === draftTarget.coachId) ?? targetCoach
-          : targetCoach
+          : recCoachId
+            ? coaches.find(c => c.id === recCoachId && c.is_active) ?? targetCoach
+            : targetCoach
         if (!resolvedCoach) return null
         return (
           <DraftModal
@@ -2035,6 +2068,7 @@ export default function SchoolDetailClient({
             }
             userId={user.id}
             onClose={() => setDraftTarget(null)}
+            recommendedAction={draftTarget.recommendedAction}
           />
         )
       })()}

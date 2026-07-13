@@ -139,6 +139,7 @@ export interface RecommendedAction {
   rationale: string
   category: RecommendedActionCategory
   source_message_ids?: string[]
+  recommended_coach_id?: string | null
 }
 
 export interface SchoolConversationSummary {

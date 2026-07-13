@@ -28,6 +28,7 @@ export interface SchoolRow {
 }
 
 export interface CoachRow {
+  id: string
   name: string
   role: string | null
   email: string | null
@@ -111,7 +112,7 @@ export async function fetchSchoolContext(
       .single(),
     // 1. All active coaches
     admin.from('coaches')
-      .select('name, role, email, is_primary, needs_review')
+      .select('id, name, role, email, is_primary, needs_review')
       .eq('school_id', schoolId)
       .eq('is_active', true)
       .order('is_primary', { ascending: false }),
@@ -178,6 +179,7 @@ export async function fetchSchoolContext(
 
   // Process coaches
   const coaches: CoachRow[] = rawCoaches.map(c => ({
+    id: c.id as string,
     name: c.name as string,
     role: c.role as string | null,
     email: c.email as string | null,

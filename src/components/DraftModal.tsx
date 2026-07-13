@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import type { Message, MessageType, SchoolMessagePlanSuggestion } from '@/lib/types'
+import type { Message, MessageType, SchoolMessagePlanSuggestion, RecommendedAction } from '@/lib/types'
 
 // ─── Mode types ──────────────────────────────────────────────────────────────
 
@@ -29,6 +29,7 @@ interface DraftModalProps {
   onSent?: (channel?: 'gmail' | 'sr') => void
   onDismissed?: () => void  // campaign mode only
   taskContext?: TaskContext
+  recommendedAction?: RecommendedAction
 }
 
 // ─── Plan data types ────────────────────────────────────────────────────────
@@ -61,7 +62,7 @@ type Stage =
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function DraftModal({ mode, userId, onClose, onSent, onDismissed, taskContext }: DraftModalProps) {
+export default function DraftModal({ mode, userId, onClose, onSent, onDismissed, taskContext, recommendedAction }: DraftModalProps) {
   const isCampaign = mode.kind === 'campaign'
   const isReply = mode.kind === 'reply'
   const isFresh = mode.kind === 'fresh'
@@ -109,21 +110,32 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
       const planJson = planRes.ok ? await planRes.json() : { plan: null }
       const plan = planJson.plan as PlanData | null
       setPlanData(plan)
-      if (plan?.finn_notes) setCoverageNotes(plan.finn_notes)
       if (msgRes.data) setMessages(msgRes.data as Message[])
 
-      // Pre-check send_now items
-      const items = plan?.suggestions?.items ?? []
-      const primaryItems = items.filter(s => s.tier !== 'extra')
-      const preChecked = new Set(
-        primaryItems.filter(s => s.timing === 'send_now').map(s => s.message_id)
-      )
-      setCheckedIds(preChecked)
+      if (recommendedAction) {
+        // Recommendation-driven: pre-fill textarea with recommendation description + rationale,
+        // pre-check only items referenced by source_message_ids
+        const prefill = [recommendedAction.description]
+        if (recommendedAction.rationale) prefill.push(recommendedAction.rationale)
+        setCoverageNotes(prefill.join('\n\n'))
+
+        const recIds = new Set(recommendedAction.source_message_ids ?? [])
+        setCheckedIds(recIds)
+      } else {
+        // Default plan-driven behavior: pre-fill from finn_notes, pre-check send_now items
+        if (plan?.finn_notes) setCoverageNotes(plan.finn_notes)
+        const items = plan?.suggestions?.items ?? []
+        const primarySuggestions = items.filter(s => s.tier !== 'extra')
+        const preChecked = new Set(
+          primarySuggestions.filter(s => s.timing === 'send_now').map(s => s.message_id)
+        )
+        setCheckedIds(preChecked)
+      }
       setStage('pick')
     } catch {
       setStage('pick') // Still allow manual coverage notes
     }
-  }, [mode.schoolId, isCampaign])
+  }, [mode.schoolId, isCampaign, recommendedAction])
 
   useEffect(() => { if (!isCampaign) loadPlan() }, [loadPlan, isCampaign])
 
@@ -222,6 +234,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
       if (coverageNotes.trim()) payload.coverageNotes = coverageNotes.trim()
       if (isReply) payload.replyToContactLogId = mode.replyToContactLogId
       if (taskContext) payload.taskContext = taskContext
+      if (recommendedAction) payload.recommendedAction = recommendedAction.description
 
       // Fallback: if nothing checked and no notes, pass a generic brief
       if (coverageItems.length === 0 && !coverageNotes.trim()) {
@@ -518,6 +531,20 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
           {/* ── Pick: plan-driven checklist (fresh/reply) ─────────────── */}
           {stage === 'pick' && !isCampaign && (
             <>
+              {/* Recommended action context block */}
+              {recommendedAction && (
+                <div style={{
+                  background: '#F0FDF4', border: '1px solid #BBF7D0',
+                  borderRadius: 8, padding: '10px 14px', marginBottom: 12,
+                }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#166534', marginBottom: 4 }}>
+                    Recommended next step
+                  </div>
+                  <div style={{ fontSize: 13, color: '#15803D', lineHeight: 1.5 }}>
+                    {recommendedAction.description}
+                  </div>
+                </div>
+              )}
               {orderedPrimary.length > 0 && (
                 <div>
                   <Label>What to cover</Label>

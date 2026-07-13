@@ -55,7 +55,7 @@ const CATEGORY_BADGE: Record<RecommendedActionCategory, { bg: string; color: str
 interface Props {
   schoolId: string
   schoolName: string
-  onDraft: (kind: 'fresh' | 'reply', entryId?: string, channel?: string) => void
+  onDraft: (kind: 'fresh' | 'reply', entryId?: string, channel?: string, recommendedAction?: RecommendedAction) => void
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -326,7 +326,7 @@ export default function ConversationSummaryCard({ schoolId, schoolName, onDraft 
 
         {/* Action button */}
         <button
-          onClick={() => onDraft(action.category === 'reply' ? 'reply' : 'fresh')}
+          onClick={() => onDraft(action.category === 'reply' ? 'reply' : 'fresh', undefined, undefined, action)}
           style={{
             padding: '7px 16px', borderRadius: 6,
             border: btn.border ?? 'none',

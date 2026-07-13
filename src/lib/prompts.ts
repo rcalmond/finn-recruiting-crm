@@ -130,6 +130,8 @@ export interface EmailDraftInput {
   context: 'individual' | 'campaign'
   campaignTemplate?: string
   replyToContactLogId?: string  // when set, output is body-only (no subject)
+  /** Recommended action from conversation summary — anchors the email's purpose */
+  recommendedAction?: string
 }
 
 interface VoiceRef {
@@ -519,6 +521,13 @@ Body uses plain line breaks between paragraphs, no HTML.`)
     usr.push(replyToRow.summary ?? '')
     usr.push('')
     usr.push(`This is a reply. Continue the conversation naturally. Address what the coach said or asked. Move the conversation forward with one clear next step.`)
+    usr.push('')
+  }
+
+  // ── Recommended action anchor ──
+  if (input.recommendedAction) {
+    usr.push(`RECOMMENDED NEXT STEP (this is the specific action that triggered this email — shape the email around it):`)
+    usr.push(input.recommendedAction)
     usr.push('')
   }
 

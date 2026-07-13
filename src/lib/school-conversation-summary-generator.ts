@@ -99,6 +99,7 @@ RECOMMENDED ACTION:
   - introduce: no prior contact — first outreach
   - new_topic: conversation is active but stale topics are exhausted; surface something new from inventory
 - source_message_ids: populate ONLY when the recommendation specifically draws from the UNCOVERED INVENTORY MESSAGES list below. Otherwise omit or use empty array.
+- recommended_coach_id: when the recommended action targets a specific coach (e.g., "follow up with Robinson", "reply to Peng"), set this to that coach's id from the COACHES list. Use null or omit when the target is unclear or the recommendation is school-level.
 - rationale: one sentence explaining why this is the next move.
 - If Finn's strategic notes mention something specific to do, that takes precedence over your own analysis.
 
@@ -114,7 +115,8 @@ Example:
     "description": "Wait for Streb's logistics details before following up",
     "rationale": "Finn's last message confirmed attendance 3 days ago — give the coach time to reply with details.",
     "category": "wait",
-    "source_message_ids": []
+    "source_message_ids": [],
+    "recommended_coach_id": null
   }
 }
 
@@ -130,12 +132,12 @@ Return ONLY the JSON object. No commentary before or after.`
   if (school.notes) parts.push(`School notes: ${school.notes}`)
   parts.push('')
 
-  // Coaches
+  // Coaches (include id so recommended_coach_id can reference them)
   if (coaches.length > 0) {
     parts.push('COACHES:')
     for (const c of coaches) {
       const flags = [c.is_primary ? 'primary' : null, c.needs_review ? 'needs_review' : null].filter(Boolean).join(', ')
-      parts.push(`- ${c.name} (${c.role ?? 'unknown role'})${flags ? ` [${flags}]` : ''}`)
+      parts.push(`- id="${c.id}" ${c.name} (${c.role ?? 'unknown role'})${flags ? ` [${flags}]` : ''}`)
     }
     parts.push('')
   }

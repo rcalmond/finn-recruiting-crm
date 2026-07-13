@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
       coverageNotes?: string
       replyToContactLogId?: string
       taskContext?: { type: string; metadata?: { reelUrl?: string; reelTitle?: string } }
+      recommendedAction?: string
     }
 
     if (!body.schoolId) {
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
       coverageNotes: body.coverageNotes,
       context: 'individual',
       replyToContactLogId: body.replyToContactLogId,
+      recommendedAction: body.recommendedAction,
     })
 
     // Append task context when present (e.g., batch reel send)

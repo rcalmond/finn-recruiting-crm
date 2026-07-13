@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
         // Find the target coach
         const { data: coachData } = await admin
           .from('coaches')
-          .select('name, role, email, is_primary, needs_review')
+          .select('id, name, role, email, is_primary, needs_review')
           .eq('id', coachId)
           .single()
 
@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
         }
 
         const targetCoach = coachData as {
+          id: string
           name: string
           role: string | null
           email: string | null

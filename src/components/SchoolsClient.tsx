@@ -230,9 +230,10 @@ function Chip({ label, count, active, onClick, color }: ChipProps) {
 
 // ─── Desktop row ──────────────────────────────────────────────────────────────
 
-function DesktopRow({ rich, even, onClick, summary, expanded, onToggleExpand }: {
+function DesktopRow({ rich, even, onClick, summary, expanded, onToggleExpand, onDraftAction }: {
   rich: RichSchool; even: boolean; onClick: () => void;
   summary: SchoolConversationSummary | null; expanded: boolean; onToggleExpand: () => void;
+  onDraftAction: () => void;
 }) {
   const { school, recency } = rich
   const cat = summary?.recommended_action.category
@@ -351,7 +352,7 @@ function DesktopRow({ rich, even, onClick, summary, expanded, onToggleExpand }: 
           {/* Action button + timestamp */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button
-              onClick={e => { e.stopPropagation(); onClick() }}
+              onClick={e => { e.stopPropagation(); onDraftAction() }}
               style={{
                 padding: '6px 14px', borderRadius: 999,
                 background: CATEGORY_STRIPE[summary.recommended_action.category] ?? SL.ink,
@@ -854,6 +855,7 @@ export default function SchoolsClient({ user }: { user: User }) {
                     summary={summaryMap.get(rich.school.id) ?? null}
                     expanded={expandedId === rich.school.id}
                     onToggleExpand={() => setExpandedId(prev => prev === rich.school.id ? null : rich.school.id)}
+                    onDraftAction={() => router.push(`/schools/${rich.school.id}?action=draft`)}
                   />
                 ))
             }
