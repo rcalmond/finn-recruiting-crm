@@ -125,9 +125,7 @@ export default function AssetCard({ asset, onPreview, onReplace, onEdit, onDelet
                 Open
               </a>
             )}
-            {asset.category === 'link' && (
-              <button onClick={() => onEdit(asset)} style={btn(LV.paper, LV.inkMid)}>Edit</button>
-            )}
+            <button onClick={() => onEdit(asset)} style={btn(LV.paper, LV.inkMid)}>Edit</button>
             {asset.type === 'resume' && onReparse && (
               <button
                 onClick={() => onReparse(asset)}

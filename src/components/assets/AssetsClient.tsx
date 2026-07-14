@@ -8,6 +8,7 @@ import { useAssets } from '@/hooks/useRealtimeData'
 import AssetCard from './AssetCard'
 import AddFileModal from './AddFileModal'
 import AddLinkModal from './AddLinkModal'
+import EditAssetModal from './EditAssetModal'
 import ReplaceAssetModal from './ReplaceAssetModal'
 import VersionHistoryDrawer from './VersionHistoryDrawer'
 
@@ -27,6 +28,7 @@ type Modal =
   | { kind: 'add-file' }
   | { kind: 'add-link' }
   | { kind: 'edit-link'; asset: Asset }
+  | { kind: 'edit'; asset: Asset }
   | { kind: 'replace'; asset: Asset }
 
 export default function AssetsClient({ user }: { user: User }) {
@@ -143,7 +145,7 @@ export default function AssetsClient({ user }: { user: User }) {
                     asset={a}
                     onPreview={handlePreview}
                     onReplace={asset => setModal({ kind: 'replace', asset })}
-                    onEdit={asset => asset.category === 'link' ? setModal({ kind: 'edit-link', asset }) : undefined}
+                    onEdit={asset => setModal({ kind: 'edit', asset })}
                     onDelete={handleDelete}
                     onReparse={handleReparse}
                     reparsing={reparsingId === a.id}
@@ -173,7 +175,7 @@ export default function AssetsClient({ user }: { user: User }) {
                     asset={a}
                     onPreview={handlePreview}
                     onReplace={asset => setModal({ kind: 'replace', asset })}
-                    onEdit={asset => setModal({ kind: 'edit-link', asset })}
+                    onEdit={asset => setModal({ kind: 'edit', asset })}
                     onDelete={handleDelete}
                   />
                 ))}
@@ -195,6 +197,15 @@ export default function AssetsClient({ user }: { user: User }) {
           existing={modal.kind === 'edit-link' ? modal.asset : undefined}
           onClose={() => setModal(null)}
           onSave={handleSaveLink}
+        />
+      )}
+      {modal?.kind === 'edit' && (
+        <EditAssetModal
+          asset={modal.asset}
+          onClose={() => setModal(null)}
+          onSave={async (id, updates) => {
+            await updateAsset(id, updates)
+          }}
         />
       )}
       {modal?.kind === 'replace' && (
