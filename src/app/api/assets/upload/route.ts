@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
   // Determine storage folder
   const folder = type === 'resume' ? 'resumes'
                : type === 'transcript' ? 'transcripts'
+               : type === 'test_scores' ? 'test_scores'
                : 'other'
 
   const storagePath = `${folder}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`

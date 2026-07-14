@@ -18,6 +18,7 @@ const LV = {
 const FILE_TYPES: { value: AssetType; label: string }[] = [
   { value: 'resume', label: 'Resume' },
   { value: 'transcript', label: 'Transcript' },
+  { value: 'test_scores', label: 'Test Scores' },
   { value: 'other', label: 'Other' },
 ]
 

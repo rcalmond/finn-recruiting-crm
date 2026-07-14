@@ -2018,7 +2018,7 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 
 ---
 
-## 11. Live Pipeline — Generated July 12, 2026
+## 11. Live Pipeline — Generated July 14, 2026
 
 **Active schools: 24** | Overdue actions: 14
 (Category Nope and status Inactive excluded)
@@ -2124,12 +2124,18 @@ SCHOOL: Colby
   Coach: Ben Manoogian — Assistant Coach <bmanoogi@colby.edu> [primary]
   Coach: Yuri Nascimento — Assistant Coach <ynascime@colby.edu>
   Coach: Karl Schroeder — Assistant Coach
-  Last Contact: 2026-07-08
+  Last Contact: 2026-07-12
   RQ Status: Completed
   Videos Sent: Yes
   Notes: Yes in Arizona
   Next Action: decide which ID camp to go to (Finn) — due 2026-07-01
   Contact Log (3 shown):
+    [2026-07-12] Outbound via Sports Recruits — Sean Elvert; Ben Manoogian:
+      Coach Elvert and Coach Manoogian,
+      
+      I'm going to be up in Maine on July 28 and 29 and wanted to see if you'd be around Waterville either day. Would love to stop by campus, see the facilities, and say hi in person if you have time.
+      
+      Also wanted to circle on my last note in case it got buried. I'm s...
     [2026-07-08] Outbound via Sports Recruits — Ben Manoogian:
       Coach Manoogian,
       
@@ -2144,10 +2150,6 @@ SCHOOL: Colby
       Thank you so much,
       
       Finn Almond
-    [2026-05-28] Inbound via Sports Recruits — Ben Manoogian:
-      Finn, 
-      
-      I wouldn't say one is better than the other, but rather different opportunities!  The Harvard camp will have around 10 other institutions taking in your play and more prospective players overall. The Colby camp will be a bit more personal with 3-4 other institutions hopefully in attendanc...
 
 SCHOOL: Middlebury
   Status: Ongoing Conversation
@@ -2166,6 +2168,12 @@ SCHOOL: Middlebury
 ID Camp Info
   Next Action: decide about the camp on 8/15 - 8/16 (Finn) — due 2026-07-12
   Contact Log (3 shown):
+    [2026-07-08] Outbound via Sports Recruits — Tim Peng:
+      Coach Peng,
+      
+      Quick update. I'm registered for the August 15-16 clinic in Middlebury and looking forward to getting on campus and training with your staff.
+      
+      AP scores also came back: 5 in Calc AB, 3 in Chem, 4 in APUSH. Next year I've got Calc BC, AP Physics, and AP Stats lined up, still pointed a...
     [2026-07-08] Inbound via Sports Recruits — Tim Peng:
       Thanks Finn!
       
@@ -2175,12 +2183,6 @@ ID Camp Info
       Assistant Men’s Soccer Coach
       
       Middlebury College
-    [2026-07-08] Outbound via Sports Recruits — Tim Peng:
-      Coach Peng,
-      
-      Quick update. I'm registered for the August 15-16 clinic in Middlebury and looking forward to getting on campus and training with your staff.
-      
-      AP scores also came back: 5 in Calc AB, 3 in Chem, 4 in APUSH. Next year I've got Calc BC, AP Physics, and AP Stats lined up, still pointed a...
     [2026-06-10] Inbound via Sports Recruits — Tim Peng:
       Excellent boss
       
@@ -2242,6 +2244,18 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
   RQ Status: Completed
   Videos Sent: Yes
   Contact Log (3 shown):
+    [2026-07-12] Outbound via Phone — Dylan Milkent:
+      Had a call with Coach Milkent to discuss where we are and what's next.  
+      
+      He asked what I've been up to recently.  We discussed the different ID camps I've been to and the ones I'm going to next.  We talked about high school soccer and academics in general.  We talked about next steps which is an...
+    [2026-07-12] Outbound via Email — Dylan Milkent:
+      Hey Coach,
+      
+      I just finished filling out this form. I had a couple things to note.
+      
+      For the SAT I wasn't able to send a super scored report so the PDF I sent
+      shows a 1370, while my super score is actually a 1380 (Math 690, English
+      690). And for my class schedule my school doesn't have it officiall...
     [2026-07-12] Inbound via Email — Dylan Milkent:
       Here is the application: https://apply.illinoistech.edu/register/?id=2f9d7dbe-decf-4002-9bb1-1c645ac4080f.
       
@@ -2251,18 +2265,6 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
       
       Dylan Milkent
       Illinois Tech Men's Soccer
-    [2026-07-12] Outbound via Email — Dylan Milkent:
-      Hey Coach,
-      
-      I just finished filling out this form. I had a couple things to note.
-      
-      For the SAT I wasn't able to send a super scored report so the PDF I sent
-      shows a 1370, while my super score is actually a 1380 (Math 690, English
-      690). And for my class schedule my school doesn't have it officiall...
-    [2026-07-12] Outbound via Phone — Dylan Milkent:
-      Had a call with Coach Milkent to discuss where we are and what's next.  
-      
-      He asked what I've been up to recently.  We discussed the different ID camps I've been to and the ones I'm going to next.  We talked about high school soccer and academics in general.  We talked about next steps which is an...
 
 SCHOOL: Lafayette College
   Status: Ongoing Conversation
@@ -2273,10 +2275,18 @@ SCHOOL: Lafayette College
   Coach: Gabriel Robinson — Associate Head Coach <robingab@lafayette.edu>
   Coach: Ismar Tandir — Assistant Coach <tandiri@lafayette.edu>
   Coach: Josh Bordwick — Assistant Coach <bordwicj@lafayette.edu>
-  Last Contact: 2026-07-12
+  Last Contact: 2026-07-14
   RQ Status: Completed
   Videos Sent: Yes
   Contact Log (3 shown):
+    [2026-07-14] Inbound via Email — Josh Bordwick:
+      Hey Finn,
+      
+      Thanks for reaching out after camp this past weekend. I am glad to hear
+      that you had such a great experience and enjoyed your time on campus!
+      
+      We are still in the evaluation process for left backs in the class of 2027,
+      however, based on our feedback, we do not have you in our top pool ...
     [2026-07-12] Outbound via Email — Dennis Bohn:
       Coach Bohn, Coach Robinson, and Coach Bordwick,
       
@@ -2293,19 +2303,6 @@ SCHOOL: Lafayette College
       with Coach Robinson and I'm signed up for the camp July 10-12.
       
       A bit on me: In the 2025-26 MLS NEXT season I star...
-    [2026-07-08] Inbound via Email — Josh Bordwick:
-      Hey Finn,
-      
-      Thanks for reaching out before PPA this weekend. We are excited to work
-      with you here! Have a safe trip to Lafayette and see you soon.
-      
-      Best,
-      
-      On Wed, Jul 8, 2026 at 2:47 PM Finn Almond <finnalmond08@gmail.com> wrote:
-      
-      > Coach Bohn and Coach Bordwick,
-      >
-      > Quick intro ahead of PPA Penn ...
 
 SCHOOL: University of Rochester
   Status: Ongoing Conversation
@@ -2572,11 +2569,21 @@ SCHOOL: Cornell
   Coach: Luke Staats — Associate Head Coach
   Coach: Tyler Keever — Assistant Coach
   Coach: Lamar Peters — Assistant Coach <lamarrpeters@gmail.com> [primary]
-  Last Contact: 2026-07-09
+  Last Contact: 2026-07-12
   RQ Status: Completed
   Videos Sent: Yes
   Next Action: reach out before ppa camp (Finn) — due 2026-07-01
   Contact Log (3 shown):
+    [2026-07-12] Outbound via Email — Lamar Peters:
+      Coach Peters,
+      
+      I attended the PPA Penn 1 camp this past weekend. I played left back all
+      three days with USA under Coach Toshack, so I got a solid stretch of games
+      at the position both defensively and getting forward.
+      
+      Reel again in case it's useful: https://youtu.be/ajpAuqjSzpI
+      
+      If you did get ey...
     [2026-07-09] Inbound via Email — Lamar Peters:
       Finn, thank you for the email and your interest in our program. I will be at the event tomorrow and I'll do my best to catch a peek at you. If you can , come and introduce yourself to me. LSent from my iPhone
       
@@ -2592,14 +2599,6 @@ SCHOOL: Cornell
       
       I'm a 2027 left wingback with Albion SC Boulder County MLS NEXT Academy.
       This past season I started every game at left ...
-    [2026-05-19] Outbound via Email — Daniel P. Wood:
-      Coach,
-      
-      I'm Finn Almond, a 2027 left wingback with Albion SC Boulder County MLS
-      NEXT Academy U19. I wanted to introduce myself and provide an update from
-      the end of the spring club season . Cornell stands out to me for the
-      combination of a top engineering college — I'm targeting mechanical or
-      aer...
 
 SCHOOL: Dartmouth
   Status: Intro Sent
@@ -2718,8 +2717,8 @@ SCHOOL: Milwaukee School of Engineering (MSOE)
       -Asked for full game
       -Wants my coaches number to ask him about me
       -Kind of a strange call, gave me short answers that didn't really answer my questions
-    [2026-06-03] Outbound via Phone:
-      Can you do tomorrow at 4pm, Friday at 1pm or Friday at 3pm?
+    [2026-06-03] Inbound via Phone — Rob Harrington:
+      Friday at 1 pm
     [2026-06-03] Inbound via Phone — Rob Harrington:
       Finn
       We never connected
@@ -2893,6 +2892,7 @@ SCHOOL: Williams
   Coach: Steffen Siebert — Head Coach <ss40@williams.edu> [primary]
   Coach: Bill Schmid — Assistant Coach <williamsmenssoccer@gmail.com>
   Last Contact: 2026-05-27
+  RQ Status: Completed
   Videos Sent: Yes
   Next Action: reach out before ppa camp (Finn) — due 2026-07-01
   Contact Log (3 shown):

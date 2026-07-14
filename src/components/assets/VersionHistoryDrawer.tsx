@@ -17,6 +17,7 @@ const LV = {
 const TYPE_LABELS: Record<string, string> = {
   resume: 'Resume', transcript: 'Transcript', highlight_reel: 'Highlight Reel',
   game_film: 'Game Film', sports_recruits: 'Sports Recruits', link: 'Link', other: 'Other',
+  test_scores: 'Test Scores',
 }
 
 interface Props {

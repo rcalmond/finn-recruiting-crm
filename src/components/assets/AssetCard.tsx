@@ -23,6 +23,7 @@ const TYPE_LABELS: Record<string, string> = {
   sports_recruits: 'Sports Recruits',
   link: 'Link',
   other: 'Other',
+  test_scores: 'Test Scores',
 }
 
 // Ink-adjacent hues — readable on paper, semantically distinct
@@ -34,6 +35,7 @@ const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   sports_recruits: { bg: '#D6EAF8',    text: '#1A5276'   },
   link:            { bg: LV.paper,     text: LV.inkLo    },
   other:           { bg: LV.paper,     text: LV.inkMute  },
+  test_scores:     { bg: '#FEF3C7',    text: '#92400E'   },
 }
 
 function formatBytes(bytes: number): string {

@@ -261,6 +261,7 @@ export type AssetType =
   | 'sports_recruits'
   | 'link'
   | 'other'
+  | 'test_scores'
 
 export type AssetCategory = 'file' | 'link'
 
