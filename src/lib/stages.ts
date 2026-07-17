@@ -1,25 +1,32 @@
-import type { School, Status } from './types'
+import type { RecruitingStage } from './types'
+import { STAGE_META } from './types'
 
-export const STAGE_LABELS = ['Identify', 'Reach out', 'Engage', 'Visit', 'Offer', 'Decide'] as const
-export type StageName = typeof STAGE_LABELS[number]
+/**
+ * Stage labels array for iteration (e.g., rendering dots, filter pills).
+ * Derived from the canonical STAGE_META map.
+ */
+export const STAGE_LABELS = ([1, 2, 3, 4, 5, 6] as RecruitingStage[]).map(s => STAGE_META[s].label)
 
-const STATUS_TO_STAGE: Record<Status, number> = {
-  'Not Contacted':        1, // Identify
-  'Intro Sent':           2, // Reach out
-  'Ongoing Conversation': 3, // Engage
-  'Visit Scheduled':      4, // Visit
-  'Offer':                5, // Offer
-  'Inactive':             0, // Should be filtered before calling deriveStage
+/**
+ * Returns the label for a recruiting stage number.
+ */
+export function stageLabel(stage: number): string {
+  return STAGE_META[stage as RecruitingStage]?.label ?? 'Research'
 }
 
 /**
- * Maps a school's status field to a 1-6 stage number.
- * Returns 1 (Identify) as a safe default for any unknown status.
+ * @deprecated Use school.recruiting_stage directly. This function existed when
+ * stage was derived from school.status at render time. Kept temporarily for
+ * the SchoolsClient stage filter which still reads the status field.
  */
-export function deriveStage(school: Pick<School, 'status'>): number {
-  return STATUS_TO_STAGE[school.status] ?? 1
-}
-
-export function stageLabel(stage: number): string {
-  return STAGE_LABELS[Math.max(0, stage - 1)] ?? 'Identify'
+export function deriveStage(school: { status: string }): number {
+  const map: Record<string, number> = {
+    'Not Contacted':        1,
+    'Intro Sent':           2,
+    'Ongoing Conversation': 3,
+    'Visit Scheduled':      4,
+    'Offer':                5,
+    'Inactive':             0,
+  }
+  return map[school.status] ?? 1
 }

@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampFinnStatusValue, CampWithRelations } from '@/lib/types'
-import { useSchools, useContactLog, useActionItems, useCoaches, useCamps, useCallPrepDocs, useStatusUpdates } from '@/hooks/useRealtimeData'
-import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
+import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampFinnStatusValue, CampWithRelations, SchoolMilestone, MilestoneType, RecruitingStage } from '@/lib/types'
+import { STAGE_META, MILESTONE_META } from '@/lib/types'
+import { useSchools, useContactLog, useActionItems, useCoaches, useCamps, useCallPrepDocs, useStatusUpdates, useMilestones } from '@/hooks/useRealtimeData'
+import { stageLabel, STAGE_LABELS } from '@/lib/stages'
 import { getCampsForSchool } from '@/lib/camps'
 import { classifySchoolRecency, SCHOOL_RECENCY_STYLE } from '@/lib/school-recency-state'
 import { todayStr } from '@/lib/utils'
@@ -84,16 +85,26 @@ function StageDots({ stage, size = 9 }: { stage: number; size?: number }) {
 
 function DetailHeader({
   school, stage, prevSchool, nextSchool, contactLog, onTierChange,
+  onStageChange, milestones, onUpsertMilestone, onRemoveMilestone,
 }: {
   school: School; stage: number
   prevSchool: School | null; nextSchool: School | null
   contactLog: ContactLogEntry[]
   onTierChange?: (tier: string) => void
+  onStageChange: (stage: RecruitingStage) => void
+  milestones: SchoolMilestone[]
+  onUpsertMilestone: (ms: { school_id: string; milestone: MilestoneType; occurred_on?: string | null; note?: string | null }) => Promise<unknown>
+  onRemoveMilestone: (id: string) => Promise<unknown>
 }) {
   const router = useRouter()
+  const [stageOpen, setStageOpen] = useState(false)
+  const [msOpen, setMsOpen] = useState(false)
+  const [msDate, setMsDate] = useState('')
+  const [msNote, setMsNote] = useState('')
   const metaParts = [school.division, school.conference, school.location].filter(Boolean).join(' · ')
   const recency = classifySchoolRecency(school, contactLog)
   const recencyStyle = recency.state ? SCHOOL_RECENCY_STYLE[recency.state] : null
+  const earnedTypes = new Set(milestones.map(m => m.milestone))
 
   return (
     <div style={{
@@ -221,9 +232,49 @@ function DetailHeader({
         gap: 'clamp(8px, 2vw, 16px)', flexWrap: 'wrap',
       }}>
         <StageDots stage={stage} />
-        <div style={{ fontSize: 12, color: SD.inkMid, fontWeight: 500 }}>
-          {stageLabel(stage)}{' '}
-          <span style={{ color: SD.inkLo }}>· step {stage} of 6</span>
+        {/* Clickable stage label → popover */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setStageOpen(o => !o)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 12, color: SD.inkMid, fontWeight: 500, padding: 0,
+            }}
+          >
+            {stageLabel(stage)}{' '}
+            <span style={{ color: SD.inkLo }}>· step {stage} of 6</span>
+            <span style={{ fontSize: 10, marginLeft: 4, color: SD.inkMute }}>▾</span>
+          </button>
+          {stageOpen && (
+            <div
+              style={{
+                position: 'absolute', top: '100%', left: 0, marginTop: 6,
+                background: '#fff', border: `1px solid ${SD.line}`, borderRadius: 10,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 20,
+                width: 280, overflow: 'hidden',
+              }}
+            >
+              {([1, 2, 3, 4, 5, 6] as RecruitingStage[]).map(s => {
+                const meta = STAGE_META[s]
+                const active = s === stage
+                return (
+                  <button
+                    key={s}
+                    onClick={() => { onStageChange(s); setStageOpen(false) }}
+                    style={{
+                      display: 'block', width: '100%', padding: '8px 14px',
+                      background: active ? SD.paperDeep : 'transparent',
+                      border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                      textAlign: 'left', fontSize: 12,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, color: SD.ink }}>{s}. {meta.label}</span>
+                    <span style={{ color: SD.inkLo, marginLeft: 8 }}>{meta.short}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {metaParts && (
@@ -263,6 +314,133 @@ function DetailHeader({
           </>
         )}
       </div>
+
+      {/* Milestone badges */}
+      {(milestones.length > 0 || true) && (
+        <div style={{
+          marginTop: 10,
+          display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+        }}>
+          {milestones.map(ms => {
+            const meta = MILESTONE_META[ms.milestone]
+            if (!meta) return null
+            return (
+              <span
+                key={ms.id}
+                title={[meta.label, ms.occurred_on, ms.note].filter(Boolean).join(' · ')}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '2px 8px', borderRadius: 999,
+                  background: meta.bg, color: meta.color,
+                  fontSize: 10, fontWeight: 700, letterSpacing: '0.02em',
+                  cursor: 'default',
+                }}
+              >
+                <span style={{ fontSize: 11 }}>{meta.icon}</span>
+                {meta.label}
+                {ms.occurred_on && (
+                  <span style={{ fontWeight: 500, opacity: 0.7 }}>
+                    {ms.occurred_on.slice(5)}
+                  </span>
+                )}
+                <button
+                  onClick={() => onRemoveMilestone(ms.id)}
+                  title="Remove milestone"
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: meta.color, fontSize: 10, padding: 0, marginLeft: 2,
+                    opacity: 0.5, lineHeight: 1,
+                  }}
+                >✕</button>
+              </span>
+            )
+          })}
+
+          {/* Add milestone button + popover */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => { setMsOpen(o => !o); setMsDate(new Date().toISOString().slice(0, 10)); setMsNote('') }}
+              style={{
+                padding: '2px 8px', borderRadius: 999,
+                border: `1px dashed ${SD.line2}`, background: 'transparent',
+                fontSize: 10, fontWeight: 700, color: SD.inkLo,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >+ milestone</button>
+            {msOpen && (
+              <div
+                style={{
+                  position: 'absolute', top: '100%', left: 0, marginTop: 6,
+                  background: '#fff', border: `1px solid ${SD.line}`, borderRadius: 10,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 20,
+                  width: 260, padding: '8px 0',
+                }}
+              >
+                {(Object.keys(MILESTONE_META) as MilestoneType[])
+                  .filter(t => !earnedTypes.has(t))
+                  .map(t => {
+                    const meta = MILESTONE_META[t]
+                    return (
+                      <button
+                        key={t}
+                        onClick={async () => {
+                          await onUpsertMilestone({
+                            school_id: school.id,
+                            milestone: t,
+                            occurred_on: msDate || null,
+                            note: msNote.trim() || null,
+                          })
+                          setMsOpen(false)
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          width: '100%', padding: '7px 14px',
+                          background: 'transparent', border: 'none',
+                          cursor: 'pointer', fontFamily: 'inherit',
+                          textAlign: 'left', fontSize: 12,
+                        }}
+                      >
+                        <span style={{
+                          padding: '1px 6px', borderRadius: 999,
+                          background: meta.bg, color: meta.color,
+                          fontSize: 10, fontWeight: 700,
+                        }}>{meta.icon}</span>
+                        <span style={{ color: SD.ink, fontWeight: 600 }}>{meta.label}</span>
+                      </button>
+                    )
+                  })}
+                {earnedTypes.size === Object.keys(MILESTONE_META).length && (
+                  <div style={{ padding: '8px 14px', fontSize: 11, color: SD.inkMute }}>
+                    All milestones earned
+                  </div>
+                )}
+                <div style={{ padding: '6px 14px 4px', borderTop: `1px solid ${SD.line}`, marginTop: 4 }}>
+                  <input
+                    type="date"
+                    value={msDate}
+                    onChange={e => setMsDate(e.target.value)}
+                    style={{
+                      width: '100%', fontSize: 11, padding: '4px 6px',
+                      border: `1px solid ${SD.line}`, borderRadius: 6,
+                      fontFamily: 'inherit', color: SD.inkMid, background: SD.paper,
+                    }}
+                  />
+                  <input
+                    value={msNote}
+                    onChange={e => setMsNote(e.target.value)}
+                    placeholder="Optional note"
+                    style={{
+                      width: '100%', fontSize: 11, padding: '4px 6px', marginTop: 4,
+                      border: `1px solid ${SD.line}`, borderRadius: 6,
+                      fontFamily: 'inherit', color: SD.inkMid, background: SD.paper,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1859,6 +2037,7 @@ export default function SchoolDetailClient({
   const { camps } = useCamps(schools)
   const { docs: callPrepDocs, refetch: refetchPrepDocs } = useCallPrepDocs(initialSchool.id)
   const { updates: statusUpdates, insertUpdate, updateUpdate, deleteUpdate } = useStatusUpdates(initialSchool.id)
+  const { milestones, upsertMilestone, removeMilestone } = useMilestones(initialSchool.id)
 
   const loading = schoolsLoading || logLoading || actionsLoading
 
@@ -1917,7 +2096,7 @@ export default function SchoolDetailClient({
     ? siblingSchools[currentIdx + 1]
     : null
 
-  const stage = deriveStage(school)
+  const stage = school.recruiting_stage ?? 1
   // Resolve target coach: primary → head coach → most recent active coach
   const targetCoach = (() => {
     const active = coaches.filter(c => c.is_active)
@@ -1954,6 +2133,10 @@ export default function SchoolDetailClient({
         nextSchool={nextSchool}
         contactLog={contactLog}
         onTierChange={async (tier) => { await updateSchool(school.id, { category: tier as School['category'] }) }}
+        onStageChange={async (s) => { await updateSchool(school.id, { recruiting_stage: s }) }}
+        milestones={milestones}
+        onUpsertMilestone={upsertMilestone}
+        onRemoveMilestone={removeMilestone}
       />
 
       {/* ── Content: summary + timeline (left) + sidebar (right) ── */}

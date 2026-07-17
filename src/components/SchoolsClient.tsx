@@ -11,7 +11,7 @@ const SchoolsMap = dynamic(() => import('./schools/SchoolsMap'), {
   ssr: false,
   loading: () => <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7A7570' }}>Loading map...</div>,
 })
-import { deriveStage, stageLabel, STAGE_LABELS } from '@/lib/stages'
+import { stageLabel, STAGE_LABELS } from '@/lib/stages'
 import {
   classifySchoolRecency,
   SCHOOL_RECENCY_STYLE,
@@ -616,7 +616,7 @@ export default function SchoolsClient({ user }: { user: User }) {
     .filter(s => s.category !== 'Nope' && s.status !== 'Inactive')
     .map(school => ({
       school,
-      stage:   deriveStage(school),
+      stage:   school.recruiting_stage ?? 1,
       recency: classifySchoolRecency(school, contactLog),
     }))
     .sort((a, b) => {

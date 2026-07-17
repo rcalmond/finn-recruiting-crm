@@ -346,6 +346,13 @@ export async function GET(req: NextRequest) {
         ).catch(err => console.error(`[gmail-sync] conv-summary failed for ${messageId}:`, err))
       }
 
+      // 6k. Fire-and-forget: raise recruiting_stage floor if contact evidence warrants it
+      if (schoolId && insertedRow?.id && ['full', 'partial'].includes(parseStatus)) {
+        import('@/lib/recruiting-stage').then(({ raiseStageFloor }) =>
+          raiseStageFloor(admin, schoolId)
+        ).catch(err => console.error(`[gmail-sync] stage-floor failed for ${messageId}:`, err))
+      }
+
       console.log(
         `[gmail-sync] ${startedAt} — ${parsed.direction} | ${parsed.isoDate} | ` +
         `school=${schoolId ? schoolId.slice(0, 8) + '…' : 'null'} | ` +

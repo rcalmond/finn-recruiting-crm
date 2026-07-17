@@ -25,6 +25,7 @@ export interface SchoolRow {
   status: string
   head_coach: string | null
   admit_likelihood: string | null
+  recruiting_stage: number
 }
 
 export interface CoachRow {
@@ -77,6 +78,12 @@ export interface StatusUpdateRow {
   created_at: string
 }
 
+export interface MilestoneRow {
+  milestone: string
+  occurred_on: string | null
+  note: string | null
+}
+
 export interface SchoolContext {
   school: SchoolRow | null
   coaches: CoachRow[]
@@ -87,6 +94,7 @@ export interface SchoolContext {
   strategicNotes: string | null
   statusUpdates: StatusUpdateRow[]
   currentAssets: CurrentAssets
+  milestones: MilestoneRow[]
 }
 
 export interface SchoolContextOptions {
@@ -107,7 +115,7 @@ export async function fetchSchoolContext(
   const queries: PromiseLike<{ data: any }>[] = [
     // 0. School details (superset of all routes' needs)
     admin.from('schools')
-      .select('id, name, short_name, category, division, conference, location, notes, status, head_coach, admit_likelihood')
+      .select('id, name, short_name, category, division, conference, location, notes, status, head_coach, admit_likelihood, recruiting_stage')
       .eq('id', schoolId)
       .single(),
     // 1. All active coaches
@@ -161,6 +169,14 @@ export async function fetchSchoolContext(
       .limit(10)
   )
 
+  // 8. Milestones (always — lightweight)
+  queries.push(
+    admin.from('school_milestones')
+      .select('milestone, occurred_on, note')
+      .eq('school_id', schoolId)
+      .order('occurred_on')
+  )
+
   const results = await Promise.all(queries)
 
   const school = results[0].data as SchoolRow | null
@@ -176,6 +192,9 @@ export async function fetchSchoolContext(
   // Status updates index: 7 if no action items, 6+1=7 if action items
   const statusUpdatesIdx = options.includeActionItems ? 7 : 6
   const rawStatusUpdates = (results[statusUpdatesIdx]?.data ?? []) as StatusUpdateRow[]
+  // Milestones index: statusUpdatesIdx + 1
+  const milestonesIdx = statusUpdatesIdx + 1
+  const rawMilestones = (results[milestonesIdx]?.data ?? []) as MilestoneRow[]
 
   // Process coaches
   const coaches: CoachRow[] = rawCoaches.map(c => ({
@@ -232,5 +251,6 @@ export async function fetchSchoolContext(
     strategicNotes,
     statusUpdates: rawStatusUpdates,
     currentAssets,
+    milestones: rawMilestones,
   }
 }

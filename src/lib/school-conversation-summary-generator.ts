@@ -71,6 +71,7 @@ function buildPrompt(
   declineHistory: Awaited<ReturnType<typeof fetchSchoolContext>>['declineHistory'],
   strategicNotes: string | null,
   statusUpdates: Awaited<ReturnType<typeof fetchSchoolContext>>['statusUpdates'],
+  milestones: Awaited<ReturnType<typeof fetchSchoolContext>>['milestones'],
   uncoveredMessages: Message[],
   coveredMessages: Message[],
   currentDate: string,
@@ -103,6 +104,9 @@ RECOMMENDED ACTION:
 - rationale: one sentence explaining why this is the next move.
 - If Finn's strategic notes mention something specific to do, that takes precedence over your own analysis.
 
+STAGE vs TEMPERATURE:
+Recruiting stage measures depth reached (high-water mark), NOT priority or recency. A stage-4 school can be cold; a stage-3 school can be hot. Recommended actions should respect both — a stage-4 cold school may warrant a re-warm framing referencing prior evaluation, not a cold intro.
+
 DATE AWARENESS:
 Today's date is ${currentDate}. Do not reference past events as if they are still actionable.
 
@@ -128,6 +132,9 @@ Return ONLY the JSON object. No commentary before or after.`
   parts.push(`SCHOOL: ${school.name}`)
   parts.push(`Tier: ${school.category} | Division: ${school.division} | Conference: ${school.conference ?? 'N/A'} | Location: ${school.location ?? 'N/A'}`)
   parts.push(`Status: ${school.status}`)
+  // Recruiting stage (depth reached, not temperature — recency signal handles temperature)
+  const stageLabels: Record<number, string> = { 1: 'Research', 2: 'Reach out', 3: 'Engage', 4: 'Evaluate', 5: 'Advance', 6: 'Decide' }
+  parts.push(`Recruiting stage: ${school.recruiting_stage} (${stageLabels[school.recruiting_stage] ?? 'Unknown'})`)
   if (school.admit_likelihood) parts.push(`Admit likelihood: ${school.admit_likelihood}`)
   if (school.notes) parts.push(`School notes: ${school.notes}`)
   parts.push('')
@@ -138,6 +145,16 @@ Return ONLY the JSON object. No commentary before or after.`
     for (const c of coaches) {
       const flags = [c.is_primary ? 'primary' : null, c.needs_review ? 'needs_review' : null].filter(Boolean).join(', ')
       parts.push(`- id="${c.id}" ${c.name} (${c.role ?? 'unknown role'})${flags ? ` [${flags}]` : ''}`)
+    }
+    parts.push('')
+  }
+
+  // Milestones
+  if (milestones.length > 0) {
+    parts.push('EARNED MILESTONES:')
+    const msLabels: Record<string, string> = { seen_live: 'Seen live', written_evaluation: 'Written evaluation', pre_read_requested: 'Pre-read requested', pre_read_passed: 'Pre-read passed', visit: 'Visit', support_offered: 'Support offered' }
+    for (const m of milestones) {
+      parts.push(`- ${msLabels[m.milestone] ?? m.milestone}${m.occurred_on ? ` (${m.occurred_on})` : ''}${m.note ? `: ${m.note}` : ''}`)
     }
     parts.push('')
   }
@@ -237,7 +254,7 @@ export async function generateConversationSummary(
       .eq('school_id', schoolId),
   ])
 
-  const { school, coaches, contactLog, upcomingCamps, declineHistory, strategicNotes, statusUpdates } = ctx
+  const { school, coaches, contactLog, upcomingCamps, declineHistory, strategicNotes, statusUpdates, milestones } = ctx
   if (!school) return null
 
   // Skip non-target tiers
@@ -251,7 +268,7 @@ export async function generateConversationSummary(
 
   const { system, user } = buildPrompt(
     school, coaches, contactLog, upcomingCamps, declineHistory,
-    strategicNotes, statusUpdates, uncoveredMessages, coveredMessages, currentDate,
+    strategicNotes, statusUpdates, milestones, uncoveredMessages, coveredMessages, currentDate,
   )
 
   const client = new Anthropic()

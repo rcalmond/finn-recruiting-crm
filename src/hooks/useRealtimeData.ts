@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFinnStatus, CampFinnStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message, CallPrepDoc, SchoolStatusUpdate, ShareWithCoach } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFinnStatus, CampFinnStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message, CallPrepDoc, SchoolStatusUpdate, ShareWithCoach, SchoolMilestone, MilestoneType } from '@/lib/types'
 import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp as updateCampMutation, updateFinnStatus as updateFinnStatusMutation, deleteCamp as deleteCampMutation, addSchoolAttendee as addSchoolAttendeeMutation, removeSchoolAttendee as removeSchoolAttendeeMutation } from '@/lib/camps'
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
@@ -837,4 +837,54 @@ export function useStatusUpdates(schoolId?: string) {
   }, [supabase])
 
   return { updates, loading, insertUpdate, updateUpdate, deleteUpdate, refetch: fetchUpdates }
+}
+
+// ─── School Milestones ──────────────────────────────────────────────────────
+
+export function useMilestones(schoolId?: string) {
+  const [milestones, setMilestones] = useState<SchoolMilestone[]>([])
+  const supabase = useMemo(() => createClient(), [])
+
+  const fetchMilestones = useCallback(async () => {
+    if (!schoolId) { setMilestones([]); return }
+    const { data, error } = await supabase
+      .from('school_milestones')
+      .select('*')
+      .eq('school_id', schoolId)
+      .order('occurred_on', { ascending: true })
+    if (!error && data) setMilestones(data as SchoolMilestone[])
+  }, [supabase, schoolId])
+
+  useEffect(() => {
+    fetchMilestones()
+    const channel = supabase
+      .channel(`milestones-${schoolId ?? 'none'}-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'school_milestones' }, fetchMilestones)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [fetchMilestones, supabase, schoolId])
+
+  const upsertMilestone = useCallback(async (ms: { school_id: string; milestone: MilestoneType; occurred_on?: string | null; note?: string | null }) => {
+    const { data, error } = await supabase
+      .from('school_milestones')
+      .upsert(ms, { onConflict: 'school_id,milestone' })
+      .select()
+      .single()
+    if (!error && data) {
+      setMilestones(prev => {
+        const existing = prev.find(m => m.milestone === ms.milestone)
+        if (existing) return prev.map(m => m.milestone === ms.milestone ? data as SchoolMilestone : m)
+        return [...prev, data as SchoolMilestone]
+      })
+    }
+    return { data, error }
+  }, [supabase])
+
+  const removeMilestone = useCallback(async (id: string) => {
+    const { error } = await supabase.from('school_milestones').delete().eq('id', id)
+    if (!error) setMilestones(prev => prev.filter(m => m.id !== id))
+    return error
+  }, [supabase])
+
+  return { milestones, upsertMilestone, removeMilestone }
 }

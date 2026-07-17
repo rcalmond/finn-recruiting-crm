@@ -296,9 +296,27 @@ coach_email         text
 admit_likelihood    'Likely' | 'Target' | 'Reach' | 'Far Reach'
 rq_status           text   -- e.g. "Completed", "To Do", "Updated"
 videos_sent         boolean
+recruiting_stage    smallint not null default 1
+                    -- 1=Research, 2=Reach out, 3=Engage, 4=Evaluate, 5=Advance, 6=Decide
+                    -- Auto-derived floor for 1-3 from contact_log; manual promotion for 4-6
+                    -- High-water mark: never auto-demotes
 notes               text
 created_at          timestamptz
 updated_at          timestamptz
+\`\`\`
+
+### Table: \`school_milestones\` (migration 057)
+\`\`\`
+id            uuid PK
+school_id     uuid FK → schools.id (cascade delete)
+milestone     text not null
+              -- 'seen_live' | 'written_evaluation' | 'pre_read_requested' |
+              -- 'pre_read_passed' | 'visit' | 'support_offered'
+occurred_on   date
+note          text
+created_at    timestamptz
+updated_at    timestamptz
+unique (school_id, milestone)
 \`\`\`
 
 ### Table: \`action_items\`
@@ -764,6 +782,7 @@ const FALLBACK_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-07-17 | Recruiting funnel rework phase 1: revised 6-stage ladder (Research, Reach out, Engage, Evaluate, Advance, Decide) stored as schools.recruiting_stage (migration 057) — auto-derived floor for stages 1-3 from contact_log (never demotes), manual promotion for 4-6 via header popover. New school_milestones table + badges (seen_live, written_evaluation, pre_read_requested, pre_read_passed, visit, support_offered), manual-only. Old status-derived step display replaced. Stage + milestones added to LLM context. Backfill seeded IIT and Rochester at stage 4 with earned milestones; Mines at 4 (striker-era evaluation, reactivation planned). | Feature + Schema |
 | 2026-07-14 | Asset library: Edit action added to asset cards — name, type (category-constrained dropdown), description, and URL (links) editable post-upload. Warning shown when retyping away from LLM-consumed types (resume, transcript, reels, SR); retyping to resume prompts Re-parse rather than auto-parsing. Storage paths unchanged on retype. New EditAssetModal component; Edit button now visible on both file and link cards. | Feature |
 | 2026-07-14 | Asset library: "Test Scores" added as a file asset type (SAT reports, AP score reports). Migration 056 extends the DB check constraint on assets.type. TypeScript AssetType union, AddFileModal dropdown, AssetCard labels/colors, VersionHistoryDrawer labels, and upload route storage folder all updated (5 sites). Resume parser confirmed not triggered by test_scores uploads (gated on type === 'resume'). | Feature |
 | 2026-07-12 | Draft flow now seeded by the recommended action: clicking a summary card's action button passes the recommendation into DraftModal — shown as framing context, pre-fills "anything else to cover," pre-checks only inventory items the recommendation references (source_message_ids), and anchors buildEmailDraftPrompt via a RECOMMENDED NEXT STEP section. Summary generator schema extended with optional recommended_coach_id (jsonb, no migration) so the draft targets the coach the recommendation names (Robinson vs. default chain); null-safe for existing cached summaries. Per-coach draft buttons and plan-only flow unchanged. | Feature + Bug fix |

@@ -40,7 +40,48 @@ export interface School {
   aliases: string[]
   latitude: number | null
   longitude: number | null
+  recruiting_stage: RecruitingStage
   sort_order?: number | null
+  created_at: string
+  updated_at: string
+}
+
+// ─── Recruiting Funnel ──────────────────────────────────────────────────────
+
+export type RecruitingStage = 1 | 2 | 3 | 4 | 5 | 6
+
+export const STAGE_META: Record<RecruitingStage, { label: string; short: string }> = {
+  1: { label: 'Research',   short: 'On the list, no contact' },
+  2: { label: 'Reach out',  short: 'Intro sent, chasing response' },
+  3: { label: 'Engage',     short: 'Substantive two-way conversation' },
+  4: { label: 'Evaluate',   short: 'Coach actively assessing Finn' },
+  5: { label: 'Advance',    short: 'Post-evaluation forward motion' },
+  6: { label: 'Decide',     short: 'Support/offer on the table' },
+}
+
+export type MilestoneType =
+  | 'seen_live'
+  | 'written_evaluation'
+  | 'pre_read_requested'
+  | 'pre_read_passed'
+  | 'visit'
+  | 'support_offered'
+
+export const MILESTONE_META: Record<MilestoneType, { label: string; icon: string; bg: string; color: string }> = {
+  seen_live:           { label: 'Seen live',           icon: '👁', bg: '#DBEAFE', color: '#1E40AF' },
+  written_evaluation:  { label: 'Written evaluation',  icon: '📝', bg: '#D7EFE0', color: '#2D6A4F' },
+  pre_read_requested:  { label: 'Pre-read requested',  icon: '📋', bg: '#FEF3C7', color: '#92400E' },
+  pre_read_passed:     { label: 'Pre-read passed',     icon: '✓',  bg: '#DCFCE7', color: '#166534' },
+  visit:               { label: 'Visit',               icon: '🏫', bg: '#E0E7FF', color: '#3730A3' },
+  support_offered:     { label: 'Support offered',     icon: '🤝', bg: '#FCE4E8', color: '#9A0B23' },
+}
+
+export interface SchoolMilestone {
+  id: string
+  school_id: string
+  milestone: MilestoneType
+  occurred_on: string | null
+  note: string | null
   created_at: string
   updated_at: string
 }

@@ -664,6 +664,13 @@ async function handleOutboundCC(
         generateAndStoreConversationSummary(admin, schoolId)
       ).catch(err => console.error(`[sg-inbound] conv-summary failed:`, err))
     }
+
+    // 10f. Fire-and-forget: raise recruiting_stage floor
+    if (['full', 'partial'].includes(parseStatus)) {
+      import('@/lib/recruiting-stage').then(({ raiseStageFloor }) =>
+        raiseStageFloor(admin, schoolId)
+      ).catch(err => console.error(`[sg-inbound] stage-floor failed:`, err))
+    }
   }
 
   console.log(
@@ -873,6 +880,13 @@ export async function POST(req: NextRequest) {
       import('@/lib/school-conversation-summary-generator').then(({ generateAndStoreConversationSummary }) =>
         generateAndStoreConversationSummary(admin, schoolId)
       ).catch(err => console.error(`[sg-inbound] conv-summary failed:`, err))
+    }
+
+    // Fire-and-forget: raise recruiting_stage floor
+    if (['full', 'partial'].includes(parseStatus)) {
+      import('@/lib/recruiting-stage').then(({ raiseStageFloor }) =>
+        raiseStageFloor(admin, schoolId)
+      ).catch(err => console.error(`[sg-inbound] stage-floor failed:`, err))
     }
   }
 
