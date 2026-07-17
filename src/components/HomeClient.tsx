@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getStrategicPrompts, getCurrentWeekStart } from '@/lib/strategic-prompts'
 import { isTargetTier } from '@/lib/awaiting-reply'
 import StatsStrip from './home/StatsStrip'
+import FunnelGrid from './home/FunnelGrid'
 import HomeSchoolCard from './home/HomeSchoolCard'
 import StrategicSection from './today/StrategicSection'
 import BatchReelModal from './today/BatchReelModal'
@@ -216,6 +217,9 @@ export default function HomeClient({
             camps={camps}
           />
         </section>
+
+        {/* Funnel grid */}
+        <FunnelGrid schools={schools} contactLog={contactLog} />
 
         {/* School cards */}
         <section style={{ marginBottom: 40 }}>
