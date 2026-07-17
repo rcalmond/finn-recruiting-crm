@@ -1,6 +1,7 @@
 import type { Question } from '@/lib/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchSchoolContext, type CurrentAssets, type StatusUpdateRow } from '@/lib/school-context'
+import { RECRUITING_JUDGMENT } from '@/lib/recruiting-judgment'
 
 // Legacy type alias — used by todayLogic.ts for email draft mode tracking
 export type EmailType = 'first_contact' | 'wingback_update' | 'follow_up' | 'post_camp' | 'visit_request' | 'academic_update' | 'reply'
@@ -288,6 +289,9 @@ Avoid closes like: "I look forward to the opportunity to discuss my candidacy fu
   sys.push('')
 
   sys.push(DATE_AWARENESS_RULE(currentDate))
+  sys.push('')
+
+  sys.push(RECRUITING_JUDGMENT)
   sys.push('')
 
   // Voice references

@@ -9,6 +9,7 @@
  */
 
 import type { SchoolRow, CoachRow, ContactLogRow, CampRow, CurrentAssets } from './school-context'
+import { RECRUITING_JUDGMENT } from './recruiting-judgment'
 
 // ─── Output schema (matches docx generator input) ──────────────────────────
 
@@ -166,7 +167,9 @@ Academic Anchor and Part 1 Background: When identifying academic pathways, prior
   - The school's engineering programs that align with Finn's secondary interest
 If both exist, list chemistry first as it matches Finn's primary stated major, then engineering as a secondary anchor. If only one exists, lead with whichever is present.
 
-When you have completed your research, produce the structured JSON output. Return ONLY valid JSON matching the schema — no markdown fences, no preamble, no trailing text.`
+When you have completed your research, produce the structured JSON output. Return ONLY valid JSON matching the schema — no markdown fences, no preamble, no trailing text.
+
+${RECRUITING_JUDGMENT}`
 }
 
 export function buildCallPrepUserPrompt(params: {

@@ -15,6 +15,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Message, RecommendedAction } from '@/lib/types'
 import { fetchSchoolContext } from '@/lib/school-context'
+import { RECRUITING_JUDGMENT } from '@/lib/recruiting-judgment'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -106,6 +107,8 @@ RECOMMENDED ACTION:
 
 STAGE vs TEMPERATURE:
 Recruiting stage measures depth reached (high-water mark), NOT priority or recency. A stage-4 school can be cold; a stage-3 school can be hot. Recommended actions should respect both — a stage-4 cold school may warrant a re-warm framing referencing prior evaluation, not a cold intro.
+
+${RECRUITING_JUDGMENT}
 
 DATE AWARENESS:
 Today's date is ${currentDate}. Do not reference past events as if they are still actionable.

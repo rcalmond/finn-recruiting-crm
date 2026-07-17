@@ -12,6 +12,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import type { Message } from '@/lib/types'
+import { RECRUITING_JUDGMENT } from '@/lib/recruiting-judgment'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -129,7 +130,9 @@ RULE: Do not suggest topics that reference past dates or completed events as if 
 Output: JSON only, no markdown fence.
 {"items": [{"message_id": "uuid-from-uncovered-list", "reasoning": "1-2 sentences", "timing": "send_now", "priority": 1, "tier": "primary"}]}
 
-Use ONLY message_ids from the UNCOVERED MESSAGES list — never invent IDs or suggest covered ones. If fewer than 3 uncovered messages exist, return what you have (don't pad).`
+Use ONLY message_ids from the UNCOVERED MESSAGES list — never invent IDs or suggest covered ones. If fewer than 3 uncovered messages exist, return what you have (don't pad).
+
+${RECRUITING_JUDGMENT}`
 
   // Build user message
   const usr: string[] = []

@@ -7,6 +7,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
+import { RECRUITING_JUDGMENT } from '@/lib/recruiting-judgment'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -65,7 +66,9 @@ Hard voice rules:
 
 Tone: direct, genuine, a little understated. Specific over generic. Avoid recruiting-spam phrasing. Length: 100-180 words for fresh conversations, 60-120 words for established relationships.
 
-Output: write the email body only. Start with a natural greeting like 'Coach {LastName},'. Do not include a subject line. Sign as Finn (just 'Finn' on its own line at the end, no signature block, that's handled separately by the email client).`
+Output: write the email body only. Start with a natural greeting like 'Coach {LastName},'. Do not include a subject line. Sign as Finn (just 'Finn' on its own line at the end, no signature block, that's handled separately by the email client).
+
+${RECRUITING_JUDGMENT}`
 
 export async function generateCampaignEmailBody(
   input: GenerateInput
