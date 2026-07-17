@@ -2186,6 +2186,12 @@ SCHOOL: Middlebury
 ID Camp Info
   Next Action: decide about the camp on 8/15 - 8/16 (Finn) — due 2026-07-12
   Contact Log (3 shown):
+    [2026-07-08] Outbound via Sports Recruits — Tim Peng:
+      Coach Peng,
+      
+      Quick update. I'm registered for the August 15-16 clinic in Middlebury and looking forward to getting on campus and training with your staff.
+      
+      AP scores also came back: 5 in Calc AB, 3 in Chem, 4 in APUSH. Next year I've got Calc BC, AP Physics, and AP Stats lined up, still pointed a...
     [2026-07-08] Inbound via Sports Recruits — Tim Peng:
       Thanks Finn!
       
@@ -2195,12 +2201,6 @@ ID Camp Info
       Assistant Men’s Soccer Coach
       
       Middlebury College
-    [2026-07-08] Outbound via Sports Recruits — Tim Peng:
-      Coach Peng,
-      
-      Quick update. I'm registered for the August 15-16 clinic in Middlebury and looking forward to getting on campus and training with your staff.
-      
-      AP scores also came back: 5 in Calc AB, 3 in Chem, 4 in APUSH. Next year I've got Calc BC, AP Physics, and AP Stats lined up, still pointed a...
     [2026-06-10] Inbound via Sports Recruits — Tim Peng:
       Excellent boss
       
@@ -2262,6 +2262,10 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
   RQ Status: Completed
   Videos Sent: Yes
   Contact Log (3 shown):
+    [2026-07-12] Outbound via Phone — Dylan Milkent:
+      Had a call with Coach Milkent to discuss where we are and what's next.  
+      
+      He asked what I've been up to recently.  We discussed the different ID camps I've been to and the ones I'm going to next.  We talked about high school soccer and academics in general.  We talked about next steps which is an...
     [2026-07-12] Inbound via Email — Dylan Milkent:
       Here is the application: https://apply.illinoistech.edu/register/?id=2f9d7dbe-decf-4002-9bb1-1c645ac4080f.
       
@@ -2271,10 +2275,6 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
       
       Dylan Milkent
       Illinois Tech Men's Soccer
-    [2026-07-12] Outbound via Phone — Dylan Milkent:
-      Had a call with Coach Milkent to discuss where we are and what's next.  
-      
-      He asked what I've been up to recently.  We discussed the different ID camps I've been to and the ones I'm going to next.  We talked about high school soccer and academics in general.  We talked about next steps which is an...
     [2026-07-12] Outbound via Email — Dylan Milkent:
       Hey Coach,
       
@@ -2509,20 +2509,6 @@ SCHOOL: Clark
 Has a shared engineering program with Columbia
   Next Action: Pre Crimson camp email (Finn) — due 2026-07-15
   Contact Log (3 shown):
-    [2026-06-10] Inbound via Email — Samuel Matteson:
-      Hi Finn,
-      
-      Sounds good, we are looking forward to connecting soon!
-      
-      Thank you,
-      
-      Sam Matteson
-      Head Men's Soccer Coach
-      smatteson@clarku.edu
-      (860)-514-2237
-      Complete Clark Men's Soccer Questionnaire<https://questionnaires.armssoftware.com/f4bb9a13e9ba>
-      [cid:698f31be-c07a-4d75-a994-141b731c2ff3]
-      ______...
     [2026-06-10] Outbound via Phone:
       Coach Matteson,
       
@@ -2542,6 +2528,20 @@ Has a shared engineering program with Columbia
       smatteson@clarku.edu
       (860)-514-2237
       Complete Clark Men's Soccer Questionnaire
+    [2026-06-10] Inbound via Email — Samuel Matteson:
+      Hi Finn,
+      
+      Sounds good, we are looking forward to connecting soon!
+      
+      Thank you,
+      
+      Sam Matteson
+      Head Men's Soccer Coach
+      smatteson@clarku.edu
+      (860)-514-2237
+      Complete Clark Men's Soccer Questionnaire<https://questionnaires.armssoftware.com/f4bb9a13e9ba>
+      [cid:698f31be-c07a-4d75-a994-141b731c2ff3]
+      ______...
 
 SCHOOL: Colgate
   Status: Ongoing Conversation
@@ -2709,12 +2709,9 @@ SCHOOL: Milwaukee School of Engineering (MSOE)
       -Wants my coaches number to ask him about me
       -Kind of a strange call, gave me short answers that didn't really answer my questions
     [2026-06-03] Outbound via Phone:
+      Sounds great!
+    [2026-06-03] Outbound via Phone:
       Can you do tomorrow at 4pm, Friday at 1pm or Friday at 3pm?
-    [2026-06-03] Inbound via Phone — Rob Harrington:
-      Finn
-      We never connected
-      I apologize.
-      Pick a day
 
 SCHOOL: Princeton
   Status: Ongoing Conversation
@@ -2803,6 +2800,8 @@ SCHOOL: St. Lawrence University
   Videos Sent: No
   Notes: Added for PPA Penn 1 (July 10-12, 2026) — Coach Toshack (HC) confirmed on field. SLAC framing: chemistry or math major; 3/2 engineering path. Liberty League (same as RIT/RPI).
   Contact Log (3 shown):
+    [2026-07-12] Inbound via In Person — Mike Toshack:
+      PPA Penn 1 written evaluation from Coach Mike Toshack (St. Lawrence HC). Ratings 1-5: Technical 4, Tactical 4, Physical 5, Psychological 5. Top three strengths: Consistent, 1v1 Defending, Getting Forward. One thing to work at: Range of passing. Collegiate level projection (circled): Division 2/Hi...
     [2026-07-12] Outbound via Email — Matt Toshack:
       Coach Toshack,
       
@@ -2822,15 +2821,6 @@ SCHOOL: St. Lawrence University
       To: Michael Toshack <mtoshack@stlawu.edu>
       Cc: finn@in.finnsoccer.com <finn@in.finnsoccer.com>
       ...
-    [2026-07-08] Outbound via Email — Matt Toshack:
-      Coach Toshack,
-      
-      My name is Finn Almond. I'm a 2027 left wingback with Albion SC Boulder
-      County MLS NEXT Academy in Colorado. I saw you're confirmed on field for
-      PPA Penn 1 this weekend (July 10-12), and I wanted to introduce myself
-      before camp.
-      
-      Quick profile. This past MLS NEXT season I started ...
 
 SCHOOL: Tufts
   Status: Ongoing Conversation
@@ -2920,6 +2910,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-07-17 | FunnelGrid polish: cell chip truncation removed — all schools render in their cells (grid grows vertically as needed; mobile fallback also shows full lists). Prospecting row label spacing fixed (column widened 90px → 100px). | UX |
 | 2026-07-17 | Recruiting funnel rework phase 2: depth × temperature quadrant grid on Home (collapsible, between stats strip and school cards). Columns = six recruiting stages, rows = recency states, chips = active A, B, C schools, clickable. Action-labeled quadrant zones (Close, Convert, Re-warm, Nudge) split at stage 3-4 and Active-Cooling. Transitional Declined signal renders in-grid with a triage marker; terminal declines exit via Nope tier. Mobile renders a stacked four-bucket fallback. | Feature + UX |
 | 2026-07-17 | Recruiting funnel rework phase 1: revised 6-stage ladder (Research, Reach out, Engage, Evaluate, Advance, Decide) stored as schools.recruiting_stage (migration 057) — auto-derived floor for stages 1-3 from contact_log (never demotes), manual promotion for 4-6 via header popover. New school_milestones table + badges (seen_live, written_evaluation, pre_read_requested, pre_read_passed, visit, support_offered), manual-only. Old status-derived step display replaced. Stage + milestones added to LLM context. Backfill seeded IIT and Rochester at stage 4 with earned milestones; Mines at 4 (striker-era evaluation, reactivation planned). | Feature + Schema |
 | 2026-07-14 | Asset library: Edit action added to asset cards — name, type (category-constrained dropdown), description, and URL (links) editable post-upload. Warning shown when retyping away from LLM-consumed types (resume, transcript, reels, SR); retyping to resume prompts Re-parse rather than auto-parsing. Storage paths unchanged on retype. New EditAssetModal component; Edit button now visible on both file and link cards. | Feature |

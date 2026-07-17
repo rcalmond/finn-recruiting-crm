@@ -55,7 +55,6 @@ const ZONE_LABEL = {
 }
 
 const COLLAPSE_KEY = 'funnel-grid-collapsed'
-const MAX_CHIPS = 3
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -190,7 +189,7 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
           {/* Desktop grid */}
           <div className="funnel-grid-desktop" style={{
             display: 'grid',
-            gridTemplateColumns: '90px repeat(6, 1fr)',
+            gridTemplateColumns: '100px repeat(6, 1fr)',
             gridTemplateRows: 'auto repeat(5, 1fr)',
             border: `1px solid ${SD.line}`,
             borderRadius: 10,
@@ -269,21 +268,9 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
                         </span>
                       )}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                        {arr.slice(0, MAX_CHIPS).map(s => (
+                        {arr.map(s => (
                           <Chip key={s.id} school={s} onClick={() => router.push(`/schools/${s.id}`)} />
                         ))}
-                        {arr.length > MAX_CHIPS && (
-                          <span
-                            title={arr.slice(MAX_CHIPS).map(s => s.short_name ?? s.name).join(', ')}
-                            style={{
-                              fontSize: 9, fontWeight: 700, color: SD.inkLo,
-                              padding: '1px 5px', borderRadius: 999,
-                              background: SD.paperDeep, cursor: 'default',
-                            }}
-                          >
-                            +{arr.length - MAX_CHIPS}
-                          </span>
-                        )}
                       </div>
                     </div>
                   )
