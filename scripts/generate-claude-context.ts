@@ -265,6 +265,8 @@ account, Sports Recruits profile management).
 | Academic Interest | Mechanical or Aerospace Engineering (schools with engineering); Chemistry or Math (SLACs, with 3/2 engineering path) |
 | Email | finnalmond08@gmail.com |
 
+**Written evaluations on record (July 2026):** Streb/Rochester (June 20: strong 1v1 defender, passing range; develop quickness, aerials; "second tier"). Bordwick/Lafayette (July 15: not top pool at LB, roster depth). Toshack/St. Lawrence (July 12: 4/4/5/5, D2/high-D3 → low-D3 projection, strengths: consistent, 1v1 defending, getting forward). Projections triangulate to mid-D3 sweet spot; top-D3/NESCAC correctly classified as reaches.
+
 ---
 
 ## 3. Key Recruiting Assets
@@ -753,6 +755,59 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 3. *Buttons that were never wired look identical to buttons that broke.* The Add School placeholder survived ~3 months because its failure mode (click, nothing) is indistinguishable from a silent-bail regression. When shipping visual-first, either wire a stub that surfaces "not implemented" or don't ship the control.
 
 4. *Unused columns cost attention.* Stage and Progress were accurate but unused — every glance at the table paid a small scan tax on them. Removing display columns while preserving the underlying field and its filter keeps the data model intact and reclaims the space for what Finn actually wants (next steps).
+
+### Coach Scraper Hardening (July 12, 2026)
+
+**1. False "scraper stale" banner.** The scraper route had two early-return paths that skipped completeRun, and the main loop had no try/catch — unhandled exceptions 500'd the route leaving cron_runs rows stuck 'running' forever. The health check requires status IN (success, partial), so a scraper that ran but crashed looked identical to one that never ran. Fix: all exit paths complete the run (success, partial on per-school errors, failed on fatal). Same principle as the May 19 no-silent-bail rule, applied to cron instrumentation: the audit trail must record the unhappy paths, which is exactly when it's needed.
+
+**2. Pending-proposal dedup.** The May 5 Bug A dedup only suppressed re-proposals after terminal rejection; unactioned PENDING proposals duplicated every run. Extended to skip when a pending row with the same signature exists — one pending proposal per unique change, ever.
+
+**3. Role oscillation guard.** Karl Schroeder (Colby) accumulated 15 proposals over 3 months — Haiku alternately parsing ambiguous page text as "Assistant Coach" vs "Other," including a false departure (applied July 5 while he remained on the page), which then caused endless coach_added re-proposals since is_active=false excluded him from the diff. Fixes: Karl reactivated with role Assistant Coach; new guard skips role_changed proposals that are the exact inverse of one applied for the same coach within 30 days (logged as role_oscillation). A human already picked a direction; the scraper doesn't relitigate it.
+
+**4. Tier filter.** Scraper now only runs schools where category IN (A,B,C) and status != Inactive. Nope-tier schools (e.g., DU) no longer scraped; historical coach records untouched.
+
+**5. Manual prod verification.** A dashboard-triggered run confirmed all fixes live: 24 A/B/C schools scraped, DU skipped, oscillation guard caught Yuri Nascimento's inverse proposal minutes after his role change was applied. Known false-positive pattern reconfirmed: hand-added coaches from camp lists (Peters/Cornell, Sherman/Emory) propose as "departed" until they appear on official staff pages — reject, don't apply.
+
+**Architectural patterns reinforced:**
+
+1. *Audit trails must record failure paths.* An instrumentation call only on the happy path is worse than none — it converts crashes into silent staleness.
+2. *Dedup must cover pending state, not just terminal state.*
+3. *LLM parsers oscillate on ambiguous input; guards should detect inversion of recent human decisions rather than trying to make the parser deterministic.*
+4. *Scope expensive automation to the target set* (tier filter) — the scraper serves the pipeline, not the database.
+
+### Draft Threading, Asset Library + Auth (July 14-15, 2026)
+
+**1. Recommended action → draft flow threading.** The conversation summary's recommended_action was displayed but ignored by DraftModal, which seeded only from the message plan — the user read a specific recommendation ("post-camp thank-you to Robinson"), clicked Draft, and got a generic inventory email addressed to the wrong coach. Fix: recommendation passed through as a prop from all three surfaces (school detail card, Home card, schools-list expanded row via a ?action=draft URL param), shown as framing context, pre-filling "anything else to cover," pre-checking only source_message_ids items, and anchoring buildEmailDraftPrompt via a RECOMMENDED NEXT STEP section. Summary generator schema extended with recommended_coach_id (jsonb, no migration) — the generator emits the target coach's id at generation time rather than the modal string-parsing names. Null-safe for cached summaries.
+
+**2. test_scores asset type + call_prep archaeology.** Adding the type surfaced a constraint violation: three orphaned type='call_prep' asset rows from the June 4 debug marathon (triplicate IIT Milkent docx generations, all is_current=false) predating the call_prep_docs migration. Cleaned (storage via dashboard per the protect_delete guard, rows via SQL), migration 056 then applied cleanly. The exhaustive Record<AssetType,...> maps surfaced all five label/badge sites at compile time.
+
+**3. Asset edit affordance.** Assets had no way to edit name/type/description post-upload. Diagnosis found the Edit button existed for link cards but file cards' onEdit was wired to a no-op — the second "phantom button" found this month (Add School was the first). Full edit modal shipped: category-constrained type dropdown, warning when retyping away from LLM-consumed types, retype-to-resume prompts Re-parse rather than auto-parsing.
+
+**4. Gmail OAuth root cause.** The recurring every-5-10-days Gmail auth error was the Google Cloud OAuth app sitting in Testing mode, which hard-expires refresh tokens after 7 days. Published the app (unverified — the only user is Finn's account); tokens no longer expire. No code change. Also that week: git auth moved from HTTPS+token to SSH after a token rotation broke pushes.
+
+**Architectural patterns reinforced:**
+
+1. *When two systems both "know" the answer, the fresher one must feed the older one* — the recommendation/draft seam existed because two brains (summary vs message plan) evolved independently.
+2. *Schema constraints are archaeology tools* — the 056 violation surfaced debris no one knew existed.
+3. *Phantom buttons: visual-first shipping without wired handlers is indistinguishable from regression. Grep for no-op handlers when auditing old surfaces.*
+4. *Emit structured references (coach ids) at LLM generation time instead of parsing prose downstream.*
+
+### Recruiting Funnel Rework + Judgment Doctrine (July 17, 2026)
+
+**1. The two-axis model.** The old 6-step stage display (derived from the status field, built April) conflated commitment depth with evaluation events and couldn't express the endgame phase now arriving (pre-reads, board placements). Replaced with: a revised 6-stage ladder (Research, Reach out, Engage, Evaluate, Advance, Decide) stored as schools.recruiting_stage — measuring DEPTH reached, never auto-demoting, auto-floored 1-3 from contact_log (substantive coach inbound = 3), manual promotion for 4-6 since those require judgment about coach statements — plus school_milestones badges (seen_live, written_evaluation, pre_read_requested, pre_read_passed, visit, support_offered; manual-only, unique per school). Key rules from pressure-testing: stage 4 entry evidence must be observable coach behavior, not Finn's submissions; stage ≠ priority (Rochester is stage 4 and cold — depth and temperature are independent axes); terminal declines exit via Nope tier rather than any special state (Mines stays plotted at stage 4 × Cooling: declined as a striker, reactivation planned with the wingback profile under the new HC). Migrations 057. Backfill: 54 schools staged; IIT, Rochester, Mines seeded at 4.
+
+**2. The quadrant grid.** New collapsible FunnelGrid on Home (between stats strip and cards): stages as columns, recency states as rows, school chips in cells — a grid of ordinal categories, deliberately NOT a scatter. Action-labeled quadrant zones split at stage 3|4 and Active|Cooling: Close (deep+hot), Convert (shallow+hot), Re-warm (deep+cold), Nudge (shallow+cold). Re-warm is the quadrant the old funnel couldn't express — schools that spent real evaluation effort and parked (Rochester, Mines). Cell truncation removed in a follow-up — all chips render. Reuses classifySchoolRecency (one-canonical-classifier rule).
+
+**3. The judgment doctrine layer.** Live case: after Lafayette's soft-negative ("not in our top pool at the position" — Bordwick, post-PPA), the summary correctly recommended a gracious reply but also suggested asking "what would move him into their top pool" — wrong etiquette from a lower board tier (solicits development feedback in response to a roster-depth verdict; reads as not hearing the message). Root cause: prompts encoded mechanics but no recruiting philosophy. New RECRUITING_JUDGMENT constant (8 principles: roster-math vs development verdicts; no what-would-it-take asks from below; acknowledge coach directness; investment matches reciprocity; state plans over asking permission; no premature commitment signals; one purpose per email; default to the graceful version) injected into all five LLM surfaces. Verified: Lafayette's regenerated recommendation dropped the ask and cited the roster-math distinction in its rationale; Colgate spot-check confirmed no overcorrection — hot conversations stay forward-leaning. Maintenance model: when a recommendation gets corrected in practice, the settled principle is a one-line diff that teaches every surface at once.
+
+**4. Live events absorbed the same week.** Lafayette promoted to stage 4 (+written_evaluation) on Bordwick's board-placement email. St. Lawrence promoted 2→4 on Coach Mike Toshack's written PPA evaluation (4/4/5/5, projection D2/high-D3 → low-D3, strengths: consistent, 1v1 defending, getting forward; coach first name corrected from the seeded "Matt"). The eval projections now triangulate (Rochester "second tier," Lafayette "not top pool," Toshack D2/hD3-lD3) into a coherent band confirming the list's shape: mid-D3 is the sweet spot, top-D3/NESCAC correctly classified as reaches, 1v1 defending the constant across every evaluator.
+
+**Architectural patterns reinforced:**
+
+1. *Separate ordered depth from unordered events* — forcing milestones into a ladder produces stages schools skip or regress through; badges + ladder each do one job.
+2. *Auto-derive floors, manually promote judgment calls* — LLMs guessing at board placements from email tone would misfire; humans reading coach emails is the right sensor for stages 4-6.
+3. *Encode settled judgment as prompt doctrine* — corrections that stay in chat history are lost; principles in a shared constant compound across every surface.
+4. *Visualize the model you actually built* — the grid is the two-axis model made glanceable, and its empty right third (Advance, Decide) is the fall's roadmap.
 
 ---
 
