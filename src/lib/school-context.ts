@@ -84,6 +84,17 @@ export interface MilestoneRow {
   note: string | null
 }
 
+export interface OfferRow {
+  offer_type: string
+  headline: string
+  money_note: string | null
+  conditions: string | null
+  key_dates: string | null
+  status: string
+  received_on: string | null
+  note: string | null
+}
+
 export interface SchoolContext {
   school: SchoolRow | null
   coaches: CoachRow[]
@@ -95,6 +106,7 @@ export interface SchoolContext {
   statusUpdates: StatusUpdateRow[]
   currentAssets: CurrentAssets
   milestones: MilestoneRow[]
+  offers: OfferRow[]
 }
 
 export interface SchoolContextOptions {
@@ -177,6 +189,14 @@ export async function fetchSchoolContext(
       .order('occurred_on')
   )
 
+  // 9. Offers (always — lightweight)
+  queries.push(
+    admin.from('school_offers')
+      .select('offer_type, headline, money_note, conditions, key_dates, status, received_on, note')
+      .eq('school_id', schoolId)
+      .order('received_on', { ascending: false })
+  )
+
   const results = await Promise.all(queries)
 
   const school = results[0].data as SchoolRow | null
@@ -195,6 +215,9 @@ export async function fetchSchoolContext(
   // Milestones index: statusUpdatesIdx + 1
   const milestonesIdx = statusUpdatesIdx + 1
   const rawMilestones = (results[milestonesIdx]?.data ?? []) as MilestoneRow[]
+  // Offers index: milestonesIdx + 1
+  const offersIdx = milestonesIdx + 1
+  const rawOffers = (results[offersIdx]?.data ?? []) as OfferRow[]
 
   // Process coaches
   const coaches: CoachRow[] = rawCoaches.map(c => ({
@@ -252,5 +275,6 @@ export async function fetchSchoolContext(
     statusUpdates: rawStatusUpdates,
     currentAssets,
     milestones: rawMilestones,
+    offers: rawOffers,
   }
 }

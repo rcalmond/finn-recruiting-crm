@@ -514,6 +514,43 @@ export interface SchoolStatusUpdate {
   updated_at: string
 }
 
+// ─── School Offers (endgame) ─────────────────────────────────────────────────
+
+export type OfferType = 'conditional_admission' | 'admission' | 'roster_spot' | 'preread_positive' | 'other'
+export type OfferStatus = 'open' | 'accepted' | 'declined' | 'expired'
+
+export const OFFER_TYPE_LABELS: Record<OfferType, string> = {
+  conditional_admission: 'Conditional Admission',
+  admission: 'Admission',
+  roster_spot: 'Roster Spot',
+  preread_positive: 'Pre-read Positive',
+  other: 'Other',
+}
+
+export const OFFER_STATUS_STYLE: Record<OfferStatus, { bg: string; color: string; label: string }> = {
+  open:     { bg: '#DCFCE7', color: '#166534', label: 'Open' },
+  accepted: { bg: '#DBEAFE', color: '#1E40AF', label: 'Accepted' },
+  declined: { bg: '#FEE2E2', color: '#991B1B', label: 'Declined' },
+  expired:  { bg: '#F3F4F6', color: '#6B7280', label: 'Expired' },
+}
+
+export interface SchoolOffer {
+  id: string
+  school_id: string
+  offer_type: OfferType
+  headline: string
+  money_note: string | null
+  conditions: string | null
+  key_dates: string | null
+  status: OfferStatus
+  received_on: string | null
+  note: string | null
+  created_at: string
+  updated_at: string
+  // joined
+  school?: Pick<School, 'id' | 'name' | 'short_name' | 'category'>
+}
+
 // ─── Filter state ─────────────────────────────────────────────────────────────
 
 export interface PipelineFilters {

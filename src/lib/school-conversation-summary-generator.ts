@@ -73,6 +73,7 @@ function buildPrompt(
   strategicNotes: string | null,
   statusUpdates: Awaited<ReturnType<typeof fetchSchoolContext>>['statusUpdates'],
   milestones: Awaited<ReturnType<typeof fetchSchoolContext>>['milestones'],
+  offers: Awaited<ReturnType<typeof fetchSchoolContext>>['offers'],
   uncoveredMessages: Message[],
   coveredMessages: Message[],
   currentDate: string,
@@ -158,6 +159,20 @@ Return ONLY the JSON object. No commentary before or after.`
     const msLabels: Record<string, string> = { seen_live: 'Seen live', written_evaluation: 'Written evaluation', pre_read_requested: 'Pre-read requested', pre_read_passed: 'Pre-read passed', visit: 'Visit', support_offered: 'Support offered' }
     for (const m of milestones) {
       parts.push(`- ${msLabels[m.milestone] ?? m.milestone}${m.occurred_on ? ` (${m.occurred_on})` : ''}${m.note ? `: ${m.note}` : ''}`)
+    }
+    parts.push('')
+  }
+
+  // Offers / admissions
+  if (offers.length > 0) {
+    parts.push('OFFERS / ADMISSIONS:')
+    for (const o of offers) {
+      let line = `- ${o.headline} (${o.offer_type.replace(/_/g, ' ')}, status: ${o.status})`
+      if (o.received_on) line += `, received ${o.received_on}`
+      if (o.conditions) line += ` — CONDITIONS: ${o.conditions}`
+      if (o.key_dates) line += ` — KEY DATES: ${o.key_dates}`
+      if (o.money_note) line += ` — MONEY: ${o.money_note}`
+      parts.push(line)
     }
     parts.push('')
   }
@@ -257,7 +272,7 @@ export async function generateConversationSummary(
       .eq('school_id', schoolId),
   ])
 
-  const { school, coaches, contactLog, upcomingCamps, declineHistory, strategicNotes, statusUpdates, milestones } = ctx
+  const { school, coaches, contactLog, upcomingCamps, declineHistory, strategicNotes, statusUpdates, milestones, offers } = ctx
   if (!school) return null
 
   // Skip non-target tiers
@@ -271,7 +286,7 @@ export async function generateConversationSummary(
 
   const { system, user } = buildPrompt(
     school, coaches, contactLog, upcomingCamps, declineHistory,
-    strategicNotes, statusUpdates, milestones, uncoveredMessages, coveredMessages, currentDate,
+    strategicNotes, statusUpdates, milestones, offers, uncoveredMessages, coveredMessages, currentDate,
   )
 
   const client = new Anthropic()

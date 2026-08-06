@@ -10,17 +10,22 @@ type NavItem = {
   count?: number
 }
 
-type ToolsSubItem = {
+type SettingsSubItem = {
   label: string
   href: string
   count?: number
 }
 
-// Sub-paths that belong to the Library section
-const LIBRARY_PATHS = ['/library', '/assets', '/questions']
+// Phase routes — content pages reachable from phase landing pages
+const PHASE_CONTENT_PATHS: Record<string, string[]> = {
+  '/get-ready':     ['/library', '/assets', '/questions', '/messages'],
+  '/get-seen':      ['/campaigns', '/camps'],
+  '/get-recruited':  [],
+  '/get-in':        [],
+}
 
-// Tools sub-items (settings routes)
-const TOOLS_PATHS = [
+// Settings sub-items (settings routes)
+const SETTINGS_PATHS = [
   '/settings/coach-changes',
   '/settings/gmail-partials',
   '/settings/classification-review',
@@ -29,23 +34,21 @@ const TOOLS_PATHS = [
   '/tools',
 ]
 
-function buildTopNavItems(): NavItem[] {
+function buildPhaseNavItems(): NavItem[] {
   return [
-    { label: 'Home',      href: '/'          },
-    { label: 'Schools',   href: '/schools'   },
-    { label: 'Campaigns', href: '/campaigns' },
-    { label: 'Messages',  href: '/messages'  },
-    { label: 'Camps',     href: '/camps'     },
-    { label: 'Library',   href: '/library'   },
+    { label: 'Get Ready.',     href: '/get-ready'     },
+    { label: 'Get Seen.',      href: '/get-seen'      },
+    { label: 'Get Recruited.', href: '/get-recruited'  },
+    { label: 'Get In.',        href: '/get-in'        },
   ]
 }
 
-function buildToolsSubItems(
+function buildSettingsSubItems(
   pendingCoachChanges: number,
   pendingGmailPartials: number,
   pendingClassification: number,
   pendingCampProposals: number,
-): ToolsSubItem[] {
+): SettingsSubItem[] {
   return [
     { label: 'Coach Changes',         href: '/settings/coach-changes',
       count: pendingCoachChanges > 0 ? pendingCoachChanges : undefined },
@@ -59,8 +62,19 @@ function buildToolsSubItems(
   ]
 }
 
-function isToolsPath(pathname: string) {
-  return TOOLS_PATHS.some(p => pathname.startsWith(p))
+function isSettingsPath(pathname: string) {
+  return SETTINGS_PATHS.some(p => pathname.startsWith(p))
+}
+
+function isPhaseActive(href: string, pathname: string) {
+  // Direct match
+  if (pathname === href) return true
+  // Content paths that belong to this phase
+  const contentPaths = PHASE_CONTENT_PATHS[href]
+  if (contentPaths) {
+    return contentPaths.some(p => pathname.startsWith(p))
+  }
+  return false
 }
 
 // ── Sidebar (desktop) ──────────────────────────────────────────────
@@ -76,21 +90,20 @@ export function AppSidebar({
   pendingCampProposals?: number
 }) {
   const pathname = usePathname()
-  const TOP_ITEMS = buildTopNavItems()
-  const TOOLS_ITEMS = buildToolsSubItems(pendingCoachChanges, pendingGmailPartials, pendingClassification, pendingCampProposals)
+  const PHASE_ITEMS = buildPhaseNavItems()
+  const SETTINGS_ITEMS = buildSettingsSubItems(pendingCoachChanges, pendingGmailPartials, pendingClassification, pendingCampProposals)
 
-  const toolsActive = isToolsPath(pathname)
-  const [toolsOpen, setToolsOpen] = useState(toolsActive)
+  const settingsActive = isSettingsPath(pathname)
+  const [settingsOpen, setSettingsOpen] = useState(settingsActive)
 
-  const totalToolsBadge = pendingCoachChanges + pendingGmailPartials + pendingClassification + pendingCampProposals
+  const totalSettingsBadge = pendingCoachChanges + pendingGmailPartials + pendingClassification + pendingCampProposals
 
   const isTopActive = (href: string) => {
-    if (href === '/') return pathname === '/'
-    if (href === '/library') return LIBRARY_PATHS.some(p => pathname.startsWith(p))
-    return pathname.startsWith(href)
+    if (href === '/schools') return pathname.startsWith('/schools')
+    return isPhaseActive(href, pathname)
   }
 
-  // Tools sub-items use exact match to avoid /settings/gmail matching /settings/gmail-partials
+  // Settings sub-items use exact match to avoid /settings/gmail matching /settings/gmail-partials
   const isSubActive = (href: string) => pathname === href
 
   return (
@@ -125,9 +138,9 @@ export function AppSidebar({
         </div>
       </div>
 
-      {/* Nav items */}
+      {/* Phase nav items */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {TOP_ITEMS.map(item => {
+        {PHASE_ITEMS.map(item => {
           const on = isTopActive(item.href)
           return (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
@@ -139,6 +152,7 @@ export function AppSidebar({
                 color: on ? '#fff' : '#4A4A4A',
                 fontWeight: on ? 600 : 450,
                 letterSpacing: -0.1,
+                fontStyle: 'italic',
                 transition: 'background 0.15s',
               }}>
                 <span>{item.label}</span>
@@ -147,50 +161,74 @@ export function AppSidebar({
           )
         })}
 
-        {/* Tools parent */}
+        {/* Schools — top-level, phase-independent */}
+        {(() => {
+          const on = isTopActive('/schools')
+          return (
+            <Link href="/schools" style={{ textDecoration: 'none' }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '10px 14px', borderRadius: 8,
+                background: on ? '#0E0E0E' : 'transparent',
+                cursor: 'pointer', fontSize: 14,
+                color: on ? '#fff' : '#4A4A4A',
+                fontWeight: on ? 600 : 450,
+                letterSpacing: -0.1,
+                transition: 'background 0.15s',
+                marginTop: 8,
+                borderTop: '1px solid #E2DBC9',
+                paddingTop: 18,
+              }}>
+                <span>Schools</span>
+              </div>
+            </Link>
+          )
+        })()}
+
+        {/* Settings parent */}
         <button
-          onClick={() => setToolsOpen(prev => !prev)}
+          onClick={() => setSettingsOpen(prev => !prev)}
           style={{
             all: 'unset',
             display: 'flex', alignItems: 'center', gap: 12,
             padding: '10px 14px', borderRadius: 8,
-            background: toolsActive && !toolsOpen ? '#0E0E0E' : 'transparent',
+            background: settingsActive && !settingsOpen ? '#0E0E0E' : 'transparent',
             cursor: 'pointer', fontSize: 14,
-            color: toolsActive && !toolsOpen ? '#fff' : toolsActive ? '#0E0E0E' : '#4A4A4A',
-            fontWeight: toolsActive ? 600 : 450,
+            color: settingsActive && !settingsOpen ? '#fff' : settingsActive ? '#0E0E0E' : '#4A4A4A',
+            fontWeight: settingsActive ? 600 : 450,
             letterSpacing: -0.1,
             transition: 'background 0.15s',
             width: '100%',
             boxSizing: 'border-box',
           }}
         >
-          <span>Tools</span>
+          <span>Settings</span>
           {/* Chevron */}
           <svg
             width="12" height="12" viewBox="0 0 12 12" fill="none"
             style={{
               marginLeft: 2,
-              transform: toolsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 0.15s',
             }}
           >
             <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          {totalToolsBadge > 0 && (
+          {totalSettingsBadge > 0 && (
             <span style={{
               marginLeft: 'auto',
               padding: '1px 7px', borderRadius: 10,
-              background: toolsActive && !toolsOpen ? '#C8102E' : 'transparent',
-              color: toolsActive && !toolsOpen ? '#fff' : '#7A7570',
+              background: settingsActive && !settingsOpen ? '#C8102E' : 'transparent',
+              color: settingsActive && !settingsOpen ? '#fff' : '#7A7570',
               fontSize: 11, fontWeight: 700,
-            }}>{totalToolsBadge}</span>
+            }}>{totalSettingsBadge}</span>
           )}
         </button>
 
-        {/* Tools sub-items */}
-        {toolsOpen && (
+        {/* Settings sub-items */}
+        {settingsOpen && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1, paddingLeft: 12 }}>
-            {TOOLS_ITEMS.map(item => {
+            {SETTINGS_ITEMS.map(item => {
               const on = isSubActive(item.href)
               return (
                 <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
@@ -259,24 +297,22 @@ export function AppBottomNav({
 }) {
   const pathname = usePathname()
 
-  const totalToolsBadge = pendingCoachChanges + pendingGmailPartials + pendingClassification + pendingCampProposals
+  const totalSettingsBadge = pendingCoachChanges + pendingGmailPartials + pendingClassification + pendingCampProposals
 
   const MOBILE_ITEMS: NavItem[] = [
-    { label: 'Home',      href: '/'          },
-    { label: 'Schools',   href: '/schools'   },
-    { label: 'Campaigns', href: '/campaigns' },
-    { label: 'Messages',  href: '/messages'  },
-    { label: 'Camps',     href: '/camps'     },
-    { label: 'Library',   href: '/library'   },
-    { label: 'Tools',     href: '/tools',
-      count: totalToolsBadge > 0 ? totalToolsBadge : undefined },
+    { label: 'Ready',      href: '/get-ready'     },
+    { label: 'Seen',       href: '/get-seen'      },
+    { label: 'Recruited',  href: '/get-recruited'  },
+    { label: 'Get In',     href: '/get-in'        },
+    { label: 'Schools',    href: '/schools'        },
+    { label: 'Settings',   href: '/settings/coach-changes',
+      count: totalSettingsBadge > 0 ? totalSettingsBadge : undefined },
   ]
 
   const isActive = (href: string) => {
-    if (href === '/') return pathname === '/'
-    if (href === '/library') return LIBRARY_PATHS.some(p => pathname.startsWith(p))
-    if (href === '/tools') return isToolsPath(pathname)
-    return pathname.startsWith(href)
+    if (href === '/schools') return pathname.startsWith('/schools')
+    if (href === '/settings/coach-changes') return isSettingsPath(pathname)
+    return isPhaseActive(href, pathname)
   }
 
   return (

@@ -63,7 +63,7 @@ export default function QuestionsPanel() {
     }}>
       {/* Page header */}
       <div style={{ marginBottom: 'clamp(24px, 3vw, 36px)', maxWidth: 720 }}>
-        <Link href="/library" style={{
+        <Link href="/get-ready" style={{
           display: 'inline-flex', alignItems: 'center', gap: 5,
           fontSize: 11, fontWeight: 700, color: LV.inkLo,
           textDecoration: 'none', letterSpacing: '0.08em',
@@ -72,7 +72,7 @@ export default function QuestionsPanel() {
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
             <path d="M19 12H5m5-6-6 6 6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          Library
+          Get Ready
         </Link>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
