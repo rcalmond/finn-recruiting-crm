@@ -21,10 +21,10 @@ create table school_offers (
 -- Index for FK usage (school detail lookups)
 create index school_offers_school_id_idx on school_offers(school_id);
 
--- updated_at trigger (house pattern)
-create trigger set_updated_at
+-- updated_at trigger (reuses set_updated_at from 001_initial_schema)
+create trigger school_offers_updated_at
   before update on school_offers
-  for each row execute function moddatetime(updated_at);
+  for each row execute function public.set_updated_at();
 
 -- RLS: authenticated users full access (house idiom)
 alter table school_offers enable row level security;
