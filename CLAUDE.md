@@ -79,3 +79,19 @@ code didn't match what was believed to be deployed, which cost
 hours of debug time chasing phantom fixes. `git status` is the
 cheap verification step that closes the gap between intent and
 reality.
+
+---
+
+## Model Review Cadence
+
+Last model review: 2026-08-07 (set to claude-opus-4-8 globally)
+
+At the start of a session, if today's date is more than 14 days
+after the "Last model review" date above, say ONE line before
+starting work: "It's been over two weeks since the last model
+review (currently claude-opus-4-8) — want to check whether a
+newer model fits?" Then proceed with the requested work
+regardless of the answer. Do not research or recommend models
+unprompted — just surface the reminder. When Randy completes a
+review (whether or not the model changes), update the "Last
+model review" date in this section.
