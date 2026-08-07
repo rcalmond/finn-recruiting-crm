@@ -240,8 +240,8 @@ const FALLBACK_HEADER = `# Finn Almond — College Soccer Recruiting App: Claude
 
 A personal recruiting CRM for **Randy Almond** (parent/manager) and **Finn Almond** (player).
 Data lives in Supabase. Frontend is Next.js + React + TypeScript deployed on Vercel.
-The app tracks ~50 active target schools across division, coaching contacts, outreach status,
-contact logs, and next actions.
+The app tracks ~27 active target schools across division, coaching contacts, outreach status,
+contact logs, and next actions. Two schools (IIT and Clark) have offers on the table as of August 2026.
 
 Randy drives strategy and outreach. Finn handles player-facing tasks (RQs, emails from his
 account, Sports Recruits profile management).
@@ -256,7 +256,7 @@ account, Sports Recruits profile management).
 | Grad Year | 2027 |
 | DOB | November 15, 2008 |
 | Position | **Left Wingback** (primary) — transitioned from Striker/Winger in Nov 2025 |
-| Club | Albion SC Colorado MLS NEXT Academy (U19) |
+| Club | Albion SC Boulder County – MLS NEXT Academy U19; Flatirons FC USL-A (summer) |
 | High School | Alexander Dawson School, Lafayette, CO |
 | GPA | 3.81 weighted / 3.56 unweighted |
 | SAT | 1380 (Math 690 / English 690) |
@@ -266,6 +266,8 @@ account, Sports Recruits profile management).
 | Email | finnalmond08@gmail.com |
 
 **Written evaluations on record (July 2026):** Streb/Rochester (June 20: strong 1v1 defender, passing range; develop quickness, aerials; "second tier"). Bordwick/Lafayette (July 15: not top pool at LB, roster depth). Toshack/St. Lawrence (July 12: 4/4/5/5, D2/high-D3 → low-D3 projection, strengths: consistent, 1v1 defending, getting forward). Projections triangulate to mid-D3 sweet spot; top-D3/NESCAC correctly classified as reaches.
+
+**Offers on the table (August 2026):** IIT — conditional admission, Aerospace Engineering, $25K/yr Heald Scholarship (renewable), transcript pending; stage 5 + pre_read_passed. Clark — positive pre-read, $40K/yr minimum merit floor × 4 years, CommonApp required (open since Aug 1, application not yet started); stage 5.
 
 ---
 
@@ -320,6 +322,30 @@ created_at    timestamptz
 updated_at    timestamptz
 unique (school_id, milestone)
 \`\`\`
+
+### Table: \`school_offers\` (migration 058)
+\`\`\`
+id              uuid PK
+school_id       uuid FK → schools.id (cascade delete)
+offer_type      text not null
+                -- 'conditional_admission' | 'admission' | 'roster_spot' | 'preread_positive' | 'other'
+                -- TypeScript union OfferType, no DB constraint
+headline        text not null
+money_note      text
+conditions      text
+key_dates       text
+status          text not null default 'open'
+                -- 'open' | 'accepted' | 'declined' | 'expired'
+received_on     date
+note            text
+created_at      timestamptz
+updated_at      timestamptz  -- trigger: set_updated_at() from 001_initial_schema
+                             -- (migration 058 originally shipped with moddatetime; trigger applied manually, file patched)
+\`\`\`
+
+Text-first fields deliberately — structure can tighten once offer #3+ exists and comparison needs emerge.
+Wired into fetchSchoolContext (always fetched, no gate). Summary generator renders an OFFERS / ADMISSIONS section.
+recommended_action jsonb on school_conversation_summary extended with optional \`possible_offer: boolean\` and \`possible_offer_note: string\` (no migration — jsonb).
 
 ### Table: \`action_items\`
 \`\`\`
@@ -493,12 +519,23 @@ and are legacy — note this in contact log if surfaced.
 - **Frontend**: Next.js + React + TypeScript
 - **Database**: Supabase (PostgreSQL) with RLS enabled
 - **Auth**: Supabase Auth
-- **Styling**: Tailwind CSS
-- **Deployment**: Vercel
+- **Styling**: Tailwind CSS + inline styles (March parchment vocabulary)
+- **Deployment**: Vercel (auto-deploy from main; no Vercel CLI — see CLAUDE.md)
+- **Design vocabulary**: Parchment base (#F6F1E8), rust (#B5502F) = act-now accent, warm charcoal (#2E2B28) = weight/endgame, calm green (#2D6A4F) = early phases, ink (#0E0E0E) = primary text
+- **Navigation**: Four journey phases + Schools + Settings
+  - \`/get-ready\` — profile, assets, messages, school list, discovery placeholder
+  - \`/get-seen\` — camps/showcases, campaigns
+  - \`/get-recruited\` — the daily surface (queue, pipeline grid); root \`/\` redirects here
+  - \`/get-in\` — offers, admissions, the endgame
+  - \`/schools\` — top-level, phase-independent
+  - Settings — collapsed: Coach Changes, Parse Review, Classification Review, Camp Proposals, Gmail Settings
+  - Routes for Campaigns, Messages, Library, Camps remain reachable via deep links from phase pages
 - **Key paths**:
-  - \`src/lib/types.ts\` — TypeScript types (School, ContactLogEntry, ActionItem, etc.)
+  - \`src/lib/types.ts\` — TypeScript types (School, ContactLogEntry, ActionItem, SchoolOffer, etc.)
   - \`src/lib/supabase.ts\` — Supabase client initialization
-  - \`supabase/migrations/\` — schema (001) and seed (002) files
+  - \`src/lib/school-context.ts\` — shared fetchSchoolContext for all LLM-calling routes
+  - \`supabase/migrations/\` — schema migrations (numbered, applied via Supabase dashboard)
+  - \`supabase/scripts/\` — data migrations and one-shot scripts (committed)
   - \`scripts/generate-claude-context.ts\` — this script
 
 ---
@@ -808,6 +845,27 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 2. *Auto-derive floors, manually promote judgment calls* — LLMs guessing at board placements from email tone would misfire; humans reading coach emails is the right sensor for stages 4-6.
 3. *Encode settled judgment as prompt doctrine* — corrections that stay in chat history are lost; principles in a shared constant compound across every surface.
 4. *Visualize the model you actually built* — the grid is the two-axis model made glanceable, and its empty right third (Advance, Decide) is the fall's roadmap.
+
+### App Reorganization: Phases, Vocabulary, Offers (July 25 – August 6, 2026)
+
+**1. The product fork and the phase model.** Prompted by demo feedback from other recruiting parents ("not immediately wowed"), a UX review identified that the nav mapped when features were built, not how the app is used, and that the app's value (accumulated conversational state) is invisible cold. The reorganization pivot: structure the app around the four phases of the recruiting journey, which mirror the per-school stage ladder at the family level. Phase names chosen for the demo promise ladder: **Get Ready** (profile, assets, messages, list building + a School Discovery placeholder), **Get Seen** (camps/showcases + Campaigns' new home — campaigns exited Finn's daily nav but is the early-phase hero for the future product), **Get Recruited** (the daily surface — formerly Home; Think section retired), **Get In** (NEW — offers, admissions, the decision). Schools stays top-level and phase-independent; admin surfaces collapsed under Settings. Root route redirects to Get Recruited.
+
+**2. Get In + school_offers (migration 058).** New offers ledger: school_offers (offer_type, headline, money_note, conditions, key_dates, status, received_on — text-first fields until comparison needs tighten them). Wired into fetchSchoolContext and the summary generator. Built against the live case and immediately absorbed two real offers: Illinois Tech conditional admission (July 23 — Aerospace Engineering, $25K/yr renewable Heald, transcript condition, FAFSA Oct 1 code 001691, official aid letter January; IIT promoted to stage 5 + pre_read_passed) and Clark positive pre-read (received in the same window — $40K/yr minimum merit × 4 years, floor not ceiling; CommonApp required, opened Aug 1; Clark promoted to stage 5). Migration 058 as first shipped was missing the updated_at trigger — applied manually, migration file patched (920ed03).
+
+**3. The March vocabulary resurrection (cycle 2 + 2.5).** The original March design canvas (recovered from Randy's Claude Design files) had color-as-meaning and scale-as-drama that had been flattened away through incremental removals. Ported onto today's architecture with two deliberate softenings chosen by Randy: RUST (#B5502F) replaces alarm-crimson as the act-now accent, and WARM CHARCOAL (#2E2B28) replaces black as the settled/weighty register. The system: parchment base; rust points at what's first (one priority card via deterministic pickDailyPriority — open offer ≤14 days > oldest unanswered reply > time-sensitive follow_up > recent HOT — 6px rust edge + rust ghost numeral; 3px stripes remain the category system, thickness disambiguates); charcoal marks weight (offer cards, the resurrected "Caught up." zero state with teal check); green carries the calm phases (status lines, next-move cards). Every phase masthead gets a live rule-derived status line (asset freshness / next camp days-out / nearest offer date / awaiting-N). Get Seen's camp count replaced with an 8-week dot timeline; asset timestamps freshness-banded (green ≤30d, amber 31-90, rust >90). FunnelGrid pass: temperature dots, strengthened quadrant tints, rust-bordered Close-zone chips.
+
+**4. Behavior fixes surfaced by prod review.** pickDailyPriority's offer rule could never fire — offer schools' summaries are wait-category and wait cards were excluded before selection ran; fixed by letting rule-1 winners bypass the wait exclusion. Passed key dates rendered future-tense ("CommonApp opens Aug 1" five days after Aug 1); date parsing now compares against today and flips verbs ("open since"). Also: one Vercel webhook miss left cycle 2 unbuilt while later commits deployed — resolved with an empty-commit push; second webhook hiccup this month.
+
+**5. Cycle 3 seams.** DraftModal (the app's highest-traffic modal) fully restyled off the purple/blue era onto parchment (ink selection states, rust recommendation framing, black pill primary); MessagesClient link colors converted; CampsCalendar blue deliberately kept (functional status color, not chrome). Designed empty states across 8+ surfaces in the house voice. Unified "+ Note" capture popover on school detail — one entry point routing to status update / action item / contact log / strategic note via existing tables (schools.notes deliberately excluded; it's edit-in-place reference). Offer detection shipped propose-don't-create: the summary generator flags possible_offer when inbound terms aren't reflected in recorded offers (gated on the offers context it already receives); a charcoal chip opens the add-offer modal pre-filled by an on-demand extraction route (POST api/offers/extract, Sonnet-class); human reviews every field — the same review-queue pattern as coach changes.
+
+**Architectural patterns reinforced:**
+
+1. *Organize by journey phase, not feature chronology.* Every feature has a season; the nav should teach the process, not archive the build order. Campaigns wasn't dated — it was early-phase.
+2. *Design vocabulary is a system: color-as-meaning + scale-as-drama, tuned to the product's voice.* The judgment-doctrine app shouldn't shout; rust recommends where crimson alarmed, charcoal is weight not void.
+3. *Deterministic selection over LLM mood for attention-directing UI* (pickDailyPriority) — and watch for rule interactions: the offer rule and the wait-exclusion silently cancelled until prod review caught it.
+4. *Date language must be computed, not templated* — any stored date rendered with a tense verb needs a today-comparison.
+5. *Propose-don't-create for high-stakes records (reinforced from coach changes).* Offers are the weightiest data in the app; detection + pre-fill + human save closes the arrived-unnoticed gap without trusting extraction blindly.
+6. *Build the endgame surface against the live case.* Get In was designed while IIT's terms were fresh and absorbed Clark's structurally different offer days later — the comparison layout earned its spec immediately.
 
 ---
 
