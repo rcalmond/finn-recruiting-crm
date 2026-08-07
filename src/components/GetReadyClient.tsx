@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import DiscoverSection from '@/components/get-ready/DiscoverSection'
+import type { PlayerScores } from '@/lib/types'
 
 const GREEN = { accent: '#2D6A4F', accentSoft: '#D7EFE0', accentDeep: '#1B4332' }
 const SD = {
@@ -113,7 +115,110 @@ function getReadyNextMove(
       buttonText: 'Open Library →',
     }
   }
-  return null // all fresh — no card
+  // All assets fresh — point at Discovery: the next move is widening the list.
+  return {
+    headline: 'Widen the list.',
+    body: 'Profile and film are current. Now grow the target list — browse by division, region, and academics, or find more like the schools you already like.',
+    href: '#discover',
+    buttonText: 'Discover schools →',
+  }
+}
+
+// ─── Visual asset cards ───────────────────────────────────────────────────────
+
+function ReelCard({ reelAsset }: { reelAsset: { name: string; created_at: string } | null }) {
+  const present = !!reelAsset
+  const age = present ? daysSince(reelAsset!.created_at) : null
+  return (
+    <Link href="/assets" style={{ textDecoration: 'none' }}>
+      <div style={{
+        position: 'relative', overflow: 'hidden',
+        background: present ? '#fff' : SD.paper,
+        border: present ? `1px solid ${SD.line}` : `1.5px dashed ${SD.line}`,
+        borderRadius: 14, padding: 'clamp(22px, 3vw, 30px)', minHeight: 128,
+        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+      }}>
+        <div style={{
+          position: 'absolute', top: '50%', right: 'clamp(16px, 3vw, 36px)', transform: 'translateY(-50%)',
+          fontSize: 128, lineHeight: 1, color: GREEN.accent, opacity: present ? 0.1 : 0.06,
+          pointerEvents: 'none', userSelect: 'none',
+        }}>▶</div>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: GREEN.accent, marginBottom: 6 }}>Highlight reel</div>
+          <div style={{ fontSize: 'clamp(17px, 2.2vw, 20px)', fontWeight: 700, color: present ? SD.ink : SD.inkMute, fontStyle: 'italic', letterSpacing: '-0.02em', lineHeight: 1.25, maxWidth: '70%' }}>
+            {present ? reelAsset!.name : 'No reel uploaded'}
+          </div>
+          {age !== null && (
+            <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: freshnessColor(age) }}>
+              Updated {daysAgoText(age)}
+            </div>
+          )}
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+function DocCard({ label, glyph, value, age, present }: {
+  label: string; glyph: string; value: string; age: number | null; present: boolean
+}) {
+  return (
+    <Link href="/assets" style={{ textDecoration: 'none' }}>
+      <div style={{
+        position: 'relative', overflow: 'hidden',
+        background: present ? '#fff' : SD.paper,
+        border: present ? `1px solid ${SD.line}` : `1.5px dashed ${SD.line}`,
+        borderRadius: 12, padding: 16, minHeight: 96,
+      }}>
+        <div style={{ position: 'absolute', top: -6, right: 8, fontSize: 64, lineHeight: 1, color: SD.ink, opacity: 0.05, pointerEvents: 'none', userSelect: 'none' }}>{glyph}</div>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: SD.inkLo, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>{label}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: present ? SD.ink : SD.inkMute }}>{value}</div>
+          {age !== null && <div style={{ marginTop: 4, fontSize: 11, fontWeight: 600, color: freshnessColor(age) }}>{daysAgoText(age)}</div>}
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+// Scores are DATA — this card shows the numbers from player_profile.player_scores.
+function TestScoresCard({ scores, reportCount }: { scores: PlayerScores | null; reportCount: number }) {
+  const sat = scores?.sat
+  const ap = scores?.ap ?? []
+  const has = !!(sat || ap.length)
+  return (
+    <Link href="/assets" style={{ textDecoration: 'none' }}>
+      <div style={{
+        position: 'relative', overflow: 'hidden',
+        background: '#fff', border: `1px solid ${SD.line}`, borderRadius: 12, padding: 16, minHeight: 96,
+      }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: GREEN.accent, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Test scores</div>
+        {has ? (
+          <>
+            {sat && (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 24, fontWeight: 800, color: SD.ink, letterSpacing: '-0.03em' }}>{sat.total}</span>
+                <span style={{ fontSize: 12, color: SD.inkLo }}>SAT · {sat.math}M / {sat.ebrw}V</span>
+              </div>
+            )}
+            {ap.length > 0 && (
+              <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {ap.map(a => (
+                  <span key={a.subject} style={{ fontSize: 11, fontWeight: 600, color: SD.inkMid, background: SD.paper, border: `1px solid ${SD.line}`, borderRadius: 4, padding: '2px 6px' }}>
+                    {a.subject} <span style={{ color: GREEN.accent, fontWeight: 800 }}>{a.score}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+            {scores?.note && <div style={{ marginTop: 8, fontSize: 11, color: SD.inkLo, fontStyle: 'italic' }}>{scores.note}</div>}
+            {reportCount > 0 && <div style={{ marginTop: 8, fontSize: 10, color: SD.inkMute }}>{reportCount} score report{reportCount !== 1 ? 's' : ''} in Library →</div>}
+          </>
+        ) : (
+          <div style={{ fontSize: 14, color: SD.inkMute }}>No scores recorded</div>
+        )}
+      </div>
+    </Link>
+  )
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -122,6 +227,8 @@ export default function GetReadyClient({
   reelAsset,
   resumeAsset,
   transcriptAsset,
+  playerScores,
+  testScoresCount,
   activeMessageCount,
   activeQuestionCount,
   tierCounts,
@@ -130,6 +237,8 @@ export default function GetReadyClient({
   reelAsset: { name: string; created_at: string } | null
   resumeAsset: { name: string; version: number; created_at: string } | null
   transcriptAsset: { name: string; created_at: string } | null
+  playerScores: PlayerScores | null
+  testScoresCount: number
   activeMessageCount: number
   activeQuestionCount: number
   tierCounts: { A: number; B: number; C: number }
@@ -184,30 +293,28 @@ export default function GetReadyClient({
           </div>
         )}
 
-        {/* Assets card */}
-        <SectionCard>
-          <GhostGlyph>▶</GhostGlyph>
-          <SectionHeader eyebrow="Profile" label="Assets." href="/assets" linkText="Open Library" />
-          <div style={{ display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
-            {[
-              { label: 'Current reel', value: reelAsset?.name ?? 'Not uploaded', age: reelAsset ? daysSince(reelAsset.created_at) : null },
-              { label: 'Resume', value: resumeAsset ? `v${resumeAsset.version}` : 'Not uploaded', age: resumeAsset ? daysSince(resumeAsset.created_at) : null },
-              { label: 'Transcript', value: transcriptAsset ? 'Current' : 'Not uploaded', age: transcriptAsset ? daysSince(transcriptAsset.created_at) : null },
-            ].map(row => (
-              <div key={row.label} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${SD.line}` }}>
-                <span style={{ fontSize: 13, color: SD.inkMid, fontWeight: 500 }}>{row.label}</span>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: SD.ink }}>{row.value}</span>
-                  {row.age !== null && (
-                    <span style={{ fontSize: 11, marginLeft: 6, fontWeight: 600, color: freshnessColor(row.age) }}>
-                      {daysAgoText(row.age)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+        {/* Assets — visual cards */}
+        <div>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: GREEN.accent, marginBottom: 4 }}>Profile</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: SD.ink, fontStyle: 'italic' }}>Assets.</h3>
+              <Link href="/assets" style={{ fontSize: 12, fontWeight: 600, color: GREEN.accent, textDecoration: 'none', letterSpacing: '-0.01em' }}>Open Library →</Link>
+            </div>
           </div>
-        </SectionCard>
+
+          {/* Reel — the largest card, ghost play-triangle anchor */}
+          <ReelCard reelAsset={reelAsset} />
+
+          {/* Document + scores cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginTop: 12 }}>
+            <DocCard label="Resume" glyph="▤" value={resumeAsset ? `v${resumeAsset.version}` : 'Not uploaded'}
+              age={resumeAsset ? daysSince(resumeAsset.created_at) : null} present={!!resumeAsset} />
+            <DocCard label="Transcript" glyph="▤" value={transcriptAsset ? 'Current' : 'Not uploaded'}
+              age={transcriptAsset ? daysSince(transcriptAsset.created_at) : null} present={!!transcriptAsset} />
+            <TestScoresCard scores={playerScores} reportCount={testScoresCount} />
+          </div>
+        </div>
 
         {/* Message inventory card */}
         <SectionCard>
@@ -253,16 +360,8 @@ export default function GetReadyClient({
           </div>
         </SectionCard>
 
-        {/* School Discovery placeholder */}
-        <SectionCard style={{ border: `1.5px dashed ${SD.line}`, background: SD.paper }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: SD.inkMute, fontStyle: 'italic' }}>School Discovery.</h3>
-            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: GREEN.accent, background: GREEN.accentSoft, border: `1px solid ${GREEN.accent}30`, borderRadius: 4, padding: '2px 8px' }}>Coming soon</span>
-          </div>
-          <p style={{ margin: 0, fontSize: 13, color: SD.inkMute, lineHeight: 1.6 }}>
-            Browse by division, region, and academics — then find more schools like the ones you love.
-          </p>
-        </SectionCard>
+        {/* School Discovery — live */}
+        <DiscoverSection />
       </div>
     </div>
   )

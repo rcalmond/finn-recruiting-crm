@@ -296,6 +296,38 @@ export interface CampProposal {
 
 // ─── Asset library ────────────────────────────────────────────────────────────
 
+// ─── School Discovery (migration 059) ────────────────────────────────────────
+
+export type DiscoveryDivision = 'D1' | 'D2' | 'D3' | 'NAIA' | 'JUCO'
+export type DiscoveryRegion =
+  | 'Northeast' | 'Mid-Atlantic' | 'Southeast' | 'Midwest' | 'Southwest' | 'West'
+export type EnrollmentBand = 'under_2k' | '2k_5k' | '5k_15k' | 'over_15k'
+export type AcademicBand = 'most_selective' | 'highly_selective' | 'selective' | 'accessible'
+
+export interface DiscoverySchool {
+  id: string
+  name: string
+  short_name: string | null
+  division: DiscoveryDivision
+  conference: string | null
+  state: string
+  region: DiscoveryRegion
+  enrollment_band: EnrollmentBand | null
+  academic_band: AcademicBand | null
+  has_engineering: boolean
+  city: string | null
+  note: string | null
+  created_at: string
+}
+
+export const ENROLLMENT_LABELS: Record<EnrollmentBand, string> = {
+  under_2k: 'Under 2k', '2k_5k': '2k–5k', '5k_15k': '5k–15k', over_15k: 'Over 15k',
+}
+export const ACADEMIC_LABELS: Record<AcademicBand, string> = {
+  most_selective: 'Most selective', highly_selective: 'Highly selective',
+  selective: 'Selective', accessible: 'Accessible',
+}
+
 export type AssetType =
   | 'resume'
   | 'transcript'
@@ -485,12 +517,22 @@ export interface CampaignSchool {
 
 // ─── Player profile (singleton) ──────────────────────────────────────────────
 
+// Structured test-score block (migration 060). Scores are DATA, not documents —
+// the Test Scores card and any future consumer read numbers from here, not the
+// free-text academic_summary. `note` is optional (e.g. a planned retake).
+export interface PlayerScores {
+  sat?: { total: number; math: number; ebrw: number } | null
+  ap?: { subject: string; score: number }[]
+  note?: string | null
+}
+
 export interface PlayerProfile {
   id: string
   current_stats: string | null
   upcoming_schedule: string | null
   highlights: string | null
   academic_summary: string | null
+  player_scores: PlayerScores | null
   last_parsed_at: string | null
   source_asset_id: string | null
   /** @deprecated Use assets table (type='highlight_reel', is_current=true) instead. This field is stale — managed via manual SQL only. */
