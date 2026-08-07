@@ -77,7 +77,9 @@ function useOffers() {
   return { offers, loading, insertOffer, updateOffer, deleteOffer }
 }
 
-// ─── Near-date detection for offer key_dates ──────────────────────────────────
+// ─── Near-date detection for offer key_dates (A2: passed-date aware) ─────────
+// If the mentioned date has PASSED, rewrites "opens" → "open since".
+// Never says "opens" for a date that already happened.
 
 function hasNearDate(keyDates: string | null): string | null {
   if (!keyDates) return null
@@ -88,14 +90,49 @@ function hasNearDate(keyDates: string | null): string | null {
   const lower = keyDates.toLowerCase()
   for (const m of nearMonths) {
     if (lower.includes(m)) {
-      // Extract the fragment around the month
       const idx = lower.indexOf(m)
       const start = Math.max(0, keyDates.lastIndexOf(';', idx) + 1)
       const end = keyDates.indexOf(';', idx)
-      return keyDates.slice(start, end > 0 ? end : undefined).trim()
+      let fragment = keyDates.slice(start, end > 0 ? end : undefined).trim()
+
+      // A2: Detect if the mentioned date has passed
+      const dateMatch = fragment.match(/(\w{3,9})\s+(\d{1,2})/i)
+      if (dateMatch) {
+        const monthIdx = months.indexOf(dateMatch[1].toLowerCase().slice(0, 3))
+        if (monthIdx >= 0) {
+          const day = parseInt(dateMatch[2])
+          const mentionedDate = new Date(today.getFullYear(), monthIdx, day)
+          if (mentionedDate < today) {
+            fragment = fragment
+              .replace(/\bopens\b/gi, 'open since')
+              .replace(/\bcloses\b/gi, 'closed')
+          }
+        }
+      }
+
+      return fragment
     }
   }
   return null
+}
+
+// ─── Get In status line logic ────────────────────────────────────────────────
+// Nearest actionable key date across open offers, or offer count.
+
+function getInStatusLine(offers: SchoolOffer[]): string {
+  const openOffers = offers.filter(o => o.status === 'open')
+  if (openOffers.length === 0) return 'No offers yet.'
+
+  // Look for near key dates
+  for (const o of openOffers) {
+    const nearDate = hasNearDate(o.key_dates)
+    if (nearDate) {
+      const schoolName = o.school?.short_name || o.school?.name
+      return schoolName ? `${schoolName}: ${nearDate}` : nearDate
+    }
+  }
+
+  return `${openOffers.length} offer${openOffers.length !== 1 ? 's' : ''} on the table.`
 }
 
 // ─── Offer Card (charcoal March style) ──────────────────────────────────────
@@ -527,6 +564,16 @@ export default function GetInClient() {
         }}>
           Offers, admissions, and the decision.
         </p>
+        {/* Status line */}
+        <div style={{ margin: '14px 0 0' }}>
+          <span style={{
+            fontSize: 15, fontWeight: offers.length > 0 ? 650 : 450,
+            color: offers.length > 0 ? SD.charcoal : SD.inkMute,
+            letterSpacing: '-0.01em',
+          }}>
+            {getInStatusLine(offers)}
+          </span>
+        </div>
       </div>
 
       {/* Content */}

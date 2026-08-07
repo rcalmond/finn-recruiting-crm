@@ -46,35 +46,37 @@ const CATEGORY_STRIPE: Record<RecommendedActionCategory, string> = {
 // ─── pickDailyPriority ────────────────────────────────────────────────────────
 //
 // Deterministic rule-based priority picker. Precedence:
-//   1. School with an OPEN offer received in the last 14 days
-//      (simpler proxy for "offer with near key date" — avoids fragile
-//      free-text date parsing; same effect since both current offers
-//      are within this window or have imminent dates)
+//   1. School with an OPEN offer received in the last 14 days — BYPASSES
+//      wait exclusion (offer schools can win the priority slot even when
+//      their summary category is 'wait')
 //   2. recommended_action.category='reply' with the oldest unanswered inbound
 //   3. follow_up whose description references time-sensitive terms
 //   4. Most recent HOT school (classifySchoolRecency = 'hot')
 //
-// Returns the school_id of the priority pick, or null if no non-wait schools.
+// allEligible = all A/B/C non-Inactive schools (INCLUDING wait-category).
+// nonWaitSchools = the visible queue (wait excluded). Rule 1 searches
+// allEligible; rules 2-4 search nonWaitSchools only.
 
 function pickDailyPriority(
+  allEligible: School[],
   nonWaitSchools: School[],
   summaryMap: Map<string, SchoolConversationSummary>,
   offers: SchoolOffer[],
   contactLog: ContactLogEntry[],
 ): string | null {
-  if (nonWaitSchools.length === 0) return null
-
-  const schoolIds = new Set(nonWaitSchools.map(s => s.id))
   const today = new Date()
+  const allIds = new Set(allEligible.map(s => s.id))
 
-  // Rule 1: Open offer received in last 14 days
+  // Rule 1: Open offer received in last 14 days — searches ALL eligible, bypasses wait
   const recentOpenOffer = offers.find(o => {
     if (o.status !== 'open' || !o.received_on) return false
-    if (!schoolIds.has(o.school_id)) return false
+    if (!allIds.has(o.school_id)) return false
     const daysAgo = Math.floor((today.getTime() - new Date(o.received_on).getTime()) / 86400000)
     return daysAgo <= 14
   })
   if (recentOpenOffer) return recentOpenOffer.school_id
+
+  if (nonWaitSchools.length === 0) return null
 
   // Rule 2: Oldest reply-category school
   const replySchools = nonWaitSchools.filter(s => {
@@ -82,22 +84,12 @@ function pickDailyPriority(
     return sum?.recommended_action.category === 'reply'
   })
   if (replySchools.length > 0) {
-    // Sort by oldest unanswered inbound (school with the oldest last inbound wins)
-    const clMap = new Map<string, string>()
-    for (const e of contactLog) {
-      if (!e.school_id || e.direction !== 'Inbound') continue
-      if (!clMap.has(e.school_id) || e.sent_at < clMap.get(e.school_id)!) {
-        // We want the oldest unanswered — but actually let's just pick the one
-        // that has been waiting longest. The summary already gates on reply.
-      }
-    }
-    // Simplest: sort reply schools by recency (oldest first)
     const sorted = [...replySchools].sort((a, b) => {
       const aE = contactLog.filter(e => e.school_id === a.id)
       const bE = contactLog.filter(e => e.school_id === b.id)
       const aMax = aE.length ? aE.reduce((m, e) => e.sent_at > m ? e.sent_at : m, '') : ''
       const bMax = bE.length ? bE.reduce((m, e) => e.sent_at > m ? e.sent_at : m, '') : ''
-      return aMax.localeCompare(bMax) // oldest first
+      return aMax.localeCompare(bMax)
     })
     return sorted[0].id
   }
@@ -118,18 +110,16 @@ function pickDailyPriority(
     return rec.state === 'hot'
   })
   if (hotSchools.length > 0) {
-    // Most recent first
     const sorted = [...hotSchools].sort((a, b) => {
       const aE = contactLog.filter(e => e.school_id === a.id)
       const bE = contactLog.filter(e => e.school_id === b.id)
       const aMax = aE.length ? aE.reduce((m, e) => e.sent_at > m ? e.sent_at : m, '') : ''
       const bMax = bE.length ? bE.reduce((m, e) => e.sent_at > m ? e.sent_at : m, '') : ''
-      return bMax.localeCompare(aMax) // most recent first
+      return bMax.localeCompare(aMax)
     })
     return sorted[0].id
   }
 
-  // Fallback: first non-wait school
   return nonWaitSchools[0].id
 }
 
@@ -162,11 +152,14 @@ function Eyebrow({ text, color }: { text: string; color?: string }) {
   )
 }
 
-// ─── Offer deadline fragment ──────────────────────────────────────────────────
+// ─── Offer deadline fragment (A2: passed-date hardening) ─────────────────────
+//
+// Parses month names from key_dates. If the date has PASSED, flips the language
+// from future tense ("opens Aug 1") to past/present ("window open since Aug 1").
+// Never says "opens" for a date that has already happened.
 
 function findNearOfferDeadline(offers: SchoolOffer[]): string | null {
   const today = new Date()
-  // Look for open offers with key_dates that reference a month name near now
   const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
   const currentMonth = today.getMonth()
   const nearMonths = [months[currentMonth], months[(currentMonth + 1) % 12]]
@@ -176,13 +169,31 @@ function findNearOfferDeadline(offers: SchoolOffer[]): string | null {
     const lower = o.key_dates.toLowerCase()
     for (const m of nearMonths) {
       if (lower.includes(m)) {
-        // Extract a short fragment around the month mention
         const idx = lower.indexOf(m)
         const start = Math.max(0, o.key_dates.lastIndexOf(';', idx) + 1)
         const end = o.key_dates.indexOf(';', idx)
-        const fragment = o.key_dates.slice(start, end > 0 ? end : undefined).trim()
+        let fragment = o.key_dates.slice(start, end > 0 ? end : undefined).trim()
         const schoolName = o.school?.short_name || o.school?.name
-        if (schoolName && fragment) return `${schoolName}: ${fragment}`
+        if (!schoolName || !fragment) continue
+
+        // A2: Detect if the mentioned date has passed
+        // Try to extract a date like "Aug 1" or "Oct 1" from the fragment
+        const dateMatch = fragment.match(/(\w{3,9})\s+(\d{1,2})/i)
+        if (dateMatch) {
+          const monthIdx = months.indexOf(dateMatch[1].toLowerCase().slice(0, 3))
+          if (monthIdx >= 0) {
+            const day = parseInt(dateMatch[2])
+            const mentionedDate = new Date(today.getFullYear(), monthIdx, day)
+            if (mentionedDate < today) {
+              // Date has passed — rewrite "opens" → "open since"
+              fragment = fragment
+                .replace(/\bopens\b/gi, 'open since')
+                .replace(/\bcloses\b/gi, 'closed')
+            }
+          }
+        }
+
+        return `${schoolName}: ${fragment}`
       }
     }
   }
@@ -251,7 +262,7 @@ export default function GetRecruitedClient({
     return map
   }, [contactLog])
 
-  const { nonWaitSchools, waitSchools } = useMemo(() => {
+  const { allEligible, nonWaitSchools, waitSchools } = useMemo(() => {
     const eligible = schools.filter(s => isTargetTier(s) && s.status !== 'Inactive')
     const sortByRecency = (list: School[]) => [...list].sort((a, b) => {
       const aEntries = schoolContactMap.get(a.id) ?? []
@@ -268,16 +279,17 @@ export default function GetRecruitedClient({
       const summary = summaryMap.get(s.id)
       return summary?.recommended_action.category === 'wait'
     }))
-    return { nonWaitSchools: nonWait, waitSchools: wait }
+    return { allEligible: eligible, nonWaitSchools: nonWait, waitSchools: wait }
   }, [schools, schoolContactMap, summaryMap])
 
-  const allActiveCount = nonWaitSchools.length + waitSchools.length
-
-  // ── Priority pick ─────────────────────────────────────────────────────────
+  // ── Priority pick (A1: rule 1 bypasses wait exclusion) ────────────────────
   const priorityId = useMemo(
-    () => pickDailyPriority(nonWaitSchools, summaryMap, offers, contactLog),
-    [nonWaitSchools, summaryMap, offers, contactLog]
+    () => pickDailyPriority(allEligible, nonWaitSchools, summaryMap, offers, contactLog),
+    [allEligible, nonWaitSchools, summaryMap, offers, contactLog]
   )
+
+  // A1: If priority school is in waitSchools (not in nonWaitSchools), inject it
+  const priorityIsWait = priorityId ? !nonWaitSchools.some(s => s.id === priorityId) : false
   const prioritySchool = priorityId ? schools.find(s => s.id === priorityId) ?? null : null
   const prioritySummary = priorityId ? summaryMap.get(priorityId) ?? null : null
   const priorityRecency = prioritySchool
@@ -291,6 +303,11 @@ export default function GetRecruitedClient({
     [nonWaitSchools, priorityId]
   )
   const defaultSecondaries = secondarySchools.slice(0, 4)
+
+  // Total active = nonWait + priority (if injected from wait) + wait
+  const allActiveCount = nonWaitSchools.length + waitSchools.length + (priorityIsWait ? 0 : 0)
+  // Queue has content if non-wait has items OR priority was injected from wait
+  const hasQueue = nonWaitSchools.length > 0 || priorityId !== null
 
   // ── HOT count for masthead ────────────────────────────────────────────────
   const hotCount = useMemo(() => {
@@ -315,8 +332,6 @@ export default function GetRecruitedClient({
       </div>
     )
   }
-
-  const hasQueue = nonWaitSchools.length > 0
 
   return (
     <div style={{
@@ -352,7 +367,7 @@ export default function GetRecruitedClient({
           )}
         </div>
 
-        {/* Offer deadline notice */}
+        {/* Offer deadline notice (A2: passed-date aware) */}
         {offerDeadline && (
           <div style={{
             margin: '8px 0 0', padding: '6px 0',
@@ -434,10 +449,7 @@ export default function GetRecruitedClient({
                 >
                   <GhostNumeral n="1" color={M.rust} opacity={0.09} />
                   <div style={{ position: 'relative', zIndex: 1 }}>
-                    {/* Rust eyebrow */}
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
-                    }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                       <span style={{
                         fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
                         letterSpacing: '0.08em', color: M.rust,
@@ -449,7 +461,6 @@ export default function GetRecruitedClient({
                       </span>
                     </div>
 
-                    {/* Headline = recommended action */}
                     <h3 style={{
                       margin: '0 0 6px', fontSize: 16, fontWeight: 700,
                       color: M.ink, fontStyle: 'italic', letterSpacing: '-0.02em',
@@ -458,15 +469,10 @@ export default function GetRecruitedClient({
                       {prioritySummary.recommended_action.description}
                     </h3>
 
-                    {/* Summary text */}
-                    <p style={{
-                      margin: '0 0 12px', fontSize: 13, color: M.inkMid,
-                      lineHeight: 1.55,
-                    }}>
+                    <p style={{ margin: '0 0 12px', fontSize: 13, color: M.inkMid, lineHeight: 1.55 }}>
                       {prioritySummary.summary}
                     </p>
 
-                    {/* Rust pill button */}
                     <button
                       onClick={e => { e.stopPropagation(); router.push(`/schools/${prioritySchool.id}`) }}
                       style={{
@@ -513,7 +519,6 @@ export default function GetRecruitedClient({
                   >
                     <GhostNumeral n={ghostNum} color={M.ink} opacity={0.04} />
                     <div style={{ position: 'relative', zIndex: 1 }}>
-                      {/* Top row */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 14, fontWeight: 700, color: M.ink }}>
                           {school.short_name || school.name}
@@ -528,18 +533,11 @@ export default function GetRecruitedClient({
                           </span>
                         )}
                       </div>
-
-                      {/* Summary */}
                       {summary && (
-                        <p style={{
-                          margin: '6px 0 0', fontSize: 12, color: M.inkMid,
-                          lineHeight: 1.5,
-                        }}>
+                        <p style={{ margin: '6px 0 0', fontSize: 12, color: M.inkMid, lineHeight: 1.5 }}>
                           {summary.recommended_action.description}
                         </p>
                       )}
-
-                      {/* Outlined pill */}
                       {summary && (
                         <div style={{ marginTop: 10 }}>
                           <button
@@ -560,42 +558,24 @@ export default function GetRecruitedClient({
                 )
               })}
 
-              {/* Wait-state schools (only in expanded view) */}
               {showAll && waitSchools.length > 0 && (
                 <>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0 4px',
-                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0 4px' }}>
                     <div style={{ flex: 1, height: 1, background: M.inkMute, opacity: 0.3 }} />
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                      letterSpacing: '0.08em', color: M.inkMute, whiteSpace: 'nowrap',
-                    }}>Waiting on coaches</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: M.inkMute, whiteSpace: 'nowrap' }}>Waiting on coaches</span>
                     <div style={{ flex: 1, height: 1, background: M.inkMute, opacity: 0.3 }} />
                   </div>
-                  {waitSchools.map((school, idx) => {
+                  {waitSchools.filter(s => s.id !== priorityId).map(school => {
                     const summary = summaryMap.get(school.id)
                     const stripeColor = summary ? CATEGORY_STRIPE[summary.recommended_action.category] ?? M.inkMute : M.inkMute
                     return (
-                      <div
-                        key={school.id}
-                        onClick={() => router.push(`/schools/${school.id}`)}
-                        style={{
-                          background: M.cardWhite, border: `1px solid ${M.lineWarm}`,
-                          borderLeft: `3px solid ${stripeColor}`, borderRadius: '0 12px 12px 0',
-                          padding: '14px 18px', cursor: 'pointer', opacity: 0.7,
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: M.ink }}>
-                            {school.short_name || school.name}
-                          </span>
-                        </div>
-                        {summary && (
-                          <p style={{ margin: '4px 0 0', fontSize: 12, color: M.inkMid, lineHeight: 1.5 }}>
-                            {summary.recommended_action.description}
-                          </p>
-                        )}
+                      <div key={school.id} onClick={() => router.push(`/schools/${school.id}`)} style={{
+                        background: M.cardWhite, border: `1px solid ${M.lineWarm}`,
+                        borderLeft: `3px solid ${stripeColor}`, borderRadius: '0 12px 12px 0',
+                        padding: '14px 18px', cursor: 'pointer', opacity: 0.7,
+                      }}>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: M.ink }}>{school.short_name || school.name}</span>
+                        {summary && <p style={{ margin: '4px 0 0', fontSize: 12, color: M.inkMid, lineHeight: 1.5 }}>{summary.recommended_action.description}</p>}
                       </div>
                     )
                   })}
@@ -603,15 +583,11 @@ export default function GetRecruitedClient({
               )}
 
               {allActiveCount > (defaultSecondaries.length + 1) && (
-                <button
-                  onClick={() => setShowAll(v => !v)}
-                  style={{
-                    marginTop: 4, padding: '7px 16px',
-                    background: 'transparent', border: `1.3px solid ${M.inkMute}`,
-                    borderRadius: 999, fontSize: 12, fontWeight: 600,
-                    color: M.inkLo, cursor: 'pointer', fontFamily: 'inherit',
-                  }}
-                >
+                <button onClick={() => setShowAll(v => !v)} style={{
+                  marginTop: 4, padding: '7px 16px', background: 'transparent',
+                  border: `1.3px solid ${M.inkMute}`, borderRadius: 999,
+                  fontSize: 12, fontWeight: 600, color: M.inkLo, cursor: 'pointer', fontFamily: 'inherit',
+                }}>
                   {showAll ? 'Show less' : `Show all (${allActiveCount})`}
                 </button>
               )}
@@ -619,7 +595,6 @@ export default function GetRecruitedClient({
           )}
         </section>
 
-        {/* ── Pipeline grid ──────────────────────────────────── */}
         <div ref={gridRef}>
           <FunnelGrid schools={schools} contactLog={contactLog} />
         </div>
