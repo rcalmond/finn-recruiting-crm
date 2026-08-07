@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFinnStatus, CampFinnStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message, CallPrepDoc, SchoolStatusUpdate, ShareWithCoach, SchoolMilestone, MilestoneType } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFinnStatus, CampFinnStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message, CallPrepDoc, SchoolStatusUpdate, ShareWithCoach, SchoolMilestone, MilestoneType, CalendarEvent } from '@/lib/types'
 import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp as updateCampMutation, updateFinnStatus as updateFinnStatusMutation, deleteCamp as deleteCampMutation, addSchoolAttendee as addSchoolAttendeeMutation, removeSchoolAttendee as removeSchoolAttendeeMutation } from '@/lib/camps'
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
@@ -887,4 +887,73 @@ export function useMilestones(schoolId?: string) {
   }, [supabase])
 
   return { milestones, upsertMilestone, removeMilestone }
+}
+
+// ─── Calendar Events (migration 061) ───────────────────────────────────────────
+
+type CalendarEventInput = Omit<CalendarEvent, 'id' | 'created_at' | 'updated_at' | 'school_ids'>
+
+export function useCalendarEvents() {
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const supabase = useMemo(() => createClient(), [])
+
+  const fetchEvents = useCallback(async () => {
+    const [evRes, linkRes] = await Promise.all([
+      supabase.from('calendar_events').select('*').order('start_date', { ascending: true }),
+      supabase.from('calendar_event_schools').select('event_id, school_id'),
+    ])
+    if (evRes.error || !evRes.data) { setLoading(false); return }
+    const linksByEvent = new Map<string, string[]>()
+    for (const l of (linkRes.data ?? []) as { event_id: string; school_id: string }[]) {
+      const arr = linksByEvent.get(l.event_id) ?? []
+      arr.push(l.school_id)
+      linksByEvent.set(l.event_id, arr)
+    }
+    setEvents((evRes.data as CalendarEvent[]).map(e => ({ ...e, school_ids: linksByEvent.get(e.id) ?? [] })))
+    setLoading(false)
+  }, [supabase])
+
+  useEffect(() => {
+    fetchEvents()
+    const channel = supabase
+      .channel(`calendar-events-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' }, fetchEvents)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_event_schools' }, fetchEvents)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [fetchEvents, supabase])
+
+  // Replace the school linkage rows for an event to match `schoolIds`.
+  const syncSchoolLinks = useCallback(async (eventId: string, schoolIds: string[]) => {
+    await supabase.from('calendar_event_schools').delete().eq('event_id', eventId)
+    if (schoolIds.length > 0) {
+      await supabase.from('calendar_event_schools')
+        .insert(schoolIds.map(school_id => ({ event_id: eventId, school_id })))
+    }
+  }, [supabase])
+
+  const insertEvent = useCallback(async (input: CalendarEventInput, schoolIds: string[]) => {
+    const { data, error } = await supabase.from('calendar_events').insert(input).select().single()
+    if (error || !data) return error
+    if (schoolIds.length > 0) await syncSchoolLinks((data as CalendarEvent).id, schoolIds)
+    await fetchEvents()
+    return null
+  }, [supabase, syncSchoolLinks, fetchEvents])
+
+  const updateEvent = useCallback(async (id: string, input: Partial<CalendarEventInput>, schoolIds?: string[]) => {
+    const { error } = await supabase.from('calendar_events').update(input).eq('id', id)
+    if (error) return error
+    if (schoolIds) await syncSchoolLinks(id, schoolIds)
+    await fetchEvents()
+    return null
+  }, [supabase, syncSchoolLinks, fetchEvents])
+
+  const deleteEvent = useCallback(async (id: string) => {
+    const { error } = await supabase.from('calendar_events').delete().eq('id', id)
+    if (!error) await fetchEvents()
+    return error
+  }, [supabase, fetchEvents])
+
+  return { events, loading, insertEvent, updateEvent, deleteEvent, refetch: fetchEvents }
 }

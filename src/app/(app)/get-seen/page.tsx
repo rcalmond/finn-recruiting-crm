@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import GetSeenClient from '@/components/GetSeenClient'
+import type { CalendarEventKind } from '@/lib/types'
 
 export interface UpcomingCampItem {
   id: string
@@ -11,29 +12,60 @@ export interface UpcomingCampItem {
   finn_status: string | null  // 'registered' | 'targeted' | 'interested' | null
 }
 
+// Lightweight event shape for the merged timeline (calendar_events, migration 061).
+export interface TimelineEventItem {
+  id: string
+  kind: CalendarEventKind
+  name: string
+  start_date: string
+  end_date: string | null
+  location: string | null
+  status: string
+}
+
 export default async function GetSeenPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
   const today = new Date().toISOString().split('T')[0]
-  const eightWeeksOut = new Date(Date.now() + 56 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  // 10-week window (widened from 8 for fall planning).
+  const tenWeeksOut = new Date(Date.now() + 70 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
   const [
     { data: upcomingCamps },
+    { data: eventRows },
     { count: activeCampaignCount },
   ] = await Promise.all([
     supabase.from('camps')
       .select('id, name, start_date, host_school_id, schools!camps_host_school_id_fkey(name, short_name), camp_finn_status(status)')
       .gte('start_date', today)
-      .lte('start_date', eightWeeksOut)
+      .lte('start_date', tenWeeksOut)
       .order('start_date', { ascending: true })
-      .limit(10),
+      .limit(20),
+    supabase.from('calendar_events')
+      .select('id, kind, name, start_date, end_date, location, status')
+      .lte('start_date', tenWeeksOut)
+      .neq('status', 'skipped')
+      .order('start_date', { ascending: true }),
     supabase.from('campaigns')
       .select('*', { count: 'exact', head: true })
       .in('status', ['draft', 'active'])
       .is('archived_at', null),
   ])
+
+  // Upcoming or still-ongoing events (single-day: start >= today; range: not yet ended).
+  const upcomingEvents: TimelineEventItem[] = (eventRows ?? [])
+    .filter((e: Record<string, unknown>) => ((e.end_date as string) ?? (e.start_date as string)) >= today)
+    .map((e: Record<string, unknown>) => ({
+      id: e.id as string,
+      kind: e.kind as CalendarEventKind,
+      name: e.name as string,
+      start_date: e.start_date as string,
+      end_date: (e.end_date as string) ?? null,
+      location: (e.location as string) ?? null,
+      status: e.status as string,
+    }))
 
   // Flatten the joined data
   const campItems: UpcomingCampItem[] = (upcomingCamps ?? []).map((c: Record<string, unknown>) => {
@@ -52,6 +84,7 @@ export default async function GetSeenPage() {
   return (
     <GetSeenClient
       upcomingCamps={campItems}
+      upcomingEvents={upcomingEvents}
       activeCampaignCount={activeCampaignCount ?? 0}
     />
   )

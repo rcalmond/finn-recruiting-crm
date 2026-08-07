@@ -203,6 +203,43 @@ export interface SchoolConversationSummary {
 
 export type CampFinnStatusValue = 'interested' | 'targeted' | 'registered' | 'attended' | 'declined'
 
+// ─── Calendar Events (migration 061) ──────────────────────────────────────────
+// Lightweight parallel event species merged with camps on the Get Seen timeline:
+// showcases/tournaments Finn attends, and outreach send-moments he sends.
+
+export type CalendarEventKind = 'showcase' | 'tournament' | 'outreach_moment' | 'other'
+export type CalendarEventStatus = 'planned' | 'confirmed' | 'done' | 'skipped'
+
+export interface CalendarEvent {
+  id: string
+  kind: CalendarEventKind
+  name: string
+  start_date: string            // YYYY-MM-DD
+  end_date: string | null       // null = single day
+  location: string | null       // null for outreach moments
+  note: string | null
+  status: CalendarEventStatus
+  created_at: string
+  updated_at: string
+  school_ids?: string[]         // composed from calendar_event_schools
+}
+
+export const CALENDAR_EVENT_KIND_META: Record<CalendarEventKind, {
+  label: string; description: string; noLocation?: boolean
+}> = {
+  showcase:        { label: 'Showcase',        description: 'A multi-team event coaches scout (ECNL, Surf Cup)' },
+  tournament:      { label: 'Tournament',      description: 'A competitive event Finn plays in' },
+  outreach_moment: { label: 'Outreach moment', description: 'A send you make — reel drop, season update', noLocation: true },
+  other:           { label: 'Other',           description: 'Anything else on the recruiting calendar' },
+}
+
+export const CALENDAR_EVENT_STATUS_META: Record<CalendarEventStatus, { label: string; bg: string; color: string }> = {
+  planned:   { label: 'Planned',   bg: '#FEF3C7', color: '#92400E' },
+  confirmed: { label: 'Confirmed', bg: '#D7EFE0', color: '#1B4332' },
+  done:      { label: 'Done',      bg: '#F3F4F6', color: '#374151' },
+  skipped:   { label: 'Skipped',   bg: '#FEE2E2', color: '#991B1B' },
+}
+
 export interface Camp {
   id: string
   host_school_id: string

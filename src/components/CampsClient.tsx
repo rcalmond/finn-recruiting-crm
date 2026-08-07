@@ -3,11 +3,13 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
-import type { CampWithRelations, CampFinnStatusValue, Category } from '@/lib/types'
-import { useCamps, useSchools } from '@/hooks/useRealtimeData'
+import type { CampWithRelations, CampFinnStatusValue, Category, CalendarEvent, CalendarEventKind } from '@/lib/types'
+import { CALENDAR_EVENT_KIND_META, CALENDAR_EVENT_STATUS_META } from '@/lib/types'
+import { useCamps, useSchools, useCalendarEvents } from '@/hooks/useRealtimeData'
 import { sortCampsChronological, classifyCampTimeframe } from '@/lib/camps'
 import { todayStr } from '@/lib/utils'
 import AddCampModal from './AddCampModal'
+import EventModal from './EventModal'
 import CampsCalendar from './CampsCalendar'
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
@@ -53,7 +55,11 @@ export default function CampsClient({ user }: { user: User }) {
   const searchParams = useSearchParams()
   const { schools } = useSchools()
   const { camps, loading } = useCamps(schools)
+  const { events, insertEvent, updateEvent, deleteEvent } = useCalendarEvents()
   const today = todayStr()
+
+  // Events management modal ('add' = new, an event = edit)
+  const [eventModal, setEventModal] = useState<CalendarEvent | 'add' | null>(null)
 
   // ── URL-backed state ────────────────────────────────────────────────────────
   const pushParams = useCallback((updates: Record<string, string | null>) => {
@@ -294,6 +300,35 @@ export default function CampsClient({ user }: { user: User }) {
         </div>
       )}
 
+      {/* ── Events section (showcases, tournaments, outreach moments) ──────── */}
+      <section style={{ marginTop: 40 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: LV.inkMute, marginBottom: 4 }}>Also on the calendar</div>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.03em', color: LV.ink, fontStyle: 'italic' }}>Events.</h2>
+          </div>
+          <button onClick={() => setEventModal('add')} style={{
+            padding: '8px 18px', background: '#2D6A4F', color: '#fff', border: 'none', borderRadius: 999,
+            fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: -0.1,
+          }}>Add event</button>
+        </div>
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: LV.inkLo, lineHeight: 1.5, maxWidth: 560 }}>
+          Showcases and tournaments Finn attends, plus outreach send-moments (reel drops, season updates). These merge with camps on the Get Seen timeline.
+        </p>
+
+        {events.length === 0 ? (
+          <div style={{ padding: '32px 24px', textAlign: 'center', background: '#fff', border: `1px dashed ${LV.line}`, borderRadius: 14, color: LV.inkLo, fontSize: 14 }}>
+            No events yet. Add a showcase, tournament, or outreach moment.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[...events].sort((a, b) => a.start_date.localeCompare(b.start_date)).map(ev => (
+              <EventRow key={ev.id} event={ev} today={today} onClick={() => setEventModal(ev)} />
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* Add camp modal */}
       {showAddModal && (
         <AddCampModal
@@ -302,6 +337,56 @@ export default function CampsClient({ user }: { user: User }) {
           onCreated={(id) => { setShowAddModal(false); router.push(`/camps/${id}`) }}
         />
       )}
+
+      {/* Event add/edit modal */}
+      {eventModal !== null && (
+        <EventModal
+          event={eventModal === 'add' ? null : eventModal}
+          schools={schools}
+          onSave={async (input, schoolIds) => {
+            if (eventModal === 'add') return insertEvent(input, schoolIds)
+            return updateEvent((eventModal as CalendarEvent).id, input, schoolIds)
+          }}
+          onDelete={eventModal !== 'add' ? async () => deleteEvent((eventModal as CalendarEvent).id) : undefined}
+          onClose={() => setEventModal(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── Event row ───────────────────────────────────────────────────────────────
+
+function EventRow({ event, today, onClick }: { event: CalendarEvent; today: string; onClick: () => void }) {
+  const kindMeta = CALENDAR_EVENT_KIND_META[event.kind]
+  const statusMeta = CALENDAR_EVENT_STATUS_META[event.status]
+  const isOutreach = event.kind === 'outreach_moment'
+  const KIND_BADGE: Record<CalendarEventKind, { bg: string; color: string }> = {
+    showcase:        { bg: '#DBEAFE', color: '#1E40AF' },
+    tournament:      { bg: '#E0E7FF', color: '#3730A3' },
+    outreach_moment: { bg: '#FAF0EA', color: '#B5502F' },
+    other:           { bg: '#F3F4F6', color: '#374151' },
+  }
+  const kb = KIND_BADGE[event.kind]
+  const daysOut = Math.round((new Date(event.start_date + 'T12:00:00').getTime() - new Date(today + 'T12:00:00').getTime()) / 86400000)
+
+  return (
+    <div onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+      background: '#fff', border: `1px solid ${LV.line}`, borderRadius: 12, cursor: 'pointer',
+    }}>
+      <span style={{ fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 4, background: kb.bg, color: kb.color, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0, whiteSpace: 'nowrap' }}>
+        {isOutreach ? '↗ ' : ''}{kindMeta.label}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 650, color: LV.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.name}</div>
+        <div style={{ fontSize: 12, color: LV.inkLo, marginTop: 1 }}>
+          {formatDateRange(event.start_date, event.end_date ?? event.start_date)}
+          {!isOutreach && event.location ? ` · ${event.location}` : ''}
+          {daysOut >= 0 ? ` · ${daysOut === 0 ? 'today' : daysOut === 1 ? 'tomorrow' : `${daysOut}d out`}` : ''}
+        </div>
+      </div>
+      <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: statusMeta.bg, color: statusMeta.color, flexShrink: 0 }}>{statusMeta.label}</span>
     </div>
   )
 }
