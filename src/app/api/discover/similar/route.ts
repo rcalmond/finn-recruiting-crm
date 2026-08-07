@@ -135,9 +135,16 @@ Return ONLY a JSON array, no prose:
     const index = (universe ?? []).map(u => ({
       ...u, tName: norm(u.name), tShort: u.short_name ? norm(u.short_name) : new Set<string>(),
     }))
+    // Ambiguity guard: a token key can be shared by distinct schools the stripper
+    // conflates ("Union University"/"Union College" → {union}; "Boston University"/
+    // "Boston College" → {boston}). Only resolve when exactly ONE universe row
+    // matches; otherwise return null so the proposal is flagged verify rather than
+    // silently attached to the wrong school.
     const matchUniverse = (name: string) => {
       const t = norm(name)
-      return index.find(u => eq(t, u.tName) || (u.tShort.size > 0 && eq(t, u.tShort))) ?? null
+      const hits = index.filter(u => eq(t, u.tName) || (u.tShort.size > 0 && eq(t, u.tShort)))
+      const uniqueIds = new Set(hits.map(h => h.id))
+      return uniqueIds.size === 1 ? hits[0] : null
     }
 
     // Resolve every excluded/seed school to a discovery id. This bridges name-form

@@ -200,7 +200,7 @@ const D1: Row[] = [
   ['Denver', 'Denver', 'Summit League', 'CO', 3, 's', 1, 'Denver'],
   ['Oral Roberts', 'Oral Roberts', 'Summit League', 'OK', 2, 's', 1, 'Tulsa'],
   ['Omaha', 'Omaha', 'Summit League', 'NE', 3, 's', 0, 'Omaha'],
-  ['St. Thomas', 'St. Thomas', 'Summit League', 'MN', 3, 's', 1, 'St. Paul'],
+  ['St. Thomas (MN)', 'St. Thomas', 'Summit League', 'MN', 3, 's', 1, 'St. Paul'],
   ['Kansas City', 'Kansas City', 'Summit League', 'MO', 3, 's', 1, 'Kansas City'],
   ['Western Illinois', 'Western Illinois', 'Summit League', 'IL', 3, 'a', 0, 'Macomb'],
   // MAAC
@@ -290,7 +290,7 @@ const D2: Row[] = [
   ['CSU Pueblo', 'CSU Pueblo', 'RMAC', 'CO', 2, 'a', 1, 'Pueblo'],
   ['Metro State Denver', 'MSU Denver', 'RMAC', 'CO', 4, 'a', 1, 'Denver'],
   ['Fort Lewis', 'Fort Lewis', 'RMAC', 'CO', 2, 'a', 0, 'Durango'],
-  ['Westminster', 'Westminster UT', 'RMAC', 'UT', 1, 's', 0, 'Salt Lake City'],
+  ['Westminster University (UT)', 'Westminster UT', 'RMAC', 'UT', 1, 's', 0, 'Salt Lake City'],
   ['Cal Poly Pomona', 'Cal Poly Pomona', 'CCAA', 'CA', 4, 's', 1, 'Pomona'],
   ['Cal State LA', 'Cal State LA', 'CCAA', 'CA', 4, 'a', 1, 'Los Angeles'],
   ['Cal State San Bernardino', 'CSUSB', 'CCAA', 'CA', 4, 'a', 0, 'San Bernardino'],
@@ -324,7 +324,7 @@ const D2: Row[] = [
   ['Embry-Riddle', 'Embry-Riddle', 'Sunshine State', 'FL', 3, 's', 1, 'Daytona Beach'],
   ['Palm Beach Atlantic', 'PBA', 'Sunshine State', 'FL', 2, 's', 0, 'West Palm Beach'],
   ['Lee', 'Lee', 'Gulf South', 'TN', 3, 's', 0, 'Cleveland'],
-  ['Union', 'Union TN', 'Gulf South', 'TN', 2, 's', 1, 'Jackson'],
+  ['Union University', 'Union TN', 'Gulf South', 'TN', 2, 's', 1, 'Jackson'],
   ['Montevallo', 'Montevallo', 'Gulf South', 'AL', 2, 's', 0, 'Montevallo'],
   ['West Florida', 'West Florida', 'Gulf South', 'FL', 3, 's', 1, 'Pensacola'],
   ['Wingate', 'Wingate', 'South Atlantic', 'NC', 2, 's', 1, 'Wingate'],
@@ -480,7 +480,7 @@ const D3: Row[] = [
   ['Connecticut College', 'Conn College', 'NESCAC', 'CT', 1, 'h', 0, 'New London'],
   ['Hamilton', 'Hamilton', 'NESCAC', 'NY', 1, 'm', 0, 'Clinton'],
   ['Middlebury', 'Middlebury', 'NESCAC', 'VT', 2, 'm', 0, 'Middlebury'],
-  ['Trinity (CT)', 'Trinity CT', 'NESCAC', 'CT', 1, 'h', 1, 'Hartford'],
+  ['Trinity College (CT)', 'Trinity CT', 'NESCAC', 'CT', 1, 'h', 1, 'Hartford'],
   ['Tufts', 'Tufts', 'NESCAC', 'MA', 3, 'm', 1, 'Medford'],
   ['Wesleyan', 'Wesleyan', 'NESCAC', 'CT', 1, 'm', 0, 'Middletown'],
   ['Williams', 'Williams', 'NESCAC', 'MA', 1, 'm', 0, 'Williamstown'],
@@ -496,7 +496,7 @@ const D3: Row[] = [
   // Liberty League
   ['St. Lawrence', 'St. Lawrence', 'Liberty League', 'NY', 2, 's', 0, 'Canton'],
   ['Rensselaer Polytechnic Institute', 'RPI', 'Liberty League', 'NY', 3, 'h', 1, 'Troy'],
-  ['Union (NY)', 'Union NY', 'Liberty League', 'NY', 1, 'h', 1, 'Schenectady'],
+  ['Union College', 'Union NY', 'Liberty League', 'NY', 1, 'h', 1, 'Schenectady'],
   ['Skidmore', 'Skidmore', 'Liberty League', 'NY', 2, 'h', 0, 'Saratoga Springs'],
   ['Vassar', 'Vassar', 'Liberty League', 'NY', 2, 'm', 0, 'Poughkeepsie'],
   ['Bard', 'Bard', 'Liberty League', 'NY', 2, 'h', 0, 'Annandale-on-Hudson'],
@@ -512,7 +512,7 @@ const D3: Row[] = [
   ['Babson', 'Babson', 'NEWMAC', 'MA', 2, 'h', 0, 'Wellesley'],
   ['Springfield', 'Springfield', 'NEWMAC', 'MA', 2, 's', 1, 'Springfield'],
   ['Coast Guard', 'Coast Guard', 'NEWMAC', 'CT', 1, 'h', 1, 'New London'],
-  ['Wheaton (MA)', 'Wheaton MA', 'NEWMAC', 'MA', 1, 's', 0, 'Norton'],
+  ['Wheaton College (MA)', 'Wheaton MA', 'NEWMAC', 'MA', 1, 's', 0, 'Norton'],
   ['Emerson', 'Emerson', 'NEWMAC', 'MA', 2, 'h', 0, 'Boston'],
   // Centennial
   ['Johns Hopkins', 'Johns Hopkins', 'Centennial', 'MD', 3, 'm', 1, 'Baltimore'],
@@ -613,7 +613,7 @@ const D3: Row[] = [
   ['Otterbein', 'Otterbein', 'OAC', 'OH', 2, 's', 1, 'Westerville'],
   ['Baldwin Wallace', 'Baldwin Wallace', 'OAC', 'OH', 2, 's', 1, 'Berea'],
   // CCIW / Midwest
-  ['Wheaton (IL)', 'Wheaton IL', 'CCIW', 'IL', 2, 'h', 1, 'Wheaton'],
+  ['Wheaton College (IL)', 'Wheaton IL', 'CCIW', 'IL', 2, 'h', 1, 'Wheaton'],
   ['North Central (IL)', 'North Central IL', 'CCIW', 'IL', 2, 's', 1, 'Naperville'],
   ['Illinois Wesleyan', 'Illinois Wesleyan', 'CCIW', 'IL', 1, 'h', 0, 'Bloomington'],
   ['Carthage', 'Carthage', 'CCIW', 'WI', 2, 's', 1, 'Kenosha'],
@@ -650,7 +650,7 @@ const D3: Row[] = [
   ['Rhodes', 'Rhodes', 'SAA', 'TN', 1, 'h', 0, 'Memphis'],
   ['Sewanee', 'Sewanee', 'SAA', 'TN', 1, 'h', 0, 'Sewanee'],
   ['Centre', 'Centre', 'SAA', 'KY', 1, 'h', 0, 'Danville'],
-  ['Trinity (TX)', 'Trinity TX', 'SAA', 'TX', 1, 'h', 1, 'San Antonio'],
+  ['Trinity University (TX)', 'Trinity TX', 'SAA', 'TX', 1, 'h', 1, 'San Antonio'],
   ['Millsaps', 'Millsaps', 'SAA', 'MS', 1, 's', 0, 'Jackson'],
   ['Hendrix', 'Hendrix', 'SAA', 'AR', 1, 'h', 0, 'Conway'],
   // USA South / Southeast
@@ -687,7 +687,7 @@ const D3: Row[] = [
   ['Mount Saint Mary (NY)', 'Mount Saint Mary NY', 'Skyline', 'NY', 1, 'a', 0, 'Newburgh'],
   // PAC (Presidents' Athletic Conference)
   ['Grove City', 'Grove City', 'PAC', 'PA', 1, 'h', 1, 'Grove City'],
-  ['Westminster (PA)', 'Westminster PA', 'PAC', 'PA', 1, 's', 0, 'New Wilmington'],
+  ['Westminster College (PA)', 'Westminster PA', 'PAC', 'PA', 1, 's', 0, 'New Wilmington'],
   ['Washington & Jefferson', 'W&J', 'PAC', 'PA', 1, 's', 0, 'Washington'],
   ['Bethany (WV)', 'Bethany WV', 'PAC', 'WV', 1, 'a', 0, 'Bethany'],
   ['Thiel', 'Thiel', 'PAC', 'PA', 1, 'a', 0, 'Greenville'],
@@ -735,8 +735,8 @@ const D3: Row[] = [
   ['William Peace', 'William Peace', 'USA South', 'NC', 1, 'a', 0, 'Raleigh'],
   // NACC (Northern Athletics)
   ['Aurora', 'Aurora', 'NACC', 'IL', 1, 's', 0, 'Aurora'],
-  ['Concordia (WI)', 'Concordia WI', 'NACC', 'WI', 2, 's', 0, 'Mequon'],
-  ['Concordia (IL)', 'Concordia IL', 'NACC', 'IL', 1, 's', 0, 'River Forest'],
+  ['Concordia University Wisconsin', 'Concordia WI', 'NACC', 'WI', 2, 's', 0, 'Mequon'],
+  ['Concordia University Chicago', 'Concordia IL', 'NACC', 'IL', 1, 's', 0, 'River Forest'],
   ['Marian (WI)', 'Marian WI', 'NACC', 'WI', 1, 'a', 0, 'Fond du Lac'],
   ['Rockford', 'Rockford', 'NACC', 'IL', 1, 'a', 0, 'Rockford'],
   ['Wisconsin Lutheran', 'Wisconsin Lutheran', 'NACC', 'WI', 1, 's', 0, 'Milwaukee'],
@@ -799,7 +799,7 @@ const D3: Row[] = [
   ['SUNY Canton', 'SUNY Canton', 'NEAC', 'NY', 1, 'a', 1, 'Canton'],
   ['Lancaster Bible', 'Lancaster Bible', 'NEAC', 'PA', 1, 'a', 0, 'Lancaster'],
   // More Texas / SCAC / ASC D3
-  ['Concordia (TX)', 'Concordia TX', 'ASC', 'TX', 2, 's', 0, 'Austin'],
+  ['Concordia University Texas', 'Concordia TX', 'ASC', 'TX', 2, 's', 0, 'Austin'],
   ['Hardin-Simmons', 'Hardin-Simmons', 'ASC', 'TX', 1, 's', 1, 'Abilene'],
   ['Sul Ross State', 'Sul Ross St', 'ASC', 'TX', 1, 'a', 0, 'Alpine'],
   ['McMurry', 'McMurry', 'ASC', 'TX', 1, 'a', 0, 'Abilene'],
@@ -839,6 +839,97 @@ const D3: Row[] = [
   ['Hampden-Sydney', 'Hampden-Sydney', 'ODAC', 'VA', 1, 'h', 0, 'Hampden-Sydney'],
   // More SoCal / West D3
   ['UC Santa Cruz', 'UC Santa Cruz', 'C2C', 'CA', 4, 'h', 1, 'Santa Cruz'],
+  // ── Completion pass: fill under-covered + missing D3 conferences ──
+  // OAC (Ohio)
+  ['Marietta', 'Marietta', 'OAC', 'OH', 1, 's', 1, 'Marietta'],
+  ['Capital', 'Capital', 'OAC', 'OH', 1, 's', 0, 'Columbus'],
+  ['Heidelberg', 'Heidelberg', 'OAC', 'OH', 1, 's', 0, 'Tiffin'],
+  ['Wilmington (OH)', 'Wilmington OH', 'OAC', 'OH', 1, 'a', 0, 'Wilmington'],
+  ['Muskingum', 'Muskingum', 'OAC', 'OH', 1, 's', 0, 'New Concord'],
+  // NCAC
+  ['Hiram', 'Hiram', 'NCAC', 'OH', 1, 's', 0, 'Hiram'],
+  ['Allegheny', 'Allegheny', 'NCAC', 'PA', 1, 'h', 0, 'Meadville'],
+  // MIAC
+  ['Concordia College Moorhead', 'Concordia Moorhead', 'MIAC', 'MN', 2, 's', 0, 'Moorhead'],
+  ['Saint Mary’s University of Minnesota', "Saint Mary's MN", 'MIAC', 'MN', 1, 's', 0, 'Winona'],
+  // WIAC
+  ['UW-Stout', 'UW-Stout', 'WIAC', 'WI', 3, 's', 1, 'Menomonie'],
+  ['UW-River Falls', 'UW-River Falls', 'WIAC', 'WI', 2, 's', 0, 'River Falls'],
+  ['UW-Superior', 'UW-Superior', 'WIAC', 'WI', 1, 'a', 0, 'Superior'],
+  // UMAC
+  ['St. Scholastica', 'St. Scholastica', 'UMAC', 'MN', 1, 's', 0, 'Duluth'],
+  ['Minnesota-Morris', 'Minnesota-Morris', 'UMAC', 'MN', 1, 's', 0, 'Morris'],
+  ['North Central (MN)', 'North Central MN', 'UMAC', 'MN', 1, 'a', 0, 'Minneapolis'],
+  // CCC (Commonwealth Coast)
+  ['Curry', 'Curry', 'CCC', 'MA', 1, 'a', 0, 'Milton'],
+  ['Nichols', 'Nichols', 'CCC', 'MA', 1, 'a', 0, 'Dudley'],
+  ['New England (UNE)', 'New England', 'CCC', 'ME', 1, 's', 0, 'Biddeford'],
+  ['Suffolk', 'Suffolk', 'CCC', 'MA', 2, 's', 0, 'Boston'],
+  // SCAC
+  ['Centenary (LA)', 'Centenary LA', 'SCAC', 'LA', 1, 's', 0, 'Shreveport'],
+  ['Dallas', 'Dallas', 'SCAC', 'TX', 1, 's', 0, 'Irving'],
+  ['University of St. Thomas (TX)', 'St. Thomas TX', 'SCAC', 'TX', 1, 's', 0, 'Houston'],
+  // C2C (Coast to Coast)
+  ['Southern Virginia', 'Southern Virginia', 'C2C', 'VA', 1, 'a', 0, 'Buena Vista'],
+  ['Pfeiffer', 'Pfeiffer', 'C2C', 'NC', 1, 'a', 0, 'Misenheimer'],
+  // NECC (New England Collegiate)
+  ['Elms', 'Elms', 'NECC', 'MA', 1, 'a', 0, 'Chicopee'],
+  ['Mitchell', 'Mitchell', 'NECC', 'CT', 1, 'a', 0, 'New London'],
+  ['New England College', 'New England College', 'NECC', 'NH', 1, 'a', 0, 'Henniker'],
+  ['Lesley', 'Lesley', 'NECC', 'MA', 1, 's', 0, 'Cambridge'],
+  ['Rivier', 'Rivier', 'NECC', 'NH', 1, 'a', 0, 'Nashua'],
+  // AMCC (Allegheny Mountain)
+  ['Penn State Behrend', 'PSU Behrend', 'AMCC', 'PA', 2, 's', 1, 'Erie'],
+  ['Pitt-Bradford', 'Pitt-Bradford', 'AMCC', 'PA', 1, 'a', 0, 'Bradford'],
+  ['Pitt-Greensburg', 'Pitt-Greensburg', 'AMCC', 'PA', 1, 'a', 0, 'Greensburg'],
+  ['Mount Aloysius', 'Mount Aloysius', 'AMCC', 'PA', 1, 'a', 0, 'Cresson'],
+  ['La Roche', 'La Roche', 'AMCC', 'PA', 1, 'a', 0, 'Pittsburgh'],
+  ['Hilbert', 'Hilbert', 'AMCC', 'NY', 1, 'a', 0, 'Hamburg'],
+  // CCIW / NACC
+  ['Carroll (WI)', 'Carroll WI', 'CCIW', 'WI', 1, 's', 0, 'Waukesha'],
+  ['Benedictine (IL)', 'Benedictine IL', 'NACC', 'IL', 1, 's', 0, 'Lisle'],
+  ['Dominican (IL)', 'Dominican IL', 'NACC', 'IL', 1, 's', 0, 'River Forest'],
+  // SLIAC
+  ['Spalding', 'Spalding', 'SLIAC', 'KY', 1, 'a', 0, 'Louisville'],
+  ['Eureka', 'Eureka', 'SLIAC', 'IL', 1, 'a', 0, 'Eureka'],
+  ['Iowa Wesleyan', 'Iowa Wesleyan', 'SLIAC', 'IA', 1, 'a', 0, 'Mount Pleasant'],
+  ['Westminster College (MO)', 'Westminster MO', 'SLIAC', 'MO', 1, 's', 0, 'Fulton'],
+  // NJAC
+  ['New Jersey City', 'NJCU', 'NJAC', 'NJ', 3, 'a', 0, 'Jersey City'],
+  ['Rutgers-Camden', 'Rutgers-Camden', 'NJAC', 'NJ', 3, 's', 1, 'Camden'],
+  ['Rutgers-Newark', 'Rutgers-Newark', 'NJAC', 'NJ', 3, 's', 1, 'Newark'],
+  // Skyline / CUNYAC / Empire 8 extras
+  ['SUNY Old Westbury', 'SUNY Old Westbury', 'Skyline', 'NY', 2, 'a', 1, 'Old Westbury'],
+  ["St. Joseph's University (NY)", "St. Joseph's NY", 'Skyline', 'NY', 1, 's', 0, 'Brooklyn'],
+  ['Manhattanville', 'Manhattanville', 'Skyline', 'NY', 1, 's', 0, 'Purchase'],
+  ['John Jay', 'John Jay', 'CUNYAC', 'NY', 3, 's', 0, 'New York'],
+  ['Alfred State', 'Alfred State', 'Empire 8', 'NY', 1, 's', 1, 'Alfred'],
+  // Little East / NAC extras
+  ['Plymouth State', 'Plymouth State', 'Little East', 'NH', 2, 's', 0, 'Plymouth'],
+  ['Southern Maine', 'Southern Maine', 'Little East', 'ME', 2, 's', 1, 'Gorham'],
+  ['Castleton', 'Castleton', 'Little East', 'VT', 1, 'a', 0, 'Castleton'],
+  ['Thomas (ME)', 'Thomas ME', 'NAC', 'ME', 1, 'a', 0, 'Waterville'],
+  // Northwest / West extras
+  ['Pacific (OR)', 'Pacific OR', 'Northwest Conference', 'OR', 1, 's', 0, 'Forest Grove'],
+  // Landmark / MAC / Centennial extras
+  ['Bryn Athyn', 'Bryn Athyn', 'United East', 'PA', 1, 'a', 0, 'Bryn Athyn'],
+  ['Penn State Abington', 'PSU Abington', 'United East', 'PA', 2, 's', 0, 'Abington'],
+  ['SUNY Maritime', 'SUNY Maritime', 'Skyline', 'NY', 1, 's', 1, 'Bronx'],
+  ['Wilson (PA)', 'Wilson PA', 'United East', 'PA', 1, 'a', 0, 'Chambersburg'],
+  // Great Northeast / other New England
+  // SAA / Southern extras
+  // ASC / Texas extras
+  // ODAC extra
+  ['Randolph', 'Randolph', 'ODAC', 'VA', 1, 's', 0, 'Lynchburg'],
+  // Final D3 completion — confident programs across remaining gaps
+  ['Greensboro', 'Greensboro', 'USA South', 'NC', 1, 'a', 0, 'Greensboro'],
+  ['Brevard', 'Brevard', 'USA South', 'NC', 1, 'a', 0, 'Brevard'],
+  ['Keuka', 'Keuka', 'United East', 'NY', 1, 'a', 0, 'Keuka Park'],
+  ['Pennsylvania College of Technology', 'Penn College', 'United East', 'PA', 2, 's', 1, 'Williamsport'],
+  ['Rosemont', 'Rosemont', 'United East', 'PA', 1, 'a', 0, 'Rosemont'],
+  ['Delaware Valley', 'Delaware Valley', 'MAC Freedom', 'PA', 1, 's', 1, 'Doylestown'],
+  ['Milwaukee School of Engineering', 'MSOE', 'NACC', 'WI', 1, 's', 1, 'Milwaukee'],
+  ['St. Elizabeth', 'St. Elizabeth', 'Atlantic East', 'NJ', 1, 'a', 0, 'Morristown'],
 ]
 
 // ─── NAIA ──────────────────────────────────────────────────────────────────
@@ -870,7 +961,7 @@ const NAIA: Row[] = [
   ['Park', 'Park', 'Heart', 'MO', 2, 'a', 0, 'Parkville'],
   ['Northwestern (IA)', 'Northwestern IA', 'GPAC', 'IA', 1, 's', 0, 'Orange City'],
   ['Hastings', 'Hastings', 'GPAC', 'NE', 1, 's', 0, 'Hastings'],
-  ['Concordia (NE)', 'Concordia NE', 'GPAC', 'NE', 1, 's', 0, 'Seward'],
+  ['Concordia University Nebraska', 'Concordia NE', 'GPAC', 'NE', 1, 's', 0, 'Seward'],
   ['Rocky Mountain', 'Rocky Mountain', 'Frontier', 'MT', 1, 's', 1, 'Billings'],
   ['Providence (MT)', 'Providence MT', 'Frontier', 'MT', 1, 'a', 0, 'Great Falls'],
   ['Southern Oregon', 'Southern Oregon', 'Cascade', 'OR', 2, 's', 0, 'Ashland'],
@@ -895,7 +986,7 @@ const NAIA: Row[] = [
   ['Reinhardt', 'Reinhardt', 'Appalachian', 'GA', 1, 'a', 0, 'Waleska'],
   ['Truett McConnell', 'Truett McConnell', 'Appalachian', 'GA', 1, 'a', 0, 'Cleveland'],
   ['Point (GA)', 'Point GA', 'Appalachian', 'GA', 1, 'a', 0, 'West Point'],
-  ['Union (KY)', 'Union KY', 'Mid-South', 'KY', 1, 'a', 0, 'Barbourville'],
+  ['Union Commonwealth (KY)', 'Union KY', 'Mid-South', 'KY', 1, 'a', 0, 'Barbourville'],
   ['Pikeville', 'Pikeville', 'Mid-South', 'KY', 1, 'a', 0, 'Pikeville'],
   ['Life', 'Life', 'Mid-South', 'GA', 1, 'a', 0, 'Marietta'],
   ['Shawnee State', 'Shawnee St', 'River States', 'OH', 2, 'a', 0, 'Portsmouth'],
@@ -910,6 +1001,140 @@ const NAIA: Row[] = [
   ['Waldorf', 'Waldorf', 'North Star', 'IA', 1, 'a', 0, 'Forest City'],
   ['Valley City State', 'Valley City St', 'North Star', 'ND', 1, 'a', 0, 'Valley City'],
   ['Mayville State', 'Mayville St', 'North Star', 'ND', 1, 'a', 0, 'Mayville'],
+  // ── Completion pass: fill missing + thin NAIA conferences ──
+  // Wolverine-Hoosier (WHAC)
+  ['Aquinas', 'Aquinas', 'WHAC', 'MI', 1, 'a', 0, 'Grand Rapids'],
+  ['Concordia University Ann Arbor', 'Concordia MI', 'WHAC', 'MI', 1, 'a', 0, 'Ann Arbor'],
+  ['Indiana Tech', 'Indiana Tech', 'WHAC', 'IN', 1, 'a', 1, 'Fort Wayne'],
+  ['Lawrence Tech', 'Lawrence Tech', 'WHAC', 'MI', 1, 's', 1, 'Southfield'],
+  ['Lourdes', 'Lourdes', 'WHAC', 'OH', 1, 'a', 0, 'Sylvania'],
+  ['Madonna', 'Madonna', 'WHAC', 'MI', 1, 'a', 0, 'Livonia'],
+  ['Michigan-Dearborn', 'Michigan-Dearborn', 'WHAC', 'MI', 3, 's', 1, 'Dearborn'],
+  ['Northwestern Ohio', 'Northwestern Ohio', 'WHAC', 'OH', 1, 'a', 0, 'Lima'],
+  ['Siena Heights', 'Siena Heights', 'WHAC', 'MI', 1, 'a', 0, 'Adrian'],
+  ['Rochester (MI)', 'Rochester MI', 'WHAC', 'MI', 1, 'a', 0, 'Rochester Hills'],
+  // Chicagoland (CCAC)
+  ['Olivet Nazarene', 'Olivet Nazarene', 'CCAC', 'IL', 1, 's', 1, 'Bourbonnais'],
+  ['St. Xavier', 'St. Xavier', 'CCAC', 'IL', 1, 's', 0, 'Chicago'],
+  ['Trinity Christian', 'Trinity Christian', 'CCAC', 'IL', 1, 's', 0, 'Palos Heights'],
+  ['Trinity International', 'Trinity International', 'CCAC', 'IL', 1, 's', 0, 'Deerfield'],
+  ['Roosevelt', 'Roosevelt', 'CCAC', 'IL', 2, 's', 0, 'Chicago'],
+  ['Judson', 'Judson', 'CCAC', 'IL', 1, 'a', 0, 'Elgin'],
+  ['Governors State', 'Governors State', 'CCAC', 'IL', 2, 'a', 0, 'University Park'],
+  ['IU Northwest', 'IU Northwest', 'CCAC', 'IN', 2, 'a', 0, 'Gary'],
+  ['Calumet St. Joseph', 'Calumet St. Joseph', 'CCAC', 'IN', 1, 'a', 0, 'Whiting'],
+  // Red River (RRAC)
+  ['Huston-Tillotson', 'Huston-Tillotson', 'RRAC', 'TX', 1, 'a', 0, 'Austin'],
+  ['Jarvis Christian', 'Jarvis Christian', 'RRAC', 'TX', 1, 'a', 0, 'Hawkins'],
+  ['LSU-Alexandria', 'LSU-Alexandria', 'RRAC', 'LA', 1, 'a', 0, 'Alexandria'],
+  ['LSU-Shreveport', 'LSU-Shreveport', 'RRAC', 'LA', 1, 'a', 0, 'Shreveport'],
+  ['Our Lady of the Lake', 'Our Lady of the Lake', 'RRAC', 'TX', 1, 'a', 0, 'San Antonio'],
+  ['Texas A&M-Texarkana', 'Texas A&M-Texarkana', 'RRAC', 'TX', 1, 'a', 0, 'Texarkana'],
+  ['University of the Southwest', 'Southwest NM', 'RRAC', 'NM', 1, 'a', 0, 'Hobbs'],
+  ['Wiley', 'Wiley', 'RRAC', 'TX', 1, 'a', 0, 'Marshall'],
+  // American Midwest (AMC)
+  ['Columbia (MO)', 'Columbia MO', 'AMC', 'MO', 2, 'a', 0, 'Columbia'],
+  ['Harris-Stowe', 'Harris-Stowe', 'AMC', 'MO', 1, 'a', 0, 'St. Louis'],
+  ['Hannibal-LaGrange', 'Hannibal-LaGrange', 'AMC', 'MO', 1, 'a', 0, 'Hannibal'],
+  ['Lyon', 'Lyon', 'AMC', 'AR', 1, 's', 0, 'Batesville'],
+  ['Missouri Baptist', 'Missouri Baptist', 'AMC', 'MO', 1, 'a', 0, 'St. Louis'],
+  ['Williams Baptist', 'Williams Baptist', 'AMC', 'AR', 1, 'a', 0, 'Walnut Ridge'],
+  // Gulf Coast (GCAC)
+  ['Loyola New Orleans', 'Loyola NO', 'GCAC', 'LA', 1, 's', 0, 'New Orleans'],
+  ['Xavier (LA)', 'Xavier LA', 'GCAC', 'LA', 1, 's', 0, 'New Orleans'],
+  ['Talladega', 'Talladega', 'GCAC', 'AL', 1, 'a', 0, 'Talladega'],
+  ['Brewton-Parker', 'Brewton-Parker', 'GCAC', 'GA', 1, 'a', 0, 'Mount Vernon'],
+  ['Middle Georgia State', 'Middle Georgia St', 'GCAC', 'GA', 2, 'a', 0, 'Macon'],
+  ['Louisiana Christian', 'Louisiana Christian', 'GCAC', 'LA', 1, 'a', 0, 'Pineville'],
+  ['Dillard', 'Dillard', 'GCAC', 'LA', 1, 'a', 0, 'New Orleans'],
+  ['Blue Mountain Christian', 'Blue Mountain', 'GCAC', 'MS', 1, 'a', 0, 'Blue Mountain'],
+  // Heart of America
+  ['Avila', 'Avila', 'Heart', 'MO', 1, 'a', 0, 'Kansas City'],
+  ['Baker', 'Baker', 'Heart', 'KS', 1, 's', 0, 'Baldwin City'],
+  ['Central Methodist', 'Central Methodist', 'Heart', 'MO', 1, 'a', 0, 'Fayette'],
+  ['Culver-Stockton', 'Culver-Stockton', 'Heart', 'MO', 1, 'a', 0, 'Canton'],
+  ['Evangel', 'Evangel', 'Heart', 'MO', 1, 'a', 0, 'Springfield'],
+  ['Graceland', 'Graceland', 'Heart', 'IA', 1, 'a', 0, 'Lamoni'],
+  ['Grand View', 'Grand View', 'Heart', 'IA', 2, 'a', 0, 'Des Moines'],
+  ['Missouri Valley', 'Missouri Valley', 'Heart', 'MO', 1, 'a', 0, 'Marshall'],
+  ['Mount Mercy', 'Mount Mercy', 'Heart', 'IA', 1, 'a', 0, 'Cedar Rapids'],
+  ['Peru State', 'Peru State', 'Heart', 'NE', 1, 'a', 0, 'Peru'],
+  ['William Penn', 'William Penn', 'Heart', 'IA', 1, 'a', 0, 'Oskaloosa'],
+  // KCAC (more)
+  ['McPherson', 'McPherson', 'KCAC', 'KS', 1, 'a', 0, 'McPherson'],
+  ['Ottawa (KS)', 'Ottawa KS', 'KCAC', 'KS', 1, 'a', 0, 'Ottawa'],
+  ['Saint Mary (KS)', 'Saint Mary KS', 'KCAC', 'KS', 1, 'a', 0, 'Leavenworth'],
+  ['Tabor', 'Tabor', 'KCAC', 'KS', 1, 'a', 0, 'Hillsboro'],
+  // Sooner (more)
+  ['Langston', 'Langston', 'Sooner', 'OK', 1, 'a', 0, 'Langston'],
+  ['Mid-America Christian', 'Mid-America Christian', 'Sooner', 'OK', 1, 'a', 0, 'Oklahoma City'],
+  ['Oklahoma Panhandle', 'Oklahoma Panhandle', 'Sooner', 'OK', 1, 'a', 0, 'Goodwell'],
+  ['Texas Wesleyan', 'Texas Wesleyan', 'Sooner', 'TX', 1, 'a', 0, 'Fort Worth'],
+  ['Southwestern Christian', 'Southwestern Christian OK', 'Sooner', 'OK', 1, 'a', 0, 'Bethany'],
+  // Southern States (SSAC, more)
+  ['Dalton State', 'Dalton State', 'SSAC', 'GA', 2, 'a', 0, 'Dalton'],
+  ['Faulkner', 'Faulkner', 'SSAC', 'AL', 1, 'a', 0, 'Montgomery'],
+  ['Stillman', 'Stillman', 'SSAC', 'AL', 1, 'a', 0, 'Tuscaloosa'],
+  ['Tennessee Southern', 'Tennessee Southern', 'SSAC', 'TN', 1, 'a', 0, 'Pulaski'],
+  ['Bethel (TN)', 'Bethel TN', 'SSAC', 'TN', 1, 'a', 0, 'McKenzie'],
+  // Sun (TSC, more)
+  ['Ave Maria', 'Ave Maria', 'Sun', 'FL', 1, 's', 0, 'Ave Maria'],
+  ['Coastal Georgia', 'Coastal Georgia', 'Sun', 'GA', 2, 'a', 0, 'Brunswick'],
+  ['Florida College', 'Florida College', 'Sun', 'FL', 1, 'a', 0, 'Temple Terrace'],
+  ['Florida Memorial', 'Florida Memorial', 'Sun', 'FL', 1, 'a', 0, 'Miami Gardens'],
+  ['St. Thomas (FL)', 'St. Thomas FL', 'Sun', 'FL', 1, 'a', 0, 'Miami Gardens'],
+  ['Warner', 'Warner', 'Sun', 'FL', 1, 'a', 0, 'Lake Wales'],
+  ['Webber International', 'Webber International', 'Sun', 'FL', 1, 'a', 0, 'Babson Park'],
+  // Golden State (GSAC, more)
+  ['Arizona Christian', 'Arizona Christian', 'Golden State', 'AZ', 1, 'a', 0, 'Glendale'],
+  ['Hope International', 'Hope International', 'Golden State', 'CA', 1, 'a', 0, 'Fullerton'],
+  ['Menlo', 'Menlo', 'Golden State', 'CA', 1, 's', 0, 'Atherton'],
+  ['William Jessup', 'William Jessup', 'Golden State', 'CA', 1, 'a', 0, 'Rocklin'],
+  ['San Diego Christian', 'San Diego Christian', 'Golden State', 'CA', 1, 'a', 0, 'Santee'],
+  // Cal Pac
+  ['Antelope Valley', 'Antelope Valley', 'Cal Pac', 'CA', 1, 'a', 0, 'Lancaster'],
+  ['UC Merced', 'UC Merced', 'Cal Pac', 'CA', 3, 's', 1, 'Merced'],
+  ['La Sierra', 'La Sierra', 'Cal Pac', 'CA', 1, 'a', 0, 'Riverside'],
+  ['Life Pacific', 'Life Pacific', 'Cal Pac', 'CA', 1, 'a', 0, 'San Dimas'],
+  ['Simpson (CA)', 'Simpson CA', 'Cal Pac', 'CA', 1, 'a', 0, 'Redding'],
+  // Crossroads (CCAC of Indiana)
+  ['Goshen', 'Goshen', 'Crossroads', 'IN', 1, 's', 0, 'Goshen'],
+  ['Huntington', 'Huntington', 'Crossroads', 'IN', 1, 's', 0, 'Huntington'],
+  ['Mount Vernon Nazarene', 'Mount Vernon Nazarene', 'Crossroads', 'OH', 1, 'a', 0, 'Mount Vernon'],
+  ['Saint Francis (IN)', 'Saint Francis IN', 'Crossroads', 'IN', 1, 'a', 0, 'Fort Wayne'],
+  ['Spring Arbor', 'Spring Arbor', 'Crossroads', 'MI', 1, 'a', 0, 'Spring Arbor'],
+  ['Taylor', 'Taylor', 'Crossroads', 'IN', 1, 's', 0, 'Upland'],
+  // Cascade (more)
+  ['Multnomah', 'Multnomah', 'Cascade', 'OR', 1, 'a', 0, 'Portland'],
+  ['Warner Pacific', 'Warner Pacific', 'Cascade', 'OR', 1, 'a', 0, 'Portland'],
+  ['Oregon Tech', 'Oregon Tech', 'Cascade', 'OR', 1, 's', 1, 'Klamath Falls'],
+  ['Evergreen State', 'Evergreen State', 'Cascade', 'WA', 1, 'a', 0, 'Olympia'],
+  // River States (more)
+  ['Asbury', 'Asbury', 'River States', 'KY', 1, 's', 0, 'Wilmore'],
+  ['Point Park', 'Point Park', 'River States', 'PA', 1, 's', 0, 'Pittsburgh'],
+  ['IU Kokomo', 'IU Kokomo', 'River States', 'IN', 1, 'a', 0, 'Kokomo'],
+  ['IU South Bend', 'IU South Bend', 'River States', 'IN', 2, 'a', 0, 'South Bend'],
+  ['IU Southeast', 'IU Southeast', 'River States', 'IN', 2, 'a', 0, 'New Albany'],
+  ['Alice Lloyd', 'Alice Lloyd', 'River States', 'KY', 1, 'a', 0, 'Pippa Passes'],
+  // Appalachian (more)
+  ['Montreat', 'Montreat', 'Appalachian', 'NC', 1, 'a', 0, 'Montreat'],
+  ['St. Andrews', 'St. Andrews', 'Appalachian', 'NC', 1, 'a', 0, 'Laurinburg'],
+  ['Tennessee Wesleyan', 'Tennessee Wesleyan', 'Appalachian', 'TN', 1, 'a', 0, 'Athens'],
+  ['Kentucky Christian', 'Kentucky Christian', 'Appalachian', 'KY', 1, 'a', 0, 'Grayson'],
+  // GPAC (more)
+  ['Briar Cliff', 'Briar Cliff', 'GPAC', 'IA', 1, 'a', 0, 'Sioux City'],
+  ['Doane', 'Doane', 'GPAC', 'NE', 1, 's', 0, 'Crete'],
+  ['Midland', 'Midland', 'GPAC', 'NE', 1, 'a', 0, 'Fremont'],
+  ['Mount Marty', 'Mount Marty', 'GPAC', 'SD', 1, 'a', 0, 'Yankton'],
+  // Frontier (more)
+  ['Carroll (MT)', 'Carroll MT', 'Frontier', 'MT', 1, 's', 0, 'Helena'],
+  ['Montana Tech', 'Montana Tech', 'Frontier', 'MT', 1, 's', 1, 'Butte'],
+  ['Montana Western', 'Montana Western', 'Frontier', 'MT', 1, 'a', 0, 'Dillon'],
+  // North Star (more)
+  ['Bellevue', 'Bellevue', 'North Star', 'NE', 2, 'a', 0, 'Bellevue'],
+  ['Dakota State', 'Dakota State', 'North Star', 'SD', 1, 'a', 1, 'Madison'],
+  ['Dickinson State', 'Dickinson State', 'North Star', 'ND', 1, 'a', 0, 'Dickinson'],
+  ['Presentation', 'Presentation', 'North Star', 'SD', 1, 'a', 0, 'Aberdeen'],
 ]
 
 // ─── JUCO ──────────────────────────────────────────────────────────────────
@@ -953,12 +1178,97 @@ const JUCO: Row[] = [
   ['Harford CC', 'Harford CC', 'NJCAA D2', 'MD', 2, 'a', 0, 'Bel Air'],
   ['Montgomery College', 'Montgomery College', 'NJCAA D3', 'MD', 4, 'a', 0, 'Rockville'],
   ['NOVA', 'Northern Virginia CC', 'NJCAA D3', 'VA', 4, 'a', 0, 'Annandale'],
+  // ── Completion pass: solid coverage of recruiting-relevant JUCO programs ──
+  // NJCAA D1 — West / Mountain
+  ['Laramie County CC', 'Laramie County CC', 'NJCAA D1', 'WY', 2, 'a', 0, 'Cheyenne'],
+  ['Western Wyoming CC', 'Western Wyoming CC', 'NJCAA D1', 'WY', 1, 'a', 0, 'Rock Springs'],
+  ['Otero College', 'Otero', 'NJCAA D1', 'CO', 1, 'a', 0, 'La Junta'],
+  ['Northeastern JC', 'Northeastern JC CO', 'NJCAA D1', 'CO', 1, 'a', 0, 'Sterling'],
+  ['Salt Lake CC', 'Salt Lake CC', 'NJCAA D1', 'UT', 4, 'a', 0, 'Salt Lake City'],
+  ['Snow College', 'Snow', 'NJCAA D1', 'UT', 1, 'a', 0, 'Ephraim'],
+  ['College of Southern Idaho', 'CSI', 'NJCAA D1', 'ID', 2, 'a', 0, 'Twin Falls'],
+  ['North Idaho College', 'North Idaho', 'NJCAA D1', 'ID', 2, 'a', 0, "Coeur d'Alene"],
+  ['Spokane CC', 'Spokane CC', 'NWAC', 'WA', 3, 'a', 0, 'Spokane'],
+  ['Peninsula College', 'Peninsula', 'NWAC', 'WA', 1, 'a', 0, 'Port Angeles'],
+  ['Green River College', 'Green River', 'NWAC', 'WA', 3, 'a', 0, 'Auburn'],
+  ['Wenatchee Valley', 'Wenatchee Valley', 'NWAC', 'WA', 1, 'a', 0, 'Wenatchee'],
+  // NJCAA D1 — Texas / South Central
+  ['Coastal Bend College', 'Coastal Bend', 'NJCAA D1', 'TX', 1, 'a', 0, 'Beeville'],
+  ['Western Texas College', 'Western Texas', 'NJCAA D1', 'TX', 1, 'a', 0, 'Snyder'],
+  ['Paris JC', 'Paris JC', 'NJCAA D1', 'TX', 1, 'a', 0, 'Paris'],
+  // NJCAA D1 — Northeast (NY/NJ)
+  ['Herkimer College', 'Herkimer', 'NJCAA D1', 'NY', 1, 'a', 0, 'Herkimer'],
+  ['Corning CC', 'Corning CC', 'NJCAA D1', 'NY', 1, 'a', 0, 'Corning'],
+  ['Nassau CC', 'Nassau CC', 'NJCAA D1', 'NY', 4, 'a', 0, 'Garden City'],
+  ['Suffolk County CC', 'Suffolk County CC', 'NJCAA D1', 'NY', 4, 'a', 0, 'Selden'],
+  ['Onondaga CC', 'Onondaga CC', 'NJCAA D1', 'NY', 3, 'a', 0, 'Syracuse'],
+  ['Ulster County CC', 'Ulster CC', 'NJCAA D3', 'NY', 1, 'a', 0, 'Stone Ridge'],
+  ['Essex County College', 'Essex County', 'NJCAA D1', 'NJ', 2, 'a', 0, 'Newark'],
+  ['Union County College', 'Union County CC', 'NJCAA D2', 'NJ', 3, 'a', 0, 'Cranford'],
+  ['Middlesex College', 'Middlesex CC NJ', 'NJCAA D2', 'NJ', 3, 'a', 0, 'Edison'],
+  ['Camden County College', 'Camden County', 'NJCAA D1', 'NJ', 2, 'a', 0, 'Blackwood'],
+  // NJCAA D1 — Florida / Southeast
+  ['Miami Dade College', 'Miami Dade', 'NJCAA D1', 'FL', 4, 'a', 0, 'Miami'],
+  ['Broward College', 'Broward', 'NJCAA D1', 'FL', 4, 'a', 0, 'Fort Lauderdale'],
+  ['Palm Beach State', 'Palm Beach State CC', 'NJCAA D1', 'FL', 4, 'a', 0, 'Lake Worth'],
+  ['State College of Florida', 'SCF Manatee', 'NJCAA D1', 'FL', 3, 'a', 0, 'Bradenton'],
+  ['Polk State', 'Polk State', 'NJCAA D1', 'FL', 3, 'a', 0, 'Winter Haven'],
+  ['Daytona State', 'Daytona State CC', 'NJCAA D1', 'FL', 3, 'a', 0, 'Daytona Beach'],
+  ['Pensacola State', 'Pensacola State CC', 'NJCAA D1', 'FL', 3, 'a', 0, 'Pensacola'],
+  ['Northwest Florida State', 'NW Florida State', 'NJCAA D1', 'FL', 2, 'a', 0, 'Niceville'],
+  ['Georgia Military College', 'Georgia Military', 'NJCAA D1', 'GA', 1, 'a', 0, 'Milledgeville'],
+  ['Andrew College', 'Andrew College', 'NJCAA D1', 'GA', 1, 'a', 0, 'Cuthbert'],
+  ['Spartanburg Methodist', 'Spartanburg Methodist', 'NJCAA D1', 'SC', 1, 'a', 0, 'Spartanburg'],
+  ['Louisburg College', 'Louisburg', 'NJCAA D1', 'NC', 1, 'a', 0, 'Louisburg'],
+  // NJCAA D1 — Midwest / Plains
+  ['Cloud County CC', 'Cloud County', 'NJCAA D1', 'KS', 1, 'a', 0, 'Concordia'],
+  ['Coffeyville CC', 'Coffeyville', 'NJCAA D1', 'KS', 1, 'a', 0, 'Coffeyville'],
+  ['Hesston College', 'Hesston', 'NJCAA D1', 'KS', 1, 'a', 0, 'Hesston'],
+  ['Kirkwood CC', 'Kirkwood', 'NJCAA D2', 'IA', 3, 'a', 0, 'Cedar Rapids'],
+  ['DMACC', 'Des Moines Area CC', 'NJCAA D2', 'IA', 3, 'a', 0, 'Ankeny'],
+  ['Illinois Central', 'Illinois Central', 'NJCAA D2', 'IL', 3, 'a', 0, 'East Peoria'],
+  ['Rock Valley College', 'Rock Valley', 'NJCAA D2', 'IL', 2, 'a', 0, 'Rockford'],
+  ['Kishwaukee College', 'Kishwaukee', 'NJCAA D3', 'IL', 1, 'a', 0, 'Malta'],
+  ['Henry Ford College', 'Henry Ford', 'NJCAA D2', 'MI', 3, 'a', 0, 'Dearborn'],
+  ['Muskegon CC', 'Muskegon CC', 'NJCAA D2', 'MI', 2, 'a', 0, 'Muskegon'],
+  // NJCAA D2/D3 — Northeast / Mid-Atlantic
+  ['Bergen CC', 'Bergen CC', 'NJCAA D3', 'NJ', 3, 'a', 0, 'Paramus'],
+  ['Sussex County CC', 'Sussex County CC', 'NJCAA D3', 'NJ', 1, 'a', 0, 'Newton'],
+  ['Delaware Tech', 'Delaware Tech', 'NJCAA D2', 'DE', 2, 'a', 0, 'Dover'],
+  ['Anne Arundel CC', 'Anne Arundel CC', 'NJCAA D2', 'MD', 3, 'a', 0, 'Arnold'],
+  ["Prince George's CC", "Prince George's CC", 'NJCAA D3', 'MD', 3, 'a', 0, 'Largo'],
+  ['Frederick CC', 'Frederick CC', 'NJCAA D3', 'MD', 2, 'a', 0, 'Frederick'],
+  // CCCAA (California, more)
+  ['Cerritos College', 'Cerritos', 'CCCAA', 'CA', 4, 'a', 0, 'Norwalk'],
+  ['Fullerton College', 'Fullerton College', 'CCCAA', 'CA', 4, 'a', 0, 'Fullerton'],
+  ['El Camino College', 'El Camino', 'CCCAA', 'CA', 4, 'a', 0, 'Torrance'],
+  ['Golden West College', 'Golden West', 'CCCAA', 'CA', 3, 'a', 0, 'Huntington Beach'],
+  ['Saddleback College', 'Saddleback', 'CCCAA', 'CA', 4, 'a', 0, 'Mission Viejo'],
+  ['Santa Ana College', 'Santa Ana', 'CCCAA', 'CA', 4, 'a', 0, 'Santa Ana'],
+  ['Santa Barbara City', 'Santa Barbara City', 'CCCAA', 'CA', 3, 'a', 0, 'Santa Barbara'],
+  ['Ventura College', 'Ventura', 'CCCAA', 'CA', 3, 'a', 0, 'Ventura'],
+  ['Cuyamaca College', 'Cuyamaca', 'CCCAA', 'CA', 3, 'a', 0, 'El Cajon'],
+  ['Grossmont College', 'Grossmont', 'CCCAA', 'CA', 4, 'a', 0, 'El Cajon'],
+  ['Palomar College', 'Palomar', 'CCCAA', 'CA', 4, 'a', 0, 'San Marcos'],
+  ['San Diego Mesa', 'San Diego Mesa', 'CCCAA', 'CA', 4, 'a', 0, 'San Diego'],
+  ['American River College', 'American River', 'CCCAA', 'CA', 4, 'a', 0, 'Sacramento'],
+  ['Sacramento City', 'Sacramento City', 'CCCAA', 'CA', 4, 'a', 0, 'Sacramento'],
+  ['Diablo Valley', 'Diablo Valley', 'CCCAA', 'CA', 4, 'a', 0, 'Pleasant Hill'],
+  ['De Anza College', 'De Anza', 'CCCAA', 'CA', 4, 'a', 0, 'Cupertino'],
+  ['Foothill College', 'Foothill', 'CCCAA', 'CA', 3, 'a', 0, 'Los Altos Hills'],
+  ['San Joaquin Delta', 'San Joaquin Delta', 'CCCAA', 'CA', 3, 'a', 0, 'Stockton'],
+  ['Modesto JC', 'Modesto JC', 'CCCAA', 'CA', 3, 'a', 0, 'Modesto'],
+  ['Reedley College', 'Reedley', 'CCCAA', 'CA', 2, 'a', 0, 'Reedley'],
+  ['Taft College', 'Taft', 'CCCAA', 'CA', 1, 'a', 0, 'Taft'],
 ]
 
 // ─── Build + insert ─────────────────────────────────────────────────────────
 function build(rows: Row[], division: string) {
   return rows
-    .filter(r => STATE_REGION[r[3]]) // guard: only mapped states
+    // Guards: real name (no placeholder markers), a conference, and a mapped state.
+    .filter(r => typeof r[0] === 'string' && r[0].trim() !== '' && !r[0].includes('?'))
+    .filter(r => r[2] !== null && r[7] !== null)
+    .filter(r => STATE_REGION[r[3]]) // only mapped states
     .map(r => {
       const [name, short, conference, state, enr, aca, eng, city] = r
       const region = STATE_REGION[state]
