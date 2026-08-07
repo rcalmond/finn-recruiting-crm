@@ -116,7 +116,7 @@ const D1: Row[] = [
   ['UMBC', 'UMBC', 'America East', 'MD', 3, 's', 1, 'Baltimore'],
   ['UMass Lowell', 'UMass Lowell', 'America East', 'MA', 3, 's', 1, 'Lowell'],
   ['Vermont', 'Vermont', 'America East', 'VT', 3, 's', 1, 'Burlington'],
-  ['NJIT', 'NJIT', 'America East', 'NJ', 3, 's', 1, 'Newark'],
+  ['New Jersey Institute of Technology', 'NJIT', 'America East', 'NJ', 3, 's', 1, 'Newark'],
   // CAA
   ['Campbell', 'Campbell', 'CAA', 'NC', 3, 's', 0, 'Buies Creek'],
   ['Charleston', 'Charleston', 'CAA', 'SC', 3, 's', 0, 'Charleston'],
@@ -283,6 +283,7 @@ const D1: Row[] = [
 // ─── D2 ────────────────────────────────────────────────────────────────────
 const D2: Row[] = [
   ['Colorado School of Mines', 'Mines', 'RMAC', 'CO', 2, 'h', 1, 'Golden'],
+  ['South Dakota Mines', 'South Dakota Mines', 'RMAC', 'SD', 2, 's', 1, 'Rapid City'],
   ['Colorado Mesa', 'Colorado Mesa', 'RMAC', 'CO', 3, 'a', 1, 'Grand Junction'],
   ['Colorado Springs', 'UCCS', 'RMAC', 'CO', 3, 's', 1, 'Colorado Springs'],
   ['Regis', 'Regis', 'RMAC', 'CO', 2, 's', 0, 'Denver'],
@@ -489,23 +490,24 @@ const D3: Row[] = [
   ['Case Western Reserve', 'Case Western', 'UAA', 'OH', 3, 'm', 1, 'Cleveland'],
   ['University of Chicago', 'UChicago', 'UAA', 'IL', 3, 'm', 0, 'Chicago'],
   ['Emory', 'Emory', 'UAA', 'GA', 3, 'm', 0, 'Atlanta'],
-  ['NYU', 'NYU', 'UAA', 'NY', 4, 'm', 1, 'New York'],
+  ['New York University', 'NYU', 'UAA', 'NY', 4, 'm', 1, 'New York'],
   ['Rochester', 'Rochester', 'UAA', 'NY', 3, 'm', 1, 'Rochester'],
   ['Washington U. St. Louis', 'WashU', 'UAA', 'MO', 3, 'm', 1, 'St. Louis'],
   // Liberty League
   ['St. Lawrence', 'St. Lawrence', 'Liberty League', 'NY', 2, 's', 0, 'Canton'],
-  ['RPI', 'RPI', 'Liberty League', 'NY', 3, 'h', 1, 'Troy'],
+  ['Rensselaer Polytechnic Institute', 'RPI', 'Liberty League', 'NY', 3, 'h', 1, 'Troy'],
   ['Union (NY)', 'Union NY', 'Liberty League', 'NY', 1, 'h', 1, 'Schenectady'],
   ['Skidmore', 'Skidmore', 'Liberty League', 'NY', 2, 'h', 0, 'Saratoga Springs'],
   ['Vassar', 'Vassar', 'Liberty League', 'NY', 2, 'm', 0, 'Poughkeepsie'],
   ['Bard', 'Bard', 'Liberty League', 'NY', 2, 'h', 0, 'Annandale-on-Hudson'],
   ['Clarkson', 'Clarkson', 'Liberty League', 'NY', 2, 's', 1, 'Potsdam'],
   ['Ithaca', 'Ithaca', 'Liberty League', 'NY', 3, 's', 1, 'Ithaca'],
-  ['Rochester Tech', 'RIT', 'Liberty League', 'NY', 4, 's', 1, 'Rochester'],
+  ['Rochester Institute of Technology', 'RIT', 'Liberty League', 'NY', 4, 's', 1, 'Rochester'],
   ['Hobart', 'Hobart', 'Liberty League', 'NY', 1, 'h', 0, 'Geneva'],
   // NEWMAC
-  ['MIT', 'MIT', 'NEWMAC', 'MA', 3, 'm', 1, 'Cambridge'],
-  ['WPI', 'WPI', 'NEWMAC', 'MA', 2, 'h', 1, 'Worcester'],
+  ['Massachusetts Institute of Technology', 'MIT', 'NEWMAC', 'MA', 3, 'm', 1, 'Cambridge'],
+  ['Illinois Institute of Technology', 'Illinois Tech', 'NACC', 'IL', 2, 'h', 1, 'Chicago'],
+  ['Worcester Polytechnic Institute', 'WPI', 'NEWMAC', 'MA', 2, 'h', 1, 'Worcester'],
   ['Clark University', 'Clark', 'NEWMAC', 'MA', 2, 'h', 0, 'Worcester'],
   ['Babson', 'Babson', 'NEWMAC', 'MA', 2, 'h', 0, 'Wellesley'],
   ['Springfield', 'Springfield', 'NEWMAC', 'MA', 2, 's', 1, 'Springfield'],
@@ -562,7 +564,7 @@ const D3: Row[] = [
   // MAC (Middle Atlantic)
   ['Messiah', 'Messiah', 'MAC Commonwealth', 'PA', 2, 's', 1, 'Mechanicsburg'],
   ['Lycoming', 'Lycoming', 'MAC Commonwealth', 'PA', 1, 's', 0, 'Williamsport'],
-  ['Stevens', 'Stevens', 'MAC Freedom', 'NJ', 2, 'h', 1, 'Hoboken'],
+  ['Stevens Institute of Technology', 'Stevens', 'MAC Freedom', 'NJ', 2, 'h', 1, 'Hoboken'],
   ['DeSales', 'DeSales', 'MAC Freedom', 'PA', 1, 's', 0, 'Center Valley'],
   ['Misericordia', 'Misericordia', 'MAC Freedom', 'PA', 1, 's', 0, 'Dallas'],
   // Centennial-adjacent / NJAC

@@ -25,6 +25,8 @@ function makeAdmin() {
  */
 
 type Seed = { name: string; division?: string | null; tier?: string | null }
+// `exclude` = every school already in the working pipeline (any tier), so a
+// current target is never re-proposed even when it wasn't part of the seed set.
 type Proposal = {
   name: string
   division: string | null
@@ -45,12 +47,14 @@ function seedHash(seeds: Seed[]): string {
 
 export async function POST(request: Request) {
   try {
-    const { seeds, force } = (await request.json()) as { seeds?: Seed[]; force?: boolean }
+    const { seeds, exclude, force } = (await request.json()) as { seeds?: Seed[]; exclude?: string[]; force?: boolean }
     if (!Array.isArray(seeds) || seeds.length < 3) {
       return NextResponse.json({ error: 'Need at least 3 seed schools' }, { status: 400 })
     }
+    const excludeList = Array.isArray(exclude) ? exclude : []
 
-    const key = seedHash(seeds)
+    // Cache key includes the exclusion set — a changed pipeline must re-generate.
+    const key = seedHash(seeds) + '::' + excludeList.map(n => n.trim().toLowerCase()).sort().join('|')
     if (!force) {
       const hit = CACHE.get(key)
       if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
@@ -73,7 +77,9 @@ export async function POST(request: Request) {
     const seedList = seeds
       .map(s => `- ${s.name}${s.division ? ` (${s.division})` : ''}${s.tier ? `, tier ${s.tier}` : ''}`)
       .join('\n')
-    const excludeNames = new Set(seeds.map(s => s.name.trim().toLowerCase()))
+    const excludeNames = new Set(
+      [...seeds.map(s => s.name), ...excludeList].map(n => n.trim().toLowerCase())
+    )
 
     const client = new Anthropic()
     const response = await client.messages.create({
@@ -105,51 +111,66 @@ Return ONLY a JSON array, no prose:
       raw = []
     }
 
-    // Clean the name field: strip any commentary/alternates after a dash or paren.
+    // Clean a name: strip commentary/alternates after a dash, and any parenthetical
+    // (working-list names carry them: "Illinois Institute of Technology (Illinois Tech)").
     const cleanName = (n: string) =>
-      n.split(/\s+[—–-]\s+|\s+\(|,\s+mirrored/i)[0].trim()
+      n.split(/\s+[—–-]\s+|\s*\(|,\s+mirrored/i)[0].trim()
 
     // Token-normalized matching (name + short_name). Drop only generic institution
     // words; keep distinguishing tokens like "state"/"polytechnic"/"institute" so
     // "Worcester Polytechnic" ≠ "Worcester State". Exact set equality is order-free.
     const STOP = new Set(['university', 'college', 'the', 'of', 'at', 'in', 'univ', 'and'])
     const norm = (s: string) => new Set(
-      s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
+      cleanName(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
         .filter(t => t && !STOP.has(t))
     )
     const eq = (a: Set<string>, b: Set<string>) =>
       a.size > 0 && a.size === b.size && Array.from(a).every(t => b.has(t))
 
-    // Seed exclusion by token match too — the model sometimes re-proposes a seed
-    // under a different name form ("Tufts" vs "Tufts University").
-    const seedTokens = seeds.map(s => norm(s.name))
-    const cleaned = raw
-      .map(p => ({ ...p, name: p.name ? cleanName(p.name) : '' }))
-      .filter(p => p.name
-        && !excludeNames.has(p.name.toLowerCase())
-        && !seedTokens.some(st => eq(st, norm(p.name))))
-      .slice(0, 8)
-
+    // Build the universe index first — it's the bridge for exclusion by discovery id.
     const { data: universe } = await admin
       .from('discovery_schools')
       .select('id, name, short_name, division, region')
     const index = (universe ?? []).map(u => ({
       ...u, tName: norm(u.name), tShort: u.short_name ? norm(u.short_name) : new Set<string>(),
     }))
+    const matchUniverse = (name: string) => {
+      const t = norm(name)
+      return index.find(u => eq(t, u.tName) || (u.tShort.size > 0 && eq(t, u.tShort))) ?? null
+    }
 
-    const proposals: Proposal[] = cleaned.map(p => {
-      const t = norm(p.name)
-      const match = index.find(u => eq(t, u.tName) || (u.tShort.size > 0 && eq(t, u.tShort)))
-      return {
-        name: match?.name ?? p.name,
-        division: match?.division ?? p.division ?? null,
-        region: match?.region ?? p.region ?? null,
-        reasoning: (p.reasoning ?? '').trim() || 'Similar profile to your list.',
-        inUniverse: !!match,
-        discoveryId: match?.id ?? null,
-        verify: !match,
-      }
-    })
+    // Resolve every excluded/seed school to a discovery id. This bridges name-form
+    // differences: working "Case Western" and a proposed "Case Western Reserve" both
+    // resolve to the same universe row, so the current target is never re-proposed.
+    const excludeIds = new Set<string>()
+    const excludeTokenSets: Set<string>[] = []
+    for (const name of [...seeds.map(s => s.name), ...excludeList]) {
+      const m = matchUniverse(name)
+      if (m) excludeIds.add(m.id)
+      else excludeTokenSets.push(norm(name)) // off-universe fallback: token match
+    }
+    const isExcluded = (name: string, discoveryId: string | null) =>
+      excludeNames.has(name.toLowerCase())
+      || (discoveryId !== null && excludeIds.has(discoveryId))
+      || excludeTokenSets.some(st => eq(st, norm(name)))
+
+    const proposals: Proposal[] = raw
+      .map(p => ({ ...p, name: p.name ? cleanName(p.name) : '' }))
+      .filter(p => p.name)
+      .map(p => {
+        const match = matchUniverse(p.name)
+        return {
+          name: match?.name ?? p.name,
+          division: match?.division ?? p.division ?? null,
+          region: match?.region ?? p.region ?? null,
+          reasoning: (p.reasoning ?? '').trim() || 'Similar profile to your list.',
+          inUniverse: !!match,
+          discoveryId: match?.id ?? null,
+          verify: !match,
+        }
+      })
+      .filter(p => !isExcluded(p.name, p.discoveryId))
+      .slice(0, 8)
 
     CACHE.set(key, { at: Date.now(), proposals })
     return NextResponse.json({ proposals, cached: false })

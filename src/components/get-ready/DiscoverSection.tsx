@@ -16,6 +16,18 @@ const SD = {
   cardWhite: '#FFFDF9',
 }
 
+// Token-normalized name key (mirrors the server matcher): drop generic words,
+// sort tokens, join. Lets "WPI" and "Worcester Polytechnic Institute" collapse to
+// the same key so pipeline schools are recognized across name-form differences.
+const NAME_STOP = new Set(['university', 'college', 'the', 'of', 'at', 'in', 'univ', 'and'])
+function nameKey(s: string): string {
+  // Strip a dash-suffix and any parenthetical first — working names carry them
+  // ("Illinois Institute of Technology (Illinois Tech)").
+  const cleaned = s.split(/\s+[—–-]\s+|\s*\(/)[0]
+  return cleaned.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
+    .filter(t => t && !NAME_STOP.has(t)).sort().join(' ')
+}
+
 const DIVISIONS: DiscoveryDivision[] = ['D1', 'D2', 'D3', 'NAIA', 'JUCO']
 const REGIONS: DiscoveryRegion[] = ['Northeast', 'Mid-Atlantic', 'Southeast', 'Midwest', 'Southwest', 'West']
 const ENROLLMENTS: EnrollmentBand[] = ['under_2k', '2k_5k', '5k_15k', 'over_15k']
@@ -124,17 +136,31 @@ export default function DiscoverSection() {
     return () => { cancelled = true }
   }, [supabase, division, region, academic, enrollment, hasEng, debouncedSearch])
 
-  // Working-list name index (name + short_name + aliases, lowercased)
+  // Working-list index — token-normalized keys for name + short_name + aliases,
+  // so the "On your list" badge catches name-form variants ("WPI" vs "Worcester
+  // Polytechnic Institute"), not just exact matches.
   const onList = useMemo(() => {
     const set = new Set<string>()
     for (const s of schools) {
-      if (s.name) set.add(s.name.trim().toLowerCase())
-      if (s.short_name) set.add(s.short_name.trim().toLowerCase())
-      for (const a of s.aliases ?? []) set.add(a.trim().toLowerCase())
+      if (s.name) set.add(nameKey(s.name))
+      if (s.short_name) set.add(nameKey(s.short_name))
+      for (const a of s.aliases ?? []) set.add(nameKey(a))
     }
+    set.delete('')
     return set
   }, [schools])
-  const isOnList = useCallback((name: string) => onList.has(name.trim().toLowerCase()), [onList])
+  const isOnList = useCallback((name: string) => onList.has(nameKey(name)), [onList])
+  // A discovery row is "on the list" if EITHER its full name or its short_name
+  // resolves to a pipeline school — bridges "Case Western Reserve" ↔ "Case Western".
+  const isRowListed = useCallback(
+    (d: { name: string; short_name: string | null }) =>
+      onList.has(nameKey(d.name)) || (!!d.short_name && onList.has(nameKey(d.short_name))),
+    [onList]
+  )
+
+  // Every pipeline school (any tier) — sent to the similarity route so a current
+  // target is never re-proposed even when it isn't in the seed subset.
+  const excludeNames = useMemo(() => schools.map(s => s.name), [schools])
 
   const addDiscovery = useCallback(async (d: DiscoverySchool) => {
     setAdding(prev => new Set(prev).add(d.id))
@@ -180,7 +206,7 @@ export default function DiscoverSection() {
       const res = await fetch('/api/discover/similar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ seeds, force }),
+        body: JSON.stringify({ seeds, exclude: excludeNames, force }),
       })
       const json = await res.json()
       if (json.error && (!json.proposals || json.proposals.length === 0)) {
@@ -197,7 +223,7 @@ export default function DiscoverSection() {
     } finally {
       setProposalsLoading(false)
     }
-  }, [seeds, canFindMore])
+  }, [seeds, excludeNames, canFindMore])
 
   const addProposal = useCallback(async (p: Proposal) => {
     setAdding(prev => new Set(prev).add(p.name))
@@ -292,7 +318,7 @@ export default function DiscoverSection() {
       {/* Results */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 420, overflowY: 'auto' }}>
         {results.map(d => {
-          const listed = isOnList(d.name)
+          const listed = isRowListed(d)
           const isAdding = adding.has(d.id)
           const sel = selected.has(d.id)
           return (
