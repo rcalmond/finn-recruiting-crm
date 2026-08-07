@@ -84,10 +84,11 @@ export async function POST(request: Request) {
     const client = new Anthropic()
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 900,
-      system: `You help a college soccer recruit's family widen a target list. Given a set of "seed" schools the family already likes, infer what they have in common (division level, academic profile, size, engineering/sciences, region, playing-time realism) and propose 5–8 OTHER US colleges that fit the same cluster.
+      max_tokens: 1600,
+      system: `You help a college soccer recruit's family widen a target list. Given a set of "seed" schools the family already likes, infer what they have in common (division level, academic profile, size, engineering/sciences, region, playing-time realism) and propose OTHER US colleges that fit the same cluster.
 
 Hard rules:
+- Propose 12 candidates, ordered strongest fit first. (Some may already be on the family's list and will be filtered out downstream, so a deeper list ensures a strong final set — but never pad with weak fits; quality over quantity.)
 - Every proposal MUST field a men's varsity soccer program (NCAA D1/D2/D3, NAIA, or JUCO). If unsure a school has men's soccer, do not propose it.
 - Do NOT propose any school already in the seed list.
 - Each proposal gets ONE sentence of reasoning naming the concrete tie to the seeds (e.g. "Like St. Lawrence and Clark: mid-D3, strong sciences, real early minutes").
@@ -98,7 +99,7 @@ Return ONLY a JSON array, no prose:
 [{"name": "...", "division": "D1|D2|D3|NAIA|JUCO", "region": "Northeast|Mid-Atlantic|Southeast|Midwest|Southwest|West|null", "reasoning": "one sentence"}]`,
       messages: [{
         role: 'user',
-        content: `${framing}\n\nSeed schools (already on the list):\n${seedList}\n\nPropose 5–8 similar schools with reasoning. Return only the JSON array.`,
+        content: `${framing}\n\nSeed schools (already on the list):\n${seedList}\n\nPropose 12 similar schools, strongest fit first, each with reasoning. Return only the JSON array.`,
       }],
     })
 
