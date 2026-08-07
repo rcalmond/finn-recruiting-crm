@@ -12,7 +12,8 @@
 
 A personal recruiting CRM for **Randy Almond** (parent/manager) and **Finn Almond** (player).
 Data lives in Supabase. Frontend is Next.js + React + TypeScript deployed on Vercel.
-The app tracks ~27 active target schools across division, coaching contacts, outreach status,
+The app tracks 10 active target schools (A: 4, B: 2, C: 4), consolidated from a summer peak of ~27
+after post-camp triage — across division, coaching contacts, outreach status,
 contact logs, and next actions. Two schools (IIT and Clark) have offers on the table as of August 2026.
 
 Randy drives strategy and outreach. Finn handles player-facing tasks (RQs, emails from his
@@ -2009,7 +2010,7 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 
 ---
 
-## 11. Live Pipeline — Generated August 6, 2026
+## 11. Live Pipeline — Generated August 7, 2026
 
 **Active schools: 10** | Overdue actions: 20
 (Category Nope and status Inactive excluded)

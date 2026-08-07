@@ -42,6 +42,10 @@ redeploy without rebuild, etc.), surface the symptom to the
 user with what's needed — the user will run the Vercel command
 themselves.
 
+The Vercel MCP plugin may be used to READ deployment status and
+build logs; never to trigger, cancel, or redeploy — deploys
+remain git-push-only.
+
 Reason: CLI deploys ship the local working tree regardless of
 git state, while labeling the deploy with the local HEAD SHA
 in the Vercel dashboard. This makes the "deployed: SHA" display
