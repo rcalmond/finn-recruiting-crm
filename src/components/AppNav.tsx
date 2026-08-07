@@ -121,10 +121,10 @@ export function AppSidebar({
       bottom: 0,
       zIndex: 40,
     }}>
-      {/* Logo */}
-      <div style={{
+      {/* Logo — links to the public marketing home */}
+      <Link href="/" style={{
         display: 'flex', alignItems: 'center', gap: 10,
-        padding: '4px 12px 28px',
+        padding: '4px 12px 28px', textDecoration: 'none',
       }}>
         <div style={{
           width: 28, height: 28, borderRadius: 7,
@@ -136,7 +136,7 @@ export function AppSidebar({
         <div style={{ fontSize: 15, fontWeight: 700, color: '#0E0E0E', letterSpacing: -0.4 }}>
           finnsoccer
         </div>
-      </div>
+      </Link>
 
       {/* Phase nav items */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

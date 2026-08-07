@@ -29,7 +29,11 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
-  const isPublicRoute = request.nextUrl.pathname === '/'
+  // Public marketing surfaces — no auth required (front door + demo)
+  const isPublicRoute =
+    request.nextUrl.pathname === '/' ||
+    request.nextUrl.pathname === '/demo' ||
+    request.nextUrl.pathname.startsWith('/demo/')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
   const isDesignPreview = request.nextUrl.pathname.startsWith('/design-preview')
 
