@@ -181,6 +181,8 @@ export interface RecommendedAction {
   category: RecommendedActionCategory
   source_message_ids?: string[]
   recommended_coach_id?: string | null
+  possible_offer?: boolean            // true when inbound contains offer/admission terms not yet recorded
+  possible_offer_note?: string | null // one-line description of what was detected
 }
 
 export interface SchoolConversationSummary {

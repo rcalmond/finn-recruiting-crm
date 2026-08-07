@@ -19,6 +19,7 @@ import EditableActionRow from '@/components/EditableActionRow'
 import ConversationSummaryCard from '@/components/school-detail/ConversationSummaryCard'
 import CallPrepSection from '@/components/school-detail/CallPrepSection'
 import StatusUpdatesPanel from '@/components/school-detail/StatusUpdatesPanel'
+import NotePopover from '@/components/school-detail/NotePopover'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -619,7 +620,7 @@ function Timeline({
           border: `1px solid ${SD.line}`,
         }}>
           <div style={{ fontSize: 14, color: SD.inkLo, marginBottom: 12 }}>
-            No conversation yet.
+            Conversations with this school will appear here. Send the first email to get started.
           </div>
           <button
             onClick={() => onDraft('fresh')}
@@ -1376,7 +1377,7 @@ function Sidebar({
       <SidebarCard label={`Actions${actionItems.length > 0 ? ` · ${actionItems.length}` : ''}`}>
         {actionItems.length === 0 ? (
           <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>
-            No open actions.
+            Nothing to do right now. Add one when something comes up.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1567,7 +1568,7 @@ function Sidebar({
             ))}
           </div>
         ) : (
-          <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>No coach on file.</div>
+          <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>No coaching contacts yet. They appear when the scraper finds them or you add one manually.</div>
         )}
       </SidebarCard>
 
@@ -1843,7 +1844,7 @@ function SidebarCamps({ school, camps, schools }: {
 
         {totalCount === 0 ? (
           <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>
-            No camps yet.
+            No camps linked to this school. They appear when discovered by the camp scraper or added manually.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -2138,6 +2139,31 @@ export default function SchoolDetailClient({
         onUpsertMilestone={upsertMilestone}
         onRemoveMilestone={removeMilestone}
       />
+
+      {/* ── Quick-capture note popover ── */}
+      <div style={{
+        padding: '0 clamp(16px, 4vw, 40px)',
+        display: 'flex', justifyContent: 'flex-end',
+        marginTop: 8,
+      }}>
+        <NotePopover
+          schoolId={school.id}
+          onSaveStatusUpdate={async (body, share) => {
+            await insertUpdate({ school_id: school.id, body, share_with_coach: share })
+          }}
+          onSaveActionItem={async (action) => {
+            await insertItem({ school_id: school.id, action, owner: 'Finn', due_date: null })
+          }}
+          onSaveContactLog={async (entry) => {
+            await insertContact({ ...entry, school_id: school.id } as Parameters<typeof insertContact>[0])
+          }}
+          onSaveStrategicNote={async (note) => {
+            const supabase = createClient()
+            await supabase.from('school_message_plan')
+              .upsert({ school_id: school.id, finn_notes: note, updated_at: new Date().toISOString() }, { onConflict: 'school_id' })
+          }}
+        />
+      </div>
 
       {/* ── Content: summary + timeline (left) + sidebar (right) ── */}
       <div className="detail-content" style={{

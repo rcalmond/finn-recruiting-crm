@@ -201,7 +201,7 @@ export default function CampaignsClient() {
           borderRadius: 8, padding: '48px 24px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 14, color: C.inkLo, marginBottom: 16 }}>
-            {filter === 'archived' ? 'No archived campaigns.' : 'No campaigns yet.'}
+            {filter === 'archived' ? 'No archived campaigns.' : 'Campaigns let you email multiple coaches in one pass. Create one when you have a showcase or update to share.'}
           </div>
           {filter !== 'archived' && (
             <button

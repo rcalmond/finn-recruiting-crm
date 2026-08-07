@@ -124,7 +124,7 @@ export default function CallPrepSection({ docs, schoolId, schoolName, coaches, o
           padding: '20px 16px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 13, color: SD.inkLo }}>
-            No call prep docs yet.
+            Generate a prep doc before your next call with this coaching staff.
           </div>
           <div style={{ fontSize: 12, color: SD.inkMute, marginTop: 4 }}>
             Use the <strong>Prep for call</strong> button on the coach card to generate one, or upload an existing doc.

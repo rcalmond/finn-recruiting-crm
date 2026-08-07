@@ -151,8 +151,8 @@ export default function MessagesClient() {
       {filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '48px 24px', color: C.inkLo, fontSize: 14 }}>
           {messages.length === 0
-            ? 'No messages yet. Add the things you want to communicate or ask coaches.'
-            : 'No messages match this filter.'}
+            ? 'Add the things you want to communicate to coaches — updates, questions, and talking points.'
+            : 'No messages match these filters. Try adjusting or clearing them.'}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -513,7 +513,7 @@ function MessageModal({ message, onClose, onSave, onArchive }: {
                               href={`/schools/${entry.school_id}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              style={{ fontSize: 11, color: '#2563EB', textDecoration: 'none', marginTop: 4, display: 'inline-block' }}
+                              style={{ fontSize: 11, color: '#006A65', textDecoration: 'none', marginTop: 4, display: 'inline-block' }}
                             >
                               View source
                             </a>

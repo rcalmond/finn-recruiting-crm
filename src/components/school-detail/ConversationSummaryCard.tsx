@@ -339,6 +339,25 @@ export default function ConversationSummaryCard({ schoolId, schoolName, onDraft 
         </button>
       </div>
 
+      {/* Offer detection chip */}
+      {action.possible_offer && (
+        <a
+          href="/get-in"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 14px', borderRadius: 8, marginBottom: 14,
+            background: '#2E2B28', color: '#F6F1E8',
+            textDecoration: 'none', cursor: 'pointer',
+            fontSize: 12, fontWeight: 600, lineHeight: 1.4,
+          }}
+        >
+          <span style={{ fontSize: 14 }}>$</span>
+          <span style={{ flex: 1 }}>
+            {action.possible_offer_note ?? 'Looks like an offer'} — record it in Get In →
+          </span>
+        </a>
+      )}
+
       {/* 3. Footer row */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',

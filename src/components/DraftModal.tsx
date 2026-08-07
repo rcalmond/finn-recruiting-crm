@@ -49,7 +49,7 @@ type SuggestionTiming = 'send_now' | 'after_event' | 'wait'
 const TIMING_STYLES: Record<SuggestionTiming, { bg: string; color: string; label: string }> = {
   send_now:    { bg: '#DCFCE7', color: '#166534', label: 'Send now' },
   after_event: { bg: '#FEF3C7', color: '#92400E', label: 'After event' },
-  wait:        { bg: '#F3F4F6', color: '#374151', label: 'Wait' },
+  wait:        { bg: '#F3F4F6', color: '#4A4A4A', label: 'Wait' },
 }
 
 // ─── Stages ──────────────────────────────────────────────────────────────────
@@ -440,28 +440,29 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
     >
       <div
         style={{
-          background: '#fff', borderRadius: 12, width: '100%', maxWidth: 600,
+          background: '#FFFDF9', borderRadius: 14, width: '100%', maxWidth: 600,
           maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.2)',
+          border: '1px solid #E2DBC9',
         }}
       >
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <div style={{
-          padding: '20px 24px 16px', borderBottom: '1px solid #f1f5f9',
+          padding: '20px 24px 16px', borderBottom: '1px solid #EFE8D8',
           display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
           flexShrink: 0,
         }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0E0E0E' }}>
               {isCampaign ? 'Campaign Draft' : isReply ? 'Draft Reply' : 'Draft Email'}
             </h3>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: '#A8A39B', marginTop: 2 }}>
               <span>{mode.schoolName}</span>
               {isCampaign && mode.schoolTier && (
                 <span style={{
                   marginLeft: 6, padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700,
                   background: mode.schoolTier === 'A' ? '#FEE2E2' : mode.schoolTier === 'B' ? '#DBEAFE' : '#F3F4F6',
-                  color: mode.schoolTier === 'A' ? '#991B1B' : mode.schoolTier === 'B' ? '#1E40AF' : '#374151',
+                  color: mode.schoolTier === 'A' ? '#991B1B' : mode.schoolTier === 'B' ? '#1E40AF' : '#4A4A4A',
                 }}>{mode.schoolTier}</span>
               )}
               {mode.coachName && (
@@ -480,7 +481,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
             onClick={onClose}
             style={{
               background: 'none', border: 'none', fontSize: 20, cursor: 'pointer',
-              color: '#94a3b8', padding: 4, lineHeight: 1,
+              color: '#A8A39B', padding: 4, lineHeight: 1,
             }}
           >&times;</button>
         </div>
@@ -523,7 +524,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
 
           {/* ── Loading plan ──────────────────────────────────────────── */}
           {stage === 'loading' && (
-            <div style={{ padding: '24px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+            <div style={{ padding: '24px 0', textAlign: 'center', color: '#A8A39B', fontSize: 13 }}>
               Loading plan...
             </div>
           )}
@@ -534,13 +535,14 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
               {/* Recommended action context block */}
               {recommendedAction && (
                 <div style={{
-                  background: '#F0FDF4', border: '1px solid #BBF7D0',
-                  borderRadius: 8, padding: '10px 14px', marginBottom: 12,
+                  background: '#FAF0EA', border: '1px solid #E8C4A8',
+                  borderLeft: '4px solid #B5502F',
+                  borderRadius: '0 8px 8px 0', padding: '10px 14px', marginBottom: 12,
                 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#166534', marginBottom: 4 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#B5502F', marginBottom: 4 }}>
                     Recommended next step
                   </div>
-                  <div style={{ fontSize: 13, color: '#15803D', lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 13, color: '#8B4513', lineHeight: 1.5 }}>
                     {recommendedAction.description}
                   </div>
                 </div>
@@ -561,8 +563,8 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                           style={{
                             display: 'flex', alignItems: 'flex-start', gap: 10,
                             padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
-                            border: `1px solid ${checked ? '#7c3aed' : '#e2e8f0'}`,
-                            background: checked ? '#f5f3ff' : '#fff',
+                            border: `1px solid ${checked ? '#0E0E0E' : '#E2DBC9'}`,
+                            background: checked ? '#F6F1E8' : '#fff',
                             transition: 'border-color 0.1s, background 0.1s',
                           }}
                         >
@@ -570,7 +572,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                             type="checkbox"
                             checked={checked}
                             onChange={() => toggleCheck(s.message_id)}
-                            style={{ marginTop: 2, accentColor: '#7c3aed' }}
+                            style={{ marginTop: 2, accentColor: '#0E0E0E' }}
                           />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -578,14 +580,14 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                                 fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
                                 textTransform: 'uppercase', background: ts.bg, color: ts.color,
                               }}>{ts.label}</span>
-                              <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{msg.title}</span>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: '#0E0E0E' }}>{msg.title}</span>
                               <span style={{
                                 fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
                                 textTransform: 'uppercase', background: tm.bg, color: tm.color,
                               }}>{tm.label}</span>
                             </div>
                             {s.reasoning && (
-                              <div style={{ fontSize: 11, color: '#64748b', marginTop: 3, lineHeight: 1.4 }}>
+                              <div style={{ fontSize: 11, color: '#7A7570', marginTop: 3, lineHeight: 1.4 }}>
                                 {s.reasoning.length > 120 ? s.reasoning.slice(0, 120) + '...' : s.reasoning}
                               </div>
                             )}
@@ -602,7 +604,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                         onClick={() => setShowExtras(v => !v)}
                         style={{
                           background: 'none', border: 'none', cursor: 'pointer',
-                          fontSize: 11, fontWeight: 600, color: '#6366f1', padding: '4px 0',
+                          fontSize: 11, fontWeight: 600, color: '#006A65', padding: '4px 0',
                           fontFamily: 'inherit',
                         }}
                       >
@@ -621,8 +623,8 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                                 style={{
                                   display: 'flex', alignItems: 'flex-start', gap: 10,
                                   padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
-                                  border: `1px solid ${checked ? '#7c3aed' : '#f1f5f9'}`,
-                                  background: checked ? '#f5f3ff' : '#f8fafc',
+                                  border: `1px solid ${checked ? '#0E0E0E' : '#EFE8D8'}`,
+                                  background: checked ? '#F6F1E8' : '#F6F1E8',
                                   opacity: 0.8,
                                 }}
                               >
@@ -630,7 +632,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                                   type="checkbox"
                                   checked={checked}
                                   onChange={() => toggleCheck(s.message_id)}
-                                  style={{ marginTop: 2, accentColor: '#7c3aed' }}
+                                  style={{ marginTop: 2, accentColor: '#0E0E0E' }}
                                 />
                                 <div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -638,7 +640,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                                       fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
                                       textTransform: 'uppercase', background: ts.bg, color: ts.color,
                                     }}>{ts.label}</span>
-                                    <span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>{msg.title}</span>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: '#4A4A4A' }}>{msg.title}</span>
                                   </div>
                                 </div>
                               </label>
@@ -652,7 +654,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
               )}
 
               {orderedPrimary.length === 0 && (
-                <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>
+                <div style={{ fontSize: 12, color: '#A8A39B', fontStyle: 'italic' }}>
                   No plan suggestions yet. Generate them on the school page, or describe what to cover below.
                 </div>
               )}
@@ -673,7 +675,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
           {/* ── Generating ────────────────────────────────────────────── */}
           {stage === 'generate' && (
             <div style={{
-              padding: '40px 0', textAlign: 'center', color: '#94a3b8',
+              padding: '40px 0', textAlign: 'center', color: '#A8A39B',
               fontSize: 13,
             }}>
               {campaignHasMessageSet ? 'Generating personalized draft...' : 'Generating draft...'}
@@ -709,9 +711,9 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
               {/* Subject helper (reply) */}
               {isReply && (
                 <div style={{
-                  fontSize: 12, color: '#94a3b8', fontStyle: 'italic',
-                  background: '#f8fafc', padding: '8px 12px', borderRadius: 6,
-                  border: '1px solid #f1f5f9',
+                  fontSize: 12, color: '#A8A39B', fontStyle: 'italic',
+                  background: '#F6F1E8', padding: '8px 12px', borderRadius: 6,
+                  border: '1px solid #EFE8D8',
                 }}>
                   Re: (uses your email client's thread subject)
                 </div>
@@ -734,7 +736,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                   </div>
                   <div style={{
                     ...fieldStyle,
-                    background: '#f8fafc', color: '#334155',
+                    background: '#F6F1E8', color: '#4A4A4A',
                     cursor: 'default', userSelect: 'text',
                   }}>
                     {campaignSubject}
@@ -746,8 +748,8 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '7px 12px', borderRadius: 6,
-                background: '#F0F4FF', border: '1px solid #C7D2FE',
-                fontSize: 12, color: '#4338CA', lineHeight: 1.4,
+                background: '#F6F1E8', border: '1px solid #E2DBC9',
+                fontSize: 12, color: '#4A4A4A', lineHeight: 1.4,
               }}>
                 <span style={{ flexShrink: 0 }}>CC</span>
                 <code
@@ -760,7 +762,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                   }}
                   title="Click to copy"
                   style={{
-                    background: ccCopied ? '#DCFCE7' : '#E0E7FF',
+                    background: ccCopied ? '#DCFCE7' : '#EFE8D8',
                     padding: '1px 5px', borderRadius: 3,
                     fontFamily: 'ui-monospace, SFMono-Regular, monospace',
                     fontSize: 11.5, cursor: 'pointer',
@@ -776,7 +778,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
               {isCampaign && mode.channelRec && (
                 <div style={{
                   padding: '6px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-                  background: mode.channelRec === 'gmail' ? '#DCFCE7' : mode.channelRec === 'sr' ? '#DBEAFE' : '#f8fafc',
+                  background: mode.channelRec === 'gmail' ? '#DCFCE7' : mode.channelRec === 'sr' ? '#DBEAFE' : '#F6F1E8',
                   color: mode.channelRec === 'gmail' ? '#16A34A' : mode.channelRec === 'sr' ? '#0369A1' : '#7A7570',
                 }}>
                   {mode.channelRec === 'gmail' ? 'Recommended: Gmail' : mode.channelRec === 'sr' ? 'Recommended: SR' : 'No recommendation'}
@@ -823,7 +825,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                   style={{
                     ...fieldStyle, resize: generating ? 'none' : 'vertical',
                     lineHeight: 1.6,
-                    color: generating ? '#94a3b8' : '#0f172a',
+                    color: generating ? '#A8A39B' : '#0E0E0E',
                   }}
                 />
               </div>
@@ -832,17 +834,17 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
               {!isCampaign && closingQuestion && (
                 <div style={{
                   padding: '10px 14px', borderRadius: 8,
-                  background: '#f8fafc', border: '1px solid #e2e8f0',
+                  background: '#F6F1E8', border: '1px solid #E2DBC9',
                 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#7A7570', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
                     Closing question
                   </div>
-                  <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 500, marginBottom: closingAlternatives.length > 0 ? 10 : 0 }}>
+                  <div style={{ fontSize: 13, color: '#0E0E0E', fontWeight: 500, marginBottom: closingAlternatives.length > 0 ? 10 : 0 }}>
                     {closingQuestion}
                   </div>
                   {closingAlternatives.length > 0 && (
                     <div>
-                      <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>Swap to:</div>
+                      <div style={{ fontSize: 11, color: '#A8A39B', marginBottom: 6 }}>Swap to:</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         {closingAlternatives.map((alt, i) => (
                           <button
@@ -851,8 +853,8 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                             disabled={swapping}
                             style={{
                               padding: '6px 10px', borderRadius: 6, textAlign: 'left',
-                              border: '1px solid #e2e8f0', background: '#fff',
-                              fontSize: 12, color: swapping ? '#94a3b8' : '#475569',
+                              border: '1px solid #E2DBC9', background: '#fff',
+                              fontSize: 12, color: swapping ? '#A8A39B' : '#4A4A4A',
                               cursor: swapping ? 'not-allowed' : 'pointer',
                               fontFamily: 'inherit', lineHeight: 1.4,
                               opacity: swapping ? 0.6 : 1,
@@ -863,7 +865,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                         ))}
                       </div>
                       {swapping && (
-                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>Rewriting closing...</div>
+                        <div style={{ fontSize: 11, color: '#A8A39B', marginTop: 6 }}>Rewriting closing...</div>
                       )}
                     </div>
                   )}
@@ -882,9 +884,9 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                     disabled={generating || sending !== null}
                     style={{
                       flex: 1, padding: '6px 10px', borderRadius: 6,
-                      border: '1px solid #e2e8f0', fontSize: 12,
+                      border: '1px solid #E2DBC9', fontSize: 12,
                       fontFamily: 'inherit', outline: 'none',
-                      color: '#334155', background: '#fff',
+                      color: '#4A4A4A', background: '#fff',
                     }}
                   />
                   <button
@@ -928,7 +930,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                     onClick={() => handleMarkSent('sr')}
                     disabled={sending !== null || generating}
                     style={{
-                      ...actionBtn('#2563eb', '#fff'),
+                      ...actionBtn('#006A65', '#fff'),
                       opacity: sending !== null || generating ? 0.5 : 1,
                       cursor: sending !== null || generating ? 'not-allowed' : 'pointer',
                     }}
@@ -959,7 +961,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
 
         {/* ── Footer ──────────────────────────────────────────────────────── */}
         <div style={{
-          padding: '14px 24px', borderTop: '1px solid #f1f5f9',
+          padding: '14px 24px', borderTop: '1px solid #EFE8D8',
           display: 'flex', justifyContent: 'flex-end', gap: 8, flexShrink: 0,
         }}>
           <button onClick={onClose} style={cancelBtnStyle}>Close</button>
@@ -981,7 +983,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
           {stage === 'review' && !isCampaign && (
             <button
               onClick={handleStartOver}
-              style={{ ...generateBtnStyle, background: '#475569' }}
+              style={{ ...generateBtnStyle, background: '#4A4A4A' }}
             >
               Start over
             </button>
@@ -991,7 +993,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
             <button
               onClick={handleStartOver}
               disabled={generating}
-              style={{ ...generateBtnStyle, background: '#475569', opacity: generating ? 0.5 : 1 }}
+              style={{ ...generateBtnStyle, background: '#4A4A4A', opacity: generating ? 0.5 : 1 }}
             >
               Revert to draft
             </button>
@@ -1007,7 +1009,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
 function Label({ children }: { children: React.ReactNode }) {
   return (
     <span style={{
-      display: 'block', fontSize: 11, fontWeight: 600, color: '#64748b',
+      display: 'block', fontSize: 11, fontWeight: 600, color: '#7A7570',
       textTransform: 'uppercase', letterSpacing: '0.04em',
     }}>
       {children}
@@ -1019,8 +1021,8 @@ function copyBtnStyle(copied: boolean): React.CSSProperties {
   return {
     padding: '3px 10px', borderRadius: 5, border: 'none', cursor: 'pointer',
     fontSize: 11, fontWeight: 600, fontFamily: 'inherit',
-    background: copied ? '#059669' : '#eff6ff',
-    color: copied ? '#fff' : '#2563eb',
+    background: copied ? '#059669' : '#EFE8D8',
+    color: copied ? '#fff' : '#4A4A4A',
     transition: 'background 0.2s',
   }
 }
@@ -1033,17 +1035,17 @@ function actionBtn(bg: string, color: string): React.CSSProperties {
 }
 
 const fieldStyle: React.CSSProperties = {
-  width: '100%', padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: 6,
-  fontSize: 13, fontFamily: 'inherit', background: '#fff', color: '#0f172a',
+  width: '100%', padding: '7px 10px', border: '1px solid #E2DBC9', borderRadius: 6,
+  fontSize: 13, fontFamily: 'inherit', background: '#fff', color: '#0E0E0E',
   outline: 'none', boxSizing: 'border-box',
 }
 
 const cancelBtnStyle: React.CSSProperties = {
-  padding: '7px 14px', borderRadius: 6, border: 'none', cursor: 'pointer',
-  fontSize: 13, fontWeight: 600, fontFamily: 'inherit', background: '#f1f5f9', color: '#475569',
+  padding: '7px 14px', borderRadius: 999, border: '1.3px solid #E2DBC9', cursor: 'pointer',
+  fontSize: 13, fontWeight: 600, fontFamily: 'inherit', background: 'transparent', color: '#7A7570',
 }
 
 const generateBtnStyle: React.CSSProperties = {
-  padding: '7px 16px', borderRadius: 6, border: 'none', cursor: 'pointer',
-  fontSize: 13, fontWeight: 600, fontFamily: 'inherit', background: '#7c3aed', color: '#fff',
+  padding: '7px 16px', borderRadius: 999, border: 'none', cursor: 'pointer',
+  fontSize: 13, fontWeight: 600, fontFamily: 'inherit', background: '#0E0E0E', color: '#fff',
 }

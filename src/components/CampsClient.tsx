@@ -248,8 +248,8 @@ export default function CampsClient({ user }: { user: User }) {
               color: LV.inkLo, fontSize: 14,
             }}>
               {camps.length === 0
-                ? 'No camps yet. Add your first camp.'
-                : 'No camps match the current filters.'}
+                ? 'Camps and showcases will appear here once you add them.'
+                : 'No camps match these filters. Try adjusting or clearing them.'}
             </div>
           )}
 

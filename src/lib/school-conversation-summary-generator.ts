@@ -114,6 +114,9 @@ ${RECRUITING_JUDGMENT}
 DATE AWARENESS:
 Today's date is ${currentDate}. Do not reference past events as if they are still actionable.
 
+OFFER DETECTION:
+If the conversation contains an inbound that constitutes an offer, admission decision, pre-read result with terms, or scholarship notice AND the OFFERS / ADMISSIONS section above does NOT already contain a matching recorded offer for this school, set "possible_offer": true and "possible_offer_note" to a one-line description of what was detected (e.g. "Coach Milkent extended conditional admission with $25K scholarship"). If no unrecorded offer is detected, omit these fields or set them to false/null.
+
 OUTPUT FORMAT:
 Return a single JSON object with exactly two keys: "summary" and "recommended_action".
 Example:
@@ -124,7 +127,9 @@ Example:
     "rationale": "Finn's last message confirmed attendance 3 days ago — give the coach time to reply with details.",
     "category": "wait",
     "source_message_ids": [],
-    "recommended_coach_id": null
+    "recommended_coach_id": null,
+    "possible_offer": false,
+    "possible_offer_note": null
   }
 }
 
