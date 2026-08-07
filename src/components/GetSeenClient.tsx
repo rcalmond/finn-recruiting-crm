@@ -48,7 +48,9 @@ function buildMerged(camps: UpcomingCampItem[], events: TimelineEventItem[]): Me
   const fromCamps: MergedItem[] = camps.map(c => ({
     id: c.id, source: 'camp', kind: 'camp',
     label: c.host_school_short_name || c.host_school_name,
-    start_date: c.start_date, end_date: null, d: daysUntil(c.start_date),
+    start_date: c.start_date,
+    end_date: c.end_date && c.end_date !== c.start_date ? c.end_date : null,  // range camps → bars
+    d: daysUntil(c.start_date),
     finn_status: c.finn_status, href: '/camps',
   }))
   const fromEvents: MergedItem[] = events.map(e => ({
@@ -163,7 +165,8 @@ function DesktopTimeline({ items, onItemClick }: { items: MergedItem[]; onItemCl
                 <div onClick={() => onItemClick(it)} style={{
                   position: 'absolute', top: 74, left: `${startPct}%`, width: `${widthPct}%`,
                   height: 8, borderRadius: 4, cursor: 'pointer',
-                  background: it.kind === 'outreach_moment' ? SD.rust : SD.event, opacity: 0.85,
+                  background: it.source === 'camp' ? GREEN.accent : it.kind === 'outreach_moment' ? SD.rust : SD.event,
+                  opacity: it.source === 'camp' && it.finn_status !== 'registered' ? 0.55 : 0.85,
                 }} />
               ) : (
                 <div onClick={() => onItemClick(it)} style={{ position: 'absolute', top: 72, left: `${startPct}%`, transform: 'translateX(-50%)', cursor: 'pointer' }}>
