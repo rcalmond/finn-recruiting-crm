@@ -2167,10 +2167,6 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
   Next Action: Complete Financial pre-read docs (Randy) — due 2026-08-07
   Also: Get back to Coach re: scheduling a visit (Finn) — due 2026-08-12
   Contact Log (3 shown):
-    [2026-07-27] Inbound via Text:
-      Congrats Finn! Thats amazing news to hear!! There’s also a financial aid pre read that I can send so your family can work on that as well. 
-      
-      Let’s get you to campus! Let me know if there’s a time around mid/late August and early September. It may depend what your game schedule looks like for high...
     [2026-07-27] Outbound via Text:
       Hi Coach, the financial pre-read sounds great. Send that over and I can get that started. Unfortunately the 20th doesn’t work for me because I start school that day.  In terms of getting out to Illinois, there is still a lot with High school soccer and golf scheduling that’s still up in the air t...
     [2026-07-27] Inbound via Email — Dylan Milkent:
@@ -2179,6 +2175,10 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
       Congrats on your acceptance! This is a big step and you should feel GREAT. I have attached information regarding financial aid pre-read. Note that there is a deadline for July 27th. That is a short timeline so I understand if the August one makes more sense. Just keep me posted!
       
       Go Hawks!...
+    [2026-07-27] Inbound via Text:
+      Congrats Finn! Thats amazing news to hear!! There’s also a financial aid pre read that I can send so your family can work on that as well. 
+      
+      Let’s get you to campus! Let me know if there’s a time around mid/late August and early September. It may depend what your game schedule looks like for high...
 
 SCHOOL: Middlebury
   Status: Ongoing Conversation
@@ -2235,15 +2235,15 @@ SCHOOL: WPI
   Videos Sent: Yes
   Next Action: Decide whether this ID camp works or the crimson (Finn) — due 2026-07-01
   Contact Log (3 shown):
-    [2026-08-03] Inbound via Phone — Brian Kelley:
-      Ok. Hang tight. I just had to take a phone call I will be out in the lobby in a few minutes.
     [2026-08-03] Outbound via Phone:
       Hi Coach, the games are held at the comnock field complex in Boston. And I will also send you the full schedule tomorrow.
       Here’s the Google Maps adress. 
       
       65 N Harvard St, Boston, MA 02134
+    [2026-08-03] Inbound via Phone — Brian Kelley:
+      Ok. Hang tight. I just had to take a phone call I will be out in the lobby in a few minutes.
     [2026-08-03] Inbound via Phone:
-      Hi Finn. That’s great. Hope it went well. What time is your first game tomorrow and do you have an exact address?
+      I will be there. Just play simple and enjoy!
 
 ### Tier B (2 schools)
 
@@ -2274,32 +2274,12 @@ SCHOOL: Bowdoin
       
       I really enjoyed getting to work with you over the weekend during the Crimson Cam...
     [2026-07-21] Inbound via Sports Recruits — Scott Wiercinski:
-      Great.  See you then!
+      Hello Finn,
       
-      Sincerely,
+      Thanks for the note.
       
-      Scott Wiercinski
-      
-      Head Coach – Men’s Soccer
-      
-      Bowdoin College
-      
-      9000 College Station
-      
-      Brunswick, Maine 04011
-      
-      (O): 207.725.3665
-      
-      (F): 207.725.3019
-      
-      Bowdoin
-       College
-      
-      Bowdoin
-       College Men's Soccer
-      
-      The
-       New England Soccer Academy
+      I am available to meet with you on Thursday, July 30th and look forward to hosting you. Please come to my office, Room 205, in the Buck Center for Health and Fitness.  The Buck Center is located near the center of campus and is included on the campus tour.
+       We c...
 
 SCHOOL: Clark
   Status: Intro Sent
@@ -2310,7 +2290,7 @@ SCHOOL: Clark
   Coach: Matthews Lima — Assistant Coach <malima@clarku.edu>
   Coach: Maitoe Suppasuesanguan — Assistant Coach <msuppasuesanguan@clarku.edu>
   Coach: Nur Adhikarie — Assistant Coach <nadhikarie@clarku.edu>
-  Last Contact: 2026-07-31
+  Last Contact: 2026-08-06
   RQ Status: Completed
   Videos Sent: Yes
   Notes: Sent MIT camp follow up email
@@ -2318,16 +2298,17 @@ Has a shared engineering program with Columbia
   Next Action: Pre Crimson camp email (Finn) — due 2026-07-15
   Also: Send post camp and meeting update (Finn) — due 2026-08-03
   Contact Log (3 shown):
+    [2026-08-06] Inbound via Email — Clark University:
+      Dear Finn,
+      
+      
+                                      On behalf of the Admissions Office of Clark University, I would like to inform you that after reviewing your preliminary admissions materials and transcript, you look like a strong candidate for admission into the Class of 2031!
+      
+                            ...
     [2026-08-03] Outbound via Phone:
-      Looking forward to it!
+      Hi Coach, I’m all set for our call, let me know when your set in your end
     [2026-08-03] Inbound via Phone:
       Sounds good bud. Plan on arriving at 9:45.  I will send you the address to admissions.
-    [2026-08-03] Inbound via Phone:
-      Hey Finn,
-      
-      We are excited to see you visit campus tomorrow!  Above you will find the address to admissions.  There is a parking lot right next to the building.
-      
-      We have you registered for a 10AM admissions tour after which we will take you on a tour around campus.  I would suggest arriving around...
 
 ### Tier C — Exploratory (4 schools)
 

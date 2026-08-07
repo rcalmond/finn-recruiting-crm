@@ -18,6 +18,7 @@ const SD = {
   inkMute:   '#A8A39B',
   line:      '#E2DBC9',
   line2:     '#D3CAB3',
+  rust:      '#B5502F',
 }
 
 const TIER_DOT: Record<string, string> = {
@@ -28,7 +29,6 @@ const TIER_DOT: Record<string, string> = {
 
 const STAGES: RecruitingStage[] = [1, 2, 3, 4, 5, 6]
 
-// Rows in display order (top = hottest)
 type GridRow = 'hot' | 'active' | 'cooling' | 'cold' | 'prospecting'
 const ROWS: GridRow[] = ['hot', 'active', 'cooling', 'cold', 'prospecting']
 const ROW_LABEL: Record<GridRow, string> = {
@@ -39,12 +39,21 @@ const ROW_LABEL: Record<GridRow, string> = {
   prospecting: 'Prospecting',
 }
 
-// Quadrant zone tints (subtle parchment-compatible)
+// Row temperature dot colors (matches recency palette)
+const ROW_DOT: Record<GridRow, string> = {
+  hot:         '#D03A2E',
+  active:      '#00B2A9',
+  cooling:     '#E8A33C',
+  cold:        '#9CA3A8',
+  prospecting: '#9CA3A8',
+}
+
+// Strengthened quadrant tints — zones read as places
 const ZONE_TINT = {
-  deepHot:     'rgba(0, 178, 169, 0.06)',   // Close — teal tint
-  shallowHot:  'rgba(30, 64, 175, 0.05)',   // Convert — blue tint
-  deepCold:    'rgba(232, 163, 60, 0.06)',   // Re-warm — amber tint
-  shallowCold: 'rgba(156, 163, 168, 0.05)', // Nudge — gray tint
+  deepHot:     'rgba(181, 80, 47, 0.07)',   // Close — rust tint
+  shallowHot:  'rgba(30, 64, 175, 0.06)',   // Convert — blue tint
+  deepCold:    'rgba(232, 163, 60, 0.08)',   // Re-warm — amber tint (strengthened)
+  shallowCold: 'rgba(156, 163, 168, 0.06)', // Nudge — gray tint
 }
 
 const ZONE_LABEL = {
@@ -77,7 +86,6 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
 
-  // Load collapse state from localStorage
   useEffect(() => {
     try { setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1') } catch {}
   }, [])
@@ -88,7 +96,7 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
     try { localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0') } catch {}
   }
 
-  // Build contact log map for recency classification
+  // Build contact log map
   const clMap = new Map<string, ContactLogEntry[]>()
   for (const e of contactLog) {
     if (!e.school_id) continue
@@ -97,12 +105,11 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
     clMap.set(e.school_id, arr)
   }
 
-  // Filter and classify schools
+  // Filter and classify
   const active = schools.filter(s =>
     ['A', 'B', 'C'].includes(s.category) && s.status !== 'Inactive'
   )
 
-  // Build grid: cells[row][stage] = CellSchool[]
   const cells = new Map<string, CellSchool[]>()
   for (const row of ROWS) {
     for (const stage of STAGES) {
@@ -116,20 +123,16 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
     const state = recency.state
     const stage = (school.recruiting_stage ?? 1) as RecruitingStage
 
-    // Map recency state to grid row
     let row: GridRow
-    if (state === 'declined') {
-      // Declined schools render in Cold row with a marker
-      row = 'cold'
-    } else if (state === 'hot') row = 'hot'
+    if (state === 'declined') row = 'cold'
+    else if (state === 'hot') row = 'hot'
     else if (state === 'active') row = 'active'
     else if (state === 'cooling') row = 'cooling'
     else if (state === 'cold') row = 'cold'
     else if (state === 'prospecting') row = 'prospecting'
-    else row = 'prospecting' // null state = no contact
+    else row = 'prospecting'
 
-    const key = `${row}-${stage}`
-    cells.get(key)!.push({
+    cells.get(`${row}-${stage}`)!.push({
       id: school.id,
       name: school.name,
       short_name: school.short_name,
@@ -138,51 +141,52 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
     })
   }
 
-  // ── Mobile: stacked quadrant buckets ──────────────────────────────────────
-
+  // Mobile buckets
   const mobileBuckets = {
-    deepHot:     [] as CellSchool[],
-    shallowHot:  [] as CellSchool[],
-    deepCold:    [] as CellSchool[],
-    shallowCold: [] as CellSchool[],
+    deepHot: [] as CellSchool[], shallowHot: [] as CellSchool[],
+    deepCold: [] as CellSchool[], shallowCold: [] as CellSchool[],
   }
   for (const row of ROWS) {
     for (const stage of STAGES) {
       const arr = cells.get(`${row}-${stage}`) ?? []
       const isDeep = stage >= 4
       const isHot = row === 'hot' || row === 'active'
-      const bucket = isDeep
-        ? (isHot ? 'deepHot' : 'deepCold')
-        : (isHot ? 'shallowHot' : 'shallowCold')
+      const bucket = isDeep ? (isHot ? 'deepHot' : 'deepCold') : (isHot ? 'shallowHot' : 'shallowCold')
       mobileBuckets[bucket].push(...arr)
     }
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
     <section style={{ marginBottom: 32 }}>
-      {/* Header with collapse toggle */}
-      <button
-        onClick={toggleCollapse}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-          background: 'none', border: 'none', cursor: 'pointer',
-          fontFamily: 'inherit', padding: 0, marginBottom: collapsed ? 0 : 16,
-        }}
-      >
-        <h2 style={{
-          margin: 0, fontSize: 'clamp(18px, 2.5vw, 22px)', fontWeight: 700,
-          letterSpacing: '-0.03em', color: SD.ink, fontStyle: 'italic',
+      {/* Eyebrow + heading with collapse */}
+      <div style={{ marginBottom: collapsed ? 0 : 14 }}>
+        <div style={{
+          fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
+          letterSpacing: '0.1em', color: SD.inkMute, marginBottom: 4,
         }}>
-          Pipeline.
-        </h2>
-        <span style={{
-          fontSize: 12, color: SD.inkMute,
-          transition: 'transform 0.15s',
-          transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
-        }}>▾</span>
-      </button>
+          Pipeline
+        </div>
+        <button
+          onClick={toggleCollapse}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontFamily: 'inherit', padding: 0,
+          }}
+        >
+          <h2 style={{
+            margin: 0, fontSize: 'clamp(18px, 2.5vw, 22px)', fontWeight: 700,
+            letterSpacing: '-0.03em', color: SD.ink, fontStyle: 'italic',
+          }}>
+            The board.
+          </h2>
+          <span style={{
+            fontSize: 12, color: SD.inkMute,
+            transition: 'transform 0.15s',
+            transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+          }}>▾</span>
+        </button>
+      </div>
 
       {!collapsed && (
         <>
@@ -213,18 +217,20 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
             {/* Data rows */}
             {ROWS.map((row) => (
               <div key={row} style={{ display: 'contents' }}>
-                {/* Row label */}
+                {/* Row label with temperature dot */}
                 <div style={{
                   padding: '6px 10px',
                   borderTop: `1px solid ${SD.line}`,
-                  fontSize: 10, fontWeight: 700, color: SCHOOL_RECENCY_STYLE[row as SchoolRecencyState]?.textColor ?? SD.inkLo,
+                  fontSize: 10, fontWeight: 700,
+                  color: SCHOOL_RECENCY_STYLE[row as SchoolRecencyState]?.textColor ?? SD.inkLo,
                   textTransform: 'uppercase', letterSpacing: '0.04em',
                   display: 'flex', alignItems: 'center',
                   background: SD.paper,
                 }}>
                   <span style={{
-                    width: 5, height: 5, borderRadius: '50%', marginRight: 6, flexShrink: 0,
-                    background: SCHOOL_RECENCY_STYLE[row as SchoolRecencyState]?.dotColor ?? SD.inkMute,
+                    width: 7, height: 7, borderRadius: '50%', marginRight: 6, flexShrink: 0,
+                    background: ROW_DOT[row],
+                    boxShadow: row === 'hot' ? `0 0 4px ${ROW_DOT[row]}40` : 'none',
                   }} />
                   {ROW_LABEL[row]}
                 </div>
@@ -234,14 +240,12 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
                   const key = `${row}-${stage}`
                   const arr = cells.get(key) ?? []
                   const isDeep = stage >= 4
-                  // Split: hot/active = hot zone, cooling/cold/prospecting = cold zone
                   const isHot = row === 'hot' || row === 'active'
                   const zone = isDeep
                     ? (isHot ? 'deepHot' : 'deepCold')
                     : (isHot ? 'shallowHot' : 'shallowCold')
                   const tint = ZONE_TINT[zone]
 
-                  // Zone labels at corners
                   const showZoneLabel =
                     (zone === 'shallowHot' && stage === 1 && row === 'hot') ||
                     (zone === 'deepHot' && stage === 4 && row === 'hot') ||
@@ -262,14 +266,20 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
                           position: 'absolute', top: 2, right: 4,
                           fontSize: 8, fontWeight: 800, textTransform: 'uppercase',
                           letterSpacing: '0.08em',
-                          color: SD.inkMute, opacity: 0.6,
+                          color: zone === 'deepHot' ? SD.rust : SD.inkMute,
+                          opacity: zone === 'deepHot' ? 0.7 : 0.6,
                         }}>
                           {ZONE_LABEL[zone]}
                         </span>
                       )}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                         {arr.map(s => (
-                          <Chip key={s.id} school={s} onClick={() => router.push(`/schools/${s.id}`)} />
+                          <Chip
+                            key={s.id}
+                            school={s}
+                            isCloseZone={zone === 'deepHot'}
+                            onClick={() => router.push(`/schools/${s.id}`)}
+                          />
                         ))}
                       </div>
                     </div>
@@ -279,7 +289,7 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
             ))}
           </div>
 
-          {/* Mobile fallback: stacked quadrant buckets */}
+          {/* Mobile fallback */}
           <div className="funnel-grid-mobile" style={{ display: 'none' }}>
             {([
               { key: 'deepHot' as const, label: 'Close', desc: 'Deep + Hot' },
@@ -291,19 +301,20 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
               if (arr.length === 0) return null
               return (
                 <div key={key} style={{
-                  background: ZONE_TINT[key],
-                  border: `1px solid ${SD.line}`,
+                  background: ZONE_TINT[key], border: `1px solid ${SD.line}`,
                   borderRadius: 8, padding: '8px 12px', marginBottom: 8,
                 }}>
                   <div style={{
                     fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
-                    letterSpacing: '0.06em', color: SD.inkLo, marginBottom: 6,
+                    letterSpacing: '0.06em',
+                    color: key === 'deepHot' ? SD.rust : SD.inkLo,
+                    marginBottom: 6,
                   }}>
                     {label} <span style={{ fontWeight: 500, textTransform: 'none' }}>· {desc}</span>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                     {arr.map(s => (
-                      <Chip key={s.id} school={s} onClick={() => router.push(`/schools/${s.id}`)} />
+                      <Chip key={s.id} school={s} isCloseZone={key === 'deepHot'} onClick={() => router.push(`/schools/${s.id}`)} />
                     ))}
                   </div>
                 </div>
@@ -325,7 +336,7 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
 
 // ─── Chip ───────────────────────────────────────────────────────────────────
 
-function Chip({ school, onClick }: { school: CellSchool; onClick: () => void }) {
+function Chip({ school, isCloseZone, onClick }: { school: CellSchool; isCloseZone: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -333,7 +344,8 @@ function Chip({ school, onClick }: { school: CellSchool; onClick: () => void }) 
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 3,
         padding: '2px 7px', borderRadius: 999,
-        border: 'none', background: SD.paperDeep,
+        border: isCloseZone ? `1px solid rgba(181, 80, 47, 0.35)` : 'none',
+        background: SD.paperDeep,
         cursor: 'pointer', fontFamily: 'inherit',
         fontSize: 10, fontWeight: 600, color: SD.ink,
         whiteSpace: 'nowrap', lineHeight: 1.4,

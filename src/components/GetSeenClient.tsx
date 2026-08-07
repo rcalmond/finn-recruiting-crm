@@ -2,6 +2,12 @@
 
 import Link from 'next/link'
 
+// Calm green = Get Ready + Get Seen phase accent
+const GREEN = {
+  accent: '#2D6A4F',
+  accentSoft: '#D7EFE0',
+}
+
 const SD = {
   paper:    '#F6F1E8',
   ink:      '#0E0E0E',
@@ -9,8 +15,6 @@ const SD = {
   inkLo:    '#7A7570',
   inkMute:  '#A8A39B',
   line:     '#E2DBC9',
-  tealDeep: '#006A65',
-  tealSoft: '#D7F0ED',
 }
 
 function SectionCard({ children }: { children: React.ReactNode }) {
@@ -41,9 +45,7 @@ export default function GetSeenClient({
       paddingBottom: 80,
     }}>
       {/* Masthead */}
-      <div style={{
-        padding: '24px clamp(28px, 4vw, 56px) 4px',
-      }}>
+      <div style={{ padding: '24px clamp(28px, 4vw, 56px) 4px' }}>
         <h1 style={{
           margin: 0,
           fontSize: 'clamp(56px, 7vw, 88px)',
@@ -67,13 +69,17 @@ export default function GetSeenClient({
       }}>
         {/* Camps */}
         <SectionCard>
+          <div style={{
+            fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
+            letterSpacing: '0.1em', color: GREEN.accent, marginBottom: 4,
+          }}>Exposure</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <h3 style={{
               margin: 0, fontSize: 16, fontWeight: 700,
               letterSpacing: '-0.02em', color: SD.ink, fontStyle: 'italic',
             }}>Camps & Showcases.</h3>
             <Link href="/camps" style={{
-              fontSize: 12, fontWeight: 600, color: SD.tealDeep,
+              fontSize: 12, fontWeight: 600, color: GREEN.accent,
               textDecoration: 'none', letterSpacing: '-0.01em',
             }}>
               Open Camps →
@@ -96,13 +102,17 @@ export default function GetSeenClient({
 
         {/* Campaigns */}
         <SectionCard>
+          <div style={{
+            fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
+            letterSpacing: '0.1em', color: GREEN.accent, marginBottom: 4,
+          }}>Outreach</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <h3 style={{
               margin: 0, fontSize: 16, fontWeight: 700,
               letterSpacing: '-0.02em', color: SD.ink, fontStyle: 'italic',
             }}>Campaigns.</h3>
             <Link href="/campaigns" style={{
-              fontSize: 12, fontWeight: 600, color: SD.tealDeep,
+              fontSize: 12, fontWeight: 600, color: GREEN.accent,
               textDecoration: 'none', letterSpacing: '-0.01em',
             }}>
               Open Campaigns →
@@ -114,17 +124,15 @@ export default function GetSeenClient({
             Going to a showcase? Email every attending coach in one pass. Campaigns batch your outreach so no school gets missed.
           </p>
           {activeCampaignCount > 0 && (
-            <div style={{
-              fontSize: 13, fontWeight: 600, color: SD.ink,
-            }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: SD.ink }}>
               {activeCampaignCount} active campaign{activeCampaignCount !== 1 ? 's' : ''}
             </div>
           )}
           <Link href="/campaigns/new" style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             marginTop: 12, padding: '8px 16px',
-            background: SD.ink, color: '#fff',
-            borderRadius: 6, fontSize: 12, fontWeight: 600,
+            background: GREEN.accent, color: '#fff',
+            borderRadius: 999, fontSize: 12, fontWeight: 650,
             textDecoration: 'none', letterSpacing: '-0.01em',
           }}>
             + New Campaign

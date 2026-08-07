@@ -21,6 +21,14 @@ const SD = {
   inkMute:  '#A8A39B',
   line:     '#E2DBC9',
   tealDeep: '#006A65',
+  // March charcoal palette
+  charcoal:    '#2E2B28',
+  charcoalMid: '#3D3A36',
+  charcoalLo:  '#4D4A46',
+  cream:       '#F6F1E8',
+  creamMid:    '#D8D2C6',
+  creamLo:     '#A8A39B',
+  rust:        '#B5502F',
 }
 
 // ─── useOffers hook ──────────────────────────────────────────────────────────
@@ -69,7 +77,28 @@ function useOffers() {
   return { offers, loading, insertOffer, updateOffer, deleteOffer }
 }
 
-// ─── Offer Card ──────────────────────────────────────────────────────────────
+// ─── Near-date detection for offer key_dates ──────────────────────────────────
+
+function hasNearDate(keyDates: string | null): string | null {
+  if (!keyDates) return null
+  const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+  const today = new Date()
+  const currentMonth = today.getMonth()
+  const nearMonths = [months[currentMonth], months[(currentMonth + 1) % 12]]
+  const lower = keyDates.toLowerCase()
+  for (const m of nearMonths) {
+    if (lower.includes(m)) {
+      // Extract the fragment around the month
+      const idx = lower.indexOf(m)
+      const start = Math.max(0, keyDates.lastIndexOf(';', idx) + 1)
+      const end = keyDates.indexOf(';', idx)
+      return keyDates.slice(start, end > 0 ? end : undefined).trim()
+    }
+  }
+  return null
+}
+
+// ─── Offer Card (charcoal March style) ──────────────────────────────────────
 
 function OfferCard({
   offer,
@@ -78,71 +107,124 @@ function OfferCard({
   offer: SchoolOffer & { school: { id: string; name: string; short_name: string | null; category: string } }
   onEdit: () => void
 }) {
-  const statusStyle = OFFER_STATUS_STYLE[offer.status]
   const schoolName = offer.school?.short_name || offer.school?.name || 'Unknown'
+  const nearDate = hasNearDate(offer.key_dates)
+
+  // Charcoal status pill styling
+  const STATUS_CHARCOAL: Record<OfferStatus, { bg: string; color: string; label: string }> = {
+    open:     { bg: 'rgba(220, 252, 231, 0.15)', color: '#86EFAC', label: 'Open' },
+    accepted: { bg: 'rgba(219, 234, 254, 0.15)', color: '#93C5FD', label: 'Accepted' },
+    declined: { bg: 'rgba(254, 226, 226, 0.15)', color: '#FCA5A5', label: 'Declined' },
+    expired:  { bg: 'rgba(243, 244, 246, 0.1)',  color: '#9CA3AF', label: 'Expired' },
+  }
+  const statusPill = STATUS_CHARCOAL[offer.status]
 
   return (
     <div style={{
-      background: '#fff',
-      border: `1px solid ${SD.line}`,
+      background: SD.charcoal,
       borderRadius: 14,
-      padding: 'clamp(18px, 2.5vw, 24px)',
+      padding: 'clamp(20px, 3vw, 28px)',
       cursor: 'pointer',
+      position: 'relative',
+      overflow: 'hidden',
     }} onClick={onEdit}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
-        <div>
+      {/* Ghost $ */}
+      <div style={{
+        position: 'absolute', top: -10, right: 8,
+        fontSize: 100, fontWeight: 800, fontStyle: 'italic',
+        color: '#fff', opacity: 0.04, lineHeight: 1,
+        pointerEvents: 'none', userSelect: 'none',
+      }}>$</div>
+
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        {/* Row 1: School + Status pill */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
           <Link
             href={`/schools/${offer.school_id}`}
             onClick={e => e.stopPropagation()}
             style={{
               fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-              letterSpacing: '0.06em', color: SD.inkLo,
+              letterSpacing: '0.06em', color: SD.creamLo,
               textDecoration: 'none',
             }}
           >
             {schoolName}
           </Link>
-          <h3 style={{
-            margin: '4px 0 0', fontSize: 17, fontWeight: 700,
-            letterSpacing: '-0.02em', color: SD.ink,
+          <span style={{
+            padding: '3px 10px', borderRadius: 999,
+            background: statusPill.bg, color: statusPill.color,
+            fontSize: 10, fontWeight: 700, flexShrink: 0,
+            letterSpacing: '0.03em', textTransform: 'uppercase',
           }}>
-            {offer.headline}
-          </h3>
+            {statusPill.label}
+          </span>
         </div>
-        <span style={{
-          padding: '3px 10px', borderRadius: 999,
-          background: statusStyle.bg, color: statusStyle.color,
-          fontSize: 11, fontWeight: 700, flexShrink: 0,
-          letterSpacing: '0.02em', textTransform: 'uppercase',
-        }}>
-          {statusStyle.label}
-        </span>
-      </div>
 
-      {/* Details */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {offer.money_note && (
-          <div style={{ fontSize: 13, color: SD.inkMid, lineHeight: 1.5 }}>
-            <span style={{ fontWeight: 600, color: SD.ink }}>Money:</span> {offer.money_note}
+        {/* Row 2: Offer type label — prominent */}
+        <div style={{
+          fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
+          letterSpacing: '0.08em', color: SD.creamMid,
+          marginBottom: 6,
+        }}>
+          {OFFER_TYPE_LABELS[offer.offer_type]}
+        </div>
+
+        {/* Row 3: Headline */}
+        <h3 style={{
+          margin: '0 0 14px', fontSize: 17, fontWeight: 700,
+          letterSpacing: '-0.02em', color: SD.cream,
+          fontStyle: 'italic', lineHeight: 1.3,
+        }}>
+          {offer.headline}
+        </h3>
+
+        {/* Consistent field layout — always in the same order */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <FieldRow label="Money" value={offer.money_note} />
+          <FieldRow label="Conditions" value={offer.conditions} />
+          <FieldRow label="Key dates" value={offer.key_dates} />
+        </div>
+
+        {/* Near-date awareness */}
+        {nearDate && (
+          <div style={{
+            marginTop: 12, padding: '6px 10px',
+            background: 'rgba(181, 80, 47, 0.15)',
+            borderRadius: 6, fontSize: 12, fontWeight: 600,
+            color: '#E89070', letterSpacing: '-0.01em',
+          }}>
+            ↗ {nearDate}
           </div>
         )}
-        {offer.conditions && (
-          <div style={{ fontSize: 13, color: SD.inkMid, lineHeight: 1.5 }}>
-            <span style={{ fontWeight: 600, color: SD.ink }}>Conditions:</span> {offer.conditions}
-          </div>
-        )}
-        {offer.key_dates && (
-          <div style={{ fontSize: 13, color: SD.inkMid, lineHeight: 1.5 }}>
-            <span style={{ fontWeight: 600, color: SD.ink }}>Key dates:</span> {offer.key_dates}
-          </div>
-        )}
+
+        {/* Footer */}
         {offer.received_on && (
-          <div style={{ fontSize: 11, color: SD.inkMute, marginTop: 4 }}>
+          <div style={{ marginTop: 10, fontSize: 11, color: SD.charcoalLo }}>
             Received {offer.received_on}
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function FieldRow({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div style={{
+      display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.5,
+      minHeight: 20,
+    }}>
+      <span style={{
+        width: 80, flexShrink: 0,
+        fontWeight: 600, color: SD.creamMid,
+        fontSize: 11, textTransform: 'uppercase',
+        letterSpacing: '0.04em', paddingTop: 1,
+      }}>
+        {label}
+      </span>
+      <span style={{ color: value ? SD.cream : SD.charcoalLo, fontStyle: value ? 'normal' : 'italic' }}>
+        {value || '—'}
+      </span>
     </div>
   )
 }
@@ -436,7 +518,7 @@ export default function GetInClient() {
           margin: 0,
           fontSize: 'clamp(56px, 7vw, 88px)',
           fontWeight: 700, letterSpacing: '-0.04em',
-          color: SD.ink, lineHeight: 0.95,
+          color: SD.charcoal, lineHeight: 0.95,
           fontStyle: 'italic',
         }}>Get In.</h1>
         <p style={{
@@ -455,17 +537,21 @@ export default function GetInClient() {
       }}>
         {/* Offers section */}
         <section>
+          <div style={{
+            fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
+            letterSpacing: '0.1em', color: SD.charcoalLo, marginBottom: 4,
+          }}>Offers</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <h2 style={{
               margin: 0, fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
-              letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
-            }}>Offers.</h2>
+              letterSpacing: '-0.04em', color: SD.charcoal, fontStyle: 'italic',
+            }}>On the table.</h2>
             <button
               onClick={() => setModalOffer('add')}
               style={{
                 all: 'unset', cursor: 'pointer',
                 padding: '7px 14px', fontSize: 12, fontWeight: 700,
-                color: '#fff', background: SD.ink, borderRadius: 6,
+                color: '#fff', background: SD.charcoal, borderRadius: 999,
               }}
             >
               + Add Offer
@@ -474,17 +560,18 @@ export default function GetInClient() {
 
           {offers.length === 0 ? (
             <div style={{
-              background: '#fff', border: `1.5px dashed ${SD.line}`, borderRadius: 14,
+              background: SD.charcoal, borderRadius: 14,
               padding: 'clamp(28px, 4vw, 40px)',
               textAlign: 'center',
             }}>
               <p style={{
-                margin: '0 0 6px', fontSize: 15, fontWeight: 600, color: SD.ink,
+                margin: '0 0 6px', fontSize: 15, fontWeight: 600, color: SD.cream,
+                fontStyle: 'italic',
               }}>
                 Offers and admissions land here.
               </p>
               <p style={{
-                margin: 0, fontSize: 13, color: SD.inkLo, lineHeight: 1.6, maxWidth: 380,
+                margin: 0, fontSize: 13, color: SD.creamLo, lineHeight: 1.6, maxWidth: 380,
                 marginLeft: 'auto', marginRight: 'auto',
               }}>
                 When a school says yes, you&apos;ll track the terms, conditions, and deadlines in one place.
@@ -506,10 +593,14 @@ export default function GetInClient() {
         {/* Endgame schools */}
         {endgameSchools.length > 0 && (
           <section>
+            <div style={{
+              fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
+              letterSpacing: '0.1em', color: SD.charcoalLo, marginBottom: 4,
+            }}>Endgame</div>
             <h2 style={{
               margin: '0 0 14px', fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
-              letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
-            }}>Endgame Schools.</h2>
+              letterSpacing: '-0.04em', color: SD.charcoal, fontStyle: 'italic',
+            }}>Advanced schools.</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {endgameSchools.map(school => {
                 const schoolMilestones = milestonesMap.get(school.id) ?? []
