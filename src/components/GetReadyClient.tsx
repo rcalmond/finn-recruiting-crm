@@ -21,6 +21,14 @@ function daysAgoText(n: number): string {
   return `${n} days ago`
 }
 
+// Compact age: 5d / 3w / 2mo / 1y
+function ageShort(n: number): string {
+  if (n < 7) return `${n}d`
+  if (n < 28) return `${Math.round(n / 7)}w`
+  if (n < 365) return `${Math.round(n / 30)}mo`
+  return `${Math.round(n / 365)}y`
+}
+
 // Freshness color bands: ≤30d green, 31-90d amber, >90d rust
 function freshnessColor(days: number): string {
   if (days <= 30) return GREEN.accent
@@ -53,30 +61,64 @@ function SectionCard({ children, style }: { children: React.ReactNode; style?: R
   )
 }
 
-// Zone header — house section-header style: small-caps eyebrow + bold-italic
-// header with a trailing period. One per named zone; replaces the old
-// eyebrow-per-card scheme.
-function ZoneHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
+// Zone header — a single bold-italic header with a trailing period (no eyebrow).
+// Optional supporting line + optional right-side link (house "Open X →" pattern).
+function ZoneHeader({ title, sub, href, linkText }: { title: string; sub?: string; href?: string; linkText?: string }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: GREEN.accent, marginBottom: 6 }}>
-        {eyebrow}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+        <h2 style={{ margin: 0, fontSize: 'clamp(23px, 3.2vw, 30px)', fontWeight: 700, letterSpacing: '-0.03em', color: SD.ink, fontStyle: 'italic' }}>
+          {title}
+        </h2>
+        {href && (
+          <Link href={href} style={{ fontSize: 12, fontWeight: 600, color: GREEN.accent, textDecoration: 'none', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
+            {linkText} →
+          </Link>
+        )}
       </div>
-      <h2 style={{ margin: 0, fontSize: 'clamp(23px, 3.2vw, 30px)', fontWeight: 700, letterSpacing: '-0.03em', color: SD.ink, fontStyle: 'italic' }}>
-        {title}
-      </h2>
+      {sub && <p style={{ margin: '6px 0 0', fontSize: 13, color: SD.inkLo, lineHeight: 1.5, maxWidth: 540 }}>{sub}</p>}
     </div>
   )
 }
 
-// Card title — a card's own title + optional link. No eyebrow (the zone header
-// carries that layer now).
+// A card's own title + optional link (no eyebrow).
 function CardTitle({ title, href, linkText }: { title: string; href?: string; linkText?: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, position: 'relative', zIndex: 1 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, position: 'relative', zIndex: 1 }}>
       <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: SD.ink, fontStyle: 'italic' }}>{title}</h3>
       {href && <Link href={href} style={{ fontSize: 12, fontWeight: 600, color: GREEN.accent, textDecoration: 'none', letterSpacing: '-0.01em' }}>{linkText ?? 'View all'} →</Link>}
     </div>
+  )
+}
+
+// Small green sub-label above an insight block.
+function InsightBlock({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginTop: 18, position: 'relative', zIndex: 1 }}>
+      <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: GREEN.accent, marginBottom: 8 }}>{label}</div>
+      {children}
+    </div>
+  )
+}
+
+// Thin stacked bar + legend, reused for selectivity + division.
+function StackedBar({ segments }: { segments: { label: string; n: number; color: string }[] }) {
+  const shown = segments.filter(s => s.n > 0)
+  if (shown.length === 0) return null
+  return (
+    <>
+      <div style={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', background: SD.line }}>
+        {shown.map(s => <div key={s.label} title={`${s.n} ${s.label}`} style={{ flex: s.n, background: s.color }} />)}
+      </div>
+      <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: '4px 14px', fontSize: 11.5, color: SD.inkMid }}>
+        {shown.map(s => (
+          <span key={s.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
+            <b style={{ color: SD.ink }}>{s.n}</b> {s.label}
+          </span>
+        ))}
+      </div>
+    </>
   )
 }
 
@@ -105,7 +147,6 @@ function getReadyNextMove(
       buttonText: 'Open Library →',
     }
   }
-  // All assets fresh — point at Discovery: your next move is widening the list.
   return {
     headline: 'Widen your list.',
     body: 'Your profile and film are current. Now grow your target list — browse by division, region, and academics, or find more like the schools you already like.',
@@ -115,8 +156,8 @@ function getReadyNextMove(
 }
 
 // ─── The 2×2 asset grid — four equal-weight cards ─────────────────────────────
-// Same frame (radius / padding / height) for all four; each distinguished by its
-// glyph and content. Ghost glyphs anchor at the house ~4-8% opacity.
+// Same frame for all four; each distinguished by glyph + content. All four
+// headings use the phase-accent green.
 
 const ASSET_CARD: React.CSSProperties = {
   position: 'relative', overflow: 'hidden',
@@ -148,15 +189,16 @@ function AssetCardFrame({ present, glyph, glyphColor, glyphOpacity, children }: 
   )
 }
 
-function cardLabel(color: string): React.CSSProperties {
-  return { fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color, marginBottom: 8 }
+// All four asset cards share the green heading treatment (phase accent).
+function assetLabel(): React.CSSProperties {
+  return { fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: GREEN.accent, marginBottom: 8 }
 }
 
 function ReelCard({ reelAsset }: { reelAsset: { name: string; created_at: string } | null }) {
   const age = reelAsset ? daysSince(reelAsset.created_at) : null
   return (
     <AssetCardFrame present={!!reelAsset} glyph="▶" glyphColor={GREEN.accent} glyphOpacity={0.1}>
-      <div style={cardLabel(GREEN.accent)}>Highlight reel</div>
+      <div style={assetLabel()}>Highlight reel</div>
       <div style={{ fontSize: 'clamp(16px, 2vw, 19px)', fontWeight: 700, color: reelAsset ? SD.ink : SD.inkMute, fontStyle: 'italic', letterSpacing: '-0.02em', lineHeight: 1.25, maxWidth: '78%' }}>
         {reelAsset ? reelAsset.name : 'Add your reel'}
       </div>
@@ -176,7 +218,7 @@ function ScoresCard({ scores }: { scores: PlayerScores | null }) {
   const has = !!(sat || ap.length)
   return (
     <AssetCardFrame present={has} glyph="★" glyphColor={GREEN.accent} glyphOpacity={0.08}>
-      <div style={cardLabel(GREEN.accent)}>Test scores</div>
+      <div style={assetLabel()}>Test scores</div>
       {has ? (
         <>
           {sat && (
@@ -202,8 +244,8 @@ function ScoresCard({ scores }: { scores: PlayerScores | null }) {
 function ResumeCard({ resumeAsset }: { resumeAsset: { version: number; created_at: string } | null }) {
   const age = resumeAsset ? daysSince(resumeAsset.created_at) : null
   return (
-    <AssetCardFrame present={!!resumeAsset} glyph="▤" glyphOpacity={0.05}>
-      <div style={cardLabel(SD.inkLo)}>Resume</div>
+    <AssetCardFrame present={!!resumeAsset} glyph="▤" glyphColor={GREEN.accent} glyphOpacity={0.08}>
+      <div style={assetLabel()}>Resume</div>
       {resumeAsset ? (
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
           <span style={{ fontSize: 'clamp(26px, 3.4vw, 32px)', fontWeight: 800, color: SD.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>v{resumeAsset.version}</span>
@@ -222,8 +264,8 @@ function ResumeCard({ resumeAsset }: { resumeAsset: { version: number; created_a
 function TranscriptCard({ transcriptAsset }: { transcriptAsset: { created_at: string } | null }) {
   const age = transcriptAsset ? daysSince(transcriptAsset.created_at) : null
   return (
-    <AssetCardFrame present={!!transcriptAsset} glyph="☰" glyphOpacity={0.07}>
-      <div style={cardLabel(SD.inkLo)}>Transcript</div>
+    <AssetCardFrame present={!!transcriptAsset} glyph="☰" glyphColor={GREEN.accent} glyphOpacity={0.09}>
+      <div style={assetLabel()}>Transcript</div>
       {transcriptAsset ? (
         <div style={{ fontSize: 'clamp(21px, 2.6vw, 25px)', fontWeight: 800, color: SD.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>Current</div>
       ) : (
@@ -236,6 +278,20 @@ function TranscriptCard({ transcriptAsset }: { transcriptAsset: { created_at: st
   )
 }
 
+// ─── Props ────────────────────────────────────────────────────────────────────
+
+type TalkingPoints = {
+  newestTitle: string | null
+  newestAgeDays: number | null
+  staleCount: number
+  coveragePct: number | null
+}
+type ListInsights = {
+  depth: { advancing: number; evaluating: number; building: number }
+  selectivity: { most_selective: number; highly_selective: number; selective: number; accessible: number; unrated: number }
+  division: { D1: number; D2: number; D3: number; other: number }
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function GetReadyClient({
@@ -243,8 +299,8 @@ export default function GetReadyClient({
   resumeAsset,
   transcriptAsset,
   playerScores,
-  activeMessageCount,
-  activeQuestionCount,
+  talkingPoints,
+  listInsights,
   tierCounts,
   totalSchools,
 }: {
@@ -253,12 +309,34 @@ export default function GetReadyClient({
   transcriptAsset: { name: string; created_at: string } | null
   playerScores: PlayerScores | null
   testScoresCount: number
-  activeMessageCount: number
-  activeQuestionCount: number
+  talkingPoints: TalkingPoints
+  listInsights: ListInsights
   tierCounts: { A: number; B: number; C: number }
   totalSchools: number
 }) {
   const nextMove = getReadyNextMove(reelAsset, resumeAsset)
+  const { newestTitle, newestAgeDays, staleCount, coveragePct } = talkingPoints
+  const { depth, selectivity, division } = listInsights
+
+  const depthItems = [
+    { n: depth.advancing, label: 'advancing' },
+    { n: depth.evaluating, label: 'in evaluation' },
+    { n: depth.building, label: 'building' },
+  ].filter(d => d.n > 0)
+
+  const selectivitySegments = [
+    { label: 'most selective', n: selectivity.most_selective, color: GREEN.accentDeep },
+    { label: 'highly selective', n: selectivity.highly_selective, color: GREEN.accent },
+    { label: 'selective', n: selectivity.selective, color: '#5B9C7B' },
+    { label: 'accessible', n: selectivity.accessible, color: '#A7D9BF' },
+    { label: 'unrated', n: selectivity.unrated, color: '#CFC8BA' },
+  ]
+  const divisionSegments = [
+    { label: 'D1', n: division.D1, color: '#1E40AF' },
+    { label: 'D2', n: division.D2, color: '#92400E' },
+    { label: 'D3', n: division.D3, color: '#166534' },
+    { label: 'other', n: division.other, color: '#9CA3A8' },
+  ]
 
   return (
     <div style={{ minHeight: '100vh', background: SD.paper, fontFamily: "'Inter', -apple-system, sans-serif", paddingBottom: 80 }}>
@@ -296,47 +374,49 @@ export default function GetReadyClient({
           </div>
         )}
 
-        {/* ── Zone 1: Your materials ─────────────────────────────── */}
+        {/* ── The kit: the 2×2 asset grid ────────────────────────── */}
         <div>
-          <ZoneHeader eyebrow="Your materials" title="The kit." />
-
-          {/* 2×2 asset grid — desktop order & mobile stack both: Reel, Scores, Resume, Transcript */}
+          <ZoneHeader title="The kit." href="/assets" linkText="Open assets" />
           <div className="gr-asset-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
             <ReelCard reelAsset={reelAsset} />
             <ScoresCard scores={playerScores} />
             <ResumeCard resumeAsset={resumeAsset} />
             <TranscriptCard transcriptAsset={transcriptAsset} />
           </div>
-
-          {/* Message inventory */}
-          <div style={{ marginTop: 12 }}>
-            <SectionCard>
-              <GhostGlyph>{activeMessageCount}</GhostGlyph>
-              <CardTitle title="Your messages." href="/messages" linkText="Open Messages" />
-              <div style={{ display: 'flex', gap: 24, position: 'relative', zIndex: 1 }}>
-                {[
-                  { n: activeMessageCount, label: 'active messages' },
-                  { n: activeQuestionCount, label: 'questions' },
-                  { n: activeMessageCount - activeQuestionCount, label: 'updates' },
-                ].map(item => (
-                  <div key={item.label}>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: SD.ink, letterSpacing: '-0.03em' }}>{item.n}</div>
-                    <div style={{ fontSize: 12, color: SD.inkLo, marginTop: 2 }}>{item.label}</div>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
-          </div>
         </div>
 
-        {/* ── Zone 2: Your school list ───────────────────────────── */}
-        <div>
-          <ZoneHeader eyebrow="Your school list" title="The list." />
+        {/* ── Talking points — standalone card between the kit and the list ─── */}
+        <SectionCard>
+          <GhostGlyph opacity={0.05}>❝</GhostGlyph>
+          <CardTitle title="Your talking points." href="/messages" linkText="Open Messages" />
+          <p style={{ margin: '0 0 14px', fontSize: 13, color: SD.inkLo, lineHeight: 1.5, maxWidth: 560, position: 'relative', zIndex: 1 }}>
+            The updates, questions, and storylines that fuel your outreach — so every email has something worth saying.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, position: 'relative', zIndex: 1 }}>
+            {newestTitle && newestAgeDays !== null && (
+              <div style={{ fontSize: 13.5, color: SD.inkMid, lineHeight: 1.55 }}>
+                Newest: <span style={{ fontWeight: 600, color: SD.ink }}>{newestTitle}</span>
+                {', '}{newestAgeDays === 0 ? 'today' : `${ageShort(newestAgeDays)} ago`}
+                {staleCount > 0 && <> · <span style={{ fontWeight: 700, color: SD.amber }}>{staleCount} going stale</span></>}
+              </div>
+            )}
+            {coveragePct !== null && (
+              <div style={{ fontSize: 13.5, color: SD.inkMid, lineHeight: 1.55 }}>
+                Your top schools have heard <span style={{ fontWeight: 800, color: GREEN.accent }}>{coveragePct}%</span> of your story.
+              </div>
+            )}
+          </div>
+        </SectionCard>
 
-          {/* Summary */}
+        {/* ── The list: summary + insights + Discover ────────────── */}
+        <div>
+          <ZoneHeader title="The list." />
+
           <SectionCard>
             <GhostGlyph>{totalSchools}</GhostGlyph>
             <CardTitle title="Your targets." href="/schools" linkText="Open Schools" />
+
+            {/* Total + tier chips */}
             <div style={{ display: 'flex', gap: 24, alignItems: 'baseline', position: 'relative', zIndex: 1 }}>
               <div>
                 <div style={{ fontSize: 28, fontWeight: 700, color: SD.ink, letterSpacing: '-0.03em' }}>{totalSchools}</div>
@@ -357,6 +437,30 @@ export default function GetReadyClient({
                 ))}
               </div>
             </div>
+
+            {/* Depth snapshot */}
+            {depthItems.length > 0 && (
+              <InsightBlock label="Depth">
+                <div style={{ fontSize: 14, color: SD.inkMid, lineHeight: 1.5 }}>
+                  {depthItems.map((d, i) => (
+                    <span key={d.label}>
+                      {i > 0 && <span style={{ color: SD.inkMute }}>{'  ·  '}</span>}
+                      <b style={{ color: SD.ink }}>{d.n}</b> {d.label}
+                    </span>
+                  ))}
+                </div>
+              </InsightBlock>
+            )}
+
+            {/* Selectivity spread */}
+            <InsightBlock label="Selectivity">
+              <StackedBar segments={selectivitySegments} />
+            </InsightBlock>
+
+            {/* Division mix */}
+            <InsightBlock label="Division">
+              <StackedBar segments={divisionSegments} />
+            </InsightBlock>
           </SectionCard>
 
           {/* Discover — the featured citizen of this zone */}

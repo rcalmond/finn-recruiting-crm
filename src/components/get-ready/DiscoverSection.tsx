@@ -32,6 +32,10 @@ const DIVISIONS: DiscoveryDivision[] = ['D1', 'D2', 'D3', 'NAIA', 'JUCO']
 const REGIONS: DiscoveryRegion[] = ['Northeast', 'Mid-Atlantic', 'Southeast', 'Midwest', 'Southwest', 'West']
 const ENROLLMENTS: EnrollmentBand[] = ['under_2k', '2k_5k', '5k_15k', 'over_15k']
 const ACADEMICS: AcademicBand[] = ['most_selective', 'highly_selective', 'selective', 'accessible']
+// Programs is a multi-select today with a single option (Engineering). The
+// productization path is more program facets (pre-med, business, CS depth, …)
+// once discovery_schools carries that data — do NOT invent program data here.
+const PROGRAM_OPTIONS = ['engineering'] as const
 const RESULT_CAP = 50
 
 type Proposal = {
@@ -65,27 +69,76 @@ function toSchoolInsert(d: {
 
 // ─── Facet control primitives ─────────────────────────────────────────────────
 
-function FacetSelect<T extends string>({
-  value, onChange, options, placeholder, labelFor,
+// Multi-select facet: a pill that opens a checkbox list. Values OR within the
+// facet (results query uses `.in(...)`); facets AND together upstream. The pill
+// shows the selection state — the label, the single value's name, or "Label · N".
+function MultiFacet<T extends string>({
+  label, options, selected, onChange, labelFor,
 }: {
-  value: T | ''; onChange: (v: T | '') => void; options: readonly T[]
-  placeholder: string; labelFor?: (v: T) => string
+  label: string; options: readonly T[]; selected: T[]
+  onChange: (next: T[]) => void; labelFor?: (v: T) => string
 }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  const count = selected.length
+  const active = count > 0
+  const pillText = count === 0 ? label
+    : count === 1 ? (labelFor ? labelFor(selected[0]) : selected[0])
+    : `${label} · ${count}`
+  const toggle = (v: T) => onChange(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v])
+
   return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value as T | '')}
-      style={{
-        appearance: 'none', padding: '7px 12px', fontSize: 13, fontWeight: 500,
-        border: `1px solid ${value ? GREEN.accent : SD.line}`,
-        background: value ? GREEN.accentSoft : '#fff',
-        color: value ? GREEN.accentDeep : SD.inkMid,
-        borderRadius: 999, fontFamily: 'inherit', cursor: 'pointer',
-      }}
-    >
-      <option value="">{placeholder}</option>
-      {options.map(o => <option key={o} value={o}>{labelFor ? labelFor(o) : o}</option>)}
-    </select>
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          appearance: 'none', padding: '7px 12px', fontSize: 13, fontWeight: 500,
+          border: `1px solid ${active ? GREEN.accent : SD.line}`,
+          background: active ? GREEN.accentSoft : '#fff',
+          color: active ? GREEN.accentDeep : SD.inkMid,
+          borderRadius: 999, fontFamily: 'inherit', cursor: 'pointer',
+          display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+        }}
+      >
+        {pillText}<span style={{ fontSize: 9, opacity: 0.7 }}>▼</span>
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 30,
+          background: '#fff', border: `1px solid ${SD.line}`, borderRadius: 10,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 6, minWidth: 190,
+        }}>
+          {options.map(o => {
+            const on = selected.includes(o)
+            return (
+              <label key={o} style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
+                borderRadius: 6, cursor: 'pointer', fontSize: 13,
+                color: on ? GREEN.accentDeep : SD.inkMid, background: on ? GREEN.accentSoft : 'transparent',
+              }}>
+                <input type="checkbox" checked={on} onChange={() => toggle(o)} style={{ accentColor: GREEN.accent, cursor: 'pointer' }} />
+                {labelFor ? labelFor(o) : o}
+              </label>
+            )
+          })}
+          {count > 0 && (
+            <button onClick={() => onChange([])} style={{
+              marginTop: 4, width: '100%', textAlign: 'left', padding: '7px 10px',
+              fontSize: 12, fontWeight: 600, color: SD.inkLo, background: 'transparent',
+              border: 'none', borderTop: `1px solid ${SD.line}`, cursor: 'pointer', fontFamily: 'inherit',
+            }}>Clear</button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -96,10 +149,10 @@ export default function DiscoverSection() {
   const { schools, insertSchool } = useSchools()
 
   // Facets
-  const [division, setDivision] = useState<DiscoveryDivision | ''>('')
-  const [region, setRegion] = useState<DiscoveryRegion | ''>('')
-  const [academic, setAcademic] = useState<AcademicBand | ''>('')
-  const [enrollment, setEnrollment] = useState<EnrollmentBand | ''>('')
+  const [division, setDivision] = useState<DiscoveryDivision[]>([])
+  const [region, setRegion] = useState<DiscoveryRegion[]>([])
+  const [academic, setAcademic] = useState<AcademicBand[]>([])
+  const [enrollment, setEnrollment] = useState<EnrollmentBand[]>([])
   const [hasEng, setHasEng] = useState(false)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -121,10 +174,11 @@ export default function DiscoverSection() {
     let cancelled = false
     setLoading(true)
     let q = supabase.from('discovery_schools').select('*', { count: 'exact' })
-    if (division) q = q.eq('division', division)
-    if (region) q = q.eq('region', region)
-    if (academic) q = q.eq('academic_band', academic)
-    if (enrollment) q = q.eq('enrollment_band', enrollment)
+    // Values OR within a facet (.in); facets AND together.
+    if (division.length) q = q.in('division', division)
+    if (region.length) q = q.in('region', region)
+    if (academic.length) q = q.in('academic_band', academic)
+    if (enrollment.length) q = q.in('enrollment_band', enrollment)
     if (hasEng) q = q.eq('has_engineering', true)
     if (debouncedSearch) q = q.ilike('name', `%${debouncedSearch}%`)
     q.order('name').limit(RESULT_CAP).then(({ data, count }) => {
@@ -173,9 +227,9 @@ export default function DiscoverSection() {
     setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   }, [])
 
-  const activeFacets = !!(division || region || academic || enrollment || hasEng || debouncedSearch)
+  const activeFacets = !!(division.length || region.length || academic.length || enrollment.length || hasEng || debouncedSearch)
   const clearFacets = () => {
-    setDivision(''); setRegion(''); setAcademic(''); setEnrollment(''); setHasEng(false); setSearch('')
+    setDivision([]); setRegion([]); setAcademic([]); setEnrollment([]); setHasEng(false); setSearch('')
   }
 
   // ── Find more like these ────────────────────────────────────────────────────
@@ -257,21 +311,19 @@ export default function DiscoverSection() {
 
       {/* Facets */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-        <FacetSelect value={division} onChange={setDivision} options={DIVISIONS} placeholder="Division" />
-        <FacetSelect value={region} onChange={setRegion} options={REGIONS} placeholder="Region" />
-        <FacetSelect value={academic} onChange={setAcademic} options={ACADEMICS} placeholder="Academics" labelFor={a => ACADEMIC_LABELS[a]} />
-        <FacetSelect value={enrollment} onChange={setEnrollment} options={ENROLLMENTS} placeholder="Size" labelFor={e => ENROLLMENT_LABELS[e]} />
-        <button
-          onClick={() => setHasEng(v => !v)}
-          style={{
-            padding: '7px 12px', fontSize: 13, fontWeight: 500, borderRadius: 999,
-            border: `1px solid ${hasEng ? GREEN.accent : SD.line}`,
-            background: hasEng ? GREEN.accentSoft : '#fff',
-            color: hasEng ? GREEN.accentDeep : SD.inkMid, cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          {hasEng ? '✓ ' : ''}Engineering
-        </button>
+        <MultiFacet label="Division" options={DIVISIONS} selected={division} onChange={setDivision} />
+        <MultiFacet label="Region" options={REGIONS} selected={region} onChange={setRegion} />
+        <MultiFacet label="Academics" options={ACADEMICS} selected={academic} onChange={setAcademic} labelFor={a => ACADEMIC_LABELS[a]} />
+        <MultiFacet label="Size" options={ENROLLMENTS} selected={enrollment} onChange={setEnrollment} labelFor={e => ENROLLMENT_LABELS[e]} />
+        {/* Programs: a multi-select with Engineering as its only option today (see
+            PROGRAM_OPTIONS). Bridges to the boolean has_engineering filter. */}
+        <MultiFacet
+          label="Programs"
+          options={PROGRAM_OPTIONS}
+          selected={hasEng ? ['engineering'] : []}
+          onChange={next => setHasEng(next.includes('engineering'))}
+          labelFor={() => 'Engineering'}
+        />
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
