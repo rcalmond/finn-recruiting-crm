@@ -262,7 +262,7 @@ account, Sports Recruits profile management).
 | GPA | 3.81 weighted / 3.56 unweighted |
 | SAT | 1380 (Math 690 / English 690) |
 | Honors | National Honor Society |
-| AP Courses | AP Calculus AB (5), AP Chemistry (3), AP U.S. History (4) |
+| AP Courses | AP Calculus AB (5), AP U.S. History (4), AP Human Geography (4, sophomore year), AP Chemistry (3) |
 | Academic Interest | Mechanical or Aerospace Engineering (schools with engineering); Chemistry or Math (SLACs, with 3/2 engineering path) |
 | Email | finnalmond08@gmail.com |
 
@@ -479,6 +479,49 @@ coach_page_scrape_enabled   boolean not null default true
 3. Manually insert the coaching staff into \`coaches\` (all emails null if unknown).
 4. Log in CLAUDE_CONTEXT "Known SPA schools" list.
 
+### Table: \`discovery_schools\` (migration 059)
+\`\`\`
+id               uuid PK
+name             text
+short_name       text
+division         text     -- D1 | D2 | D3 | NAIA | JUCO
+conference       text
+state            text     -- two-letter USPS
+region           text     -- Northeast (= New England + NY) | Mid-Atlantic | Southeast | Midwest | Southwest | West
+enrollment_band  text     -- under_2k | 2k_5k | 5k_15k | over_15k
+academic_band    text     -- most_selective | highly_selective | selective | accessible
+has_engineering  boolean
+city             text
+note             text
+created_at       timestamptz
+\`\`\`
+Static reference universe (1,066 rows) powering School Discovery on Get Ready — facet browse + add-to-list (C-tier) + LLM find-more-like-these. Region is derived from state (NY in Northeast). Colliding names are disambiguated in the seed AND guarded in the matcher (exactly-one-universe-match-or-refuse; ambiguous names return a verify-program flag rather than the wrong school).
+
+**player_profile.player_scores (migration 060):** a structured jsonb block — \`{ sat: {total, math, ebrw}, ap: [{subject, score}], note? }\` — added to the player_profile singleton. Canonical source for the Get Ready Test Scores card; the free-text academic_summary stays for prose. Seeded from the real numbers (SAT 1380; four AP scores incl. Human Geography 4).
+
+### Table: \`calendar_events\` (migration 061)
+\`\`\`
+id           uuid PK
+kind         text not null   -- 'showcase' | 'tournament' | 'outreach_moment' | 'other' (TS union CalendarEventKind, no DB constraint)
+name         text not null
+start_date   date not null
+end_date     date            -- null = single day
+location     text            -- null for outreach moments
+note         text
+status       text not null default 'planned'  -- 'planned' | 'confirmed' | 'done' | 'skipped'
+created_at   timestamptz
+updated_at   timestamptz     -- set_updated_at trigger (present — per the 058 lesson)
+\`\`\`
+Lightweight parallel event species (showcases, tournaments, outreach send-moments). Merged with camps at DISPLAY time on the Get Seen timeline; camps machinery (proposals, finn_status, coach attendance) is untouched. Realtime publication enabled.
+
+### Table: \`calendar_event_schools\` (migration 061)
+\`\`\`
+event_id   uuid FK → calendar_events.id (cascade delete)
+school_id  uuid FK → schools.id (cascade delete)
+primary key (event_id, school_id)
+\`\`\`
+Optional nullable linkage — most events link no schools.
+
 ### RLS
 All tables have RLS enabled. Any authenticated user gets full access.
 Use the **service role key** in scripts/server-side code to bypass RLS.
@@ -523,10 +566,11 @@ and are legacy — note this in contact log if surfaced.
 - **Styling**: Tailwind CSS + inline styles (March parchment vocabulary)
 - **Deployment**: Vercel (auto-deploy from main; no Vercel CLI — see CLAUDE.md)
 - **Design vocabulary**: Parchment base (#F6F1E8), rust (#B5502F) = act-now accent, warm charcoal (#2E2B28) = weight/endgame, calm green (#2D6A4F) = early phases, ink (#0E0E0E) = primary text
+- **Public / auth split**: The root route \`/\` is now a PUBLIC, auth-free marketing page (see the Marketing Front Door section in 9). \`/demo\` is a public stub. Everything else is auth-gated. Auth is enforced by allowlist in \`src/proxy.ts\` (Next middleware): only \`/\`, \`/demo\`, \`/auth/*\`, \`/api/*\`, and \`/design-preview/*\` skip the login redirect — when adding a new public route, add it to that allowlist.
 - **Navigation**: Four journey phases + Schools + Settings
-  - \`/get-ready\` — profile, assets, messages, school list, discovery placeholder
-  - \`/get-seen\` — camps/showcases, campaigns
-  - \`/get-recruited\` — the daily surface (queue, pipeline grid); root \`/\` redirects here
+  - \`/get-ready\` — profile, assets (visual cards + Test Scores), messages, school list, School Discovery (live — facet browse + find-more, migration 059)
+  - \`/get-seen\` — the merged 10-week calendar timeline (camps + showcases/tournaments + outreach moments), camps, campaigns
+  - \`/get-recruited\` — the daily surface (queue, pipeline grid); signed-in users also land here from the marketing page's Open-the-app button
   - \`/get-in\` — offers, admissions, the endgame
   - \`/schools\` — top-level, phase-independent
   - Settings — collapsed: Coach Changes, Parse Review, Classification Review, Camp Proposals, Gmail Settings
@@ -2223,6 +2267,26 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 5. *Propose-don't-create for high-stakes records (reinforced from coach changes).* Offers are the weightiest data in the app; detection + pre-fill + human save closes the arrived-unnoticed gap without trusting extraction blindly.
 6. *Build the endgame surface against the live case.* Get In was designed while IIT's terms were fresh and absorbed Clark's structurally different offer days later — the comparison layout earned its spec immediately.
 7. *Generated files with a delete-and-regenerate step silently discard anything written directly to the output.* Edits must go to the source constants (FALLBACK_HEADER/FOOTER in generate-claude-context.ts), and a heading-diff against the prior version is the cheap verification after any regeneration. (Learned the hard way: a69f255 dropped 29 narrative sections.)
+
+### Marketing Front Door, School Discovery + Merged Calendar (August 7, 2026)
+
+**1. Toolchain + model upgrade.** Claude Code migrated from the npm install to the native installer (v2.1.224), which resolved a stale-binary mystery: the global config specified claude-opus-4-8 but sessions ran Opus 4.6 until the migration. Global default now claude-opus-4-8 (~/.claude/settings.json); a Model Review Cadence section in CLAUDE.md nudges a biweekly check. Vercel MCP plugin authenticated with a doctrine addendum: READ deploy status and build logs only, never trigger/cancel/redeploy — deploys remain git-push-only.
+
+**2. Public marketing home page.** The root route is now a public, auth-free marketing page (all content fictional — Sam Rivera, Class of 2028; zero app data queried). Hero ("Get recruited. / Without the guesswork." — second line in rust), four-phase promise ladder with faithful per-phase UI vignettes, an intelligence before/after demonstrating the judgment doctrine, a fictional FunnelGrid, and demo CTAs (stub route). The old root redirect to get-recruited removed; signed-in users get an Open-the-app button; sidebar logo links home. A middleware gotcha was caught en route: src/proxy.ts auth-gates by allowlist, and the demo stub route needed adding to it.
+
+**3. Get Ready buildout.** Assets rebuilt as visual cards (reel with ghost play-triangle anchor, document cards, freshness color-banding). NEW Test Scores card displays actual numbers from a structured player_scores jsonb block added to player_profile (migration 060) — the prose academic_summary was fragile to parse, and the structured pass surfaced a fourth AP score (Human Geography 4, sophomore year, confirmed real) that conversation-level context had missed. School Discovery v1: discovery_schools universe table (migration 059), facet browse (division, region with NY-in-Northeast convention, academic and enrollment bands, engineering flag), add-to-list into the working pipeline at C-tier, and an LLM find-more-like-these layer (Sonnet-class, cached per seed-set, 12 candidates requested and top 8 returned after exclusion).
+
+**4. Discovery hardening arc.** Three rapid follow-ups after the initial ship: (a) proposals excluded only the seed subset, so pipeline schools stored under different name forms (Case Western vs Case Western Reserve, WPI vs Worcester Polytechnic Institute) reappeared as discoveries — fixed by resolving the ENTIRE working list through universe ids, with abbreviation bridging via short_name rows; (b) the universe completed from 811 to 1,066 rows (D1 207 complete, D2 174 complete, D3 394 with all major conferences, NAIA 178 near-complete, JUCO 113 recruiting-relevant) with omission preferred over invention at the uncertain tail; (c) bare-name collisions (Union, Wheaton, Trinity, Westminster, Concordia) resolved by disambiguated seed names PLUS an ambiguity guard in the matcher — exactly-one-match-or-refuse, so colliding names return a verify-program flag rather than the wrong school.
+
+**5. Get Seen merged calendar.** New calendar_events table (migration 061 — showcases, tournaments, outreach send-moments; optional school linkage; updated_at trigger present per the 058 lesson) with an Events section and modal on the Camps page. The Get Seen timeline rebuilt as a proportional 10-week merged view: camps as green dots (filled = registered), showcase/tournament ranges as bars, outreach moments as a rust send glyph — the fall outreach arc (schedule release Sep 1, reel drop Oct 1, end-of-season HS update Nov 11) now sits visibly on the line. Masthead status line and next-move card draw from the merged set. Post-ship fix with a deeper root cause: declined camps were rendering (Case Western, declined, was winning the next-move card) because the camp_finn_status PostgREST embed resolves as an object, not an array — the array-indexed read made finn_status silently null for EVERY camp all along, which had also disabled the filled-dot logic. One repaired read healed three symptoms; the timeline now filters camps to interested/targeted/registered.
+
+**Architectural patterns reinforced:**
+
+1. Resolve entities through ids, not names — the discovery matcher bridges name forms via universe ids, and where names genuinely collide, refuse to match rather than guess (verify-program beats wrong-school).
+2. Prefer omission over invention at the knowledge tail — a phantom program a family might contact is worse than a missing one.
+3. Silent-null reads are multi-symptom bugs — the object-vs-array embed mismatch presented as three unrelated display issues; when a status field seems universally ignored, check the read before the logic.
+4. Structured data beats prose for anything a component renders — the player_scores block both fixed fragile parsing and surfaced a real fact (the fourth AP) the prose had buried.
+5. The docs generator has sharp edges, now three: edits go to BOTH the live file and the fallback constants; delete-and-regenerate discards direct edits; and Recent Changes text cannot contain backticks (it lives in a JS template literal). Consolidate these into an editing-safely note in CLAUDE.md at a future pass.
 
 ---
 
