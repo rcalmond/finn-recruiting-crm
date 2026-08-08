@@ -2074,7 +2074,7 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 
 ---
 
-## 11. Live Pipeline — Generated August 7, 2026
+## 11. Live Pipeline — Generated August 8, 2026
 
 **Active schools: 10** | Overdue actions: 21
 (Category Nope and status Inactive excluded)
@@ -2157,12 +2157,12 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
       Congrats on your acceptance! This is a big step and you should feel GREAT. I have attached information regarding financial aid pre-read. Note that there is a deadline for July 27th. That is a short timeline so I understand if the August one makes more sense. Just keep me posted!
       
       Go Hawks!...
-    [2026-07-27] Outbound via Text:
-      Hi Coach, the financial pre-read sounds great. Send that over and I can get that started. Unfortunately the 20th doesn’t work for me because I start school that day.  In terms of getting out to Illinois, there is still a lot with High school soccer and golf scheduling that’s still up in the air t...
     [2026-07-27] Inbound via Text:
       Congrats Finn! Thats amazing news to hear!! There’s also a financial aid pre read that I can send so your family can work on that as well. 
       
       Let’s get you to campus! Let me know if there’s a time around mid/late August and early September. It may depend what your game schedule looks like for high...
+    [2026-07-27] Outbound via Text:
+      Hi Coach, the financial pre-read sounds great. Send that over and I can get that started. Unfortunately the 20th doesn’t work for me because I start school that day.  In terms of getting out to Illinois, there is still a lot with High school soccer and golf scheduling that’s still up in the air t...
 
 SCHOOL: Middlebury
   Status: Ongoing Conversation
@@ -2181,12 +2181,6 @@ SCHOOL: Middlebury
 ID Camp Info
   Next Action: decide about the camp on 8/15 - 8/16 (Finn) — due 2026-07-12
   Contact Log (3 shown):
-    [2026-07-08] Outbound via Sports Recruits — Tim Peng:
-      Coach Peng,
-      
-      Quick update. I'm registered for the August 15-16 clinic in Middlebury and looking forward to getting on campus and training with your staff.
-      
-      AP scores also came back: 5 in Calc AB, 3 in Chem, 4 in APUSH. Next year I've got Calc BC, AP Physics, and AP Stats lined up, still pointed a...
     [2026-07-08] Inbound via Sports Recruits — Tim Peng:
       Thanks Finn!
       
@@ -2196,6 +2190,12 @@ ID Camp Info
       Assistant Men’s Soccer Coach
       
       Middlebury College
+    [2026-07-08] Outbound via Sports Recruits — Tim Peng:
+      Coach Peng,
+      
+      Quick update. I'm registered for the August 15-16 clinic in Middlebury and looking forward to getting on campus and training with your staff.
+      
+      AP scores also came back: 5 in Calc AB, 3 in Chem, 4 in APUSH. Next year I've got Calc BC, AP Physics, and AP Stats lined up, still pointed a...
     [2026-06-10] Inbound via Sports Recruits — Tim Peng:
       Excellent boss
       
@@ -2221,12 +2221,16 @@ SCHOOL: WPI
   Contact Log (3 shown):
     [2026-08-07] Inbound via In Person — Brian Kelley:
       At the Harvard Camp Coach Kelly said he liked Finn's defense, a physicality and left foot, but felt he was a bit slow on the first step.  He recommended Finn do SAQ specific training to improve his quickness.
-    [2026-08-03] Inbound via Phone — Brian Kelley:
-      Ok. Hang tight. I just had to take a phone call I will be out in the lobby in a few minutes.
+    [2026-08-04] Inbound via Phone:
+      Hi Finn,
+      It was good to see you play!  I enjoyed meeting you and your family.  Hope you got back home ok.
     [2026-08-03] Outbound via Phone:
-      Hey coach, 
+      Hi Coach,
       
-      I just finished up my first day at the Crimson Camp! I hope everything went well today at your camp as well. And hopefully you can make it out to the second day of the camp tomorrow!
+      This is Finn Almond. I just finished up the tour, I’m in the athletic center right now. Let me know where I can meet you. 
+      
+      Best, 
+      Finn Almond
 
 ### Tier B (2 schools)
 
@@ -2257,32 +2261,12 @@ SCHOOL: Bowdoin
       
       I really enjoyed getting to work with you over the weekend during the Crimson Cam...
     [2026-07-21] Inbound via Sports Recruits — Scott Wiercinski:
-      Great.  See you then!
+      Hello Finn,
       
-      Sincerely,
+      Thanks for the note.
       
-      Scott Wiercinski
-      
-      Head Coach – Men’s Soccer
-      
-      Bowdoin College
-      
-      9000 College Station
-      
-      Brunswick, Maine 04011
-      
-      (O): 207.725.3665
-      
-      (F): 207.725.3019
-      
-      Bowdoin
-       College
-      
-      Bowdoin
-       College Men's Soccer
-      
-      The
-       New England Soccer Academy
+      I am available to meet with you on Thursday, July 30th and look forward to hosting you. Please come to my office, Room 205, in the Buck Center for Health and Fitness.  The Buck Center is located near the center of campus and is included on the campus tour.
+       We c...
 
 SCHOOL: Clark
   Status: Intro Sent
@@ -2308,14 +2292,10 @@ Has a shared engineering program with Columbia
                                       On behalf of the Admissions Office of Clark University, I would like to inform you that after reviewing your preliminary admissions materials and transcript, you look like a strong candidate for admission into the Class of 2031!
       
                             ...
-    [2026-08-03] Inbound via Phone:
-      Sounds good bud. Plan on arriving at 9:45.  I will send you the address to admissions.
-    [2026-08-03] Inbound via Phone:
-      Hey Finn,
-      
-      We are excited to see you visit campus tomorrow!  Above you will find the address to admissions.  There is a parking lot right next to the building.
-      
-      We have you registered for a 10AM admissions tour after which we will take you on a tour around campus.  I would suggest arriving around...
+    [2026-08-03] Outbound via Phone:
+      Looking forward to it!
+    [2026-08-03] Outbound via Phone:
+      Hi Coach, I’m all set for our call, let me know when your set in your end
 
 ### Tier C — Exploratory (4 schools)
 
@@ -2464,6 +2444,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-08 | Marketing page revision: phase cards rebuilt as bold color fills (green, NEW burnished gold for Get Seen, rust, charcoal — a warming ladder) with light-on-dark vignettes; phases section recopied ("Your recruiting roadmap."); universal second person across the page plus the in-app phase subtitles; judgment section reframed ("never the desperate one"); full FunnelGrid render replaced with a 2x2 quadrant summary with an inside-the-app tease. | UX |
 | 2026-08-07 | Get Seen timeline fixes (display-layer only; camps data + Camps-page sort untouched): (1) declined/other camps excluded — the merged calendar's camp source now filters to finn_status IN (interested, targeted, registered), so the timeline, masthead status line, and next-move card only reflect camps Finn is pursuing (Case Western, declined, no longer wins the masthead; nearest is now Colby). Root cause also fixed: the camp_finn_status embed returns a one-to-one OBJECT, not an array — the old [0] read made finn_status always null, so filled-dot and any status filtering silently never worked. (2) Range camps now render as bars like range events (Middlebury Aug 15–16), green with registered/targeted opacity. | Bug fix |
 | 2026-08-07 | Get Seen buildout: calendar_events table (migration 061 — showcases, tournaments, outreach moments; optional school linkage via calendar_event_schools) with add/edit UI on the Camps page (distinct "Events." section; kind selector, single/range dates, location hidden for outreach moments, status, school multi-select). Timeline rebuilt as the merged visual centerpiece: camps (green dots), showcases/tournaments (neutral dots, range→bars), outreach send-moments (rust send glyph), proportional 10-week window, today marker, week ticks, next-item emphasis, legend, mobile stacked fallback. Masthead status line + next-move card now draw from the merged camp+event set. Seeded the three real fall outreach moments (schedule release Sep 1, reel drop Oct 1, end-of-season HS update Nov 11). Camps machinery (proposals, finn_status, coach attendance) untouched — parallel table merged at display time. | Feature + Schema |
 | 2026-08-07 | Get Ready buildout: Assets rebuilt as visual cards (reel with ghost play-triangle anchor, document cards, NEW Test Scores card showing actual SAT/AP numbers read from a structured player_scores block on player_profile — migration 060, not hardcoded). School Discovery v1: discovery_schools universe (migration 059, 1,066 curated men's-soccer programs — D1 207 / D2 174 / D3 394 / NAIA 178 / JUCO 113 — with division/region/academic/enrollment facets; NY→Northeast convention; token-key collisions like Union/Boston/Wheaton/Trinity resolved by an ambiguity guard that returns no match rather than the wrong school, plus disambiguated display names), facet browse + add-to-list into the working pipeline (C-tier, Not Contacted, facets folded into notes; the "On your list" badge and similarity both bridge name-form differences via short_name/discovery id, so a current target like WPI or Case Western is recognized and never re-offered), and LLM "find more like these" (/api/discover/similar, Sonnet-class) — 3+ seed schools produce 5–8 reasoned lookalikes token-matched to the universe so facets ride along, excluding every current pipeline school (not just the seed set), cached per seed-set hash with a Refresh override. Get Ready next-move card points at live Discover when assets are fresh. | Feature + Schema |

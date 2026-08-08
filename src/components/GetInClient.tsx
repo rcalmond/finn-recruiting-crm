@@ -562,7 +562,7 @@ export default function GetInClient() {
           margin: '12px 0 0', fontSize: 15, color: SD.inkLo,
           fontWeight: 450, letterSpacing: '-0.01em',
         }}>
-          Offers, admissions, and the decision.
+          Your offers, your admissions, your decision.
         </p>
         {/* Status line */}
         <div style={{ margin: '14px 0 0' }}>
