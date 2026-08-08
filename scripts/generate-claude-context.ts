@@ -490,12 +490,14 @@ state            text     -- two-letter USPS
 region           text     -- Northeast (= New England + NY) | Mid-Atlantic | Southeast | Midwest | Southwest | West
 enrollment_band  text     -- under_2k | 2k_5k | 5k_15k | over_15k
 academic_band    text     -- most_selective | highly_selective | selective | accessible
-has_engineering  boolean
+has_engineering  boolean  -- DEPRECATED (migration 062) — use programs instead
+programs         text[]    -- migration 062: engineering | business | nursing | premed_health | computer_science | education
+                           -- absence = unknown-or-not-offered, NEVER guessed; seeded best-effort via supabase/scripts/program-tags.ts
 city             text
 note             text
 created_at       timestamptz
 \`\`\`
-Static reference universe (1,066 rows) powering School Discovery on Get Ready — facet browse + add-to-list (C-tier) + LLM find-more-like-these. Region is derived from state (NY in Northeast). Colliding names are disambiguated in the seed AND guarded in the matcher (exactly-one-universe-match-or-refuse; ambiguous names return a verify-program flag rather than the wrong school).
+Static reference universe (1,066 rows) powering School Discovery on Get Ready — facet browse + add-to-list (C-tier) + LLM find-more-like-these. Region is derived from state (NY in Northeast). Colliding names are disambiguated in the seed AND guarded in the matcher (exactly-one-universe-match-or-refuse; ambiguous names return a verify-program flag rather than the wrong school). Program facets (migration 062) power the Programs multi-select filter and enrich the find-more prompt; has_engineering is retained for provenance but deprecated in favor of programs.
 
 **player_profile.player_scores (migration 060):** a structured jsonb block — \`{ sat: {total, math, ebrw}, ap: [{subject, score}], note? }\` — added to the player_profile singleton. Canonical source for the Get Ready Test Scores card; the free-text academic_summary stays for prose. Seeded from the real numbers (SAT 1380; four AP scores incl. Human Geography 4).
 
@@ -2316,6 +2318,7 @@ const FALLBACK_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-08 | Get Ready pass 3: Your Targets card rebuilt as unified labeled segmented rows (tier, depth, selectivity, division) with stepped in-row color ramps and counts-in-legend (color never the sole carrier). Program facets shipped: discovery_schools.programs text array (migration 062, engineering backfilled from the deprecated boolean), six-program vocabulary (engineering, business, nursing, premed-health, computer science, education) seeded best-effort with absence-means-unknown semantics, Programs multi-select filter, and programs context added to find-more-like-these. | Feature + Schema + UX |
 | 2026-08-08 | Get Ready pass 2: section eyebrows removed (single bold-italic headers), kit card headings unified green, Open assets link added. Message inventory renamed Talking Points (standalone card between the kit and the list) with new supporting copy and useful metrics (staleness signal + story-coverage share, replacing raw counts). The list card enriched with depth snapshot (by recruiting stage), selectivity spread (via the discovery id-bridge, unrated bucket for unresolved), and division mix. Discover facets converted to multi-select with checkboxes; Engineering filter retitled Programs (single option, more facets pending a data pass). Fixed find-more exclusion miss on Colorado School of Mines (working row stored as CO School of Mines vs the universe Colorado School of Mines — the co/colorado token gap blocked both exact-name and id-bridge exclusion; renamed the working row to the canonical name). | UX + Bug fix |
 | 2026-08-08 | Get Ready rework: universal second-person voice; masthead status line removed (the next-move hero card is now the single message — precedent to cascade to other phases); page restructured into two named zones (Your materials / The kit: 2x2 equal-weight asset grid + message inventory; Your school list / The list: summary + Discover as the featured citizen). Asset grid: reel, resume, transcript, and test scores as four equal cards with distinct glyph treatments (play triangle, versioned doc, academic doc, hero SAT number + compact AP line). | UX |
 | 2026-08-08 | Marketing page palette v2: phase ladder rebuilt on the jewel register — emerald, petrol, persimmon, violet (Option I; persimmon becomes the page's act-accent everywhere rust appeared; violet closer resolves the Get In vs judgment-box charcoal collision). 2x2 board: Close moved to top-right (depth left-right, warmth bottom-top), fictional chips replaced with 16-24 real programs from the discovery universe. Marketing page only — in-app palette migration deferred to a future pass. | UX |

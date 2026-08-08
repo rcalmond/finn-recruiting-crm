@@ -74,8 +74,47 @@ export async function POST(request: Request) {
       ? `Athlete framing: ${String(profile.academic_summary).slice(0, 600)}`
       : 'Athlete framing: academically strong recruit, engineering/sciences interest, projects to the mid-D3 range.'
 
+    // Clean/normalize helpers + universe index — built BEFORE the prompt so each
+    // seed's known programs (migration 062) can enrich the model's context, and
+    // reused below for exclusion by discovery id.
+    const cleanName = (n: string) =>
+      n.split(/\s+[—–-]\s+|\s*\(|,\s+mirrored/i)[0].trim()
+    const STOP = new Set(['university', 'college', 'the', 'of', 'at', 'in', 'univ', 'and'])
+    const norm = (s: string) => new Set(
+      cleanName(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
+        .filter(t => t && !STOP.has(t))
+    )
+    const eq = (a: Set<string>, b: Set<string>) =>
+      a.size > 0 && a.size === b.size && Array.from(a).every(t => b.has(t))
+
+    const { data: universe } = await admin
+      .from('discovery_schools')
+      .select('id, name, short_name, division, region, programs')
+    const index = (universe ?? []).map(u => ({
+      ...u, tName: norm(u.name), tShort: u.short_name ? norm(u.short_name) : new Set<string>(),
+    }))
+    // Ambiguity guard: resolve only when exactly ONE universe row matches;
+    // otherwise null (flagged verify downstream) so a proposal is never attached
+    // to the wrong school ("Union University"/"Union College" → {union}).
+    const matchUniverse = (name: string) => {
+      const t = norm(name)
+      const hits = index.filter(u => eq(t, u.tName) || (u.tShort.size > 0 && eq(t, u.tShort)))
+      const uniqueIds = new Set(hits.map(h => h.id))
+      return uniqueIds.size === 1 ? hits[0] : null
+    }
+
+    // Seed list enriched with each seed's known programs so the model reasons
+    // with real material ("like Clark: business, pre-med").
     const seedList = seeds
-      .map(s => `- ${s.name}${s.division ? ` (${s.division})` : ''}${s.tier ? `, tier ${s.tier}` : ''}`)
+      .map(s => {
+        const progs = (matchUniverse(s.name)?.programs ?? []) as string[]
+        const bits = [
+          s.division ? `(${s.division})` : '',
+          s.tier ? `tier ${s.tier}` : '',
+          progs.length ? `programs: ${progs.join(', ')}` : '',
+        ].filter(Boolean).join(', ')
+        return `- ${s.name}${bits ? ` — ${bits}` : ''}`
+      })
       .join('\n')
     const excludeNames = new Set(
       [...seeds.map(s => s.name), ...excludeList].map(n => n.trim().toLowerCase())
@@ -112,40 +151,7 @@ Return ONLY a JSON array, no prose:
       raw = []
     }
 
-    // Clean a name: strip commentary/alternates after a dash, and any parenthetical
-    // (working-list names carry them: "Illinois Institute of Technology (Illinois Tech)").
-    const cleanName = (n: string) =>
-      n.split(/\s+[—–-]\s+|\s*\(|,\s+mirrored/i)[0].trim()
-
-    // Token-normalized matching (name + short_name). Drop only generic institution
-    // words; keep distinguishing tokens like "state"/"polytechnic"/"institute" so
-    // "Worcester Polytechnic" ≠ "Worcester State". Exact set equality is order-free.
-    const STOP = new Set(['university', 'college', 'the', 'of', 'at', 'in', 'univ', 'and'])
-    const norm = (s: string) => new Set(
-      cleanName(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
-        .filter(t => t && !STOP.has(t))
-    )
-    const eq = (a: Set<string>, b: Set<string>) =>
-      a.size > 0 && a.size === b.size && Array.from(a).every(t => b.has(t))
-
-    // Build the universe index first — it's the bridge for exclusion by discovery id.
-    const { data: universe } = await admin
-      .from('discovery_schools')
-      .select('id, name, short_name, division, region')
-    const index = (universe ?? []).map(u => ({
-      ...u, tName: norm(u.name), tShort: u.short_name ? norm(u.short_name) : new Set<string>(),
-    }))
-    // Ambiguity guard: a token key can be shared by distinct schools the stripper
-    // conflates ("Union University"/"Union College" → {union}; "Boston University"/
-    // "Boston College" → {boston}). Only resolve when exactly ONE universe row
-    // matches; otherwise return null so the proposal is flagged verify rather than
-    // silently attached to the wrong school.
-    const matchUniverse = (name: string) => {
-      const t = norm(name)
-      const hits = index.filter(u => eq(t, u.tName) || (u.tShort.size > 0 && eq(t, u.tShort)))
-      const uniqueIds = new Set(hits.map(h => h.id))
-      return uniqueIds.size === 1 ? hits[0] : null
-    }
+    // (name matcher + universe index are built above, before the prompt)
 
     // Resolve every excluded/seed school to a discovery id. This bridges name-form
     // differences: working "Case Western" and a proposed "Case Western Reserve" both

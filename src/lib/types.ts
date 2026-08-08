@@ -341,6 +341,11 @@ export type DiscoveryRegion =
 export type EnrollmentBand = 'under_2k' | '2k_5k' | '5k_15k' | 'over_15k'
 export type AcademicBand = 'most_selective' | 'highly_selective' | 'selective' | 'accessible'
 
+// Program facets (migration 062). Absence in a school's `programs` array means
+// unknown-or-not-offered — never guessed. Six high-frequency asks for now.
+export type DiscoveryProgram =
+  | 'engineering' | 'business' | 'nursing' | 'premed_health' | 'computer_science' | 'education'
+
 export interface DiscoverySchool {
   id: string
   name: string
@@ -351,7 +356,8 @@ export interface DiscoverySchool {
   region: DiscoveryRegion
   enrollment_band: EnrollmentBand | null
   academic_band: AcademicBand | null
-  has_engineering: boolean
+  has_engineering: boolean   // DEPRECATED (migration 062) — use `programs` instead
+  programs: DiscoveryProgram[]
   city: string | null
   note: string | null
   created_at: string
@@ -363,6 +369,15 @@ export const ENROLLMENT_LABELS: Record<EnrollmentBand, string> = {
 export const ACADEMIC_LABELS: Record<AcademicBand, string> = {
   most_selective: 'Most selective', highly_selective: 'Highly selective',
   selective: 'Selective', accessible: 'Accessible',
+}
+
+// Program facet ordering + display labels (used by the Discover Programs filter).
+export const DISCOVERY_PROGRAMS: DiscoveryProgram[] = [
+  'engineering', 'business', 'computer_science', 'premed_health', 'nursing', 'education',
+]
+export const PROGRAM_LABELS: Record<DiscoveryProgram, string> = {
+  engineering: 'Engineering', business: 'Business', nursing: 'Nursing',
+  premed_health: 'Pre-med / health', computer_science: 'Computer science', education: 'Education',
 }
 
 export type AssetType =

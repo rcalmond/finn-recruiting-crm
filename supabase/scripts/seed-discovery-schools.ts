@@ -14,6 +14,7 @@
  */
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'fs'
+import { programTags } from './program-tags'
 
 const env = readFileSync('.env.local', 'utf8')
 const getEnv = (k: string) =>
@@ -1277,6 +1278,9 @@ function build(rows: Row[], division: string) {
         name, short_name: short, division, conference, state, region,
         enrollment_band: ENR[enr], academic_band: ACA[aca],
         has_engineering: eng === 1, city, note: null as string | null,
+        // programs derived deterministically from facets + curated overrides
+        // (migration 062) — same rules as the live seed-discovery-programs pass.
+        programs: programTags(name, ENR[enr], ACA[aca], eng === 1),
       }
     })
 }

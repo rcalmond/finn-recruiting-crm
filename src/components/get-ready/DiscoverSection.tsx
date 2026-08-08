@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useSchools } from '@/hooks/useRealtimeData'
 import type {
   DiscoverySchool, DiscoveryDivision, DiscoveryRegion,
-  EnrollmentBand, AcademicBand, Division, School,
+  EnrollmentBand, AcademicBand, DiscoveryProgram, Division, School,
 } from '@/lib/types'
-import { ENROLLMENT_LABELS, ACADEMIC_LABELS } from '@/lib/types'
+import { ENROLLMENT_LABELS, ACADEMIC_LABELS, DISCOVERY_PROGRAMS, PROGRAM_LABELS } from '@/lib/types'
 
 const GREEN = { accent: '#2D6A4F', accentSoft: '#D7EFE0', accentDeep: '#1B4332' }
 const SD = {
@@ -32,10 +32,6 @@ const DIVISIONS: DiscoveryDivision[] = ['D1', 'D2', 'D3', 'NAIA', 'JUCO']
 const REGIONS: DiscoveryRegion[] = ['Northeast', 'Mid-Atlantic', 'Southeast', 'Midwest', 'Southwest', 'West']
 const ENROLLMENTS: EnrollmentBand[] = ['under_2k', '2k_5k', '5k_15k', 'over_15k']
 const ACADEMICS: AcademicBand[] = ['most_selective', 'highly_selective', 'selective', 'accessible']
-// Programs is a multi-select today with a single option (Engineering). The
-// productization path is more program facets (pre-med, business, CS depth, …)
-// once discovery_schools carries that data — do NOT invent program data here.
-const PROGRAM_OPTIONS = ['engineering'] as const
 const RESULT_CAP = 50
 
 type Proposal = {
@@ -73,10 +69,10 @@ function toSchoolInsert(d: {
 // facet (results query uses `.in(...)`); facets AND together upstream. The pill
 // shows the selection state — the label, the single value's name, or "Label · N".
 function MultiFacet<T extends string>({
-  label, options, selected, onChange, labelFor,
+  label, options, selected, onChange, labelFor, note,
 }: {
   label: string; options: readonly T[]; selected: T[]
-  onChange: (next: T[]) => void; labelFor?: (v: T) => string
+  onChange: (next: T[]) => void; labelFor?: (v: T) => string; note?: string
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -114,8 +110,13 @@ function MultiFacet<T extends string>({
         <div style={{
           position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 30,
           background: '#fff', border: `1px solid ${SD.line}`, borderRadius: 10,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 6, minWidth: 190,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 6, minWidth: 200,
         }}>
+          {note && (
+            <div style={{ fontSize: 11, color: SD.inkMute, lineHeight: 1.4, padding: '4px 10px 8px', borderBottom: `1px solid ${SD.line}`, marginBottom: 4 }}>
+              {note}
+            </div>
+          )}
           {options.map(o => {
             const on = selected.includes(o)
             return (
@@ -153,7 +154,7 @@ export default function DiscoverSection() {
   const [region, setRegion] = useState<DiscoveryRegion[]>([])
   const [academic, setAcademic] = useState<AcademicBand[]>([])
   const [enrollment, setEnrollment] = useState<EnrollmentBand[]>([])
-  const [hasEng, setHasEng] = useState(false)
+  const [programs, setPrograms] = useState<DiscoveryProgram[]>([])
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
@@ -179,7 +180,8 @@ export default function DiscoverSection() {
     if (region.length) q = q.in('region', region)
     if (academic.length) q = q.in('academic_band', academic)
     if (enrollment.length) q = q.in('enrollment_band', enrollment)
-    if (hasEng) q = q.eq('has_engineering', true)
+    // Programs OR within the facet: a row matches if it offers ANY selected program.
+    if (programs.length) q = q.overlaps('programs', programs)
     if (debouncedSearch) q = q.ilike('name', `%${debouncedSearch}%`)
     q.order('name').limit(RESULT_CAP).then(({ data, count }) => {
       if (cancelled) return
@@ -188,7 +190,7 @@ export default function DiscoverSection() {
       setLoading(false)
     })
     return () => { cancelled = true }
-  }, [supabase, division, region, academic, enrollment, hasEng, debouncedSearch])
+  }, [supabase, division, region, academic, enrollment, programs, debouncedSearch])
 
   // Working-list index — token-normalized keys for name + short_name + aliases,
   // so the "On your list" badge catches name-form variants ("WPI" vs "Worcester
@@ -227,9 +229,9 @@ export default function DiscoverSection() {
     setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   }, [])
 
-  const activeFacets = !!(division.length || region.length || academic.length || enrollment.length || hasEng || debouncedSearch)
+  const activeFacets = !!(division.length || region.length || academic.length || enrollment.length || programs.length || debouncedSearch)
   const clearFacets = () => {
-    setDivision([]); setRegion([]); setAcademic([]); setEnrollment([]); setHasEng(false); setSearch('')
+    setDivision([]); setRegion([]); setAcademic([]); setEnrollment([]); setPrograms([]); setSearch('')
   }
 
   // ── Find more like these ────────────────────────────────────────────────────
@@ -315,14 +317,15 @@ export default function DiscoverSection() {
         <MultiFacet label="Region" options={REGIONS} selected={region} onChange={setRegion} />
         <MultiFacet label="Academics" options={ACADEMICS} selected={academic} onChange={setAcademic} labelFor={a => ACADEMIC_LABELS[a]} />
         <MultiFacet label="Size" options={ENROLLMENTS} selected={enrollment} onChange={setEnrollment} labelFor={e => ENROLLMENT_LABELS[e]} />
-        {/* Programs: a multi-select with Engineering as its only option today (see
-            PROGRAM_OPTIONS). Bridges to the boolean has_engineering filter. */}
+        {/* Programs: multi-select over the six-program vocabulary (migration 062).
+            Absence-means-unknown data model — the note keeps the filter honest. */}
         <MultiFacet
           label="Programs"
-          options={PROGRAM_OPTIONS}
-          selected={hasEng ? ['engineering'] : []}
-          onChange={next => setHasEng(next.includes('engineering'))}
-          labelFor={() => 'Engineering'}
+          options={DISCOVERY_PROGRAMS}
+          selected={programs}
+          onChange={setPrograms}
+          labelFor={p => PROGRAM_LABELS[p]}
+          note="Shows schools known to offer these programs."
         />
         <input
           value={search}

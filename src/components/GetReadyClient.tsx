@@ -91,26 +91,27 @@ function CardTitle({ title, href, linkText }: { title: string; href?: string; li
   )
 }
 
-// Small green sub-label above an insight block.
-function InsightBlock({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginTop: 18, position: 'relative', zIndex: 1 }}>
-      <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: GREEN.accent, marginBottom: 8 }}>{label}</div>
-      {children}
-    </div>
-  )
-}
-
-// Thin stacked bar + legend, reused for selectivity + division.
-function StackedBar({ segments }: { segments: { label: string; n: number; color: string }[] }) {
+// Unified metric row: LABEL (small caps, left) · segmented bar · legend with
+// counts. One consistent format for every dimension of the target list. A
+// white hairline divides adjacent segments so even a 90/10 split reads as two.
+// Counts always appear in the legend — color is never the only carrier.
+function MetricRow({ label, segments }: { label: string; segments: { label: string; n: number; color: string }[] }) {
   const shown = segments.filter(s => s.n > 0)
   if (shown.length === 0) return null
   return (
-    <>
-      <div style={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', background: SD.line }}>
-        {shown.map(s => <div key={s.label} title={`${s.n} ${s.label}`} style={{ flex: s.n, background: s.color }} />)}
+    <div style={{ marginTop: 16, position: 'relative', zIndex: 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: GREEN.accent, width: 74, flexShrink: 0 }}>{label}</div>
+        <div style={{ flex: 1, display: 'flex', height: 12, borderRadius: 999, overflow: 'hidden', background: SD.line }}>
+          {shown.map((s, i) => (
+            <div key={s.label} title={`${s.n} ${s.label}`} style={{
+              flex: s.n, background: s.color,
+              borderLeft: i > 0 ? '1.5px solid #fff' : 'none',
+            }} />
+          ))}
+        </div>
       </div>
-      <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: '4px 14px', fontSize: 11.5, color: SD.inkMid }}>
+      <div style={{ marginLeft: 86, marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: '3px 12px', fontSize: 11.5, color: SD.inkMid }}>
         {shown.map(s => (
           <span key={s.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
@@ -118,7 +119,7 @@ function StackedBar({ segments }: { segments: { label: string; n: number; color:
           </span>
         ))}
       </div>
-    </>
+    </div>
   )
 }
 
@@ -318,12 +319,19 @@ export default function GetReadyClient({
   const { newestTitle, newestAgeDays, staleCount, coveragePct } = talkingPoints
   const { depth, selectivity, division } = listInsights
 
-  const depthItems = [
-    { n: depth.advancing, label: 'advancing' },
-    { n: depth.evaluating, label: 'in evaluation' },
-    { n: depth.building, label: 'building' },
-  ].filter(d => d.n > 0)
-
+  // One color discipline per row: tier reuses the established chip colors
+  // (categorical); depth/selectivity/division each use a single hue family with
+  // clearly stepped lightness so adjacent segments read at bar height.
+  const tierSegments = [
+    { label: 'A', n: tierCounts.A, color: '#166534' },
+    { label: 'B', n: tierCounts.B, color: '#1E40AF' },
+    { label: 'C', n: tierCounts.C, color: '#92400E' },
+  ]
+  const depthSegments = [
+    { label: 'advancing', n: depth.advancing, color: '#B5502F' },
+    { label: 'evaluating', n: depth.evaluating, color: '#CE8468' },
+    { label: 'building', n: depth.building, color: '#E8C5B4' },
+  ]
   const selectivitySegments = [
     { label: 'most selective', n: selectivity.most_selective, color: GREEN.accentDeep },
     { label: 'highly selective', n: selectivity.highly_selective, color: GREEN.accent },
@@ -332,10 +340,10 @@ export default function GetReadyClient({
     { label: 'unrated', n: selectivity.unrated, color: '#CFC8BA' },
   ]
   const divisionSegments = [
-    { label: 'D1', n: division.D1, color: '#1E40AF' },
-    { label: 'D2', n: division.D2, color: '#92400E' },
-    { label: 'D3', n: division.D3, color: '#166534' },
-    { label: 'other', n: division.other, color: '#9CA3A8' },
+    { label: 'D1', n: division.D1, color: '#334155' },
+    { label: 'D2', n: division.D2, color: '#64748B' },
+    { label: 'D3', n: division.D3, color: '#B8C2CD' },
+    { label: 'other', n: division.other, color: '#CFC8BA' },
   ]
 
   return (
@@ -416,51 +424,17 @@ export default function GetReadyClient({
             <GhostGlyph>{totalSchools}</GhostGlyph>
             <CardTitle title="Your targets." href="/schools" linkText="Open Schools" />
 
-            {/* Total + tier chips */}
-            <div style={{ display: 'flex', gap: 24, alignItems: 'baseline', position: 'relative', zIndex: 1 }}>
-              <div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: SD.ink, letterSpacing: '-0.03em' }}>{totalSchools}</div>
-                <div style={{ fontSize: 12, color: SD.inkLo, marginTop: 2 }}>active schools</div>
-              </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                {(['A', 'B', 'C'] as const).map(tier => (
-                  <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{
-                      width: 20, height: 20, borderRadius: 5,
-                      background: tier === 'A' ? '#DCFCE7' : tier === 'B' ? '#DBEAFE' : '#FEF3C7',
-                      color: tier === 'A' ? '#166534' : tier === 'B' ? '#1E40AF' : '#92400E',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontWeight: 700,
-                    }}>{tier}</span>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: SD.ink }}>{tierCounts[tier]}</span>
-                  </div>
-                ))}
-              </div>
+            {/* Total */}
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ fontSize: 28, fontWeight: 700, color: SD.ink, letterSpacing: '-0.03em' }}>{totalSchools}</div>
+              <div style={{ fontSize: 12, color: SD.inkLo, marginTop: 2 }}>active schools</div>
             </div>
 
-            {/* Depth snapshot */}
-            {depthItems.length > 0 && (
-              <InsightBlock label="Depth">
-                <div style={{ fontSize: 14, color: SD.inkMid, lineHeight: 1.5 }}>
-                  {depthItems.map((d, i) => (
-                    <span key={d.label}>
-                      {i > 0 && <span style={{ color: SD.inkMute }}>{'  ·  '}</span>}
-                      <b style={{ color: SD.ink }}>{d.n}</b> {d.label}
-                    </span>
-                  ))}
-                </div>
-              </InsightBlock>
-            )}
-
-            {/* Selectivity spread */}
-            <InsightBlock label="Selectivity">
-              <StackedBar segments={selectivitySegments} />
-            </InsightBlock>
-
-            {/* Division mix */}
-            <InsightBlock label="Division">
-              <StackedBar segments={divisionSegments} />
-            </InsightBlock>
+            {/* Unified metric rows */}
+            <MetricRow label="Tier" segments={tierSegments} />
+            <MetricRow label="Depth" segments={depthSegments} />
+            <MetricRow label="Selectivity" segments={selectivitySegments} />
+            <MetricRow label="Division" segments={divisionSegments} />
           </SectionCard>
 
           {/* Discover — the featured citizen of this zone */}
