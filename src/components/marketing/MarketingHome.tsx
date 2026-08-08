@@ -519,9 +519,6 @@ export default function MarketingHome() {
           Every school, placed by how deep the relationship is and how warm it&apos;s running.
         </p>
         <QuadrantBoard />
-        <p style={{ margin: '18px 0 0', fontSize: 13, color: M.inkMute, lineHeight: 1.5, fontStyle: 'italic' }}>
-          Inside the app, this expands into the full board.
-        </p>
       </section>
 
       {/* ── 5. Closing CTA ─────────────────────────────────────── */}
