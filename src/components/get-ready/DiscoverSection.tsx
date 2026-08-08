@@ -246,9 +246,6 @@ export default function DiscoverSection() {
       background: '#fff', border: `1px solid ${SD.line}`, borderRadius: 14,
       padding: 'clamp(18px, 2.5vw, 24px)', scrollMarginTop: 20,
     }}>
-      <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: GREEN.accent, marginBottom: 4 }}>
-        Discover
-      </div>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: SD.ink, fontStyle: 'italic' }}>
           Find schools.
@@ -311,7 +308,7 @@ export default function DiscoverSection() {
         >
           {proposalsLoading ? 'Thinking…'
             : selectedSeeds.length >= 3 ? `Find more like these (${selectedSeeds.length}) →`
-            : 'Find more like my list →'}
+            : 'Find more like your list →'}
         </button>
       </div>
 
