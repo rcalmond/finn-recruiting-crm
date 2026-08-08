@@ -16,24 +16,24 @@ const M = {
   inkMute:    '#A8A39B',
   line:       '#E2DBC9',
   lineWarm:   '#DDD5C3',
-  rust:       '#B5502F',
-  rustBg:     '#FAF0EA',
+  persimmon:  '#C13E24', // page act-accent (AA-adjusted from #D0492E so solid cream body clears AA on the fill)
   charcoal:   '#2E2B28',
   charcoalLo: '#4D4A46',
   cream:      '#F6F1E8',
   creamMid:   '#D8D2C6',
   creamLo:    '#A8A39B',
-  green:      '#2D6A4F',
-  greenSoft:  '#D7EFE0',
-  gold:       '#7A6200', // Get Seen — marketing phase accent (NEW; darkened from #8B6F00 so cream body clears AA on the fill)
+  // Phase ladder — jewel register (Option I). Marketing page only; in-app palette migration deferred.
+  emerald:    '#1E6B4C', // Get Ready fill
+  petrol:     '#0E5F6B', // Get Seen fill
+  violet:     '#3E2C5E', // Get In fill — distinct from the judgment-box charcoal (#2E2B28) by design
   amber:      '#D4A017',
   teal:       '#00B2A9',
   logoMark:   '#C8102E', // sidebar logo crimson — kept for lockup fidelity
 }
 
 // Light-on-dark type for the filled phase cards. Bodies are a SOLID warm-cream
-// (not opacity-blended) so contrast clears AA on the two lighter fills — rust
-// and gold — where opacity-blended cream would fall below 4.5:1.
+// (not opacity-blended) so contrast clears AA on the lightest fill (persimmon),
+// where opacity-blended cream would fall below 4.5:1.
 const CARD = {
   head:  '#FFFDF9',                    // headings on any fill
   body:  '#FBF6EC',                    // body copy — solid, AA-safe on all four fills
@@ -210,7 +210,7 @@ function PriorityVignette() {
         </p>
         <span style={{
           display: 'inline-block', padding: '7px 16px', fontSize: 12, fontWeight: 700,
-          color: M.rust, background: CARD.head, borderRadius: 999, letterSpacing: '-0.01em',
+          color: M.persimmon, background: CARD.head, borderRadius: 999, letterSpacing: '-0.01em',
         }}>
           Draft reply →
         </span>
@@ -261,25 +261,25 @@ function OfferVignette() {
 const PHASES = [
   {
     name: 'Get Ready.',
-    fill: M.green,
+    fill: M.emerald,
     sentence: 'Build your profile, your film, and your school list — and know at a glance what has gone stale.',
     vignette: <AssetVignette />,
   },
   {
     name: 'Get Seen.',
-    fill: M.gold,
+    fill: M.petrol,
     sentence: 'Get your name in front of the coaches who matter — camps, showcases, and outreach on one calendar.',
     vignette: <CampsVignette />,
   },
   {
     name: 'Get Recruited.',
-    fill: M.rust,
+    fill: M.persimmon,
     sentence: 'Work every conversation. One priority to act on first, the rest ranked behind it — nothing slips.',
     vignette: <PriorityVignette />,
   },
   {
     name: 'Get In.',
-    fill: M.charcoal,
+    fill: M.violet,
     sentence: 'Your offers, your admissions, your decision — deadlines side by side, decided on your terms.',
     vignette: <OfferVignette />,
   },
@@ -287,40 +287,53 @@ const PHASES = [
 
 // ─── The board: simplified 2×2 quadrant summary ──────────────────────────────
 // The idea of the full FunnelGrid without the machinery. Depth × temperature
-// collapses to four action zones; a few fictional chips sit in each.
+// collapses to four action zones. Chips are real, recognizable programs from the
+// discovery universe — an ILLUSTRATION, not Finn's pipeline or its placements.
 
-type FictSchool = { name: string; tier: 'A' | 'B' | 'C' }
+type ChipSchool = { name: string; tier: 'A' | 'B' | 'C' }
 const TIER_DOT: Record<string, string> = { A: '#166534', B: '#1E40AF', C: '#92400E' }
 
 type QuadKey = 'deepHot' | 'shallowHot' | 'deepCold' | 'shallowCold'
 const QUAD_TINT: Record<QuadKey, string> = {
-  deepHot: 'rgba(181, 80, 47, 0.10)',
+  deepHot: 'rgba(193, 62, 36, 0.10)',
   shallowHot: 'rgba(30, 64, 175, 0.07)',
   deepCold: 'rgba(232, 163, 60, 0.12)',
   shallowCold: 'rgba(156, 163, 168, 0.10)',
 }
 const QUAD_BORDER: Record<QuadKey, string> = {
-  deepHot: 'rgba(181, 80, 47, 0.30)',
+  deepHot: 'rgba(193, 62, 36, 0.30)',
   shallowHot: 'rgba(30, 64, 175, 0.22)',
   deepCold: 'rgba(232, 163, 60, 0.32)',
   shallowCold: 'rgba(156, 163, 168, 0.30)',
 }
 
-// Fictional placement — reuses the invented school set. Top row Close | Convert,
-// bottom row Re-warm | Nudge, matching the real grid's zone geometry.
-const QUADRANTS: { key: QuadKey; label: string; schools: FictSchool[] }[] = [
-  { key: 'deepHot',     label: 'Close',   schools: [{ name: 'Ridgeline', tier: 'A' }, { name: 'Camden', tier: 'A' }] },
-  { key: 'shallowHot',  label: 'Convert', schools: [{ name: 'Westfield Tech', tier: 'B' }, { name: 'Ardsley', tier: 'C' }] },
-  { key: 'deepCold',    label: 'Re-warm', schools: [{ name: 'Pinecrest', tier: 'A' }, { name: 'Northgate', tier: 'B' }] },
-  { key: 'shallowCold', label: 'Nudge',   schools: [{ name: 'Hollis', tier: 'B' }, { name: 'Glenmoor', tier: 'C' }] },
+// Axis: depth increases left→right, warmth increases bottom→top. Desktop 2×2 reads
+//   Convert | Close      (top)
+//   Nudge   | Re-warm    (bottom)
+// so Close lands top-right. DOM order below is desktop row-major; on mobile the
+// .mh-quad-* order rules reorder the stack to Close, Convert, Re-warm, Nudge so
+// Close leads instead of sinking to the bottom.
+const QUADRANTS: { key: QuadKey; label: string; schools: ChipSchool[] }[] = [
+  { key: 'shallowHot',  label: 'Convert', schools: [
+    { name: 'UCLA', tier: 'A' }, { name: 'Providence', tier: 'B' }, { name: 'Grand Canyon', tier: 'C' }, { name: 'Rollins', tier: 'B' }, { name: 'Messiah', tier: 'C' },
+  ] },
+  { key: 'deepHot',     label: 'Close',   schools: [
+    { name: 'Georgetown', tier: 'A' }, { name: 'Denver', tier: 'B' }, { name: 'Tampa', tier: 'C' }, { name: 'Amherst', tier: 'A' }, { name: 'Kenyon', tier: 'B' },
+  ] },
+  { key: 'shallowCold', label: 'Nudge',   schools: [
+    { name: 'Wake Forest', tier: 'A' }, { name: 'Vermont', tier: 'B' }, { name: 'Colorado Mesa', tier: 'C' }, { name: 'Calvin', tier: 'C' }, { name: 'Trinity (CT)', tier: 'B' },
+  ] },
+  { key: 'deepCold',    label: 'Re-warm', schools: [
+    { name: 'Indiana', tier: 'A' }, { name: 'Creighton', tier: 'B' }, { name: 'Chico State', tier: 'C' }, { name: 'Ohio Wesleyan', tier: 'C' }, { name: 'Conn College', tier: 'B' },
+  ] },
 ]
 
-function BoardChip({ school, close }: { school: FictSchool; close: boolean }) {
+function BoardChip({ school, close }: { school: ChipSchool; close: boolean }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
       padding: '3px 9px', borderRadius: 999,
-      border: close ? '1px solid rgba(181, 80, 47, 0.35)' : `1px solid ${M.lineWarm}`,
+      border: close ? '1px solid rgba(193, 62, 36, 0.35)' : `1px solid ${M.lineWarm}`,
       background: '#FFFDF9', fontSize: 11, fontWeight: 600, color: M.ink,
       whiteSpace: 'nowrap', lineHeight: 1.4,
     }}>
@@ -334,13 +347,13 @@ function QuadrantBoard() {
   return (
     <div className="mh-quad" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
       {QUADRANTS.map(q => (
-        <div key={q.key} style={{
+        <div key={q.key} className={`mh-quad-cell mh-quad-${q.key}`} style={{
           background: QUAD_TINT[q.key], border: `1px solid ${QUAD_BORDER[q.key]}`,
           borderRadius: 12, padding: '15px 16px 18px', minHeight: 108, position: 'relative',
         }}>
           <div style={{
             fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em',
-            color: q.key === 'deepHot' ? M.rust : M.inkLo,
+            color: q.key === 'deepHot' ? M.persimmon : M.inkLo,
           }}>
             {q.label}
           </div>
@@ -394,7 +407,7 @@ export default function MarketingHome() {
           letterSpacing: '-0.04em', color: M.ink, lineHeight: 0.98, fontStyle: 'italic',
           maxWidth: 900,
         }}>
-          Get recruited.<br /><span style={{ color: M.rust }}>Without the guesswork.</span>
+          Get recruited.<br /><span style={{ color: M.persimmon }}>Without the guesswork.</span>
         </h1>
         <p style={{
           margin: '24px 0 0', fontSize: 'clamp(16px, 2.2vw, 20px)', color: M.inkMid,
@@ -481,8 +494,8 @@ export default function MarketingHome() {
             </div>
 
             {/* After: the recommended framing */}
-            <div style={{ background: M.cardWhite, borderRadius: 12, borderLeft: `6px solid ${M.rust}`, padding: 22, position: 'relative', overflow: 'hidden' }}>
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: M.rust, marginBottom: 10 }}>
+            <div style={{ background: M.cardWhite, borderRadius: 12, borderLeft: `6px solid ${M.persimmon}`, padding: 22, position: 'relative', overflow: 'hidden' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: M.persimmon, marginBottom: 10 }}>
                 What the app reads · and recommends
               </div>
               <p style={{ margin: '0 0 12px', fontSize: 14, color: M.ink, lineHeight: 1.6, fontWeight: 500 }}>
@@ -543,6 +556,10 @@ export default function MarketingHome() {
           .mh-phase-row .mh-phase-vignette { order: 2 !important; }
           .mh-intel { grid-template-columns: 1fr !important; }
           .mh-quad { grid-template-columns: 1fr !important; }
+          .mh-quad-deepHot { order: 1; }
+          .mh-quad-shallowHot { order: 2; }
+          .mh-quad-deepCold { order: 3; }
+          .mh-quad-shallowCold { order: 4; }
         }
         .mh-hero-ctas > * { flex: 0 0 auto; }
         @media (max-width: 440px) {
