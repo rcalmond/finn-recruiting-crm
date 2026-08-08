@@ -266,7 +266,7 @@ export default function GetReadyClient({
       <div style={{ padding: '24px clamp(28px, 4vw, 56px) 4px' }}>
         <h1 style={{ margin: 0, fontSize: 'clamp(56px, 7vw, 88px)', fontWeight: 700, letterSpacing: '-0.04em', color: SD.ink, lineHeight: 0.95, fontStyle: 'italic' }}>Get Ready.</h1>
         <p style={{ margin: '12px 0 0', fontSize: 15, color: SD.inkLo, fontWeight: 450, letterSpacing: '-0.01em' }}>
-          Build your profile, your film, and your school list that make coaches take notice.
+          Build your list and your profile so coaches take notice.
         </p>
       </div>
 
