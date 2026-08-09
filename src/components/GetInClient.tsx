@@ -28,6 +28,9 @@ const SD = {
   cream:       '#F6F1E8',
   creamMid:    '#D8D2C6',
   creamLo:     '#A8A39B',
+  creamHead:   '#FFFDF9',  // hero heading on the violet fill
+  creamBody:   '#FBF6EC',  // hero body on the violet fill (solid, AA-safe)
+  violet:      '#3E2C5E',  // page chrome — Get In jewel color (from the marketing ladder)
   rust:        '#B5502F',
 }
 
@@ -116,23 +119,96 @@ function hasNearDate(keyDates: string | null): string | null {
   return null
 }
 
-// ─── Get In status line logic ────────────────────────────────────────────────
-// Nearest actionable key date across open offers, or offer count.
+// ─── pickEndgameMove — the hero's rule engine ─────────────────────────────────
+// Precedence (simple + explainable):
+//   1. Open offer with an UNMET condition (status=open, non-empty conditions).
+//      Multiple → nearest future key date wins; ties → newest offer.
+//   2. Else open offer with a near key date (<= 21 days) → surface it.
+//   3. Else a stage-5+ school with no `visit` milestone → schedule a visit.
+//   4. Else quiet — nothing pending (rendered as a muted card).
 
-function getInStatusLine(offers: SchoolOffer[]): string {
-  const openOffers = offers.filter(o => o.status === 'open')
-  if (openOffers.length === 0) return 'No offers yet.'
+type EndgameMove = { headline: string; body: string; href: string; buttonText: string; quiet?: boolean }
+type OfferWithSchool = SchoolOffer & { school?: { id: string; name: string; short_name: string | null } | null }
 
-  // Look for near key dates
-  for (const o of openOffers) {
-    const nearDate = hasNearDate(o.key_dates)
-    if (nearDate) {
-      const schoolName = o.school?.short_name || o.school?.name
-      return schoolName ? `${schoolName}: ${nearDate}` : nearDate
+// Distil a free-text condition into a short label for the headline.
+function conditionLabel(conditions: string): string {
+  const c = conditions.toLowerCase()
+  if (/common\s?app|coalition/.test(c)) return 'Common App'
+  if (/transcript/.test(c)) return 'transcript'
+  if (/deposit/.test(c)) return 'deposit'
+  if (/fafsa|financial|aid/.test(c)) return 'financial aid'
+  return 'requirement'
+}
+
+// Days from today to the nearest FUTURE "Mon D" date in key_dates (a passed date
+// rolls to next year); Infinity if none parses.
+function nearestFutureDays(keyDates: string | null): number {
+  if (!keyDates) return Infinity
+  const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  let best = Infinity
+  const re = /([a-z]{3,9})\s+(\d{1,2})/gi
+  let m: RegExpExecArray | null
+  while ((m = re.exec(keyDates)) !== null) {
+    const mi = months.indexOf(m[1].toLowerCase().slice(0, 3))
+    if (mi < 0) continue
+    let d = new Date(today.getFullYear(), mi, parseInt(m[2]))
+    if (d < today) d = new Date(today.getFullYear() + 1, mi, parseInt(m[2]))
+    const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+    if (diff < best) best = diff
+  }
+  return best
+}
+
+function pickEndgameMove(
+  offers: OfferWithSchool[],
+  endgameSchools: School[],
+  milestonesMap: Map<string, SchoolMilestone[]>,
+): EndgameMove | null {
+  const open = offers.filter(o => o.status === 'open')
+
+  // Rule 1: unmet condition
+  const unmet = open.filter(o => (o.conditions ?? '').trim().length > 0)
+  if (unmet.length > 0) {
+    const o = [...unmet].sort((a, b) => {
+      const da = nearestFutureDays(a.key_dates), db = nearestFutureDays(b.key_dates)
+      if (da !== db) return da - db
+      return (b.received_on ?? '').localeCompare(a.received_on ?? '') // ties → newest first
+    })[0]
+    const name = o.school?.short_name || o.school?.name || 'the school'
+    const money = (o.money_note ?? '').split(';')[0].trim()
+    return {
+      headline: `Complete the ${name} ${conditionLabel(o.conditions!)}.`,
+      body: money ? `${money} — your application makes it real.` : 'Completing this requirement is your move.',
+      href: `/schools/${o.school_id}`, buttonText: 'Open school →',
     }
   }
 
-  return `${openOffers.length} offer${openOffers.length !== 1 ? 's' : ''} on the table.`
+  // Rule 2: near key date (<= 21 days)
+  const near = open.map(o => ({ o, d: nearestFutureDays(o.key_dates) })).filter(x => x.d <= 21).sort((a, b) => a.d - b.d)
+  if (near.length > 0) {
+    const o = near[0].o
+    const name = o.school?.short_name || o.school?.name || 'the school'
+    return {
+      headline: `${name}: ${hasNearDate(o.key_dates) ?? `${near[0].d} days out`}`,
+      body: o.headline || 'A key date on this offer is coming up.',
+      href: `/schools/${o.school_id}`, buttonText: 'Open school →',
+    }
+  }
+
+  // Rule 3: stage-5+ school with no visit milestone
+  const noVisit = endgameSchools.find(s => !(milestonesMap.get(s.id) ?? []).some(m => m.milestone === 'visit'))
+  if (noVisit) {
+    const name = noVisit.short_name || noVisit.name
+    return {
+      headline: `Schedule your ${name} visit.`,
+      body: `A stage-${noVisit.recruiting_stage} school with no campus visit on record — getting on campus sharpens the decision.`,
+      href: `/schools/${noVisit.id}`, buttonText: 'Open school →',
+    }
+  }
+
+  // Rule 4: quiet
+  return { headline: 'Nothing pending — your offers are current.', body: 'No open conditions or near deadlines. Keep the conversations warm.', href: '', buttonText: '', quiet: true }
 }
 
 // ─── Offer Card (charcoal March style) ──────────────────────────────────────
@@ -525,6 +601,11 @@ export default function GetInClient() {
     [schools]
   )
 
+  const endgameMove = useMemo(
+    () => pickEndgameMove(offers, endgameSchools, milestonesMap),
+    [offers, endgameSchools, milestonesMap]
+  )
+
   const [modalOffer, setModalOffer] = useState<SchoolOffer | null | 'add'>(null)
 
   const loading = offersLoading || schoolsLoading
@@ -555,25 +636,15 @@ export default function GetInClient() {
           margin: 0,
           fontSize: 'clamp(56px, 7vw, 88px)',
           fontWeight: 700, letterSpacing: '-0.04em',
-          color: SD.charcoal, lineHeight: 0.95,
+          color: SD.ink, lineHeight: 0.95,
           fontStyle: 'italic',
         }}>Get In.</h1>
         <p style={{
           margin: '12px 0 0', fontSize: 15, color: SD.inkLo,
-          fontWeight: 450, letterSpacing: '-0.01em',
+          fontWeight: 450, letterSpacing: '-0.01em', maxWidth: 640, lineHeight: 1.5,
         }}>
-          Your offers, your admissions, your decision.
+          Your offers, your admissions timelines, and the decision — side by side, on your terms.
         </p>
-        {/* Status line */}
-        <div style={{ margin: '14px 0 0' }}>
-          <span style={{
-            fontSize: 15, fontWeight: offers.length > 0 ? 650 : 450,
-            color: offers.length > 0 ? SD.charcoal : SD.inkMute,
-            letterSpacing: '-0.01em',
-          }}>
-            {getInStatusLine(offers)}
-          </span>
-        </div>
       </div>
 
       {/* Content */}
@@ -582,23 +653,47 @@ export default function GetInClient() {
         maxWidth: 900,
         display: 'flex', flexDirection: 'column', gap: 24,
       }}>
+        {/* ── Hero: the endgame next move ─────────────────────────── */}
+        {endgameMove && !endgameMove.quiet && (
+          <Link href={endgameMove.href} style={{ textDecoration: 'none' }}>
+            <div style={{
+              background: SD.violet, borderRadius: 14, padding: 'clamp(22px, 3vw, 30px)',
+              position: 'relative', overflow: 'hidden', cursor: 'pointer',
+            }}>
+              <div style={{ position: 'absolute', top: -12, right: 10, fontSize: 104, fontWeight: 800, fontStyle: 'italic', color: SD.creamHead, opacity: 0.13, lineHeight: 1, pointerEvents: 'none', userSelect: 'none' }}>◆</div>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: SD.creamHead, marginBottom: 6 }}>Next move</div>
+                <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: SD.creamHead, fontStyle: 'italic', letterSpacing: '-0.02em', lineHeight: 1.3 }}>{endgameMove.headline}</h3>
+                <p style={{ margin: '0 0 14px', fontSize: 13, color: SD.creamBody, lineHeight: 1.55 }}>{endgameMove.body}</p>
+                <span style={{ display: 'inline-block', padding: '8px 18px', fontSize: 12, fontWeight: 700, color: SD.violet, background: SD.creamHead, borderRadius: 999, letterSpacing: '-0.01em' }}>{endgameMove.buttonText}</span>
+              </div>
+            </div>
+          </Link>
+        )}
+        {endgameMove && endgameMove.quiet && (
+          <div style={{ background: '#fff', border: `1px solid ${SD.line}`, borderRadius: 14, padding: 'clamp(20px, 2.6vw, 26px)', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: -10, right: 12, fontSize: 88, fontWeight: 800, fontStyle: 'italic', color: SD.ink, opacity: 0.04, lineHeight: 1, pointerEvents: 'none', userSelect: 'none' }}>◆</div>
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: SD.inkMute, marginBottom: 6 }}>Next move</div>
+              <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: SD.ink, fontStyle: 'italic', letterSpacing: '-0.02em' }}>{endgameMove.headline}</h3>
+              <p style={{ margin: 0, fontSize: 13, color: SD.inkMid, lineHeight: 1.55 }}>{endgameMove.body}</p>
+            </div>
+          </div>
+        )}
+
         {/* Offers section */}
         <section>
-          <div style={{
-            fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
-            letterSpacing: '0.1em', color: SD.charcoalLo, marginBottom: 4,
-          }}>Offers</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <h2 style={{
               margin: 0, fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
-              letterSpacing: '-0.04em', color: SD.charcoal, fontStyle: 'italic',
+              letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
             }}>On the table.</h2>
             <button
               onClick={() => setModalOffer('add')}
               style={{
                 all: 'unset', cursor: 'pointer',
                 padding: '7px 14px', fontSize: 12, fontWeight: 700,
-                color: '#fff', background: SD.charcoal, borderRadius: 999,
+                color: '#fff', background: SD.violet, borderRadius: 999,
               }}
             >
               + Add Offer
@@ -640,14 +735,10 @@ export default function GetInClient() {
         {/* Endgame schools */}
         {endgameSchools.length > 0 && (
           <section>
-            <div style={{
-              fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
-              letterSpacing: '0.1em', color: SD.charcoalLo, marginBottom: 4,
-            }}>Endgame</div>
             <h2 style={{
               margin: '0 0 14px', fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
-              letterSpacing: '-0.04em', color: SD.charcoal, fontStyle: 'italic',
-            }}>Advanced schools.</h2>
+              letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
+            }}>The short list.</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {endgameSchools.map(school => {
                 const schoolMilestones = milestonesMap.get(school.id) ?? []
