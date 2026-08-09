@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import type { User } from '@supabase/supabase-js'
 import { useSchools, useContactLog } from '@/hooks/useRealtimeData'
@@ -11,7 +12,7 @@ const SchoolsMap = dynamic(() => import('./schools/SchoolsMap'), {
   ssr: false,
   loading: () => <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7A7570' }}>Loading map...</div>,
 })
-import { stageLabel, STAGE_LABELS } from '@/lib/stages'
+import { stageLabel } from '@/lib/stages'
 import {
   classifySchoolRecency,
   SCHOOL_RECENCY_STYLE,
@@ -44,24 +45,6 @@ const CATEGORY_BADGE_COLORS: Record<RecommendedActionCategory, { bg: string; tex
   new_topic: { bg: '#E0E7FF', text: '#3730A3' },
   introduce: { bg: '#DCFCE7', text: '#166534' },
   wait:      { bg: '#F3F4F6', text: '#374151' },
-}
-
-const CATEGORY_STRIPE: Record<RecommendedActionCategory, string> = {
-  reply:     '#D03A2E',
-  follow_up: '#E8A33C',
-  check_in:  '#D4A017',
-  introduce: '#1E40AF',
-  new_topic: '#1E40AF',
-  wait:      '#9CA3A8',
-}
-
-function relativeTime(isoString: string): string {
-  const diff = Date.now() - new Date(isoString).getTime()
-  const hours = Math.floor(diff / 3_600_000)
-  if (hours < 1) return 'Updated just now'
-  if (hours < 24) return `Updated ${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `Updated ${days}d ago`
 }
 
 // ─── Enriched school record (computed once, passed to rows) ───────────────────
@@ -123,80 +106,6 @@ function RecencyPill({ recency, compact }: { recency: SchoolRecencyResult; compa
   )
 }
 
-// ─── Dropdown ─────────────────────────────────────────────────────────────────
-
-interface DropdownProps {
-  label: string
-  value: string
-  options: string[]
-  onChange: (v: string) => void
-}
-
-function Dropdown({ label, value, options, onChange }: DropdownProps) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const isActive = value !== 'All'
-
-  useEffect(() => {
-    if (!open) return
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          padding: '6px 12px', borderRadius: 999,
-          background: isActive ? SL.ink : 'transparent',
-          border: `1px solid ${isActive ? SL.ink : SL.line2}`,
-          color: isActive ? '#fff' : SL.ink,
-          fontSize: 13, fontWeight: 550, cursor: 'pointer', letterSpacing: -0.1,
-        }}
-      >
-        <span style={{ color: isActive ? 'rgba(255,255,255,0.7)' : SL.inkLo, fontWeight: 500 }}>
-          {label}:
-        </span>
-        <span style={{ fontWeight: isActive ? 650 : 550 }}>{value}</span>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
-
-      {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50,
-          background: '#fff', border: `1px solid ${SL.line2}`,
-          borderRadius: 10, padding: '4px 0',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-          minWidth: 130,
-        }}>
-          {options.map(opt => (
-            <button
-              key={opt}
-              onClick={() => { onChange(opt); setOpen(false) }}
-              style={{
-                display: 'block', width: '100%', textAlign: 'left',
-                padding: '8px 14px', border: 'none', cursor: 'pointer',
-                background: opt === value ? SL.paperDeep : '#fff',
-                fontSize: 13, fontWeight: opt === value ? 650 : 450,
-                color: SL.ink, letterSpacing: -0.1,
-              }}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── Filter chip ──────────────────────────────────────────────────────────────
 
 interface ChipProps {
@@ -230,165 +139,82 @@ function Chip({ label, count, active, onClick, color }: ChipProps) {
 
 // ─── Desktop row ──────────────────────────────────────────────────────────────
 
-function DesktopRow({ rich, even, onClick, summary, expanded, onToggleExpand, onDraftAction }: {
-  rich: RichSchool; even: boolean; onClick: () => void;
-  summary: SchoolConversationSummary | null; expanded: boolean; onToggleExpand: () => void;
-  onDraftAction: () => void;
+function DesktopRow({ rich, even, summary }: {
+  rich: RichSchool; even: boolean;
+  summary: SchoolConversationSummary | null;
 }) {
   const { school, recency } = rich
   const cat = summary?.recommended_action.category
   const badgeColors = cat ? CATEGORY_BADGE_COLORS[cat] : null
   const bgBase = even ? 'transparent' : 'rgba(239,232,216,0.3)'
 
+  // The whole row is a real anchor: cmd/ctrl-click opens a new tab,
+  // middle-click works, and the link is keyboard-focusable natively.
   return (
-    <div style={{ borderBottom: `1px solid ${SL.line}` }}>
-      {/* Main row */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '28px 1fr minmax(180px, 2fr) 150px 28px',
-          gap: 14, alignItems: 'center',
-          padding: '0 20px', height: 40,
-          background: expanded ? SL.paperDeep : bgBase,
-          cursor: 'pointer', transition: 'background 0.1s',
-        }}
-        onMouseEnter={e => { if (!expanded) e.currentTarget.style.background = SL.paperDeep }}
-        onMouseLeave={e => { if (!expanded) e.currentTarget.style.background = bgBase }}
-      >
-        <TierBadge tier={school.category} />
-        <div
-          role="button" tabIndex={0}
-          onClick={onClick}
-          onKeyDown={e => e.key === 'Enter' && onClick()}
-          style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0, cursor: 'pointer' }}
-        >
-          <div style={{
-            fontSize: 14, fontWeight: 600, color: SL.ink, letterSpacing: -0.2,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>{school.name}</div>
-          <div style={{ fontSize: 11, color: SL.inkLo, fontWeight: 500, letterSpacing: 0.2 }}>
-            {school.division}
-          </div>
-        </div>
-        {/* Next step */}
-        <div
-          role="button" tabIndex={0}
-          onClick={e => { e.stopPropagation(); onToggleExpand() }}
-          onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); onToggleExpand() } }}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, cursor: 'pointer' }}
-        >
-          {summary ? (
-            <>
-              <span style={{
-                fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
-                padding: '2px 5px', borderRadius: 4, flexShrink: 0,
-                backgroundColor: badgeColors?.bg ?? '#F3F4F6',
-                color: badgeColors?.text ?? '#374151',
-                whiteSpace: 'nowrap',
-              }}>
-                {cat!.replace('_', ' ')}
-              </span>
-              <span style={{
-                fontSize: 12, color: SL.inkMid, fontWeight: 450,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {summary.recommended_action.description}
-              </span>
-            </>
-          ) : (
-            <span style={{ fontSize: 12, color: SL.inkMute }}>—</span>
-          )}
-        </div>
-        <div><RecencyPill recency={recency} /></div>
-        {/* Expand chevron */}
-        <div
-          role="button" tabIndex={0}
-          onClick={e => { e.stopPropagation(); onToggleExpand() }}
-          onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); onToggleExpand() } }}
-          style={{ color: SL.inkMute, fontSize: 12, textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{
-            transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.15s ease',
-          }}>
-            <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+    <Link
+      href={`/schools/${school.id}`}
+      style={{
+        textDecoration: 'none', color: 'inherit',
+        display: 'grid',
+        gridTemplateColumns: '28px 1fr minmax(180px, 2fr) 150px',
+        gap: 14, alignItems: 'center',
+        padding: '0 20px', height: 40,
+        background: bgBase, borderBottom: `1px solid ${SL.line}`,
+        cursor: 'pointer', transition: 'background 0.1s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = SL.paperDeep }}
+      onMouseLeave={e => { e.currentTarget.style.background = bgBase }}
+    >
+      <TierBadge tier={school.category} />
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
+        <div style={{
+          fontSize: 14, fontWeight: 600, color: SL.ink, letterSpacing: -0.2,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>{school.name}</div>
+        <div style={{ fontSize: 11, color: SL.inkLo, fontWeight: 500, letterSpacing: 0.2 }}>
+          {school.division}
         </div>
       </div>
-
-      {/* Expanded panel */}
-      {expanded && summary && (
-        <div style={{
-          padding: '14px 20px 16px 66px', // indent past tier badge + gap
-          background: '#fff',
-          borderTop: `1px solid ${SL.line}`,
-          borderLeft: `3px solid ${CATEGORY_STRIPE[summary.recommended_action.category] ?? SL.inkMute}`,
-        }}>
-          {/* Summary */}
-          <div style={{ fontSize: 13, color: SL.inkMid, lineHeight: 1.6, marginBottom: 12 }}>
-            {summary.summary}
-          </div>
-          {/* Recommended action */}
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <span style={{
-                fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
-                padding: '2px 5px', borderRadius: 4,
-                backgroundColor: badgeColors?.bg ?? '#F3F4F6',
-                color: badgeColors?.text ?? '#374151',
-              }}>
-                {summary.recommended_action.category.replace('_', ' ')}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: SL.ink }}>
-                {summary.recommended_action.description}
-              </span>
-            </div>
-            {summary.recommended_action.rationale && (
-              <div style={{ fontSize: 12, color: SL.inkLo, lineHeight: 1.5, marginLeft: 1 }}>
-                {summary.recommended_action.rationale}
-              </div>
-            )}
-          </div>
-          {/* Action button + timestamp */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button
-              onClick={e => { e.stopPropagation(); onDraftAction() }}
-              style={{
-                padding: '6px 14px', borderRadius: 999,
-                background: CATEGORY_STRIPE[summary.recommended_action.category] ?? SL.ink,
-                color: '#fff', border: 'none', cursor: 'pointer',
-                fontSize: 12, fontWeight: 650, letterSpacing: -0.1,
-              }}
-            >
-              {summary.recommended_action.category === 'reply' ? 'Draft reply' :
-               summary.recommended_action.category === 'follow_up' ? 'Draft follow-up' :
-               summary.recommended_action.category === 'check_in' ? 'Draft check-in' :
-               summary.recommended_action.category === 'introduce' ? 'Draft intro' :
-               summary.recommended_action.category === 'new_topic' ? 'Draft email' :
-               'View school'}
-            </button>
-            <span style={{ fontSize: 11, color: SL.inkMute }}>
-              {relativeTime(summary.generated_at)}
+      {/* Next step */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        {summary ? (
+          <>
+            <span style={{
+              fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
+              padding: '2px 5px', borderRadius: 4, flexShrink: 0,
+              backgroundColor: badgeColors?.bg ?? '#F3F4F6',
+              color: badgeColors?.text ?? '#374151',
+              whiteSpace: 'nowrap',
+            }}>
+              {cat!.replace('_', ' ')}
             </span>
-          </div>
-        </div>
-      )}
-    </div>
+            <span style={{
+              fontSize: 12, color: SL.inkMid, fontWeight: 450,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {summary.recommended_action.description}
+            </span>
+          </>
+        ) : (
+          <span style={{ fontSize: 12, color: SL.inkMute }}>—</span>
+        )}
+      </div>
+      <div><RecencyPill recency={recency} /></div>
+    </Link>
   )
 }
 
 // ─── Mobile row ───────────────────────────────────────────────────────────────
 
-function MobileRow({ rich, onClick, summary }: { rich: RichSchool; onClick: () => void; summary: SchoolConversationSummary | null }) {
+function MobileRow({ rich, summary }: { rich: RichSchool; summary: SchoolConversationSummary | null }) {
   const { school, recency } = rich
   const cat = summary?.recommended_action.category
   const badgeColors = cat ? CATEGORY_BADGE_COLORS[cat] : null
   return (
-    <div
-      role="button" tabIndex={0}
-      onClick={onClick}
-      onKeyDown={e => e.key === 'Enter' && onClick()}
+    <Link
+      href={`/schools/${school.id}`}
       style={{
+        textDecoration: 'none', color: 'inherit',
         padding: '12px 16px', borderBottom: `1px solid ${SL.line}`,
         display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
       }}
@@ -416,7 +242,72 @@ function MobileRow({ rich, onClick, summary }: { rich: RichSchool; onClick: () =
         </div>
       </div>
       <div style={{ color: SL.inkMute, fontSize: 14 }}>›</div>
-    </div>
+    </Link>
+  )
+}
+
+// ─── The bench (Nope-tier / Inactive schools — set aside, not gone) ───────────
+
+function benchHint(school: School): string {
+  return school.status === 'Inactive' ? 'Inactive' : 'Set aside'
+}
+
+function BenchRow({ school }: { school: School }) {
+  // Muted / ghost treatment, echoing how set-aside cards render on the board.
+  return (
+    <Link
+      href={`/schools/${school.id}`}
+      style={{
+        textDecoration: 'none', color: 'inherit', opacity: 0.6,
+        display: 'flex', alignItems: 'baseline', gap: 12,
+        padding: '9px 20px', borderBottom: `1px solid ${SL.line}`,
+        transition: 'opacity 0.1s, background 0.1s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.background = SL.paperDeep }}
+      onMouseLeave={e => { e.currentTarget.style.opacity = '0.6'; e.currentTarget.style.background = 'transparent' }}
+    >
+      <span style={{
+        flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: SL.inkMid, letterSpacing: -0.2,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>{school.short_name || school.name}</span>
+      <span style={{ fontSize: 11, color: SL.inkLo, fontWeight: 500, flexShrink: 0 }}>{school.division}</span>
+      <span style={{ fontSize: 10.5, fontWeight: 600, color: SL.inkMute, flexShrink: 0, width: 66, textAlign: 'right' }}>
+        {benchHint(school)}
+      </span>
+    </Link>
+  )
+}
+
+function BenchSection({ schools, count, open, onToggle, padX }: {
+  schools: School[]; count: number; open: boolean; onToggle: () => void; padX: number;
+}) {
+  return (
+    <section style={{ margin: `28px ${padX}px 0` }}>
+      <button
+        onClick={onToggle}
+        style={{
+          display: 'flex', alignItems: 'baseline', gap: 8, background: 'none', border: 'none',
+          cursor: 'pointer', fontFamily: 'inherit', padding: 0, textAlign: 'left',
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: 'clamp(16px, 2.2vw, 20px)', fontWeight: 700, letterSpacing: -0.4, color: SL.ink, fontStyle: 'italic' }}>
+          The bench.
+        </h2>
+        <span style={{ fontSize: 13, fontWeight: 600, color: SL.inkLo }}>{count}</span>
+        <span style={{ fontSize: 12, color: SL.inkMute, transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}>▾</span>
+      </button>
+      <p style={{ margin: '4px 0 0', fontSize: 13, color: SL.inkLo, fontWeight: 450, letterSpacing: -0.1 }}>
+        Schools you&apos;ve set aside — they sometimes come back.
+      </p>
+      {open && (
+        <div style={{ marginTop: 12, borderTop: `1px solid ${SL.line}` }}>
+          {schools.length === 0
+            ? <div style={{ padding: '16px 20px', fontSize: 13, color: SL.inkMute, fontStyle: 'italic' }}>No benched schools match your search.</div>
+            : schools.map(s => <BenchRow key={s.id} school={s} />)
+          }
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -449,10 +340,6 @@ function EmptyState({ onReset }: { onReset: () => void }) {
 }
 
 // ─── Filter state types ───────────────────────────────────────────────────────
-
-const TIER_OPTIONS   = ['All', 'A', 'B', 'C']
-const DIV_OPTIONS    = ['All', 'D1', 'D2', 'D3']
-const STAGE_OPTIONS  = ['All', ...STAGE_LABELS]
 
 const TIER_ORDER: Record<string, number> = { A: 0, B: 1, C: 2 }
 
@@ -497,8 +384,8 @@ export default function SchoolsClient({ user }: { user: User }) {
 
   const summaryMap = new Map(summaries.map(s => [s.school_id, s]))
 
-  // ── Expanded row (accordion — one at a time) ──────────────────────────────
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  // ── The bench (collapsed by default; auto-opens on a matching search) ──────
+  const [benchOpen, setBenchOpen] = useState(false)
 
   // ── Refresh summaries ─────────────────────────────────────────────────────
   const [refreshing, setRefreshing] = useState(false)
@@ -568,9 +455,10 @@ export default function SchoolsClient({ user }: { user: User }) {
   function switchView(mode: 'list' | 'map') {
     pushParams({ view: mode === 'list' ? null : mode })
   }
-  function setStageFilter(v: string) { pushParams({ stage: v === 'All' ? null : v }) }
-  function setTierFilter(v: string) { pushParams({ tier: v === 'All' ? null : v }) }
-  function setDivFilter(v: string) { pushParams({ division: v === 'All' ? null : v }) }
+  // Stage / Tier / Division filters are read from the URL (for old bookmarks &
+  // deep-links) but no longer have dedicated dropdown UI — at 10 active schools,
+  // the signal chips + search carry the filtering weight (Calendar precedent:
+  // structure beats filters at small volumes).
 
   // Search: local state for responsive typing, debounced push to URL
   const [searchQ, setSearchQ] = useState(searchParams.get('search') ?? '')
@@ -594,10 +482,6 @@ export default function SchoolsClient({ user }: { user: User }) {
     const q = params.toString()
     router.push(q ? `${pathname}?${q}` : pathname)
   }, [router, pathname, searchParams])
-
-  function openSchool(school: School) {
-    router.push(`/schools/${school.id}`)
-  }
 
   // ── Loading state ───────────────────────────────────────────────────────────
   if (schoolsLoading || logLoading) {
@@ -658,6 +542,18 @@ export default function SchoolsClient({ user }: { user: User }) {
     return true
   })
 
+  // ── The bench: Nope-tier or Inactive schools, set aside from the board ──────
+  // Only the search query filters the bench (it exists to make set-aside schools
+  // findable by name); the board's signal/tier filters don't apply here.
+  const benchAll = schools
+    .filter(s => s.category === 'Nope' || s.status === 'Inactive')
+    .sort((a, b) => (a.short_name || a.name).localeCompare(b.short_name || b.name))
+  const benchFiltered = q
+    ? benchAll.filter(s => [s.name, s.short_name ?? '', s.head_coach ?? '', s.location ?? ''].join(' ').toLowerCase().includes(q))
+    : benchAll
+  const benchCount = q ? benchFiltered.length : benchAll.length
+  const benchEffectiveOpen = benchOpen || (!!q && benchFiltered.length > 0)
+
   // ─────────────────────────────────────────────────────────────────────────────
   // Signal filter chips (shared between desktop and mobile)
   // ─────────────────────────────────────────────────────────────────────────────
@@ -685,13 +581,6 @@ export default function SchoolsClient({ user }: { user: User }) {
       padding: '0 40px 10px',
       display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
     }}>
-      <Dropdown label="Stage"    value={stageFilter} options={STAGE_OPTIONS} onChange={setStageFilter} />
-      <Dropdown label="Tier"     value={tierFilter}  options={TIER_OPTIONS}  onChange={setTierFilter}  />
-      <Dropdown label="Division" value={divFilter}   options={DIV_OPTIONS}   onChange={setDivFilter}   />
-
-      {/* Divider */}
-      <div style={{ width: 1, height: 20, background: SL.line2, margin: '0 4px' }} />
-
       {signalChips}
 
       {anyFilterActive && (
@@ -718,16 +607,21 @@ export default function SchoolsClient({ user }: { user: User }) {
         {/* Header */}
         <div style={{
           padding: '24px 40px 18px',
-          display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 20,
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20,
         }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, flexWrap: 'wrap' }}>
-            <h1 style={{
-              margin: 0, fontSize: 44, fontWeight: 700,
-              letterSpacing: -1.8, color: SL.ink, lineHeight: 1, fontStyle: 'italic',
-            }}>Schools.</h1>
-            <div style={{ fontSize: 14, color: SL.inkLo, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-              {filtered.length} of {total}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 18, flexWrap: 'wrap' }}>
+              <h1 style={{
+                margin: 0, fontSize: 44, fontWeight: 700,
+                letterSpacing: -1.8, color: SL.ink, lineHeight: 1, fontStyle: 'italic',
+              }}>Schools.</h1>
+              <div style={{ fontSize: 14, color: SL.inkLo, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                {filtered.length} of {total}
+              </div>
             </div>
+            <p style={{ margin: '10px 0 0', fontSize: 15, color: SL.inkLo, fontWeight: 450, letterSpacing: -0.1, maxWidth: 520, lineHeight: 1.5 }}>
+              Your whole pipeline — every program you&apos;re chasing, and the ones you&apos;ve set aside.
+            </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {/* View mode toggle */}
@@ -824,7 +718,7 @@ export default function SchoolsClient({ user }: { user: User }) {
           <div style={{ margin: '14px 40px 0', borderTop: `1px solid ${SL.line}` }}>
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '28px 1fr minmax(180px, 2fr) 150px 28px',
+              gridTemplateColumns: '28px 1fr minmax(180px, 2fr) 150px',
               gap: 14, alignItems: 'center',
               padding: '10px 20px', height: 36,
               fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase',
@@ -841,7 +735,6 @@ export default function SchoolsClient({ user }: { user: User }) {
               </div>
               <div>Next Step</div>
               <div>Signal</div>
-              <div/>
             </div>
 
             {filtered.length === 0
@@ -851,11 +744,7 @@ export default function SchoolsClient({ user }: { user: User }) {
                     key={rich.school.id}
                     rich={rich}
                     even={i % 2 === 0}
-                    onClick={() => openSchool(rich.school)}
                     summary={summaryMap.get(rich.school.id) ?? null}
-                    expanded={expandedId === rich.school.id}
-                    onToggleExpand={() => setExpandedId(prev => prev === rich.school.id ? null : rich.school.id)}
-                    onDraftAction={() => router.push(`/schools/${rich.school.id}?action=draft`)}
                   />
                 ))
             }
@@ -867,6 +756,17 @@ export default function SchoolsClient({ user }: { user: User }) {
               onSchoolClick={(id) => router.push(`/schools/${id}`)}
             />
           </div>
+        )}
+
+        {/* The bench (list view only) */}
+        {viewMode === 'list' && (
+          <BenchSection
+            schools={benchFiltered}
+            count={benchCount}
+            open={benchEffectiveOpen}
+            onToggle={() => setBenchOpen(o => !o)}
+            padX={40}
+          />
         )}
 
         {/* Footer */}
@@ -884,35 +784,37 @@ export default function SchoolsClient({ user }: { user: User }) {
       <div className="block md:hidden" style={{ background: SL.paper, paddingBottom: 80 }}>
 
         {/* Mobile header */}
-        <div style={{ padding: '8px 16px 14px' }}>
+        <div style={{ padding: '14px 16px' }}>
           <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10,
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
           }}>
-            <div style={{
-              fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase', fontWeight: 700, color: SL.inkLo,
-            }}>Pipeline</div>
-            <button style={{
-              padding: '6px 12px', background: SL.ink, color: '#fff',
-              border: 'none', borderRadius: 999, fontSize: 12, fontWeight: 650,
-              cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5,
+            <h1 style={{
+              margin: 0, fontSize: 34, fontWeight: 700, color: SL.ink,
+              letterSpacing: -1.4, lineHeight: 1, fontStyle: 'italic',
+              display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap',
             }}>
+              Schools.
+              <span style={{
+                fontSize: 13, fontWeight: 650, color: SL.inkLo, letterSpacing: 0,
+                fontStyle: 'normal', fontVariantNumeric: 'tabular-nums',
+              }}>{filtered.length} of {total}</span>
+            </h1>
+            <button
+              onClick={() => setShowAddModal(true)}
+              style={{
+                flexShrink: 0, padding: '6px 12px', background: SL.ink, color: '#fff',
+                border: 'none', borderRadius: 999, fontSize: 12, fontWeight: 650,
+                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'inherit',
+              }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
                 <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
               </svg>
               Add
             </button>
           </div>
-          <h1 style={{
-            margin: 0, fontSize: 34, fontWeight: 700, color: SL.ink,
-            letterSpacing: -1.4, lineHeight: 1, fontStyle: 'italic',
-            display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap',
-          }}>
-            Schools.
-            <span style={{
-              fontSize: 13, fontWeight: 650, color: SL.inkLo, letterSpacing: 0,
-              fontStyle: 'normal', fontVariantNumeric: 'tabular-nums',
-            }}>{filtered.length} of {total}</span>
-          </h1>
+          <p style={{ margin: '8px 0 0', fontSize: 14, color: SL.inkLo, fontWeight: 450, letterSpacing: -0.1, lineHeight: 1.5 }}>
+            Your whole pipeline — chasing, and set aside.
+          </p>
         </div>
 
         {/* Mobile search */}
@@ -948,61 +850,9 @@ export default function SchoolsClient({ user }: { user: User }) {
           </div>
         </div>
 
-        {/* Mobile filter chips — horizontal scroll */}
-        <div style={{ padding: '0 16px 10px', display: 'flex', gap: 6, overflowX: 'auto' }}>
-          <select
-            value={stageFilter}
-            onChange={e => setStageFilter(e.target.value)}
-            style={{
-              padding: '6px 10px', borderRadius: 999, border: `1px solid ${SL.line2}`,
-              background: stageFilter !== 'All' ? SL.ink : SL.paperDeep,
-              color: stageFilter !== 'All' ? '#fff' : SL.ink,
-              fontSize: 13, fontWeight: 550, cursor: 'pointer', appearance: 'none',
-              WebkitAppearance: 'none', flexShrink: 0, paddingRight: 24,
-            }}
-          >
-            {STAGE_OPTIONS.map(o => <option key={o} value={o}>{o === 'All' ? 'Stage' : o}</option>)}
-          </select>
-          <select
-            value={tierFilter}
-            onChange={e => setTierFilter(e.target.value)}
-            style={{
-              padding: '6px 10px', borderRadius: 999, border: `1px solid ${SL.line2}`,
-              background: tierFilter !== 'All' ? SL.ink : SL.paperDeep,
-              color: tierFilter !== 'All' ? '#fff' : SL.ink,
-              fontSize: 13, fontWeight: 550, cursor: 'pointer', appearance: 'none',
-              WebkitAppearance: 'none', flexShrink: 0, paddingRight: 24,
-            }}
-          >
-            {TIER_OPTIONS.map(o => <option key={o} value={o}>{o === 'All' ? 'Tier' : `Tier ${o}`}</option>)}
-          </select>
-          <select
-            value={divFilter}
-            onChange={e => setDivFilter(e.target.value)}
-            style={{
-              padding: '6px 10px', borderRadius: 999, border: `1px solid ${SL.line2}`,
-              background: divFilter !== 'All' ? SL.ink : SL.paperDeep,
-              color: divFilter !== 'All' ? '#fff' : SL.ink,
-              fontSize: 13, fontWeight: 550, cursor: 'pointer', appearance: 'none',
-              WebkitAppearance: 'none', flexShrink: 0, paddingRight: 24,
-            }}
-          >
-            {DIV_OPTIONS.map(o => <option key={o} value={o}>{o === 'All' ? 'Division' : o}</option>)}
-          </select>
-
+        {/* Mobile signal chips — horizontal scroll */}
+        <div style={{ padding: '0 16px 12px', display: 'flex', gap: 6, overflowX: 'auto' }}>
           {signalChips}
-        </div>
-
-        {/* Mobile column label */}
-        <div style={{
-          padding: '8px 16px 4px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase',
-          fontWeight: 700, color: SL.inkLo,
-          borderBottom: `1px solid ${SL.line}`,
-        }}>
-          <span>By tier</span>
-          <span>Sort: Tier ↓</span>
         </div>
 
         {filtered.length === 0 ? (
@@ -1024,10 +874,21 @@ export default function SchoolsClient({ user }: { user: User }) {
             </button>
           </div>
         ) : (
-          filtered.map(rich => (
-            <MobileRow key={rich.school.id} rich={rich} onClick={() => openSchool(rich.school)} summary={summaryMap.get(rich.school.id) ?? null} />
-          ))
+          <div style={{ borderTop: `1px solid ${SL.line}` }}>
+            {filtered.map(rich => (
+              <MobileRow key={rich.school.id} rich={rich} summary={summaryMap.get(rich.school.id) ?? null} />
+            ))}
+          </div>
         )}
+
+        {/* The bench (mobile) */}
+        <BenchSection
+          schools={benchFiltered}
+          count={benchCount}
+          open={benchEffectiveOpen}
+          onToggle={() => setBenchOpen(o => !o)}
+          padX={16}
+        />
       </div>
 
       {showAddModal && (
