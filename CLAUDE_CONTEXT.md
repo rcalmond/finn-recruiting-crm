@@ -2076,7 +2076,7 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 
 ---
 
-## 11. Live Pipeline — Generated August 8, 2026
+## 11. Live Pipeline — Generated August 9, 2026
 
 **Active schools: 10** | Overdue actions: 21
 (Category Nope and status Inactive excluded)
@@ -2214,7 +2214,7 @@ SCHOOL: WPI
   Coach: Brian Kelley — Head Coach <bkelley@wpi.edu> [primary]
   Coach: Alex Wolfel — Assistant Coach <arwolfel@wpi.edu>
   Coach: Taskin Guven — Assistant Coach
-  Coach: Riley Doherty — Assistant Coach
+  Coach: Riley Doherty — Assistant Coach <rjdoherty@wpi.edu>
   Coach: Gabe Ramos — Assistant Coach <gramos@wpi.edu>
   Last Contact: 2026-07-31
   RQ Status: Completed
@@ -2446,6 +2446,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-09 | Get Recruited rework: masthead cascade (descriptive subtitle added; status line + offer fragment removed — queue priority carries both), persimmon migration from the marketing ladder (page chrome + board accents; category stripes untouched), priority card rebuilt as a full-fill persimmon hero with visible ghost numerals, and the board redesigned — Awaiting Finn row removed (awaiting is whose-turn, not a temperature; those schools fold into Active with a persimmon ring marker), rows now a clean Active-to-Prospecting gradient, marketing zone tints and chip styling pulled through. | UX |
 | 2026-08-08 | Get Seen timeline polish: cards edge-clamped inside the container (stems connect off-center at edges), 1-3 day ranges render as single dots (bars only for 4+ days — Middlebury now one dot with the range in its card), vertical spacing tightened ~35%. | UX |
 | 2026-08-08 | Get Seen timeline bold treatment: events render as cards-on-stems (next event as a filled petrol hero card with days-out pill; others outline), markers enlarged with white rings (attend circles vs rust rounded-square send markers), 4px rail, black TODAY post, collision-staggered stems, doubled vertical presence. Display-only — merge logic, data colors, and legend semantics unchanged. | UX |
 | 2026-08-08 | Get Seen rework: petrol accent adopted from the marketing palette (first in-app jewel migration; timeline data semantics unchanged), masthead status line removed per the Get Ready precedent, page restructured into The calendar plus an Every way in exposure toolkit — recruiting questionnaires card (rq_status metric + not-started chips), film card resurrecting the orphaned batch-reel machinery (coverage metric + BatchReelModal restored and restyled), outreach-at-scale campaigns card, and a coaches-on-file card. Purpose-driven subtitle and second-person copy throughout. | Feature + UX |

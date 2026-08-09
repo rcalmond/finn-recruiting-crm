@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import type { School, ContactLogEntry, SchoolConversationSummary, SchoolOffer, RecommendedActionCategory } from '@/lib/types'
@@ -24,9 +23,9 @@ const M = {
   inkMute:   '#A8A39B',
   line:      '#E2DBC9',
   lineWarm:  '#DDD5C3',
-  rust:      '#B5502F',
-  rustSoft:  '#D4815F',
-  rustBg:    '#FAF0EA',
+  persimmon: '#C13E24',  // page act-accent — from the marketing ladder (AA-adjusted)
+  creamHead: '#FFFDF9',  // hero heading on the persimmon fill
+  creamBody: '#FBF6EC',  // hero body on the persimmon fill (solid, AA-safe)
   charcoal:  '#2E2B28',
   charcoalMid: '#3D3A36',
   cream:     '#F6F1E8',
@@ -152,54 +151,6 @@ function Eyebrow({ text, color }: { text: string; color?: string }) {
   )
 }
 
-// ─── Offer deadline fragment (A2: passed-date hardening) ─────────────────────
-//
-// Parses month names from key_dates. If the date has PASSED, flips the language
-// from future tense ("opens Aug 1") to past/present ("window open since Aug 1").
-// Never says "opens" for a date that has already happened.
-
-function findNearOfferDeadline(offers: SchoolOffer[]): string | null {
-  const today = new Date()
-  const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-  const currentMonth = today.getMonth()
-  const nearMonths = [months[currentMonth], months[(currentMonth + 1) % 12]]
-
-  for (const o of offers) {
-    if (o.status !== 'open' || !o.key_dates) continue
-    const lower = o.key_dates.toLowerCase()
-    for (const m of nearMonths) {
-      if (lower.includes(m)) {
-        const idx = lower.indexOf(m)
-        const start = Math.max(0, o.key_dates.lastIndexOf(';', idx) + 1)
-        const end = o.key_dates.indexOf(';', idx)
-        let fragment = o.key_dates.slice(start, end > 0 ? end : undefined).trim()
-        const schoolName = o.school?.short_name || o.school?.name
-        if (!schoolName || !fragment) continue
-
-        // A2: Detect if the mentioned date has passed
-        // Try to extract a date like "Aug 1" or "Oct 1" from the fragment
-        const dateMatch = fragment.match(/(\w{3,9})\s+(\d{1,2})/i)
-        if (dateMatch) {
-          const monthIdx = months.indexOf(dateMatch[1].toLowerCase().slice(0, 3))
-          if (monthIdx >= 0) {
-            const day = parseInt(dateMatch[2])
-            const mentionedDate = new Date(today.getFullYear(), monthIdx, day)
-            if (mentionedDate < today) {
-              // Date has passed — rewrite "opens" → "open since"
-              fragment = fragment
-                .replace(/\bopens\b/gi, 'open since')
-                .replace(/\bcloses\b/gi, 'closed')
-            }
-          }
-        }
-
-        return `${schoolName}: ${fragment}`
-      }
-    }
-  }
-  return null
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function GetRecruitedClient({
@@ -309,18 +260,6 @@ export default function GetRecruitedClient({
   // Queue has content if non-wait has items OR priority was injected from wait
   const hasQueue = nonWaitSchools.length > 0 || priorityId !== null
 
-  // ── HOT count for masthead ────────────────────────────────────────────────
-  const hotCount = useMemo(() => {
-    return schools.filter(s => {
-      if (!isTargetTier(s) || s.status === 'Inactive') return false
-      const cl = schoolContactMap.get(s.id) ?? []
-      const rec = classifySchoolRecency(s, cl)
-      return rec.state === 'hot'
-    }).length
-  }, [schools, schoolContactMap])
-
-  const offerDeadline = useMemo(() => findNearOfferDeadline(offers), [offers])
-
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -351,32 +290,13 @@ export default function GetRecruitedClient({
           color: M.ink, lineHeight: 0.95, fontStyle: 'italic',
         }}>Get Recruited.</h1>
 
-        {/* Status line */}
-        <div style={{ margin: '14px 0 0', display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-          {hotCount > 0 ? (
-            <Link href="/schools?signal=hot" style={{
-              fontSize: 15, fontWeight: 650, color: M.rust,
-              textDecoration: 'none', letterSpacing: '-0.01em',
-            }}>
-              {hotCount} school{hotCount !== 1 ? 's' : ''} awaiting your response →
-            </Link>
-          ) : (
-            <span style={{ fontSize: 15, fontWeight: 450, color: M.inkMute, letterSpacing: '-0.01em' }}>
-              Nothing waiting on you
-            </span>
-          )}
-        </div>
-
-        {/* Offer deadline notice (A2: passed-date aware) */}
-        {offerDeadline && (
-          <div style={{
-            margin: '8px 0 0', padding: '6px 0',
-            fontSize: 13, fontWeight: 600, color: M.rust,
-            letterSpacing: '-0.01em',
-          }}>
-            · {offerDeadline}
-          </div>
-        )}
+        {/* Subtitle — the queue below carries what's urgent (no status line) */}
+        <p style={{
+          margin: '12px 0 0', fontSize: 15, color: M.inkLo,
+          fontWeight: 450, letterSpacing: '-0.01em', maxWidth: 640, lineHeight: 1.5,
+        }}>
+          Every conversation summarized, every reply read, and your next move ranked at the top.
+        </p>
       </div>
 
       {/* Main content */}
@@ -384,7 +304,7 @@ export default function GetRecruitedClient({
 
         {/* ── Queue section ──────────────────────────────────────── */}
         <section style={{ marginBottom: 36 }}>
-          <Eyebrow text="QUEUE" color={M.rust} />
+          <Eyebrow text="QUEUE" color={M.persimmon} />
           <h2 style={{
             margin: '0 0 18px', fontSize: 'clamp(18px, 2.5vw, 22px)', fontWeight: 700,
             letterSpacing: '-0.03em', color: M.ink, fontStyle: 'italic',
@@ -434,42 +354,40 @@ export default function GetRecruitedClient({
                 <div
                   onClick={() => router.push(`/schools/${prioritySchool.id}`)}
                   style={{
-                    background: M.cardWhite,
-                    border: `1px solid ${M.lineWarm}`,
-                    borderLeft: `6px solid ${M.rust}`,
-                    borderRadius: '0 12px 12px 0',
-                    padding: '18px 20px',
+                    background: M.persimmon,
+                    borderRadius: 14,
+                    padding: 'clamp(22px, 3vw, 30px)',
                     cursor: 'pointer',
                     position: 'relative',
                     overflow: 'hidden',
                     transition: 'box-shadow 0.15s',
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 3px 12px rgba(0,0,0,0.08)' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 18px rgba(193,62,36,0.28)' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
                 >
-                  <GhostNumeral n="1" color={M.rust} opacity={0.09} />
+                  <GhostNumeral n="1" color={M.creamHead} opacity={0.15} />
                   <div style={{ position: 'relative', zIndex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                       <span style={{
                         fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
-                        letterSpacing: '0.08em', color: M.rust,
+                        letterSpacing: '0.08em', color: M.creamHead,
                       }}>
                         Priority №1 · {priorityRecencyStyle?.label ?? ''}
                       </span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: M.inkMute }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: M.creamBody }}>
                         {prioritySchool.short_name || prioritySchool.name}
                       </span>
                     </div>
 
                     <h3 style={{
-                      margin: '0 0 6px', fontSize: 16, fontWeight: 700,
-                      color: M.ink, fontStyle: 'italic', letterSpacing: '-0.02em',
+                      margin: '0 0 8px', fontSize: 18, fontWeight: 700,
+                      color: M.creamHead, fontStyle: 'italic', letterSpacing: '-0.02em',
                       lineHeight: 1.3,
                     }}>
                       {prioritySummary.recommended_action.description}
                     </h3>
 
-                    <p style={{ margin: '0 0 12px', fontSize: 13, color: M.inkMid, lineHeight: 1.55 }}>
+                    <p style={{ margin: '0 0 14px', fontSize: 13, color: M.creamBody, lineHeight: 1.55 }}>
                       {prioritySummary.summary}
                     </p>
 
@@ -477,8 +395,8 @@ export default function GetRecruitedClient({
                       onClick={e => { e.stopPropagation(); router.push(`/schools/${prioritySchool.id}`) }}
                       style={{
                         all: 'unset', cursor: 'pointer',
-                        padding: '7px 16px', fontSize: 12, fontWeight: 700,
-                        color: '#fff', background: M.rust,
+                        padding: '8px 18px', fontSize: 12, fontWeight: 700,
+                        color: M.persimmon, background: M.creamHead,
                         borderRadius: 999, letterSpacing: '-0.01em',
                       }}
                     >
@@ -517,7 +435,7 @@ export default function GetRecruitedClient({
                     onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)' }}
                     onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
                   >
-                    <GhostNumeral n={ghostNum} color={M.ink} opacity={0.04} />
+                    <GhostNumeral n={ghostNum} color={M.ink} opacity={0.085} />
                     <div style={{ position: 'relative', zIndex: 1 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 14, fontWeight: 700, color: M.ink }}>

@@ -12,13 +12,15 @@ import type { SchoolRecencyState } from '@/lib/school-recency-state'
 const SD = {
   paper:     '#F6F1E8',
   paperDeep: '#EFE8D8',
+  cardWhite: '#FFFDF9',
   ink:       '#0E0E0E',
   inkMid:    '#4A4A4A',
   inkLo:     '#7A7570',
   inkMute:   '#A8A39B',
   line:      '#E2DBC9',
   line2:     '#D3CAB3',
-  rust:      '#B5502F',
+  lineWarm:  '#DDD5C3',
+  persimmon: '#C13E24', // page act-accent — board accents (from the marketing ladder)
 }
 
 const TIER_DOT: Record<string, string> = {
@@ -29,38 +31,27 @@ const TIER_DOT: Record<string, string> = {
 
 const STAGES: RecruitingStage[] = [1, 2, 3, 4, 5, 6]
 
-type GridRow = 'hot' | 'active' | 'cooling' | 'cold' | 'prospecting'
-const ROWS: GridRow[] = ['hot', 'active', 'cooling', 'cold', 'prospecting']
+// Awaiting-your-reply is a whose-turn signal, not a temperature — those schools
+// fold into Active and carry the awaiting ring. Rows are a clean temperature
+// gradient.
+type GridRow = 'active' | 'cooling' | 'cold' | 'prospecting'
+const ROWS: GridRow[] = ['active', 'cooling', 'cold', 'prospecting']
 const ROW_LABEL: Record<GridRow, string> = {
-  hot: 'Awaiting Finn',
-  active: 'Active',
-  cooling: 'Cooling',
-  cold: 'Cold',
-  prospecting: 'Prospecting',
+  active: 'Active', cooling: 'Cooling', cold: 'Cold', prospecting: 'Prospecting',
 }
-
-// Row temperature dot colors (matches recency palette)
 const ROW_DOT: Record<GridRow, string> = {
-  hot:         '#D03A2E',
-  active:      '#00B2A9',
-  cooling:     '#E8A33C',
-  cold:        '#9CA3A8',
-  prospecting: '#9CA3A8',
+  active: '#00B2A9', cooling: '#E8A33C', cold: '#9CA3A8', prospecting: '#9CA3A8',
 }
 
-// Strengthened quadrant tints — zones read as places
+// Zone tints + labels pulled through from the marketing board.
 const ZONE_TINT = {
-  deepHot:     'rgba(181, 80, 47, 0.07)',   // Close — rust tint
-  shallowHot:  'rgba(30, 64, 175, 0.06)',   // Convert — blue tint
-  deepCold:    'rgba(232, 163, 60, 0.08)',   // Re-warm — amber tint (strengthened)
-  shallowCold: 'rgba(156, 163, 168, 0.06)', // Nudge — gray tint
+  deepHot:     'rgba(193, 62, 36, 0.10)',   // Close — persimmon tint
+  shallowHot:  'rgba(30, 64, 175, 0.07)',   // Convert — blue tint
+  deepCold:    'rgba(232, 163, 60, 0.12)',  // Re-warm — amber tint
+  shallowCold: 'rgba(156, 163, 168, 0.10)', // Nudge — gray tint
 }
-
 const ZONE_LABEL = {
-  deepHot:     'Close',
-  shallowHot:  'Convert',
-  deepCold:    'Re-warm',
-  shallowCold: 'Nudge',
+  deepHot: 'Close', shallowHot: 'Convert', deepCold: 'Re-warm', shallowCold: 'Nudge',
 }
 
 const COLLAPSE_KEY = 'funnel-grid-collapsed'
@@ -73,6 +64,7 @@ interface CellSchool {
   short_name: string | null
   category: string
   isDeclined: boolean
+  awaiting: boolean   // your turn — unreplied coach inbound (former "hot")
 }
 
 interface Props {
@@ -123,9 +115,11 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
     const state = recency.state
     const stage = (school.recruiting_stage ?? 1) as RecruitingStage
 
+    // Awaiting (former "hot") maps into Active and carries the marker.
     let row: GridRow
-    if (state === 'declined') row = 'cold'
-    else if (state === 'hot') row = 'hot'
+    let awaiting = false
+    if (state === 'hot') { row = 'active'; awaiting = true }
+    else if (state === 'declined') row = 'cold'
     else if (state === 'active') row = 'active'
     else if (state === 'cooling') row = 'cooling'
     else if (state === 'cold') row = 'cold'
@@ -138,10 +132,11 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
       short_name: school.short_name,
       category: school.category,
       isDeclined: state === 'declined',
+      awaiting,
     })
   }
 
-  // Mobile buckets
+  // Mobile buckets (warm = Active row; cool = Cooling and below)
   const mobileBuckets = {
     deepHot: [] as CellSchool[], shallowHot: [] as CellSchool[],
     deepCold: [] as CellSchool[], shallowCold: [] as CellSchool[],
@@ -150,7 +145,7 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
     for (const stage of STAGES) {
       const arr = cells.get(`${row}-${stage}`) ?? []
       const isDeep = stage >= 4
-      const isHot = row === 'hot' || row === 'active'
+      const isHot = row === 'active'
       const bucket = isDeep ? (isHot ? 'deepHot' : 'deepCold') : (isHot ? 'shallowHot' : 'shallowCold')
       mobileBuckets[bucket].push(...arr)
     }
@@ -194,7 +189,7 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
           <div className="funnel-grid-desktop" style={{
             display: 'grid',
             gridTemplateColumns: '100px repeat(6, 1fr)',
-            gridTemplateRows: 'auto repeat(5, 1fr)',
+            gridTemplateRows: 'auto repeat(4, 1fr)',
             border: `1px solid ${SD.line}`,
             borderRadius: 10,
             overflow: 'hidden',
@@ -230,7 +225,6 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
                   <span style={{
                     width: 7, height: 7, borderRadius: '50%', marginRight: 6, flexShrink: 0,
                     background: ROW_DOT[row],
-                    boxShadow: row === 'hot' ? `0 0 4px ${ROW_DOT[row]}40` : 'none',
                   }} />
                   {ROW_LABEL[row]}
                 </div>
@@ -240,15 +234,18 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
                   const key = `${row}-${stage}`
                   const arr = cells.get(key) ?? []
                   const isDeep = stage >= 4
-                  const isHot = row === 'hot' || row === 'active'
+                  const isHot = row === 'active'
                   const zone = isDeep
                     ? (isHot ? 'deepHot' : 'deepCold')
                     : (isHot ? 'shallowHot' : 'shallowCold')
                   const tint = ZONE_TINT[zone]
 
+                  // Anchor each zone label to a corner cell: Active row carries
+                  // Convert (stage 1) + Close (stage 4); Cooling carries Nudge +
+                  // Re-warm — same geometry as before, minus the Awaiting row.
                   const showZoneLabel =
-                    (zone === 'shallowHot' && stage === 1 && row === 'hot') ||
-                    (zone === 'deepHot' && stage === 4 && row === 'hot') ||
+                    (zone === 'shallowHot' && stage === 1 && row === 'active') ||
+                    (zone === 'deepHot' && stage === 4 && row === 'active') ||
                     (zone === 'shallowCold' && stage === 1 && row === 'cooling') ||
                     (zone === 'deepCold' && stage === 4 && row === 'cooling')
 
@@ -263,16 +260,16 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
                     }}>
                       {showZoneLabel && (
                         <span style={{
-                          position: 'absolute', top: 2, right: 4,
-                          fontSize: 8, fontWeight: 800, textTransform: 'uppercase',
+                          position: 'absolute', top: 3, right: 5,
+                          fontSize: 9, fontWeight: 800, textTransform: 'uppercase',
                           letterSpacing: '0.08em',
-                          color: zone === 'deepHot' ? SD.rust : SD.inkMute,
-                          opacity: zone === 'deepHot' ? 0.7 : 0.6,
+                          color: zone === 'deepHot' ? SD.persimmon : SD.inkMute,
+                          opacity: zone === 'deepHot' ? 0.8 : 0.65,
                         }}>
                           {ZONE_LABEL[zone]}
                         </span>
                       )}
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                         {arr.map(s => (
                           <Chip
                             key={s.id}
@@ -292,10 +289,10 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
           {/* Mobile fallback */}
           <div className="funnel-grid-mobile" style={{ display: 'none' }}>
             {([
-              { key: 'deepHot' as const, label: 'Close', desc: 'Deep + Hot' },
-              { key: 'shallowHot' as const, label: 'Convert', desc: 'Shallow + Hot' },
-              { key: 'deepCold' as const, label: 'Re-warm', desc: 'Deep + Cold' },
-              { key: 'shallowCold' as const, label: 'Nudge', desc: 'Shallow + Cold' },
+              { key: 'deepHot' as const, label: 'Close', desc: 'Deep + Active' },
+              { key: 'shallowHot' as const, label: 'Convert', desc: 'Shallow + Active' },
+              { key: 'deepCold' as const, label: 'Re-warm', desc: 'Deep + Cooling' },
+              { key: 'shallowCold' as const, label: 'Nudge', desc: 'Shallow + Cooling' },
             ]).map(({ key, label, desc }) => {
               const arr = mobileBuckets[key]
               if (arr.length === 0) return null
@@ -307,7 +304,7 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
                   <div style={{
                     fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
                     letterSpacing: '0.06em',
-                    color: key === 'deepHot' ? SD.rust : SD.inkLo,
+                    color: key === 'deepHot' ? SD.persimmon : SD.inkLo,
                     marginBottom: 6,
                   }}>
                     {label} <span style={{ fontWeight: 500, textTransform: 'none' }}>· {desc}</span>
@@ -320,6 +317,18 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
                 </div>
               )
             })}
+          </div>
+
+          {/* Legend */}
+          <div style={{ marginTop: 12, display: 'flex', gap: 18, flexWrap: 'wrap', fontSize: 11, color: SD.inkLo }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 16, height: 13, borderRadius: 999, border: `2px solid ${SD.persimmon}`, background: SD.cardWhite, display: 'inline-block', flexShrink: 0 }} />
+              ring = awaiting your reply
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: SD.persimmon, display: 'inline-block', flexShrink: 0 }} />
+              Close zone = deep + active
+            </span>
           </div>
 
           <style>{`
@@ -335,19 +344,27 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
 }
 
 // ─── Chip ───────────────────────────────────────────────────────────────────
+// Styling matched to the marketing board chips (white fill, hairline border,
+// size/radius/type). The awaiting ring (2px persimmon) means "your turn" and
+// wins over the close-zone border.
 
 function Chip({ school, isCloseZone, onClick }: { school: CellSchool; isCloseZone: boolean; onClick: () => void }) {
+  const border = school.awaiting
+    ? `2px solid ${SD.persimmon}`
+    : isCloseZone
+    ? '1px solid rgba(193, 62, 36, 0.35)'
+    : `1px solid ${SD.lineWarm}`
   return (
     <button
       onClick={onClick}
-      title={school.name + (school.isDeclined ? ' (declined — needs triage)' : '')}
+      title={school.name + (school.awaiting ? ' (awaiting your reply)' : '') + (school.isDeclined ? ' (declined — needs triage)' : '')}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 3,
-        padding: '2px 7px', borderRadius: 999,
-        border: isCloseZone ? `1px solid rgba(181, 80, 47, 0.35)` : 'none',
-        background: SD.paperDeep,
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        padding: '3px 9px', borderRadius: 999,
+        border,
+        background: SD.cardWhite,
         cursor: 'pointer', fontFamily: 'inherit',
-        fontSize: 10, fontWeight: 600, color: SD.ink,
+        fontSize: 11, fontWeight: 600, color: SD.ink,
         whiteSpace: 'nowrap', lineHeight: 1.4,
         textDecoration: school.isDeclined ? 'line-through' : 'none',
         opacity: school.isDeclined ? 0.65 : 1,
