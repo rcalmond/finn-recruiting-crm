@@ -19,15 +19,21 @@ const LINK_TYPES: { value: AssetType; label: string }[] = [
   { value: 'link', label: 'General Link' },
 ]
 
+// One-sentence guidance per type, shown when that type is selected.
+const TYPE_GUIDANCE: Partial<Record<AssetType, string>> = {
+  highlight_reel: '3-5 minutes, best clips first, your number visible.',
+}
+
 interface Props {
   existing?: Asset
   onClose: () => void
   onSave: (data: { name: string; type: AssetType; url: string; description: string }) => Promise<void>
+  defaultType?: AssetType
 }
 
-export default function AddLinkModal({ existing, onClose, onSave }: Props) {
+export default function AddLinkModal({ existing, onClose, onSave, defaultType }: Props) {
   const [name, setName] = useState(existing?.name ?? '')
-  const [type, setType] = useState<AssetType>(existing?.type ?? 'highlight_reel')
+  const [type, setType] = useState<AssetType>(existing?.type ?? defaultType ?? 'highlight_reel')
   const [url, setUrl] = useState(existing?.url ?? '')
   const [description, setDescription] = useState(existing?.description ?? '')
   const [saving, setSaving] = useState(false)
@@ -82,6 +88,9 @@ export default function AddLinkModal({ existing, onClose, onSave }: Props) {
             <select value={type} onChange={e => setType(e.target.value as AssetType)} style={fieldStyle(LV)}>
               {LINK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
+            {TYPE_GUIDANCE[type] && (
+              <p style={{ margin: '6px 0 0', fontSize: 11, color: LV.inkLo, lineHeight: 1.4 }}>{TYPE_GUIDANCE[type]}</p>
+            )}
           </Field>
 
           <Field label="URL" required>

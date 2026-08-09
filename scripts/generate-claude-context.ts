@@ -2318,6 +2318,7 @@ const FALLBACK_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-09 | Assets page rework: retitled The kit (route unchanged; consistency pass now covers /messages + /assets), purpose copy added, restructured from a flat list into slot-based sections — The essentials (2x2 canonical slots with filled/empty states, designed empty invitations, freshness banding, matching the Get Ready grid) and The shelf (everything else, tightened). Per-type upload guidance lines. | UX |
 | 2026-08-09 | Messages page rework: retitled Talking points (route unchanged), restructured from a flat list into lifecycle sections — Needs a look (stale/expired triage with inline Refresh/Retire), In rotation, Your questions, Archived (collapsed) — with tightened row treatment. New collapsible phase-guidance panel (What coaches need to hear, phase by phase) in the jewel colors, static copy. Second-person sweep, de-eyebrowed. | UX |
 | 2026-08-09 | Get In cascade: violet migration (page chrome; offer cards keep their charcoal weight register), masthead subtitle added, new full-fill violet hero card driven by pickEndgameMove (unmet offer conditions > near key dates > missing visits > quiet state — Clark CommonApp leads today), OFFERS/ENDGAME eyebrows removed per the de-eyebrow precedent (Advanced schools → The short list). | UX |
 | 2026-08-09 | Get Recruited: removed the QUEUE and PIPELINE section eyebrows per the de-eyebrow precedent (Get Ready pass 2); each section keeps only its bold-italic header (Up next. / The board.), spacing adjusted. Display-only. | UX |

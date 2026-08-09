@@ -25,15 +25,23 @@ const FILE_TYPES: { value: AssetType; label: string }[] = [
 const ACCEPTED = '.pdf,.doc,.docx'
 const MAX_MB = 10
 
+// One-sentence guidance per kit type, shown when that type is selected.
+const TYPE_GUIDANCE: Partial<Record<AssetType, string>> = {
+  resume: 'One page — season stats, academics, contact.',
+  transcript: 'Most recent official or unofficial copy.',
+  test_scores: 'Score reports as PDFs; the numbers themselves live in your profile.',
+}
+
 interface Props {
   onClose: () => void
   onUploaded: () => void
+  defaultType?: AssetType
 }
 
-export default function AddFileModal({ onClose, onUploaded }: Props) {
+export default function AddFileModal({ onClose, onUploaded, defaultType }: Props) {
   const [file, setFile] = useState<File | null>(null)
   const [name, setName] = useState('')
-  const [type, setType] = useState<AssetType>('resume')
+  const [type, setType] = useState<AssetType>(defaultType ?? 'resume')
   const [description, setDescription] = useState('')
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -148,6 +156,9 @@ export default function AddFileModal({ onClose, onUploaded }: Props) {
               <select value={type} onChange={e => setType(e.target.value as AssetType)} style={fieldStyle(LV)}>
                 {FILE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
+              {TYPE_GUIDANCE[type] && (
+                <p style={{ margin: '6px 0 0', fontSize: 11, color: LV.inkLo, lineHeight: 1.4 }}>{TYPE_GUIDANCE[type]}</p>
+              )}
             </Field>
             <Field label="Description">
               <input value={description} onChange={e => setDescription(e.target.value)}
