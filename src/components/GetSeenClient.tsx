@@ -151,15 +151,27 @@ function cardStyle(isHero: boolean, isOutreach: boolean): React.CSSProperties {
 
 // ─── Desktop timeline (proportional, TODAY-anchored) ────────────────────────────
 
+// Span in days (inclusive). Bars are reserved for 4+ day ranges; 1-3 day
+// events read as a single point (a 2-day camp is a moment, not a span).
+function spanDays(it: MergedItem): number {
+  if (!it.end_date || it.end_date === it.start_date) return 1
+  return Math.round((new Date(it.end_date + 'T00:00:00').getTime() - new Date(it.start_date + 'T00:00:00').getTime()) / 86400000) + 1
+}
+function cardDateText(it: MergedItem): string {
+  return it.end_date && it.end_date !== it.start_date
+    ? `${formatShortDate(it.start_date)}–${formatShortDate(it.end_date)}`
+    : formatShortDate(it.start_date)
+}
+
+const CARD_W = 122
+
 function DesktopTimeline({ items, onItemClick }: { items: MergedItem[]; onItemClick: (it: MergedItem) => void }) {
-  const H = 340        // ~2x the old 156 — the page centerpiece
-  const RAIL_Y = 170
-  const STEM = [22, 90] // near / far — staggered when same-side cards crowd
+  const H = 224        // tightened from 340 (~34% less); still clears staggered cards
+  const RAIL_Y = 112
+  const STEM = [14, 64] // near / far — staggered when same-side cards crowd
   const THRESH = 14     // percent (~120px on the track) → same-side collision
   const clampPct = (d: number) => Math.max(0, Math.min(WINDOW_DAYS, d)) / WINDOW_DAYS * 100
 
-  // Alternate above/below by index; stagger stem length when a same-side neighbor
-  // falls within THRESH so the wider cards never overlap.
   const lastPct: Record<'above' | 'below', number> = { above: -999, below: -999 }
   const lastTier: Record<'above' | 'below', number> = { above: 0, below: 0 }
   const placed = items.map((it, i) => {
@@ -179,29 +191,34 @@ function DesktopTimeline({ items, onItemClick }: { items: MergedItem[]; onItemCl
         {/* week ticks (muted) */}
         {[2, 4, 6, 8, 10].map(w => (
           <div key={w} style={{ position: 'absolute', top: RAIL_Y + 8, left: `${w / 10 * 100}%` }}>
-            <div style={{ width: 1, height: 8, background: SD.line }} />
+            <div style={{ width: 1, height: 7, background: SD.line }} />
             <div style={{ fontSize: 8, color: SD.inkMute, marginTop: 2, transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>wk {w}</div>
           </div>
         ))}
         {/* TODAY post (3px black) */}
-        <div style={{ position: 'absolute', top: RAIL_Y - 24, left: 0, transform: 'translateX(-50%)', textAlign: 'center', zIndex: 4 }}>
-          <div style={{ width: 3, height: 48, background: SD.ink, margin: '0 auto', borderRadius: 1 }} />
+        <div style={{ position: 'absolute', top: RAIL_Y - 18, left: 0, transform: 'translateX(-50%)', textAlign: 'center', zIndex: 4 }}>
+          <div style={{ width: 3, height: 36, background: SD.ink, margin: '0 auto', borderRadius: 1 }} />
           <div style={{ fontSize: 8, fontWeight: 800, color: SD.ink, letterSpacing: '0.12em', marginTop: 3 }}>TODAY</div>
         </div>
 
         {placed.map(({ it, side, tier, pct }, i) => {
           const isHero = i === 0
-          const isRange = !!it.end_date && it.end_date !== it.start_date
+          const isBar = spanDays(it) >= 4   // bars only for 4+ day ranges
           const isOutreach = it.kind === 'outreach_moment'
           const stemLen = STEM[tier]
-          const endPct = isRange ? clampPct(daysUntil(it.end_date!)) : pct
+          const endPct = isBar ? clampPct(daysUntil(it.end_date!)) : pct
           const barW = Math.max(2, endPct - pct)
           const stemColor = isOutreach ? SD.rust : isHero ? PETROL.accent : SD.lineWarm
+          // Edge clamp: card left edge stays within the track [0, 100% - CARD_W].
+          // Point cards center on the marker; bar cards connect near the bar start.
+          const cardLeft = isBar
+            ? `clamp(0px, calc(${pct}% - 8px), calc(100% - ${CARD_W}px))`
+            : `clamp(0px, calc(${pct}% - ${CARD_W / 2}px), calc(100% - ${CARD_W}px))`
 
           return (
             <div key={`${it.source}-${it.id}`}>
-              {/* marker OR range bar on the rail */}
-              {isRange ? (
+              {/* marker OR range bar on the rail (stem/marker stay ON the date) */}
+              {isBar ? (
                 <div onClick={() => onItemClick(it)} style={{
                   position: 'absolute', top: RAIL_Y - 4, left: `${pct}%`, width: `${barW}%`, height: 8,
                   borderRadius: 4, cursor: 'pointer', zIndex: 2,
@@ -215,18 +232,17 @@ function DesktopTimeline({ items, onItemClick }: { items: MergedItem[]; onItemCl
                 </div>
               )}
 
-              {/* stem */}
+              {/* stem — always centered on the marker */}
               <div style={{
                 position: 'absolute', left: `${pct}%`, width: 2, background: stemColor, transform: 'translateX(-50%)', zIndex: 1,
                 ...(side === 'above' ? { top: RAIL_Y - stemLen, height: stemLen } : { top: RAIL_Y, height: stemLen }),
               }} />
 
-              {/* card */}
+              {/* card — edge-clamped, so the stem may connect off-center */}
               <div
                 onClick={() => onItemClick(it)}
                 style={{
-                  position: 'absolute', left: `${pct}%`, width: 122, cursor: 'pointer', zIndex: 3,
-                  transform: isRange ? 'translateX(-9px)' : 'translateX(-50%)',
+                  position: 'absolute', left: cardLeft, width: CARD_W, cursor: 'pointer', zIndex: 3,
                   ...(side === 'above' ? { bottom: H - (RAIL_Y - stemLen) } : { top: RAIL_Y + stemLen }),
                   ...cardStyle(isHero, isOutreach),
                 }}
@@ -234,14 +250,14 @@ function DesktopTimeline({ items, onItemClick }: { items: MergedItem[]; onItemCl
                 <div style={{
                   fontSize: isHero ? 12.5 : 11.5, fontWeight: isHero ? 800 : 700,
                   color: isHero ? SD.cream : SD.ink, lineHeight: 1.2, letterSpacing: '-0.01em',
-                  overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
                 }}>{it.label}</div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 5 }}>
-                  <span style={{ fontSize: 9.5, color: isHero ? PETROL.soft : SD.inkLo }}>{formatShortDate(it.start_date)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 4 }}>
+                  <span style={{ fontSize: 9.5, color: isHero ? PETROL.soft : SD.inkLo, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{cardDateText(it)}</span>
                   {isHero ? (
-                    <span style={{ fontSize: 9.5, fontWeight: 800, color: PETROL.accent, background: SD.cream, borderRadius: 999, padding: '1px 8px' }}>{daysOutText(it.d)}</span>
+                    <span style={{ fontSize: 9.5, fontWeight: 800, color: PETROL.accent, background: SD.cream, borderRadius: 999, padding: '1px 8px', flexShrink: 0 }}>{daysOutText(it.d)}</span>
                   ) : (
-                    <span style={{ fontSize: 9.5, fontWeight: 700, color: it.d <= 3 ? (isOutreach ? SD.rust : GREEN.accent) : SD.inkMute }}>{daysOutText(it.d)}</span>
+                    <span style={{ fontSize: 9.5, fontWeight: 700, color: it.d <= 3 ? (isOutreach ? SD.rust : GREEN.accent) : SD.inkMute, flexShrink: 0 }}>{daysOutText(it.d)}</span>
                   )}
                 </div>
               </div>
