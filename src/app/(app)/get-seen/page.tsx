@@ -37,10 +37,17 @@ export default async function GetSeenPage() {
   // 10-week window (widened from 8 for fall planning).
   const tenWeeksOut = new Date(Date.now() + 70 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
+  // Active A/B/C school ids — scopes the coaches-on-file metric.
+  const { data: activeSchoolRows } = await supabase.from('schools')
+    .select('id').neq('category', 'Nope').neq('status', 'Inactive')
+  const activeIds = (activeSchoolRows ?? []).map(r => r.id as string)
+
   const [
     { data: upcomingCamps },
     { data: eventRows },
     { count: activeCampaignCount },
+    { count: coachTotal },
+    { count: coachReview },
   ] = await Promise.all([
     supabase.from('camps')
       .select('id, name, start_date, end_date, host_school_id, schools!camps_host_school_id_fkey(name, short_name), camp_finn_status(status)')
@@ -57,6 +64,12 @@ export default async function GetSeenPage() {
       .select('*', { count: 'exact', head: true })
       .in('status', ['draft', 'active'])
       .is('archived_at', null),
+    supabase.from('coaches')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true).in('school_id', activeIds.length ? activeIds : ['00000000-0000-0000-0000-000000000000']),
+    supabase.from('coaches')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true).eq('needs_review', true).in('school_id', activeIds.length ? activeIds : ['00000000-0000-0000-0000-000000000000']),
   ])
 
   // Upcoming or still-ongoing events (single-day: start >= today; range: not yet ended).
@@ -98,6 +111,8 @@ export default async function GetSeenPage() {
       upcomingCamps={campItems}
       upcomingEvents={upcomingEvents}
       activeCampaignCount={activeCampaignCount ?? 0}
+      userId={user.id}
+      coachStats={{ total: coachTotal ?? 0, needsReview: coachReview ?? 0 }}
     />
   )
 }

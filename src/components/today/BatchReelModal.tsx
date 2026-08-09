@@ -5,14 +5,14 @@ import type { School } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import DraftModal, { type TaskContext } from '@/components/DraftModal'
 
+// Restyled to house parchment/petrol (was teal/red from the pre-retirement era).
 const LV = {
   ink: '#0E0E0E',
   inkLo: '#7A7570',
   inkMute: '#A8A39B',
   line: '#E2DBC9',
-  tealDeep: '#006A65',
-  tealSoft: '#D7F0ED',
-  red: '#C8102E',
+  petrol: '#0E5F6B',   // Get Seen accent — replaces the old teal for "sent" + Done
+  amber: '#F59E0B',    // drafting
 }
 
 interface Props {
@@ -196,15 +196,15 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
               >
                 <div style={{
                   width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                  background: state === 'sent' ? LV.tealDeep
+                  background: state === 'sent' ? LV.petrol
                     : state === 'skipped' ? LV.inkMute
                     : state === 'drafting' ? '#F59E0B'
                     : LV.line,
                 }} />
                 <span style={{
                   fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
-                  background: s.category === 'A' ? '#FEE2E2' : '#DBEAFE',
-                  color: s.category === 'A' ? '#991B1B' : '#1E40AF',
+                  background: s.category === 'A' ? '#DCFCE7' : s.category === 'B' ? '#DBEAFE' : '#FEF3C7',
+                  color: s.category === 'A' ? '#166534' : s.category === 'B' ? '#1E40AF' : '#92400E',
                   flexShrink: 0,
                 }}>{s.category}</span>
                 <span style={{
@@ -215,7 +215,7 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
                 </span>
                 <span style={{
                   fontSize: 10, fontWeight: 600, flexShrink: 0,
-                  color: state === 'sent' ? LV.tealDeep : state === 'skipped' ? LV.inkMute : state === 'drafting' ? '#F59E0B' : LV.inkLo,
+                  color: state === 'sent' ? LV.petrol : state === 'skipped' ? LV.inkMute : state === 'drafting' ? '#F59E0B' : LV.inkLo,
                 }}>
                   {state === 'sent' ? 'Sent' : state === 'skipped' ? 'Skipped' : state === 'drafting' ? 'Drafting...' : ''}
                 </span>
@@ -231,7 +231,7 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
         }}>
           {pending.length === 0 && skipped.length === 0 ? (
             <button onClick={onClose} style={{
-              padding: '8px 18px', background: LV.tealDeep, color: '#fff',
+              padding: '8px 18px', background: LV.petrol, color: '#fff',
               border: 'none', borderRadius: 999, fontSize: 13, fontWeight: 700,
               cursor: 'pointer', fontFamily: 'inherit',
             }}>Done</button>
