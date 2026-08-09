@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useSchools } from '@/hooks/useRealtimeData'
 import { computeReelCoverage } from '@/lib/strategic-prompts'
+import { summarizeRq } from '@/lib/rq'
 import BatchReelModal from '@/components/today/BatchReelModal'
 import MergedTimeline, { buildMerged, type MergedItem, type UpcomingCampItem, type TimelineEventItem } from '@/components/get-seen/MergedTimeline'
 
@@ -151,9 +152,11 @@ export default function GetSeenClient({
   const loaded = schools.length > 0
   const activeSchools = schools.filter(s => s.category !== 'Nope' && s.status !== 'Inactive')
 
-  // RQ metric (active A/B/C)
-  const rqComplete = activeSchools.filter(s => s.rq_status === 'Completed')
-  const rqNotComplete = activeSchools.filter(s => s.rq_status !== 'Completed')
+  // RQ metric (active A/B/C) — derived via the shared helper so the card and
+  // the /questionnaires page can't disagree.
+  const rq = summarizeRq(activeSchools)
+  const rqCompleted = rq.current + rq.needsUpdate // status = Completed (fresh or stale)
+  const rqNotStarted = activeSchools.filter(s => s.rq_status !== 'Completed')
 
   // Reel coverage — reuse the reel_coverage prompt computation (A/B tier).
   const cov = computeReelCoverage(schools, reelUrl, batchSentIds)
@@ -205,7 +208,7 @@ export default function GetSeenClient({
           <div className="gs-toolkit" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
 
             {/* 1. Questionnaires */}
-            <ToolCard title="Recruiting questionnaires." href="/schools" linkText="Open Schools">
+            <ToolCard title="Recruiting questionnaires." href="/questionnaires" linkText="Open workbench">
               <p style={{ margin: '0 0 12px', fontSize: 13, color: SD.inkMid, lineHeight: 1.5 }}>
                 Every program&apos;s first filter — free to complete, noticed when missing.
               </p>
@@ -213,11 +216,14 @@ export default function GetSeenClient({
                 {loaded ? (
                   <>
                     <div style={{ fontSize: 20, fontWeight: 800, color: SD.ink, letterSpacing: '-0.02em' }}>
-                      {rqComplete.length} <span style={{ fontSize: 13, fontWeight: 600, color: SD.inkLo }}>of {activeSchools.length} complete</span>
+                      {rqCompleted} <span style={{ fontSize: 13, fontWeight: 600, color: SD.inkLo }}>of {rq.total} complete</span>
                     </div>
-                    {rqNotComplete.length > 0 && (
+                    {rq.needsUpdate > 0 && (
+                      <div style={{ fontSize: 12, fontWeight: 600, color: SD.rust, marginTop: 4 }}>{rq.needsUpdate} need an update</div>
+                    )}
+                    {rqNotStarted.length > 0 && (
                       <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                        {rqNotComplete.map(s => (
+                        {rqNotStarted.map(s => (
                           <span key={s.id} style={{ fontSize: 11, fontWeight: 600, color: SD.rust, background: SD.rustSoft, border: `1px solid #EAD5CC`, borderRadius: 999, padding: '2px 9px' }}>
                             {s.short_name || s.name}
                           </span>

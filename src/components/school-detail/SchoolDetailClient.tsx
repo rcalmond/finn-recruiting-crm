@@ -9,6 +9,7 @@ import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, Contac
 import { STAGE_META, MILESTONE_META } from '@/lib/types'
 import { useSchools, useContactLog, useActionItems, useCoaches, useCamps, useCallPrepDocs, useStatusUpdates, useMilestones } from '@/hooks/useRealtimeData'
 import { stageLabel, STAGE_LABELS } from '@/lib/stages'
+import { rqMarkCompletedPatch, rqMarkUpdatedPatch, rqSetLinkPatch } from '@/lib/rq'
 import { getCampsForSchool } from '@/lib/camps'
 import { classifySchoolRecency, SCHOOL_RECENCY_STYLE } from '@/lib/school-recency-state'
 import { todayStr } from '@/lib/utils'
@@ -1645,8 +1646,11 @@ function Sidebar({
                     value={school.rq_status ?? ''}
                     onChange={async (e) => {
                       const newStatus = e.target.value || null
-                      const updates: Partial<School> = { rq_status: newStatus }
-                      if (newStatus === 'Completed') updates.rq_updated_at = new Date().toISOString()
+                      // Completed sets status + stamps the date via the shared patch;
+                      // other statuses just set the status.
+                      const updates: Partial<School> = newStatus === 'Completed'
+                        ? rqMarkCompletedPatch()
+                        : { rq_status: newStatus }
                       await onUpdateSchool(updates)
                       setEditingRQ(false)
                     }}
@@ -1664,7 +1668,7 @@ function Sidebar({
                   </span>
                 )}
                 <button
-                  onClick={async () => await onUpdateSchool({ rq_updated_at: new Date().toISOString() })}
+                  onClick={async () => await onUpdateSchool(rqMarkUpdatedPatch())}
                   style={{
                     background: 'none', border: `1px solid ${SD.line}`, borderRadius: 4,
                     padding: '1px 6px', fontSize: 9, fontWeight: 600, cursor: 'pointer',
@@ -1691,11 +1695,11 @@ function Sidebar({
                       autoFocus
                       value={rqLinkText}
                       onChange={e => setRqLinkText(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Escape') setEditingRqLink(false); if (e.key === 'Enter') { onUpdateSchool({ rq_link: rqLinkText.trim() || null }); setEditingRqLink(false) } }}
+                      onKeyDown={e => { if (e.key === 'Escape') setEditingRqLink(false); if (e.key === 'Enter') { onUpdateSchool(rqSetLinkPatch(rqLinkText)); setEditingRqLink(false) } }}
                       placeholder="https://..."
                       style={{ width: 140, padding: '2px 4px', border: `1px solid ${SD.line}`, borderRadius: 4, fontSize: 10, outline: 'none' }}
                     />
-                    <button onClick={() => { onUpdateSchool({ rq_link: rqLinkText.trim() || null }); setEditingRqLink(false) }}
+                    <button onClick={() => { onUpdateSchool(rqSetLinkPatch(rqLinkText)); setEditingRqLink(false) }}
                       style={{ background: 'none', border: 'none', fontSize: 10, fontWeight: 600, color: SD.tealDeep, cursor: 'pointer' }}>Save</button>
                   </div>
                 ) : (
