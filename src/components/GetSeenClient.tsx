@@ -16,7 +16,7 @@ const GREEN = { accent: '#2D6A4F', accentSoft: '#D7EFE0', accentDeep: '#1B4332' 
 const PETROL = { accent: '#0E5F6B', soft: '#CDE7EA', deep: '#083F47' }
 const SD = {
   paper: '#F6F1E8', ink: '#0E0E0E', inkMid: '#4A4A4A', inkLo: '#7A7570',
-  inkMute: '#A8A39B', line: '#E2DBC9', cream: '#F6F1E8',
+  inkMute: '#A8A39B', line: '#E2DBC9', lineWarm: '#DDD5C3', cream: '#F6F1E8',
   rust: '#B5502F', rustSoft: '#FAF0EA', amber: '#D4A017', event: '#5B7A99', eventSoft: '#E7EDF3',
 }
 
@@ -113,86 +113,136 @@ function getNextMove(items: MergedItem[], activeCampaignCount: number): { headli
   }
 }
 
-// ─── Timeline glyphs (DATA colors — unchanged) ──────────────────────────────────
+// ─── Timeline markers (DATA colors — unchanged; enlarged with white rings) ──────
 
-function CampDot({ registered, targeted }: { registered: boolean; targeted: boolean }) {
+// Attend marker (camp / showcase): 17px circle, white ring. Filled = registered
+// (camps); showcases render neutral-filled. Colors unchanged from the legend.
+function AttendMarker({ color, filled }: { color: string; filled: boolean }) {
   return <div style={{
-    width: 12, height: 12, borderRadius: '50%',
-    background: registered ? GREEN.accent : 'transparent',
-    border: `2px solid ${registered || targeted ? GREEN.accent : SD.inkMute}`,
+    width: 17, height: 17, borderRadius: '50%', flexShrink: 0, boxSizing: 'border-box',
+    background: filled ? color : '#fff', border: `2.5px solid ${color}`,
+    boxShadow: '0 0 0 3px #fff',
   }} />
 }
-function EventDot() {
-  return <div style={{ width: 11, height: 11, borderRadius: '50%', background: SD.event, border: `2px solid ${SD.event}` }} />
+// Outreach send marker: 16px rust rounded square with the ↗ glyph, white ring.
+function SendMarker() {
+  return <div style={{
+    width: 16, height: 16, borderRadius: 5, flexShrink: 0, background: SD.rust,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#fff', fontSize: 10, fontWeight: 900, lineHeight: 1, boxShadow: '0 0 0 3px #fff',
+  }}>↗</div>
 }
-function SendGlyph() {
-  return (
-    <div style={{
-      width: 18, height: 18, borderRadius: 5, background: SD.rustSoft, border: `1.5px solid ${SD.rust}`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', color: SD.rust, fontSize: 11, fontWeight: 900, lineHeight: 1,
-    }}>↗</div>
-  )
+function RailMarker({ it }: { it: MergedItem }) {
+  if (it.kind === 'outreach_moment') return <SendMarker />
+  if (it.source === 'camp') return <AttendMarker color={GREEN.accent} filled={it.finn_status === 'registered'} />
+  return <AttendMarker color={SD.event} filled /> // showcase / tournament — neutral, filled
 }
-function ItemGlyph({ it }: { it: MergedItem }) {
-  if (it.kind === 'outreach_moment') return <SendGlyph />
-  if (it.source === 'camp') return <CampDot registered={it.finn_status === 'registered'} targeted={it.finn_status === 'targeted'} />
-  return <EventDot />
+
+// Card chrome — hero (next event) = filled petrol; others = outline (rust border
+// for outreach). Shared by the desktop stems and the mobile stack.
+function cardStyle(isHero: boolean, isOutreach: boolean): React.CSSProperties {
+  if (isHero) return { background: PETROL.accent, borderRadius: 10, padding: '9px 11px', boxShadow: '0 6px 16px rgba(14,95,107,0.28)' }
+  return {
+    background: '#fff', borderRadius: 10, padding: '8px 10px',
+    border: `${isOutreach ? '1.5px' : '1px'} solid ${isOutreach ? SD.rust : SD.line}`,
+    boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+  }
 }
 
 // ─── Desktop timeline (proportional, TODAY-anchored) ────────────────────────────
 
 function DesktopTimeline({ items, onItemClick }: { items: MergedItem[]; onItemClick: (it: MergedItem) => void }) {
+  const H = 340        // ~2x the old 156 — the page centerpiece
+  const RAIL_Y = 170
+  const STEM = [22, 90] // near / far — staggered when same-side cards crowd
+  const THRESH = 14     // percent (~120px on the track) → same-side collision
   const clampPct = (d: number) => Math.max(0, Math.min(WINDOW_DAYS, d)) / WINDOW_DAYS * 100
+
+  // Alternate above/below by index; stagger stem length when a same-side neighbor
+  // falls within THRESH so the wider cards never overlap.
+  const lastPct: Record<'above' | 'below', number> = { above: -999, below: -999 }
+  const lastTier: Record<'above' | 'below', number> = { above: 0, below: 0 }
+  const placed = items.map((it, i) => {
+    const side: 'above' | 'below' = i % 2 === 0 ? 'above' : 'below'
+    const pct = clampPct(it.d)
+    let tier = 0
+    if (Math.abs(pct - lastPct[side]) < THRESH) tier = lastTier[side] === 0 ? 1 : 0
+    lastPct[side] = pct; lastTier[side] = tier
+    return { it, side, tier, pct }
+  })
+
   return (
-    <div className="gs-timeline-desktop" style={{ position: 'relative', height: 156, marginTop: 8 }}>
-      <div style={{ position: 'absolute', top: 0, left: 8, right: 8, bottom: 0 }}>
-        <div style={{ position: 'absolute', top: 78, left: 0, right: 0, height: 2, background: SD.line, borderRadius: 1 }} />
+    <div className="gs-timeline-desktop" style={{ position: 'relative', height: H, marginTop: 8 }}>
+      <div style={{ position: 'absolute', top: 0, left: 12, right: 12, bottom: 0 }}>
+        {/* rail (4px, warm) */}
+        <div style={{ position: 'absolute', top: RAIL_Y - 2, left: 0, right: 0, height: 4, background: SD.lineWarm, borderRadius: 2 }} />
+        {/* week ticks (muted) */}
         {[2, 4, 6, 8, 10].map(w => (
-          <div key={w} style={{ position: 'absolute', top: 74, left: `${w / 10 * 100}%` }}>
-            <div style={{ width: 1, height: 10, background: SD.line }} />
+          <div key={w} style={{ position: 'absolute', top: RAIL_Y + 8, left: `${w / 10 * 100}%` }}>
+            <div style={{ width: 1, height: 8, background: SD.line }} />
             <div style={{ fontSize: 8, color: SD.inkMute, marginTop: 2, transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>wk {w}</div>
           </div>
         ))}
-        <div style={{ position: 'absolute', top: 62, left: 0, transform: 'translateX(-50%)', textAlign: 'center' }}>
-          <div style={{ width: 2, height: 32, background: SD.ink, margin: '0 auto' }} />
-          <div style={{ fontSize: 8, fontWeight: 800, color: SD.ink, letterSpacing: '0.08em', marginTop: 2 }}>TODAY</div>
+        {/* TODAY post (3px black) */}
+        <div style={{ position: 'absolute', top: RAIL_Y - 24, left: 0, transform: 'translateX(-50%)', textAlign: 'center', zIndex: 4 }}>
+          <div style={{ width: 3, height: 48, background: SD.ink, margin: '0 auto', borderRadius: 1 }} />
+          <div style={{ fontSize: 8, fontWeight: 800, color: SD.ink, letterSpacing: '0.12em', marginTop: 3 }}>TODAY</div>
         </div>
 
-        {items.map((it, i) => {
-          const above = i % 2 === 0
+        {placed.map(({ it, side, tier, pct }, i) => {
+          const isHero = i === 0
           const isRange = !!it.end_date && it.end_date !== it.start_date
-          const emphasized = i === 0
-          const startPct = clampPct(it.d)
-          const endPct = isRange ? clampPct(daysUntil(it.end_date!)) : startPct
-          const widthPct = Math.max(2, endPct - startPct)
+          const isOutreach = it.kind === 'outreach_moment'
+          const stemLen = STEM[tier]
+          const endPct = isRange ? clampPct(daysUntil(it.end_date!)) : pct
+          const barW = Math.max(2, endPct - pct)
+          const stemColor = isOutreach ? SD.rust : isHero ? PETROL.accent : SD.lineWarm
+
           return (
             <div key={`${it.source}-${it.id}`}>
+              {/* marker OR range bar on the rail */}
               {isRange ? (
                 <div onClick={() => onItemClick(it)} style={{
-                  position: 'absolute', top: 74, left: `${startPct}%`, width: `${widthPct}%`,
-                  height: 8, borderRadius: 4, cursor: 'pointer',
-                  background: it.source === 'camp' ? GREEN.accent : it.kind === 'outreach_moment' ? SD.rust : SD.event,
-                  opacity: it.source === 'camp' && it.finn_status !== 'registered' ? 0.55 : 0.85,
+                  position: 'absolute', top: RAIL_Y - 4, left: `${pct}%`, width: `${barW}%`, height: 8,
+                  borderRadius: 4, cursor: 'pointer', zIndex: 2,
+                  background: it.source === 'camp' ? GREEN.accent : isOutreach ? SD.rust : SD.event,
+                  opacity: it.source === 'camp' && it.finn_status !== 'registered' ? 0.6 : 0.9,
+                  boxShadow: '0 0 0 2px #fff',
                 }} />
               ) : (
-                <div onClick={() => onItemClick(it)} style={{ position: 'absolute', top: 72, left: `${startPct}%`, transform: 'translateX(-50%)', cursor: 'pointer' }}>
-                  <ItemGlyph it={it} />
+                <div onClick={() => onItemClick(it)} style={{ position: 'absolute', top: RAIL_Y, left: `${pct}%`, transform: 'translate(-50%, -50%)', cursor: 'pointer', zIndex: 2 }}>
+                  <RailMarker it={it} />
                 </div>
               )}
-              <div onClick={() => onItemClick(it)} style={{
-                position: 'absolute', left: `${startPct}%`,
-                transform: isRange ? 'none' : 'translateX(-50%)',
-                width: 100, textAlign: isRange ? 'left' : 'center', cursor: 'pointer',
-                ...(above ? { bottom: 92 } : { top: 92 }),
-              }}>
+
+              {/* stem */}
+              <div style={{
+                position: 'absolute', left: `${pct}%`, width: 2, background: stemColor, transform: 'translateX(-50%)', zIndex: 1,
+                ...(side === 'above' ? { top: RAIL_Y - stemLen, height: stemLen } : { top: RAIL_Y, height: stemLen }),
+              }} />
+
+              {/* card */}
+              <div
+                onClick={() => onItemClick(it)}
+                style={{
+                  position: 'absolute', left: `${pct}%`, width: 122, cursor: 'pointer', zIndex: 3,
+                  transform: isRange ? 'translateX(-9px)' : 'translateX(-50%)',
+                  ...(side === 'above' ? { bottom: H - (RAIL_Y - stemLen) } : { top: RAIL_Y + stemLen }),
+                  ...cardStyle(isHero, isOutreach),
+                }}
+              >
                 <div style={{
-                  fontSize: emphasized ? 12 : 10.5, fontWeight: emphasized ? 800 : 700,
-                  color: SD.ink, lineHeight: 1.15, letterSpacing: '-0.01em',
-                  overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                  fontSize: isHero ? 12.5 : 11.5, fontWeight: isHero ? 800 : 700,
+                  color: isHero ? SD.cream : SD.ink, lineHeight: 1.2, letterSpacing: '-0.01em',
+                  overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                 }}>{it.label}</div>
-                <div style={{ fontSize: 9, color: SD.inkLo }}>{formatShortDate(it.start_date)}</div>
-                <div style={{ fontSize: 9, fontWeight: 700, color: it.d <= 3 ? (it.kind === 'outreach_moment' ? SD.rust : GREEN.accent) : SD.inkMute }}>
-                  {daysOutText(it.d)}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 5 }}>
+                  <span style={{ fontSize: 9.5, color: isHero ? PETROL.soft : SD.inkLo }}>{formatShortDate(it.start_date)}</span>
+                  {isHero ? (
+                    <span style={{ fontSize: 9.5, fontWeight: 800, color: PETROL.accent, background: SD.cream, borderRadius: 999, padding: '1px 8px' }}>{daysOutText(it.d)}</span>
+                  ) : (
+                    <span style={{ fontSize: 9.5, fontWeight: 700, color: it.d <= 3 ? (isOutreach ? SD.rust : GREEN.accent) : SD.inkMute }}>{daysOutText(it.d)}</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -215,28 +265,32 @@ const KIND_BADGE: Record<string, { label: string; bg: string; color: string }> =
 
 function MobileTimeline({ items, onItemClick }: { items: MergedItem[]; onItemClick: (it: MergedItem) => void }) {
   return (
-    <div className="gs-timeline-mobile" style={{ display: 'none', marginTop: 8 }}>
+    <div className="gs-timeline-mobile" style={{ display: 'none', flexDirection: 'column', gap: 10, marginTop: 8 }}>
       {items.map((it, i) => {
-        const badge = KIND_BADGE[it.kind] ?? KIND_BADGE.other
+        const isHero = i === 0
+        const isOutreach = it.kind === 'outreach_moment'
         const isRange = !!it.end_date && it.end_date !== it.start_date
+        const badge = KIND_BADGE[it.kind] ?? KIND_BADGE.other
         return (
           <div key={`${it.source}-${it.id}`} onClick={() => onItemClick(it)} style={{
-            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: `1px solid ${SD.line}`, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', ...cardStyle(isHero, isOutreach),
           }}>
-            <div style={{ width: 24, display: 'flex', justifyContent: 'center', flexShrink: 0 }}><ItemGlyph it={it} /></div>
+            <RailMarker it={it} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: badge.bg, color: badge.color, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{badge.label}</span>
-                <span style={{ fontSize: 13, fontWeight: i === 0 ? 800 : 650, color: SD.ink }}>{it.label}</span>
+                {!isHero && <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: badge.bg, color: badge.color, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{badge.label}</span>}
+                <span style={{ fontSize: 13, fontWeight: isHero ? 800 : 650, color: isHero ? SD.cream : SD.ink }}>{it.label}</span>
               </div>
-              <div style={{ fontSize: 11, color: SD.inkLo, marginTop: 1 }}>
+              <div style={{ fontSize: 11, color: isHero ? PETROL.soft : SD.inkLo, marginTop: 1 }}>
                 {isRange ? `${formatShortDate(it.start_date)}–${formatShortDate(it.end_date!)}` : formatShortDate(it.start_date)}
                 {it.location ? ` · ${it.location}` : ''}
               </div>
             </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: it.d <= 3 ? (it.kind === 'outreach_moment' ? SD.rust : GREEN.accent) : SD.inkMute, flexShrink: 0 }}>
-              {daysOutText(it.d)}
-            </span>
+            {isHero ? (
+              <span style={{ fontSize: 11, fontWeight: 800, color: PETROL.accent, background: SD.cream, borderRadius: 999, padding: '2px 10px', flexShrink: 0 }}>{daysOutText(it.d)}</span>
+            ) : (
+              <span style={{ fontSize: 11, fontWeight: 700, color: it.d <= 3 ? (isOutreach ? SD.rust : GREEN.accent) : SD.inkMute, flexShrink: 0 }}>{daysOutText(it.d)}</span>
+            )}
           </div>
         )
       })}
@@ -511,7 +565,7 @@ export default function GetSeenClient({
       <style>{`
         @media (max-width: 640px) {
           .gs-timeline-desktop { display: none !important; }
-          .gs-timeline-mobile { display: block !important; }
+          .gs-timeline-mobile { display: flex !important; }
           .gs-toolkit { grid-template-columns: 1fr !important; }
         }
       `}</style>
