@@ -137,20 +137,6 @@ function GhostNumeral({ n, color, opacity }: { n: number | string; color: string
   )
 }
 
-// ─── Eyebrow ──────────────────────────────────────────────────────────────────
-
-function Eyebrow({ text, color }: { text: string; color?: string }) {
-  return (
-    <div style={{
-      fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
-      letterSpacing: '0.1em', color: color ?? M.inkMute,
-      marginBottom: 6,
-    }}>
-      {text}
-    </div>
-  )
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function GetRecruitedClient({
@@ -304,9 +290,8 @@ export default function GetRecruitedClient({
 
         {/* ── Queue section ──────────────────────────────────────── */}
         <section style={{ marginBottom: 36 }}>
-          <Eyebrow text="QUEUE" color={M.persimmon} />
           <h2 style={{
-            margin: '0 0 18px', fontSize: 'clamp(18px, 2.5vw, 22px)', fontWeight: 700,
+            margin: '0 0 16px', fontSize: 'clamp(18px, 2.5vw, 22px)', fontWeight: 700,
             letterSpacing: '-0.03em', color: M.ink, fontStyle: 'italic',
           }}>Up next.</h2>
 

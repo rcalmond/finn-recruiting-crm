@@ -153,14 +153,8 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
 
   return (
     <section style={{ marginBottom: 32 }}>
-      {/* Eyebrow + heading with collapse */}
-      <div style={{ marginBottom: collapsed ? 0 : 14 }}>
-        <div style={{
-          fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
-          letterSpacing: '0.1em', color: SD.inkMute, marginBottom: 4,
-        }}>
-          Pipeline
-        </div>
+      {/* Heading with collapse */}
+      <div style={{ marginBottom: collapsed ? 0 : 16 }}>
         <button
           onClick={toggleCollapse}
           style={{
