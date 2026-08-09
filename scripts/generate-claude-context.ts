@@ -567,16 +567,16 @@ and are legacy — note this in contact log if surfaced.
 - **Auth**: Supabase Auth
 - **Styling**: Tailwind CSS + inline styles (March parchment vocabulary)
 - **Deployment**: Vercel (auto-deploy from main; no Vercel CLI — see CLAUDE.md)
-- **Design vocabulary**: Parchment base (#F6F1E8), rust (#B5502F) = act-now accent, warm charcoal (#2E2B28) = weight/endgame, calm green (#2D6A4F) = early phases, ink (#0E0E0E) = primary text
+- **Design vocabulary** (jewel system, August 8 2026 — continuity through REGISTER, not hue): Parchment base (#F6F1E8), ink (#0E0E0E) = primary text. Jewel phase ladder (in-app AND marketing): emerald (#1E6B4C) = Get Ready, petrol (#0E5F6B) = Get Seen, persimmon (#C13E24, AA-adjusted from #D0492E) = Get Recruited AND the page-level act-accent, violet (#3E2C5E) = Get In. Warm charcoal (#2E2B28) = offer/judgment weight register (Get In offer cards, marketing judgment box). Hero body text renders solid cream (#FBF6EC) on jewel fills — opacity-blended cream fails AA on lighter fills. Rust (#B5502F) is now LEGACY (persimmon replaced it as the act-accent); it survives only as a data-semantic color — the timeline outreach-send glyph, the >90d freshness band, and some category pills. Act-colors, weight-colors, and data-semantic colors are distinct roles that must not collide.
 - **Public / auth split**: The root route \`/\` is now a PUBLIC, auth-free marketing page (see the Marketing Front Door section in 9). \`/demo\` is a public stub. Everything else is auth-gated. Auth is enforced by allowlist in \`src/proxy.ts\` (Next middleware): only \`/\`, \`/demo\`, \`/auth/*\`, \`/api/*\`, and \`/design-preview/*\` skip the login redirect — when adding a new public route, add it to that allowlist.
-- **Navigation**: Four journey phases + Schools + Settings
-  - \`/get-ready\` — profile, assets (visual cards + Test Scores), messages, school list, School Discovery (live — facet browse + find-more, migration 059)
-  - \`/get-seen\` — the merged 10-week calendar timeline (camps + showcases/tournaments + outreach moments), camps, campaigns
-  - \`/get-recruited\` — the daily surface (queue, pipeline grid); signed-in users also land here from the marketing page's Open-the-app button
-  - \`/get-in\` — offers, admissions, the endgame
+- **Navigation**: Four journey phases + Schools + Settings. Every phase page follows the cascade grammar (masthead = name + subtitle; full-fill jewel hero card; no eyebrows; second-person). All four jewel migrations are in-app.
+  - \`/get-ready\` — emerald. Two zones: The kit (2x2 asset grid + Your Talking Points) and The list (Targets segmented rows + School Discovery, migrations 059 + 062)
+  - \`/get-seen\` — petrol. The calendar (the merged 10-week timeline via the shared \`MergedTimeline\` component) + an Every-way-in toolkit (questionnaires, film, outreach, coaches)
+  - \`/get-recruited\` — persimmon. The daily surface (queue hero + 4-row board — Awaiting Finn folded into Active with a ring marker); signed-in users also land here from the marketing page's Open-the-app button
+  - \`/get-in\` — violet chrome, charcoal offer cards. Offers, admissions, the endgame (pickEndgameMove hero)
   - \`/schools\` — top-level, phase-independent
   - Settings — collapsed: Coach Changes, Parse Review, Classification Review, Camp Proposals, Gmail Settings
-  - Routes for Campaigns, Messages, Library, Camps remain reachable via deep links from phase pages
+  - **Renamed surfaces (routes + nav labels unchanged — consistency pass pending)**: Talking Points = \`/messages\`, The kit = \`/assets\`, Calendar = \`/camps\`. Calendar's month-grid view was removed (the shared timeline is the temporal overview). Campaigns and Library remain reachable via deep links from phase pages.
 - **Key paths**:
   - \`src/lib/types.ts\` — TypeScript types (School, ContactLogEntry, ActionItem, SchoolOffer, etc.)
   - \`src/lib/supabase.ts\` — Supabase client initialization
@@ -2289,6 +2289,42 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 3. Silent-null reads are multi-symptom bugs — the object-vs-array embed mismatch presented as three unrelated display issues; when a status field seems universally ignored, check the read before the logic.
 4. Structured data beats prose for anything a component renders — the player_scores block both fixed fragile parsing and surfaced a real fact (the fourth AP) the prose had buried.
 5. The docs generator has sharp edges, now three: edits go to BOTH the live file and the fallback constants; delete-and-regenerate discards direct edits; and Recent Changes text cannot contain backticks (it lives in a JS template literal). Consolidate these into an editing-safely note in CLAUDE.md at a future pass.
+
+### Jewel Palette + Full-Surface Rework (August 8, 2026)
+
+**1. Marketing palette v2 — the jewel ladder.** The bold-fill phase cards (first shipped in green/gold/rust/charcoal) exposed two flaws: the four colors accreted semantically rather than being designed as a set, and charcoal collided with the judgment-layer box. After mockup rounds rejecting hue-adjacent earth ramps (mud), the winning principle: continuity through REGISTER, not hue — four distinct jewel tones sharing depth and saturation. Final ladder (Option I): emerald 1E6B4C (Get Ready), petrol 0E5F6B (Get Seen), persimmon D0492E with AA-adjusted C13E24 (Get Recruited), violet 3E2C5E (Get In). Persimmon became the page-level act-accent replacing rust on the marketing page. Supporting fixes: opacity-blended body text fails AA on light fills — bodies render solid FBF6EC (systemic finding); the 2x2 board flipped so Close sits top-right and its chips became 16-24 real discovery-universe schools; phases copy became "Your recruiting roadmap." with second-person voice throughout.
+
+**2. The cascade grammar.** A repeated page formula emerged and was applied to every phase page: masthead = phase name + descriptive subtitle only (status lines die; the full-fill hero card is the single message), single bold-italic section headers (all small-caps eyebrows removed app-wide), second-person voice, and the page's jewel color as chrome while data semantics (category stripes, timeline dot colors, tier chips) stay untouched.
+
+**3. Get Ready (three passes).** Two zones (The kit / The list); 2x2 equal-weight asset grid; message inventory renamed Your Talking Points with real metrics — staleness (6 updates stale at 60d+) and story-coverage (top schools have heard 37 percent — both instantly useful); Targets card rebuilt as four labeled segmented rows (tier, depth, selectivity via the discovery id-bridge with an honest unrated bucket, division) with stepped ramps and counts-in-legend; Discover facets became multi-select checkboxes; migration 062 added discovery_schools.programs text array — engineering backfilled 326/326, six-program vocabulary (engineering, business, nursing, premed_health, computer_science, education) seeded deterministically via the shared supabase/scripts/program-tags.ts module used by both the live pass and the committed seed. Exclusion bug fixed: CO School of Mines vs Colorado School of Mines token gap (working row renamed canonical). KNOWN OPEN: the same-class WashU alias fix (send short_name/aliases through the exclude id-bridge) was recommended but not yet confirmed shipped.
+
+**4. Get Seen.** First in-app jewel migration (petrol). Purpose restructure: The calendar + an Every-way-in 2x2 toolkit — Questionnaires (rq_status: 10 of 10 complete), Film (resurrected the orphaned BatchReelModal, restyled to parchment/petrol; coverage 5 of 6 top schools with the sole gap IIT on the old striker reel), Outreach at scale (campaigns), Coaches on file (32). Timeline bold treatment: events as cards-on-stems, next event as a filled petrol hero with days-out pill, enlarged ring markers vs rust rounded-square send glyphs, 4px rail, black TODAY post, collision-stagger mechanism (dormant at current density). Polish pass: cards edge-clamped inside the container, 1-3 day ranges render as dots (bars only 4+ days), height tightened 340 to 224.
+
+**5. Get Recruited.** Persimmon migration (C13E24 read from marketing components). Masthead status line and offer fragment removed (queue priority carries both). Priority card became a full-fill persimmon hero (edge treatment retired; ghost numerals raised to visible — hero cream 15 percent, secondaries 8.5). Board redesign: the Awaiting Finn row REMOVED on the insight that awaiting is whose-turn, not a temperature — hot schools fold into Active with a 2px persimmon ring marker (legend: ring = awaiting your reply); rows are now a clean Active/Cooling/Cold/Prospecting gradient; marketing zone tints and chip styling pulled through. Display-layer only — classifier, filters, pickDailyPriority untouched.
+
+**6. Get In.** Violet chrome (offer cards stay charcoal — weight register preserved; verified distinct by hue and role). New pickEndgameMove rule engine: unmet open-offer conditions, then near key dates within 21 days, then stage-5+ missing visits, then quiet — tie-break nearest date then newest offer. Live result: Clark "Complete the Clark Common App." with the 40K-floor framing — the same conclusion pickDailyPriority reaches on Get Recruited, two engines agreeing from the same data.
+
+**7. Talking Points page (was Messages).** Lifecycle sections replace the flat list: Needs a look (stale/expired triage with inline Refresh/Retire — opened with all 6 updates, In rotation opened EMPTY, the finding not a bug), In rotation (with per-row heard-counts from one bulk school_message_log query), Your questions, Archived collapsed. Collapsible phase-guidance panel (What coaches need to hear, phase by phase) in the jewel colors, static copy, localStorage-remembered.
+
+**8. The kit (was Assets).** Slot model: The essentials 2x2 (reel/resume/transcript/scores, filled and designed-empty states, freshness banding) + The shelf. Currency rule confirmed shared with DraftModal and Get Ready (is_current newest-first) — the slot shows the file that would attach to an email. Per-type upload guidance lines.
+
+**9. Calendar (was Camps).** The merged timeline extracted to a shared component (src/components/get-seen/MergedTimeline.tsx) rendered identically by Get Seen and Calendar. Structure: timeline hero, one unified chronological Up next list interleaving camps and events with kind-appropriate actions, Past and done collapsed (25-item tail out of the scroll path). The month-grid calendar view and list/calendar toggle KILLED (redundant with the timeline); CampsCalendar.tsx orphaned pending delete. Old-palette buttons and tier colors migrated; dead filter state removed (sections beat filters at this volume).
+
+**Architectural patterns reinforced:**
+
+1. Palette continuity comes from register (shared depth and saturation), not hue adjacency — and act-colors, weight-colors, and data-semantic colors are different roles that must not collide.
+2. The cascade grammar: one hero message per page, derived by a small deterministic explainable rule engine; status lines and eyebrows are clutter once the hero exists.
+3. Whose-turn is not a temperature — orthogonal states get markers, not axis rows.
+4. When two pages render the same visual, extract the component before the second render ships divergence.
+5. Structure beats filters at small data volumes; collapsed disclosures beat pagination for long tails.
+6. Metrics earn their place by changing behavior: staleness and coverage replaced raw counts and immediately surfaced real chores (6 stale updates, 37 percent coverage, the IIT reel gap).
+
+**Open items (as of August 8, 2026):**
+
+- WashU alias exclusion fix — recommended (send short_name/aliases through the exclude id-bridge so "Washington University" resolves to "Washington University in St. Louis"), NOT yet confirmed shipped. Same class as the Mines fix.
+- Route/nav rename consistency pass — user-facing names Talking Points, The kit, Calendar now diverge from routes /messages, /assets, /camps and their nav labels. Pending.
+- CampsCalendar.tsx — orphaned after the month-grid removal; safe to delete in a follow-up.
+- DraftModal coachId-slot quirk — BatchReelModal passes a schoolId in the coachId slot (pre-existing, unchanged); flagged for a future cleanup.
 
 ---
 
