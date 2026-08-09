@@ -2,31 +2,11 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import GetSeenClient from '@/components/GetSeenClient'
 import type { CalendarEventKind } from '@/lib/types'
-
-export interface UpcomingCampItem {
-  id: string
-  name: string
-  start_date: string
-  end_date: string | null
-  host_school_short_name: string | null
-  host_school_name: string
-  finn_status: string | null  // 'registered' | 'targeted' | 'interested' | null
-}
+import type { UpcomingCampItem, TimelineEventItem } from '@/components/get-seen/MergedTimeline'
 
 // Only camps Finn is actually pursuing belong on the timeline. Declined
 // (and null / attended / other) camps are excluded from the merged calendar.
 const TIMELINE_CAMP_STATUSES = ['interested', 'targeted', 'registered']
-
-// Lightweight event shape for the merged timeline (calendar_events, migration 061).
-export interface TimelineEventItem {
-  id: string
-  kind: CalendarEventKind
-  name: string
-  start_date: string
-  end_date: string | null
-  location: string | null
-  status: string
-}
 
 export default async function GetSeenPage() {
   const supabase = await createClient()
