@@ -23,7 +23,6 @@ interface SchoolContext {
   conference: string | null
   location: string | null
   status: string
-  notes: string | null
 }
 
 interface CoachContext {
@@ -141,7 +140,6 @@ ${RECRUITING_JUDGMENT}`
   usr.push(`Tier ${input.school.category}, ${input.school.division}${input.school.conference ? `, ${input.school.conference}` : ''}`)
   usr.push(`Status: ${input.school.status}`)
   usr.push(`Location: ${input.school.location ?? 'unknown'}`)
-  if (input.school.notes) usr.push(`Notes: ${input.school.notes}`)
   usr.push('')
 
   usr.push(`COACHES:`)

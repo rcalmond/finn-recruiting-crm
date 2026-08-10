@@ -96,7 +96,6 @@ export default function DashboardClient({ user }: { user: User }) {
         lines.push(`  Location: ${s.location || '—'}`)
         lines.push(`  Admit Likelihood: ${s.admit_likelihood || '—'}`)
         lines.push(`  Last Contact: ${formatDate(s.last_contact) || '—'}`)
-        if (s.notes) lines.push(`  Notes: ${s.notes.replace(/\n/g, ' | ')}`)
         const actions = actionsBySchool[s.id]
         if (actions && actions.length > 0) {
           lines.push(`  Action Items:`)

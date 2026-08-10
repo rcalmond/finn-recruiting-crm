@@ -179,14 +179,13 @@ export function buildCallPrepUserPrompt(params: {
   contactHistory: ContactLogRow[]
   camps: CampRow[]
   declineHistory: ContactLogRow[]
-  strategicNotes: string | null
   currentAssets: CurrentAssets
   framingNotes: string | null
   inventoryMessages: Array<{ title: string; type: string; notes: string | null }>
 }): string {
   const {
     school, targetCoach, coaches, contactHistory, camps,
-    declineHistory, strategicNotes, currentAssets,
+    declineHistory, currentAssets,
     framingNotes, inventoryMessages,
   } = params
 
@@ -210,7 +209,6 @@ export function buildCallPrepUserPrompt(params: {
   lines.push(`Location: ${school.location ?? 'Unknown'}`)
   lines.push(`Pipeline status: ${school.status}`)
   if (school.admit_likelihood) lines.push(`Admit likelihood: ${school.admit_likelihood}`)
-  if (school.notes) lines.push(`School notes: ${school.notes}`)
   lines.push('')
 
   // ── Target coach ──
@@ -236,13 +234,6 @@ export function buildCallPrepUserPrompt(params: {
   if (framingNotes) {
     lines.push('=== FRAMING NOTES FROM RANDY/FINN ===')
     lines.push(framingNotes)
-    lines.push('')
-  }
-
-  // ── Strategic notes ──
-  if (strategicNotes) {
-    lines.push('=== FINN\'S STRATEGIC NOTES FOR THIS SCHOOL ===')
-    lines.push(strategicNotes)
     lines.push('')
   }
 

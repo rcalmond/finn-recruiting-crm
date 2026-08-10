@@ -35,7 +35,6 @@ export interface School {
   last_video_title: string | null
   last_video_sent_at: string | null
   rq_link: string | null
-  notes: string | null
   generic_team_email: string | null
   aliases: string[]
   latitude: number | null

@@ -58,7 +58,6 @@ export interface CampaignPersonalizeParams {
   conference: string | null
   location: string | null
   category: string
-  notes: string | null
   coachName: string | null
   coachRole: string | null
   recentInbounds: Array<{
@@ -85,7 +84,6 @@ export function buildCampaignPersonalizePrompt(p: CampaignPersonalizeParams): st
   lines.push(`Division: ${p.division}${p.conference ? ` — ${p.conference}` : ''}`)
   if (p.location) lines.push(`Location: ${p.location}`)
   lines.push(`Tier: ${p.category} (A = highest priority, C = lower)`)
-  if (p.notes) lines.push(`Notes: ${p.notes}`)
   lines.push('')
 
   if (p.coachName) {
@@ -230,7 +228,7 @@ export async function buildEmailDraftPrompt(
       : Promise.resolve({ data: null }),
   ])
 
-  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, strategicNotes, statusUpdates, currentAssets } = ctx
+  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, statusUpdates, currentAssets } = ctx
 
   const currentDate = formatCurrentDate()
 
@@ -401,7 +399,6 @@ Body uses plain line breaks between paragraphs, no HTML.`)
     usr.push(`- Tier ${school.category}, Division ${school.division}${school.conference ? `, ${school.conference}` : ''}`)
     usr.push(`- Location: ${school.location ?? 'unknown'}`)
     usr.push(`- Pipeline status: ${school.status}`)
-    if (school.notes) usr.push(`- Notes: ${school.notes}`)
   }
   usr.push('')
 
@@ -475,14 +472,6 @@ Body uses plain line breaks between paragraphs, no HTML.`)
   }
   usr.push('')
 
-  // ── Strategic notes ──
-  if (strategicNotes) {
-    usr.push(`FINN'S STRATEGIC NOTES FOR THIS SCHOOL:`)
-    usr.push(strategicNotes)
-    usr.push('')
-    usr.push(`These are Finn's own thoughts about how to handle this school. Weigh them when crafting the email.`)
-    usr.push('')
-  }
 
   // ── Status updates from Finn ──
   if (statusUpdates && statusUpdates.length > 0) {
@@ -610,7 +599,7 @@ export async function buildTopicSuggestPrompt(
     admin.from('school_message_log').select('message_id').eq('school_id', schoolId),
   ])
 
-  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, strategicNotes, statusUpdates, currentAssets } = ctx
+  const { school, coaches, contactLog: history, upcomingCamps: camps, declineHistory: declineRows, actionItems, statusUpdates, currentAssets } = ctx
 
   const currentDate = formatCurrentDate()
 
@@ -667,7 +656,6 @@ Return a JSON array of 3 strings. No preamble.`
     usr.push(`- Tier ${school.category}, Division ${school.division}${school.conference ? `, ${school.conference}` : ''}`)
     usr.push(`- Location: ${school.location ?? 'unknown'}`)
     usr.push(`- Pipeline status: ${school.status}`)
-    if (school.notes) usr.push(`- Notes: ${school.notes}`)
   }
   usr.push('')
 
@@ -727,12 +715,6 @@ Return a JSON array of 3 strings. No preamble.`
   }
   usr.push('')
 
-  // Strategic notes
-  if (strategicNotes) {
-    usr.push(`FINN'S STRATEGIC NOTES FOR THIS SCHOOL:`)
-    usr.push(strategicNotes)
-    usr.push('')
-  }
 
   // Status updates from Finn
   if (statusUpdates && statusUpdates.length > 0) {
@@ -836,7 +818,7 @@ interface PrepCamp {
 }
 
 export function buildPrepPrompt(params: {
-  school: { id: string; name: string; short_name?: string | null; category: string; division: string; conference: string | null; location: string | null; notes: string | null; status: string; head_coach?: string | null; admit_likelihood?: string | null }
+  school: { id: string; name: string; short_name?: string | null; category: string; division: string; conference: string | null; location: string | null; status: string; head_coach?: string | null; admit_likelihood?: string | null }
   contactHistory: Array<{
     date: string
     direction: string
@@ -854,10 +836,9 @@ export function buildPrepPrompt(params: {
     coach_name: string | null
     summary: string | null
   }>
-  strategicNotes?: string | null
   statusUpdates?: StatusUpdateRow[]
 }): string {
-  const { school, contactHistory, globalQuestions, coaches, camps, declineRows, strategicNotes, statusUpdates } = params
+  const { school, contactHistory, globalQuestions, coaches, camps, declineRows, statusUpdates } = params
   const currentDate = formatCurrentDate()
   const lines: string[] = []
 
@@ -871,7 +852,6 @@ export function buildPrepPrompt(params: {
   lines.push(`- Location: ${school.location || 'Unknown'}`)
   lines.push(`- Pipeline status: ${school.status}`)
   if (school.admit_likelihood) lines.push(`- Admit likelihood: ${school.admit_likelihood}`)
-  if (school.notes) lines.push(`- Notes: ${school.notes}`)
   lines.push('')
 
   // Coaches
@@ -915,15 +895,6 @@ export function buildPrepPrompt(params: {
     lines.push(`- None`)
   }
   lines.push('')
-
-  // Strategic notes
-  if (strategicNotes) {
-    lines.push(`FINN'S STRATEGIC NOTES FOR THIS SCHOOL:`)
-    lines.push(strategicNotes)
-    lines.push('')
-    lines.push(`Address these notes in the call prep — what's Finn trying to figure out? What questions should he prioritize?`)
-    lines.push('')
-  }
 
   // Status updates from Finn
   if (statusUpdates && statusUpdates.length > 0) {

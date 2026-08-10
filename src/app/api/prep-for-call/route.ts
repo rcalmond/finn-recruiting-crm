@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     const admin = serviceClient()
 
-    const { school, coaches, contactLog, upcomingCamps: camps, declineHistory: declineRows, strategicNotes, statusUpdates, currentAssets } =
+    const { school, coaches, contactLog, upcomingCamps: camps, declineHistory: declineRows, statusUpdates, currentAssets } =
       await fetchSchoolContext(admin, schoolId)
 
     if (!school) {
@@ -47,7 +47,6 @@ export async function POST(req: NextRequest) {
       coaches,
       camps,
       declineRows,
-      strategicNotes,
       statusUpdates,
     })
 

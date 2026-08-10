@@ -1332,7 +1332,7 @@ function AddActionForm({ onAdd }: { onAdd: (action: string, dueDate: string, own
         <button
           onClick={() => setOpen(false)}
           style={{
-            padding: '4px 10px', borderRadius: 6, border: `1px solid ${SD.line}`,
+            padding: '4px 12px', borderRadius: 999, border: `1px solid ${SD.line}`,
             background: '#fff', fontSize: 11, fontWeight: 600,
             cursor: 'pointer', fontFamily: 'inherit', color: SD.inkLo,
           }}
@@ -1341,8 +1341,8 @@ function AddActionForm({ onAdd }: { onAdd: (action: string, dueDate: string, own
           onClick={handleSave}
           disabled={!action.trim() || saving}
           style={{
-            padding: '4px 10px', borderRadius: 6, border: 'none',
-            background: SD.ink, color: '#fff', fontSize: 11, fontWeight: 600,
+            padding: '4px 12px', borderRadius: 999, border: 'none',
+            background: SD.ink, color: '#fff', fontSize: 11, fontWeight: 650,
             cursor: !action.trim() || saving ? 'not-allowed' : 'pointer',
             fontFamily: 'inherit', opacity: !action.trim() || saving ? 0.5 : 1,
           }}
@@ -1691,23 +1691,6 @@ function NotesZone({
   onSaveActionItem: (action: string) => Promise<void>
   onSaveContactLog: (entry: { direction: string; channel: string; date: string; summary: string }) => Promise<void>
 }) {
-  // Legacy content (read-only): school.notes + the retired strategic notes
-  // (school_message_plan.finn_notes). Fetched only to decide whether to surface
-  // the collapsed Legacy notes disclosure — nothing here writes them anymore.
-  const [legacyStrat, setLegacyStrat] = useState<string | null>(null)
-  const [legacyOpen, setLegacyOpen] = useState(false)
-  useEffect(() => {
-    let cancelled = false
-    fetch(`/api/schools/${school.id}/message-plan`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled) setLegacyStrat((d?.plan?.finn_notes ?? '').trim() || null) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [school.id])
-
-  const legacyNotes = (school.notes ?? '').trim() || null
-  const hasLegacy = !!legacyNotes || !!legacyStrat
-
   return (
     <section style={{ marginTop: 'clamp(32px, 5vw, 48px)' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -1772,49 +1755,6 @@ function NotesZone({
           />
         </SidebarCard>
       </div>
-
-      {/* Legacy notes — read-only, only when there is legacy content to preserve */}
-      {hasLegacy && (
-        <div style={{ marginTop: 16 }}>
-          <button
-            onClick={() => setLegacyOpen(o => !o)}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', gap: 8, padding: 0,
-            }}
-          >
-            <span style={{ fontSize: 12, fontWeight: 700, color: SD.inkLo }}>Legacy notes</span>
-            <span style={{
-              fontSize: 10, color: SD.inkMute,
-              transform: legacyOpen ? 'rotate(180deg)' : 'none',
-              transition: 'transform 0.15s', display: 'inline-block',
-            }}>&#9660;</span>
-          </button>
-          {legacyOpen && (
-            <div style={{
-              marginTop: 10, background: SD.paperDeep, border: `1px solid ${SD.line}`,
-              borderRadius: 10, padding: '14px 16px',
-              display: 'flex', flexDirection: 'column', gap: 14,
-            }}>
-              <div style={{ fontSize: 11, color: SD.inkMute, fontStyle: 'italic' }}>
-                Kept for reference — no longer edited here.
-              </div>
-              {legacyNotes && (
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: SD.inkLo, marginBottom: 4 }}>Notes</div>
-                  <div style={{ fontSize: 12, color: SD.inkMid, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{legacyNotes}</div>
-                </div>
-              )}
-              {legacyStrat && (
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: SD.inkLo, marginBottom: 4 }}>Strategic notes</div>
-                  <div style={{ fontSize: 12, color: SD.inkMid, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{legacyStrat}</div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
     </section>
   )
 }
@@ -1882,8 +1822,8 @@ function LogisticsStrip({
                 <button
                   onClick={async () => await onUpdateSchool(rqMarkUpdatedPatch())}
                   style={{
-                    background: 'none', border: `1px solid ${SD.line}`, borderRadius: 4,
-                    padding: '1px 6px', fontSize: 9, fontWeight: 600, cursor: 'pointer',
+                    background: 'none', border: `1px solid ${SD.line}`, borderRadius: 999,
+                    padding: '2px 8px', fontSize: 9, fontWeight: 600, cursor: 'pointer',
                     fontFamily: 'inherit', color: SD.tealDeep,
                   }}
                 >Mark updated</button>

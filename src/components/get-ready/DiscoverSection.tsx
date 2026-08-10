@@ -45,20 +45,18 @@ function toSchoolInsert(d: {
   name: string; short_name: string | null; division: string; conference: string | null
   region: string | null; academic_band: AcademicBand | null; has_engineering: boolean
   city: string | null; state?: string | null
-}, extraNote?: string): Omit<School, 'id' | 'created_at' | 'updated_at' | 'sort_order'> {
+}): Omit<School, 'id' | 'created_at' | 'updated_at' | 'sort_order'> {
+  // Note: schools.notes was retired (migration 064). Discovery adds no longer
+  // fold facet metadata into a notes string — the facets remain browsable in
+  // the discovery universe.
   const location = [d.city, d.state].filter(Boolean).join(', ') || null
-  const facetBits = [
-    d.region, d.academic_band ? ACADEMIC_LABELS[d.academic_band] : null,
-    d.has_engineering ? 'engineering' : null,
-  ].filter(Boolean).join(' · ')
-  const note = ['Added from Discovery', d.division, facetBits, extraNote].filter(Boolean).join(' · ')
   return {
     name: d.name, short_name: d.short_name, category: 'C', status: 'Not Contacted',
     division: d.division as unknown as Division, conference: d.conference, location,
     last_contact: null, head_coach: null, coach_email: null, admit_likelihood: null,
     rq_status: null, rq_updated_at: null, videos_sent: false,
     last_video_url: null, last_video_title: null, last_video_sent_at: null,
-    rq_link: null, notes: note, generic_team_email: null, aliases: [],
+    rq_link: null, generic_team_email: null, aliases: [],
     latitude: null, longitude: null, recruiting_stage: 1,
   }
 }
@@ -291,7 +289,7 @@ export default function DiscoverSection() {
     const err = await insertSchool(toSchoolInsert({
       name: p.name, short_name: null, division: p.division ?? 'D3', conference: null,
       region: p.region, academic_band: null, has_engineering: false, city: null, state: null,
-    }, 'verify program'))
+    }))
     setAdding(prev => { const n = new Set(prev); n.delete(p.name); return n })
     if (err) alert(`Could not add ${p.name}: ${err.message}`)
   }, [supabase, insertSchool, addDiscovery])

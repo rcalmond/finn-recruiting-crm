@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import type { CallPrepDoc, Coach } from '@/lib/types'
-import UploadPrepDocModal from './UploadPrepDocModal'
 
 const SD = {
   paper: '#F6F1E8', ink: '#0E0E0E', inkMid: '#4A4A4A',
@@ -48,34 +47,12 @@ interface Props {
 
 export default function CallPrepSection({ docs, schoolId, schoolName, coaches, onRefetch }: Props) {
   const [historyOpen, setHistoryOpen] = useState(false)
-  const [uploadOpen, setUploadOpen] = useState(false)
 
   const latest = docs[0] ?? null
   const history = docs.slice(1)
 
   return (
     <div style={{ marginBottom: 24 }}>
-      {/* Section header */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginBottom: 12,
-      }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: SD.ink, letterSpacing: '0.02em' }}>
-          CALL PREP
-        </div>
-        <button
-          onClick={() => setUploadOpen(true)}
-          style={{
-            padding: '4px 10px', borderRadius: 5,
-            border: `1px solid ${SD.line}`, background: SD.white,
-            fontSize: 11, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'inherit', color: SD.inkMid,
-          }}
-        >
-          Upload
-        </button>
-      </div>
-
       {/* Latest doc */}
       {latest ? (
         <div style={{
@@ -100,7 +77,7 @@ export default function CallPrepSection({ docs, schoolId, schoolName, coaches, o
             <button
               onClick={() => window.open(`/api/call-prep-docs/${latest.id}`, '_blank')}
               style={{
-                padding: '5px 12px', borderRadius: 5,
+                padding: '5px 14px', borderRadius: 999,
                 border: `1px solid ${SD.line}`, background: SD.white,
                 fontSize: 11, fontWeight: 600, cursor: 'pointer',
                 fontFamily: 'inherit', color: SD.inkMid,
@@ -127,7 +104,7 @@ export default function CallPrepSection({ docs, schoolId, schoolName, coaches, o
             Generate a prep doc before your next call with this coaching staff.
           </div>
           <div style={{ fontSize: 12, color: SD.inkMute, marginTop: 4 }}>
-            Use the <strong>Prep for call</strong> button on the coach card to generate one, or upload an existing doc.
+            Use the <strong>Prep for a call</strong> button above to generate one.
           </div>
         </div>
       )}
@@ -185,18 +162,6 @@ export default function CallPrepSection({ docs, schoolId, schoolName, coaches, o
             </div>
           )}
         </div>
-      )}
-
-      {/* Upload modal */}
-      {uploadOpen && (
-        <UploadPrepDocModal
-          schoolId={schoolId}
-          coaches={coaches}
-          onClose={(uploaded) => {
-            setUploadOpen(false)
-            if (uploaded) onRefetch()
-          }}
-        />
       )}
     </div>
   )

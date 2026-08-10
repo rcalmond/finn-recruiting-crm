@@ -119,7 +119,6 @@ export async function POST(req: NextRequest) {
           contactHistory: ctx.contactLog,
           camps: ctx.upcomingCamps,
           declineHistory: ctx.declineHistory,
-          strategicNotes: ctx.strategicNotes,
           currentAssets: ctx.currentAssets,
           framingNotes: framingNotes?.trim() || null,
           inventoryMessages,

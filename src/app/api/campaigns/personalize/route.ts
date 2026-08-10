@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     // Fetch school context
     const { data: school } = await db
       .from('schools')
-      .select('name, division, conference, location, category, notes')
+      .select('name, division, conference, location, category')
       .eq('id', schoolId)
       .single()
 
@@ -81,7 +81,6 @@ export async function POST(req: NextRequest) {
       conference:    school.conference,
       location:      school.location,
       category:      school.category,
-      notes:         school.notes,
       coachName,
       coachRole,
       recentInbounds: (inboundLogs ?? []).map(e => ({

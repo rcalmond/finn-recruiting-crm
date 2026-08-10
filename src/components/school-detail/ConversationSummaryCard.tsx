@@ -148,7 +148,7 @@ export default function ConversationSummaryCard({ schoolId, schoolName: _schoolN
           onClick={handleRefresh}
           disabled={refreshing}
           style={{
-            padding: '8px 20px', borderRadius: 7, border: 'none',
+            padding: '8px 20px', borderRadius: 999, border: 'none',
             background: refreshing ? SD.line : SD.ink,
             color: refreshing ? SD.inkMute : '#fff',
             fontSize: 13, fontWeight: 600,
@@ -209,10 +209,10 @@ export default function ConversationSummaryCard({ schoolId, schoolName: _schoolN
         <button
           onClick={() => onDraft(action.category === 'reply' ? 'reply' : 'fresh', undefined, undefined, action)}
           style={{
-            padding: '7px 16px', borderRadius: 6,
+            padding: '7px 16px', borderRadius: 999,
             border: btn.border ?? 'none',
             background: btn.bg, color: btn.color,
-            fontSize: 12, fontWeight: 600,
+            fontSize: 12, fontWeight: 650,
             cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
@@ -250,7 +250,7 @@ export default function ConversationSummaryCard({ schoolId, schoolName: _schoolN
           onClick={handleRefresh}
           disabled={refreshing}
           style={{
-            padding: '3px 10px', borderRadius: 5,
+            padding: '4px 12px', borderRadius: 999,
             border: `1px solid ${SD.line}`, background: 'transparent',
             fontSize: 11, fontWeight: 600, color: SD.inkMute,
             cursor: refreshing ? 'not-allowed' : 'pointer',

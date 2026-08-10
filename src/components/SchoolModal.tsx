@@ -73,7 +73,6 @@ export default function SchoolModal(props: Props) {
   const [coachEmail, setCoachEmail] = useState(s?.coach_email ?? '')
   const [admit, setAdmit] = useState<AdmitLikelihood | ''>(s?.admit_likelihood ?? 'Target')
   const [rqStatus, setRqStatus] = useState(s?.rq_status ?? '')
-  const [notes, setNotes] = useState(s?.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [draftingEmail, setDraftingEmail] = useState(false)
@@ -167,7 +166,6 @@ export default function SchoolModal(props: Props) {
       coach_email: coachEmail || null,
       admit_likelihood: (admit || null) as AdmitLikelihood | null,
       rq_status: rqStatus || null,
-      notes: notes || null,
     }
     if (isEdit) {
       await (props as EditProps).onUpdate(data)
@@ -415,9 +413,6 @@ export default function SchoolModal(props: Props) {
                   </select>
                 </Field>
               </div>
-              <Field label="Notes">
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} style={{ ...fieldStyle, resize: 'vertical' }} />
-              </Field>
 
               {/* Action Items (edit mode only) */}
               {isEdit && (

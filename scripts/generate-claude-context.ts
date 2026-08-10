@@ -305,7 +305,6 @@ recruiting_stage    smallint not null default 1
                     -- 1=Research, 2=Reach out, 3=Engage, 4=Evaluate, 5=Advance, 6=Decide
                     -- Auto-derived floor for 1-3 from contact_log; manual promotion for 4-6
                     -- High-water mark: never auto-demotes
-notes               text
 created_at          timestamptz
 updated_at          timestamptz
 \`\`\`
@@ -2354,6 +2353,7 @@ const FALLBACK_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-09 | schools.notes retired end to end (content reviewed and discarded; removed from all generation prompts, UI, and via migration 064 the schema); strategic-notes generation input retired (live data empty; message-plan machinery untouched); Call prep upload entry point removed (generation is the section's action); school detail button audit — every action normalized to the house primary/filled, secondary/outlined, tertiary/link grammar with consistent radius and type. | Cleanup + Schema + UX |
 | 2026-08-09 | School detail refinement: stage/milestone popovers gain standard dismissal (click-out, Esc, X); Show-alternatives deprecated from the summary card; Call prep promoted to its own section with purpose copy, doc list, and empty state; notes consolidated — Strategic notes and Notes cards retired (status updates carry the role), masthead +Note replaced by an in-zone add with three capture types, legacy content preserved read-only; timeline Log entry form restyled to the house language. | UX |
 | 2026-08-09 | School detail rework: reorganized from feature-era accretion into four mental-mode zones — masthead + standing state (consolidated header block; charcoal offer cards surfaced above the fold; ConversationSummaryCard as the page hero), The conversation (timeline, recent-8 with show-all), The staff (coaches + call prep), Your notes (the four capture panels consolidated into one review area) — with camps + RQ as a compact logistics strip. Neutral chrome (page serves every phase), de-eyebrowed, tightened rows, no logic changes. | UX |
 | 2026-08-09 | Schools page rework: row-expand accordion removed — whole row navigates to school detail (real link semantics); new collapsed Bench section surfaces Nope/Inactive schools (a bench, not a graveyard — muted rows, live count, same navigation); house-language review pass (masthead cascade, row tightening, palette stragglers, filter set reviewed). | UX |

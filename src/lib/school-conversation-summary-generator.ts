@@ -145,7 +145,6 @@ Return ONLY the JSON object. No commentary before or after.`
   const stageLabels: Record<number, string> = { 1: 'Research', 2: 'Reach out', 3: 'Engage', 4: 'Evaluate', 5: 'Advance', 6: 'Decide' }
   parts.push(`Recruiting stage: ${school.recruiting_stage} (${stageLabels[school.recruiting_stage] ?? 'Unknown'})`)
   if (school.admit_likelihood) parts.push(`Admit likelihood: ${school.admit_likelihood}`)
-  if (school.notes) parts.push(`School notes: ${school.notes}`)
   parts.push('')
 
   // Coaches (include id so recommended_coach_id can reference them)

@@ -21,7 +21,6 @@ export interface SchoolRow {
   division: string
   conference: string | null
   location: string | null
-  notes: string | null
   status: string
   head_coach: string | null
   admit_likelihood: string | null
@@ -127,7 +126,7 @@ export async function fetchSchoolContext(
   const queries: PromiseLike<{ data: any }>[] = [
     // 0. School details (superset of all routes' needs)
     admin.from('schools')
-      .select('id, name, short_name, category, division, conference, location, notes, status, head_coach, admit_likelihood, recruiting_stage')
+      .select('id, name, short_name, category, division, conference, location, status, head_coach, admit_likelihood, recruiting_stage')
       .eq('id', schoolId)
       .single(),
     // 1. All active coaches

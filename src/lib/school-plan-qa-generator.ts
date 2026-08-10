@@ -21,7 +21,6 @@ interface SchoolContext {
   conference: string | null
   location: string | null
   status: string
-  notes: string | null
   admit_likelihood: string | null
 }
 
@@ -100,7 +99,6 @@ Ground your answer in the actual data: what emails have been exchanged, how the 
   usr.push(`Status: ${input.school.status}`)
   usr.push(`Location: ${input.school.location ?? 'unknown'}`)
   if (input.school.admit_likelihood) usr.push(`Admit likelihood: ${input.school.admit_likelihood}`)
-  if (input.school.notes) usr.push(`Notes: ${input.school.notes}`)
   usr.push('')
 
   usr.push(`COACHES:`)
