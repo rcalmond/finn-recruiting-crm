@@ -71,7 +71,9 @@ last_contact        date
 head_coach          text
 coach_email         text
 admit_likelihood    'Likely' | 'Target' | 'Reach' | 'Far Reach'
-rq_status           text   -- e.g. "Completed", "To Do", "Updated"
+rq_status           text   -- migration 001; "Completed" | "To Do" | "Updated" (only "Completed" counts as done)
+rq_updated_at       timestamptz  -- migration 028; completion/refresh timestamp (180-day staleness on /questionnaires)
+rq_link             text   -- migration 032; URL to the school's recruiting questionnaire
 videos_sent         boolean
 recruiting_stage    smallint not null default 1
                     -- 1=Research, 2=Reach out, 3=Engage, 4=Evaluate, 5=Advance, 6=Decide
@@ -79,6 +81,10 @@ recruiting_stage    smallint not null default 1
                     -- High-water mark: never auto-demotes
 created_at          timestamptz
 updated_at          timestamptz
+-- notes (free text) DROPPED in migration 064 — content reviewed and discarded, retired from
+--   every generation prompt and UI site first, then the column. 063 intentionally skipped
+--   (a drafted RQ migration obviated by the audit-first Questionnaires build). Strategic notes
+--   are a SEPARATE column and live untouched in school_message_plan.finn_notes.
 ```
 
 ### Table: `school_milestones` (migration 057)
@@ -345,7 +351,10 @@ and are legacy — note this in contact log if surfaced.
   - `/get-seen` — petrol. The calendar (the merged 10-week timeline via the shared `MergedTimeline` component) + an Every-way-in toolkit (questionnaires, film, outreach, coaches)
   - `/get-recruited` — persimmon. The daily surface (queue hero + 4-row board — Awaiting Finn folded into Active with a ring marker); signed-in users also land here from the marketing page's Open-the-app button
   - `/get-in` — violet chrome, charcoal offer cards. Offers, admissions, the endgame (pickEndgameMove hero)
-  - `/schools` — top-level, phase-independent
+  - /schools — top-level, phase-independent. Whole rows are real anchor links to detail (native new-tab); filters trimmed to signal chips + search; a collapsed Bench disclosure surfaces all Nope-tier and Inactive schools (55; search auto-expands and filters it). List/Map toggle retained.
+  - /schools/[id] (school detail) — the app's oldest surface, restructured by mental mode into zones: masthead + standing state (charcoal offer cards above the fold, ConversationSummaryCard as the hero), The conversation (contact-log timeline, recent-8 with Show all), The staff (coach cards + call prep), Your tracking (action items + status updates; in-zone +Add with three capture types), The logistics (RQ + camps + details strip). Neutral chrome — the page serves every phase.
+  - /questionnaires — the RQ workbench (Get Seen child, petrol), reached from Get Seen's questionnaires card. Lifecycle sections (Not started / Needs an update at 180 days / Current) over active schools; the card and the page share the summarizeRq helper.
+  - Confirmed-orphaned, pending delete: StatsStrip.tsx and HomeClient.tsx (the retired Home surface — no route renders them), CampsCalendar.tsx (month-grid removed). The old signal deep-link into /schools is gone with them.
   - Settings — collapsed: Coach Changes, Parse Review, Classification Review, Camp Proposals, Gmail Settings
   - **Renamed surfaces (routes + nav labels unchanged — consistency pass pending)**: Talking Points = `/messages`, The kit = `/assets`, Calendar = `/camps`. Calendar's month-grid view was removed (the shared timeline is the temporal overview). Campaigns and Library remain reachable via deep links from phase pages.
 - **Key paths**:
@@ -2097,6 +2106,36 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 - CampsCalendar.tsx — orphaned after the month-grid removal; safe to delete in a follow-up.
 - DraftModal coachId-slot quirk — BatchReelModal passes a schoolId in the coachId slot (pre-existing, unchanged); flagged for a future cleanup.
 
+### Questionnaires, Schools + School Detail Reworks, Notes Retirement (August 9-10, 2026)
+
+**1. Questionnaires workbench.** Get Seen's RQ card previously dumped into /schools; now a dedicated /questionnaires page (petrol, Get Seen child). Audit-first build: the school detail RQ block already carried three fields across three migration eras (rq_status 001, rq_updated_at 028, rq_link 032) — no new schema needed, no parallel fields created. Lifecycle sections (Not started / Needs an update at 180 days / Current) with inline RQ links, an Add-link finder for missing URLs, and Mark completed/updated sharing the school-detail write path. Both the Get Seen card and the page derive from a single summarizeRq helper so they cannot disagree. Live truth at ship: 10 of 10 completed, all dated 2026-07-14, all with links — the page opens as a clean scoreboard and wakes as a triage surface around January when the 180-day clock expires on all ten at once.
+
+**2. Schools page rework.** The row-expand accordion removed — its three panel elements (summary, recommended action, draft button) were fully duplicated by ConversationSummaryCard on detail, so whole rows became real anchor links (native new-tab semantics). The bench: a collapsed disclosure surfacing all Nope-tier and Inactive schools — 55, not the ~17 guessed: the entire set-aside universe including the D1 aspirational era — with muted rows, whole-row navigation, and search auto-expansion (searching Stanford now finds benched Stanford instead of no-matches). Filters trimmed to signal chips + search (zero deep-links pointed at the dropped stage/tier/division params; URL-param reading preserved for bookmarks). Follow-up truth fix: nothing live links into the signal param anymore (StatsStrip and HomeClient both orphaned) — the chips stand on their own rationale and the stale comment was corrected.
+
+**3. School detail rework (three passes in one day).** The app's oldest surface, organized by feature era, restructured by mental mode: Zone 0 masthead + standing state (consolidated header; NET-NEW charcoal offer cards above the fold — offers had never rendered on this page; ConversationSummaryCard as the hero), The conversation (timeline, recent-8 with Show all), The staff (coach cards + call prep), Your tracking (was Your notes), The logistics (RQ + camps + details strip). Neutral chrome — the page serves every phase. Refinement pass: stage/milestone popovers gained standard dismissal (they previously trapped until a choice); Show-alternatives deprecated (finding: the summary generator never produced alternatives — the toggle lazy-loaded message-plan suggestions on click, so no standing token cost existed); Call prep promoted to its own section with purpose copy and a designed empty state; Strategic notes and Notes cards retired from capture (status updates absorbed the role); the masthead +Note button retired in favor of an in-zone add with three types; the timeline Log entry form restyled to the house language.
+
+**4. schools.notes retired end to end.** The legacy content (Clark, Colby) was reviewed and held nothing worth migrating. The grep found MORE generation sites than expected — beyond the three named prompt files, the QA generator, message-plan generator, conversation-summary generator, and campaign-personalize builder all read school.notes — all removed. Strategic-notes input retired from the same school-detail generation sites (live data held zero rows); Communications Plan machinery internals left intact. Call prep Upload entry point removed (generation is the native path; modal + API kept so restoration is one line — deliberate, on-record). Migration 064 dropped the column code-first (deploy verified reading nothing, then the drop; 063 deliberately skipped — a drafted RQ migration obviated by the audit). Button consistency audit normalized the page to the house grammar: filled pill primary, outlined secondary, link tertiary, radius 999 throughout — the drift was mostly radius eras (r4-r7).
+
+**5. Verification came of age.** Two firsts this span: a background fork agent implemented the detail restructure while the main session inventoried (diff-reviewed before ship), and CC drove Chrome against the deployed production build for full browser sweeps — whole-site after the Schools rework (zero console errors site-wide) and targeted sweeps after each detail pass, including live write round-trips (status update 4-5-4 with regen visibly firing, test log entries saved and deleted). The standing auth-gated/no-pixel caveat era is over when the extension is connected; the remaining blind spot is the phone breakpoint (tooling captures at fixed desktop width).
+
+**Architectural patterns reinforced:**
+
+1. Audit-first beats spec-first for old surfaces — the RQ fields existed across three migration eras and the notes grep found four unnamed generation sites; both builds would have created drift without the audit step.
+2. Duplication earns deletion: the accordion died because detail already carried everything it showed; the month-grid died the same way. The bench proved set-aside data wants visibility, not deletion.
+3. Retire inputs code-first, column-last — and review content before migrating it; sometimes the answer is delete.
+4. One derivation, many surfaces: summarizeRq joins the currency rule and pickDailyPriority in the shared-helper family — surfaces that cannot disagree.
+5. Popovers need standard dismissal semantics from birth; button grammar drifts by radius before it drifts by color.
+
+**Open items (as of August 10, 2026):**
+
+- CLEARED — schools.notes decision: content reviewed and discarded, retired from every generation and UI site, column dropped via migration 064.
+- WashU alias exclusion fix — recommended (send short_name/aliases through the exclude id-bridge), still NOT confirmed shipped. Same class as the Mines fix.
+- Route/nav rename consistency pass — user-facing names Talking Points, The kit, Calendar diverge from routes /messages, /assets, /camps and their nav labels; /questionnaires is already aligned. Pending.
+- Orphan deletes — CampsCalendar.tsx, StatsStrip.tsx, and HomeClient.tsx are all confirmed unrendered; safe to delete in a follow-up.
+- DraftModal coachId-slot quirk — BatchReelModal passes a schoolId in the coachId slot (pre-existing, unchanged); flagged.
+- Prep-doc upload unreachable by design — the Call prep Upload entry point was removed; UploadPrepDocModal + the upload API are intact but have no UI entry (restoration is one line if wanted).
+- Phone-breakpoint verification gap — the Chrome tooling captures at a fixed desktop width, so the mobile breakpoint is verified at the code level only.
+
 ---
 
 ## 10. Session Startup Checklist for Claude Code
@@ -2116,7 +2155,34 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 **Active schools: 10** | Overdue actions: 21
 (Category Nope and status Inactive excluded)
 
-### Tier A — Highest Priority (4 schools)
+### Tier A — Highest Priority (5 schools)
+
+SCHOOL: Clark
+  Status: Intro Sent
+  Division: D3 — NEWMAC
+  Location: Worcester, MA
+  Admit Likelihood: Likely
+  Coach: Samuel Matteson — Head Coach <smatteson@clarku.edu> [primary]
+  Coach: Matthews Lima — Assistant Coach <malima@clarku.edu>
+  Coach: Maitoe Suppasuesanguan — Assistant Coach <msuppasuesanguan@clarku.edu>
+  Coach: Nur Adhikarie — Assistant Coach <nadhikarie@clarku.edu>
+  Last Contact: 2026-08-06
+  RQ Status: Completed
+  Videos Sent: Yes
+  Next Action: Pre Crimson camp email (Finn) — due 2026-07-15
+  Also: Send post camp and meeting update (Finn) — due 2026-08-03
+  Contact Log (3 shown):
+    [2026-08-06] Inbound via Email — Clark University:
+      Dear Finn,
+      
+      
+                                      On behalf of the Admissions Office of Clark University, I would like to inform you that after reviewing your preliminary admissions materials and transcript, you look like a strong candidate for admission into the Class of 2031!
+      
+                            ...
+    [2026-08-03] Outbound via Phone:
+      Looking forward to it!
+    [2026-08-03] Outbound via Phone:
+      Hi Coach, I’m all set for our call, let me know when your set in your end
 
 SCHOOL: Colby
   Status: Ongoing Conversation
@@ -2130,7 +2196,6 @@ SCHOOL: Colby
   Last Contact: 2026-08-03
   RQ Status: Completed
   Videos Sent: Yes
-  Notes: Yes in Arizona
   Next Action: decide which ID camp to go to (Finn) — due 2026-07-01
   Also: Email follow up from Camp (Finn) — due 2026-08-03
   Contact Log (3 shown):
@@ -2214,8 +2279,6 @@ SCHOOL: Middlebury
   Last Contact: 2026-07-08
   RQ Status: Completed
   Videos Sent: Yes
-  Notes: Personal Intro
-ID Camp Info
   Next Action: decide about the camp on 8/15 - 8/16 (Finn) — due 2026-07-12
   Contact Log (3 shown):
     [2026-07-08] Inbound via Sports Recruits — Tim Peng:
@@ -2269,7 +2332,7 @@ SCHOOL: WPI
       Best, 
       Finn Almond
 
-### Tier B (2 schools)
+### Tier B (1 schools)
 
 SCHOOL: Bowdoin
   Status: Ongoing Conversation
@@ -2282,7 +2345,6 @@ SCHOOL: Bowdoin
   Last Contact: 2026-07-21
   RQ Status: Completed
   Videos Sent: Yes
-  Notes: Coach Banadda will be in AZ
   Next Action: Pre Crimson camp email (Finn) — due 2026-07-26
   Also: Send post camp follow up note (Finn) — due 2026-08-03
   Contact Log (3 shown):
@@ -2305,35 +2367,6 @@ SCHOOL: Bowdoin
       I am available to meet with you on Thursday, July 30th and look forward to hosting you. Please come to my office, Room 205, in the Buck Center for Health and Fitness.  The Buck Center is located near the center of campus and is included on the campus tour.
        We c...
 
-SCHOOL: Clark
-  Status: Intro Sent
-  Division: D3 — NEWMAC
-  Location: Worcester, MA
-  Admit Likelihood: Likely
-  Coach: Samuel Matteson — Head Coach <smatteson@clarku.edu> [primary]
-  Coach: Matthews Lima — Assistant Coach <malima@clarku.edu>
-  Coach: Maitoe Suppasuesanguan — Assistant Coach <msuppasuesanguan@clarku.edu>
-  Coach: Nur Adhikarie — Assistant Coach <nadhikarie@clarku.edu>
-  Last Contact: 2026-08-06
-  RQ Status: Completed
-  Videos Sent: Yes
-  Notes: Sent MIT camp follow up email
-Has a shared engineering program with Columbia
-  Next Action: Pre Crimson camp email (Finn) — due 2026-07-15
-  Also: Send post camp and meeting update (Finn) — due 2026-08-03
-  Contact Log (3 shown):
-    [2026-08-06] Inbound via Email — Clark University:
-      Dear Finn,
-      
-      
-                                      On behalf of the Admissions Office of Clark University, I would like to inform you that after reviewing your preliminary admissions materials and transcript, you look like a strong candidate for admission into the Class of 2031!
-      
-                            ...
-    [2026-08-03] Outbound via Phone:
-      Looking forward to it!
-    [2026-08-03] Outbound via Phone:
-      Hi Coach, I’m all set for our call, let me know when your set in your end
-
 ### Tier C — Exploratory (4 schools)
 
 SCHOOL: Case Western
@@ -2346,9 +2379,6 @@ SCHOOL: Case Western
   Last Contact: 2026-07-21
   RQ Status: Completed
   Videos Sent: Yes
-  Notes: In AZ
-Complete Schedule Form
-Filled out schedule form for MLS NEXT Fest
   Contact Log (3 shown):
     [2026-07-21] Inbound via Sports Recruits — Carter Poe:
       Finn,
