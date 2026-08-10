@@ -9,13 +9,12 @@ const SD = {
   line: '#E2DBC9', tealDeep: '#006A65',
 }
 
-type NoteType = 'status_update' | 'action_item' | 'contact_log' | 'strategic_note'
+type NoteType = 'status_update' | 'action_item' | 'contact_log'
 
 const NOTE_TYPES: { type: NoteType; label: string; desc: string }[] = [
   { type: 'status_update', label: 'Status update', desc: 'Where things stand or what Finn intends' },
   { type: 'action_item', label: 'Action item', desc: 'A to-do for this school' },
   { type: 'contact_log', label: 'Log a contact', desc: 'A call, text, or in-person that happened' },
-  { type: 'strategic_note', label: 'Strategic note', desc: 'Guidance for upcoming emails' },
 ]
 
 interface Props {
@@ -23,10 +22,9 @@ interface Props {
   onSaveStatusUpdate: (body: string, share: ShareWithCoach) => Promise<void>
   onSaveActionItem: (action: string) => Promise<void>
   onSaveContactLog: (entry: { direction: string; channel: string; date: string; summary: string }) => Promise<void>
-  onSaveStrategicNote: (note: string) => Promise<void>
 }
 
-export default function NotePopover({ schoolId, onSaveStatusUpdate, onSaveActionItem, onSaveContactLog, onSaveStrategicNote }: Props) {
+export default function NotePopover({ schoolId, onSaveStatusUpdate, onSaveActionItem, onSaveContactLog }: Props) {
   const [open, setOpen] = useState(false)
   const [noteType, setNoteType] = useState<NoteType>('status_update')
   const [text, setText] = useState('')
@@ -37,16 +35,21 @@ export default function NotePopover({ schoolId, onSaveStatusUpdate, onSaveAction
   const [saving, setSaving] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
 
-  // Close on outside click
+  // Close on outside click or Esc
   useEffect(() => {
     if (!open) return
-    const handler = (e: MouseEvent) => {
+    const onClick = (e: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
         setOpen(false)
       }
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [open])
 
   const resetForm = () => {
@@ -67,8 +70,6 @@ export default function NotePopover({ schoolId, onSaveStatusUpdate, onSaveAction
         await onSaveActionItem(text.trim())
       } else if (noteType === 'contact_log') {
         await onSaveContactLog({ direction, channel, date: contactDate, summary: text.trim() })
-      } else if (noteType === 'strategic_note') {
-        await onSaveStrategicNote(text.trim())
       }
       resetForm()
       setOpen(false)
@@ -95,7 +96,7 @@ export default function NotePopover({ schoolId, onSaveStatusUpdate, onSaveAction
           display: 'inline-flex', alignItems: 'center', gap: 4,
         }}
       >
-        + Note
+        + Add
       </button>
 
       {open && (
@@ -185,8 +186,7 @@ export default function NotePopover({ schoolId, onSaveStatusUpdate, onSaveAction
             placeholder={
               noteType === 'status_update' ? 'What\'s the current state?' :
               noteType === 'action_item' ? 'What needs to be done?' :
-              noteType === 'contact_log' ? 'What was discussed?' :
-              'Strategy guidance for emails...'
+              'What was discussed?'
             }
             style={{ ...inputStyle, resize: 'vertical', marginBottom: 10 }}
           />

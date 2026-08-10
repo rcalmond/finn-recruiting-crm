@@ -103,10 +103,33 @@ function DetailHeader({
   const [msOpen, setMsOpen] = useState(false)
   const [msDate, setMsDate] = useState('')
   const [msNote, setMsNote] = useState('')
+  const stageRef = useRef<HTMLDivElement>(null)
+  const msRef = useRef<HTMLDivElement>(null)
   const metaParts = [school.division, school.conference, school.location].filter(Boolean).join(' · ')
   const recency = classifySchoolRecency(school, contactLog)
   const recencyStyle = recency.state ? SCHOOL_RECENCY_STYLE[recency.state] : null
   const earnedTypes = new Set(milestones.map(m => m.milestone))
+
+  // Standard popover dismissal for the stage + milestone popovers: click-outside
+  // and Esc both close (no selection = no change). The X affordances live in the
+  // popovers themselves.
+  useEffect(() => {
+    if (!stageOpen && !msOpen) return
+    const onClick = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (stageOpen && stageRef.current && !stageRef.current.contains(t)) setStageOpen(false)
+      if (msOpen && msRef.current && !msRef.current.contains(t)) setMsOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setStageOpen(false); setMsOpen(false) }
+    }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [stageOpen, msOpen])
 
   return (
     <div style={{
@@ -235,7 +258,7 @@ function DetailHeader({
       }}>
         <StageDots stage={stage} />
         {/* Clickable stage label → popover */}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' }} ref={stageRef}>
           <button
             onClick={() => setStageOpen(o => !o)}
             style={{
@@ -256,6 +279,16 @@ function DetailHeader({
                 width: 280, overflow: 'hidden',
               }}
             >
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 14px', borderBottom: `1px solid ${SD.line}`,
+              }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: SD.inkLo }}>Set stage</span>
+                <button onClick={() => setStageOpen(false)} aria-label="Close" style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: SD.inkMute,
+                  fontSize: 12, padding: 0, lineHeight: 1, fontFamily: 'inherit',
+                }}>✕</button>
+              </div>
               {([1, 2, 3, 4, 5, 6] as RecruitingStage[]).map(s => {
                 const meta = STAGE_META[s]
                 const active = s === stage
@@ -359,7 +392,7 @@ function DetailHeader({
           })}
 
           {/* Add milestone button + popover */}
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative' }} ref={msRef}>
             <button
               onClick={() => { setMsOpen(o => !o); setMsDate(new Date().toISOString().slice(0, 10)); setMsNote('') }}
               style={{
@@ -378,6 +411,16 @@ function DetailHeader({
                   width: 260, padding: '8px 0',
                 }}
               >
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '0 14px 8px', borderBottom: `1px solid ${SD.line}`, marginBottom: 4,
+                }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: SD.inkLo }}>Add milestone</span>
+                  <button onClick={() => setMsOpen(false)} aria-label="Close" style={{
+                    background: 'none', border: 'none', cursor: 'pointer', color: SD.inkMute,
+                    fontSize: 12, padding: 0, lineHeight: 1, fontFamily: 'inherit',
+                  }}>✕</button>
+                </div>
                 {(Object.keys(MILESTONE_META) as MilestoneType[])
                   .filter(t => !earnedTypes.has(t))
                   .map(t => {
@@ -1053,15 +1096,15 @@ function LogEntryForm({ school, coaches, userId, initial, onSave, onCancel, onDe
   return (
     <div
       style={{
-        marginBottom: 18, padding: 16, borderRadius: 10,
+        marginBottom: 14, padding: '14px 16px', borderRadius: 12,
         border: `1px solid ${SD.line}`, background: SD.paperDeep,
-        display: 'flex', flexDirection: 'column', gap: 12,
+        display: 'flex', flexDirection: 'column', gap: 10,
       }}
       onKeyDown={e => { if (e.key === 'Escape') onCancel() }}
     >
       {/* Row 1: Direction toggle + Channel */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 0, borderRadius: 6, overflow: 'hidden', border: `1px solid ${SD.line}` }}>
+        <div style={{ display: 'flex', gap: 0, borderRadius: 999, overflow: 'hidden', border: `1px solid ${SD.line}` }}>
           {(['Inbound', 'Outbound'] as const).map(dir => (
             <button
               key={dir}
@@ -1152,7 +1195,7 @@ function LogEntryForm({ school, coaches, userId, initial, onSave, onCancel, onDe
           <button
             onClick={onCancel}
             style={{
-              padding: '6px 14px', borderRadius: 6, border: `1px solid ${SD.line}`,
+              padding: '6px 16px', borderRadius: 999, border: `1px solid ${SD.line}`,
               background: '#fff', fontSize: 11, fontWeight: 600,
               cursor: 'pointer', fontFamily: 'inherit', color: SD.inkLo,
             }}
@@ -1161,8 +1204,8 @@ function LogEntryForm({ school, coaches, userId, initial, onSave, onCancel, onDe
             onClick={handleSave}
             disabled={!summary.trim() || saving}
             style={{
-              padding: '6px 14px', borderRadius: 6, border: 'none',
-              background: SD.ink, color: '#fff', fontSize: 11, fontWeight: 600,
+              padding: '6px 16px', borderRadius: 999, border: 'none',
+              background: SD.ink, color: '#fff', fontSize: 11, fontWeight: 650,
               cursor: !summary.trim() || saving ? 'not-allowed' : 'pointer',
               fontFamily: 'inherit', opacity: !summary.trim() || saving ? 0.5 : 1,
             }}
@@ -1436,17 +1479,13 @@ function OffersZone({ schoolId }: { schoolId: string }) {
 // ─── Zone 2: The staff — coaches + call prep ─────────────────────────────────
 
 function StaffZone({
-  school, coaches, onDraftForCoach, onSetPrimary, callPrepDocs, onRefetchPrep, onPrepForCall,
+  school, coaches, onDraftForCoach, onSetPrimary,
 }: {
   school: School
   coaches: Coach[]
   onDraftForCoach: (coachId: string) => void
   onSetPrimary: (id: string) => Promise<unknown>
-  callPrepDocs: ReturnType<typeof useCallPrepDocs>['docs']
-  onRefetchPrep: () => void
-  onPrepForCall: () => void
 }) {
-  const [prepOpen, setPrepOpen] = useState(false)
   return (
     <section style={{ marginTop: 'clamp(32px, 5vw, 48px)' }}>
       <ZoneHeading>The staff.</ZoneHeading>
@@ -1588,48 +1627,44 @@ function StaffZone({
           No coaching contacts yet. They appear when the scraper finds them or you add one manually.
         </div>
       )}
+    </section>
+  )
+}
 
-      {/* Call prep — lives with the people you're calling */}
-      <div style={{ marginTop: 16 }}>
+// ─── Zone 2b: Call prep — its own section, right after the staff ──────────────
+
+function CallPrepZone({ school, coaches, callPrepDocs, onRefetchPrep, onPrepForCall }: {
+  school: School
+  coaches: Coach[]
+  callPrepDocs: ReturnType<typeof useCallPrepDocs>['docs']
+  onRefetchPrep: () => void
+  onPrepForCall: () => void
+}) {
+  return (
+    <section style={{ marginTop: 'clamp(32px, 5vw, 48px)' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <ZoneHeading>Call prep.</ZoneHeading>
         <button
-          onClick={() => setPrepOpen(o => !o)}
+          onClick={onPrepForCall}
           style={{
-            background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-            display: 'flex', alignItems: 'center', gap: 8, padding: 0,
+            padding: '7px 16px', borderRadius: 999,
+            border: 'none', background: SD.ink, color: '#fff',
+            fontSize: 12, fontWeight: 650, cursor: 'pointer', fontFamily: 'inherit',
+            letterSpacing: '-0.01em', whiteSpace: 'nowrap',
           }}
-        >
-          <span style={{ fontSize: 13, fontWeight: 700, color: SD.ink }}>
-            Call prep{callPrepDocs.length > 0 ? ` (${callPrepDocs.length})` : ''}
-          </span>
-          <span style={{
-            fontSize: 11, color: SD.inkMute,
-            transform: prepOpen ? 'rotate(180deg)' : 'none',
-            transition: 'transform 0.15s', display: 'inline-block',
-          }}>&#9660;</span>
-        </button>
-        {prepOpen && (
-          <div style={{ marginTop: 10 }}>
-            <div style={{ marginBottom: 12 }}>
-              <button
-                onClick={onPrepForCall}
-                style={{
-                  padding: '7px 14px', borderRadius: 6,
-                  border: `1.3px solid ${SD.line2}`, background: 'transparent',
-                  fontSize: 12, fontWeight: 600, color: SD.inkMid,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >Prep for call</button>
-            </div>
-            <CallPrepSection
-              docs={callPrepDocs}
-              schoolId={school.id}
-              schoolName={school.short_name ?? school.name}
-              coaches={coaches}
-              onRefetch={onRefetchPrep}
-            />
-          </div>
-        )}
+        >Prep for a call →</button>
       </div>
+      <p style={{ margin: '0 0 16px', fontSize: 13, color: SD.inkMid, lineHeight: 1.55, maxWidth: 640 }}>
+        Before you get a coach on the phone, generate a one-page brief — where the conversation stands,
+        what to ask, what they&apos;ll likely ask you.
+      </p>
+      <CallPrepSection
+        docs={callPrepDocs}
+        schoolId={school.id}
+        schoolName={school.short_name ?? school.name}
+        coaches={coaches}
+        onRefetch={onRefetchPrep}
+      />
     </section>
   )
 }
@@ -1637,8 +1672,9 @@ function StaffZone({
 // ─── Zone 3: Your notes — your thinking in one place ─────────────────────────
 
 function NotesZone({
-  school, actionItems, completedItems, today, onComplete, onAddAction, onUpdateAction, onUpdateSchool,
+  school, actionItems, completedItems, today, onComplete, onAddAction, onUpdateAction,
   statusUpdates, onInsertUpdate, onUpdateUpdate, onDeleteUpdate,
+  onSaveStatusUpdate, onSaveActionItem, onSaveContactLog,
 }: {
   school: School
   actionItems: ActionItem[]
@@ -1647,49 +1683,43 @@ function NotesZone({
   onComplete: (id: string) => Promise<void>
   onAddAction: (action: string, dueDate: string, owner: string) => Promise<void>
   onUpdateAction: (id: string, updates: { action?: string; due_date?: string | null }) => Promise<void>
-  onUpdateSchool: (updates: Partial<School>) => Promise<void>
   statusUpdates: import('@/lib/types').SchoolStatusUpdate[]
   onInsertUpdate: (u: { school_id: string; body: string; share_with_coach: import('@/lib/types').ShareWithCoach }) => Promise<{ error: unknown }>
   onUpdateUpdate: (id: string, fields: { body?: string; share_with_coach?: import('@/lib/types').ShareWithCoach }) => Promise<unknown>
   onDeleteUpdate: (id: string) => Promise<unknown>
+  onSaveStatusUpdate: (body: string, share: import('@/lib/types').ShareWithCoach) => Promise<void>
+  onSaveActionItem: (action: string) => Promise<void>
+  onSaveContactLog: (entry: { direction: string; channel: string; date: string; summary: string }) => Promise<void>
 }) {
-  const [editingNotes, setEditingNotes] = useState(false)
-  const [notesText, setNotesText] = useState(school.notes ?? '')
-  // Strategic notes (from school_message_plan.finn_notes)
-  const [stratNotes, setStratNotes] = useState('')
-  const [stratNotesLoaded, setStratNotesLoaded] = useState(false)
-  const stratNotesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
+  // Legacy content (read-only): school.notes + the retired strategic notes
+  // (school_message_plan.finn_notes). Fetched only to decide whether to surface
+  // the collapsed Legacy notes disclosure — nothing here writes them anymore.
+  const [legacyStrat, setLegacyStrat] = useState<string | null>(null)
+  const [legacyOpen, setLegacyOpen] = useState(false)
   useEffect(() => {
     let cancelled = false
-    async function load() {
-      const res = await fetch(`/api/schools/${school.id}/message-plan`)
-      if (!res.ok || cancelled) return
-      const data = await res.json()
-      if (!cancelled) {
-        setStratNotes(data.plan?.finn_notes ?? '')
-        setStratNotesLoaded(true)
-      }
-    }
-    load()
+    fetch(`/api/schools/${school.id}/message-plan`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled) setLegacyStrat((d?.plan?.finn_notes ?? '').trim() || null) })
+      .catch(() => {})
     return () => { cancelled = true }
   }, [school.id])
 
-  function handleStratNotesChange(value: string) {
-    setStratNotes(value)
-    if (stratNotesTimer.current) clearTimeout(stratNotesTimer.current)
-    stratNotesTimer.current = setTimeout(async () => {
-      await fetch(`/api/schools/${school.id}/message-plan`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ finn_notes: value }),
-      })
-    }, 1000)
-  }
+  const legacyNotes = (school.notes ?? '').trim() || null
+  const hasLegacy = !!legacyNotes || !!legacyStrat
 
   return (
     <section style={{ marginTop: 'clamp(32px, 5vw, 48px)' }}>
-      <ZoneHeading>Your notes.</ZoneHeading>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <ZoneHeading>Your tracking.</ZoneHeading>
+        <NotePopover
+          schoolId={school.id}
+          onSaveStatusUpdate={onSaveStatusUpdate}
+          onSaveActionItem={onSaveActionItem}
+          onSaveContactLog={onSaveContactLog}
+        />
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, alignItems: 'start' }}>
 
         {/* Action items */}
@@ -1731,7 +1761,7 @@ function NotesZone({
           )}
         </SidebarCard>
 
-        {/* Status updates */}
+        {/* Status updates — now carries the thinking-capture role */}
         <SidebarCard label={`Status updates${statusUpdates.length > 0 ? ` · ${statusUpdates.length}` : ''}`}>
           <StatusUpdatesPanel
             schoolId={school.id}
@@ -1741,57 +1771,50 @@ function NotesZone({
             onDelete={onDeleteUpdate}
           />
         </SidebarCard>
-
-        {/* Strategic notes */}
-        <SidebarCard label="Strategic notes">
-          {stratNotesLoaded ? (
-            <textarea
-              value={stratNotes}
-              onChange={e => handleStratNotesChange(e.target.value)}
-              placeholder="What's your strategy for this school? What should upcoming emails prioritize?"
-              rows={4}
-              style={{
-                width: '100%', padding: '6px 8px', border: `1px solid ${SD.line}`,
-                borderRadius: 6, fontSize: 12, fontFamily: 'inherit',
-                color: SD.ink, resize: 'vertical', boxSizing: 'border-box',
-                background: '#fff', outline: 'none', lineHeight: 1.5,
-              }}
-            />
-          ) : (
-            <div style={{ fontSize: 11, color: SD.inkMute }}>Loading...</div>
-          )}
-        </SidebarCard>
-
-        {/* School notes */}
-        <SidebarCard label="Notes">
-          {editingNotes ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <textarea
-                autoFocus
-                value={notesText}
-                onChange={e => setNotesText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Escape') setEditingNotes(false) }}
-                rows={4}
-                style={{
-                  width: '100%', padding: '6px 8px', border: `1px solid ${SD.line}`,
-                  borderRadius: 6, fontSize: 12, fontFamily: 'inherit',
-                  background: '#fff', outline: 'none', resize: 'vertical',
-                  lineHeight: 1.5, boxSizing: 'border-box',
-                }}
-              />
-              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                <button onClick={() => setEditingNotes(false)} style={{ padding: '3px 8px', borderRadius: 4, border: `1px solid ${SD.line}`, background: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: SD.inkLo }}>Cancel</button>
-                <button onClick={async () => { await onUpdateSchool({ notes: notesText.trim() || null }); setEditingNotes(false) }} style={{ padding: '3px 8px', borderRadius: 4, border: 'none', background: SD.ink, color: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Save</button>
-              </div>
-            </div>
-          ) : (
-            <div
-              onClick={() => { setNotesText(school.notes ?? ''); setEditingNotes(true) }}
-              style={{ fontSize: 12, color: school.notes ? SD.inkMid : SD.inkLo, lineHeight: 1.55, cursor: 'pointer', fontStyle: school.notes ? 'normal' : 'italic' }}
-            >{school.notes || 'Add a note'}</div>
-          )}
-        </SidebarCard>
       </div>
+
+      {/* Legacy notes — read-only, only when there is legacy content to preserve */}
+      {hasLegacy && (
+        <div style={{ marginTop: 16 }}>
+          <button
+            onClick={() => setLegacyOpen(o => !o)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              display: 'flex', alignItems: 'center', gap: 8, padding: 0,
+            }}
+          >
+            <span style={{ fontSize: 12, fontWeight: 700, color: SD.inkLo }}>Legacy notes</span>
+            <span style={{
+              fontSize: 10, color: SD.inkMute,
+              transform: legacyOpen ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.15s', display: 'inline-block',
+            }}>&#9660;</span>
+          </button>
+          {legacyOpen && (
+            <div style={{
+              marginTop: 10, background: SD.paperDeep, border: `1px solid ${SD.line}`,
+              borderRadius: 10, padding: '14px 16px',
+              display: 'flex', flexDirection: 'column', gap: 14,
+            }}>
+              <div style={{ fontSize: 11, color: SD.inkMute, fontStyle: 'italic' }}>
+                Kept for reference — no longer edited here.
+              </div>
+              {legacyNotes && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: SD.inkLo, marginBottom: 4 }}>Notes</div>
+                  <div style={{ fontSize: 12, color: SD.inkMid, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{legacyNotes}</div>
+                </div>
+              )}
+              {legacyStrat && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: SD.inkLo, marginBottom: 4 }}>Strategic notes</div>
+                  <div style={{ fontSize: 12, color: SD.inkMid, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{legacyStrat}</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </section>
   )
 }
@@ -2278,32 +2301,7 @@ export default function SchoolDetailClient({
         onRemoveMilestone={removeMilestone}
       />
 
-      {/* ── Quick-capture note popover ── */}
-      <div style={{
-        padding: '0 clamp(16px, 4vw, 40px)',
-        display: 'flex', justifyContent: 'flex-end',
-        marginTop: 8,
-      }}>
-        <NotePopover
-          schoolId={school.id}
-          onSaveStatusUpdate={async (body, share) => {
-            await insertUpdate({ school_id: school.id, body, share_with_coach: share })
-          }}
-          onSaveActionItem={async (action) => {
-            await insertItem({ school_id: school.id, action, owner: 'Finn', due_date: null })
-          }}
-          onSaveContactLog={async (entry) => {
-            await insertContact({ ...entry, school_id: school.id } as Parameters<typeof insertContact>[0])
-          }}
-          onSaveStrategicNote={async (note) => {
-            const supabase = createClient()
-            await supabase.from('school_message_plan')
-              .upsert({ school_id: school.id, finn_notes: note, updated_at: new Date().toISOString() }, { onConflict: 'school_id' })
-          }}
-        />
-      </div>
-
-      {/* ── Single-column zone flow (masthead → offers → hero → conversation → staff → notes → logistics) ── */}
+      {/* ── Single-column zone flow (masthead → offers → hero → conversation → staff → call prep → tracking → logistics) ── */}
       <div style={{
         maxWidth: 960, margin: '0 auto',
         padding: '0 clamp(16px, 4vw, 40px)',
@@ -2353,12 +2351,18 @@ export default function SchoolDetailClient({
           coaches={coaches}
           onDraftForCoach={(coachId) => setDraftTarget({ kind: 'fresh', coachId })}
           onSetPrimary={setPrimary}
+        />
+
+        {/* ZONE 2b — Call prep (promoted to its own section) */}
+        <CallPrepZone
+          school={school}
+          coaches={coaches}
           callPrepDocs={callPrepDocs}
           onRefetchPrep={refetchPrepDocs}
           onPrepForCall={() => setPrepOpen(true)}
         />
 
-        {/* ZONE 3 — Your notes */}
+        {/* ZONE 3 — Your tracking */}
         <NotesZone
           school={school}
           actionItems={actionItems}
@@ -2369,11 +2373,13 @@ export default function SchoolDetailClient({
             await insertItem({ school_id: school.id, action, owner: owner as 'Finn' | 'Randy', due_date: dueDate })
           }}
           onUpdateAction={async (id, updates) => { await updateItem(id, updates) }}
-          onUpdateSchool={async (updates) => { await updateSchool(school.id, updates) }}
           statusUpdates={statusUpdates}
           onInsertUpdate={async (u) => { const r = await insertUpdate(u); regenSummary(); return r }}
           onUpdateUpdate={async (id, f) => { const r = await updateUpdate(id, f); regenSummary(); return r }}
           onDeleteUpdate={async (id) => { const r = await deleteUpdate(id); regenSummary(); return r }}
+          onSaveStatusUpdate={async (body, share) => { await insertUpdate({ school_id: school.id, body, share_with_coach: share }); regenSummary() }}
+          onSaveActionItem={async (action) => { await insertItem({ school_id: school.id, action, owner: 'Finn', due_date: null }) }}
+          onSaveContactLog={async (entry) => { await insertContact({ ...entry, school_id: school.id } as Parameters<typeof insertContact>[0]) }}
         />
 
         {/* LOGISTICS — reference: RQ, camps, the details */}
