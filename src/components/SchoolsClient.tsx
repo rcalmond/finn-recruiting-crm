@@ -324,7 +324,7 @@ function EmptyState({ onReset }: { onReset: () => void }) {
         letterSpacing: -0.6, marginBottom: 6, fontStyle: 'italic',
       }}>No schools match your filters.</div>
       <div style={{ fontSize: 13, color: SL.inkMid, marginBottom: 18 }}>
-        Try loosening tier, clearing search, or removing quick filters.
+        Try clearing your search or the signal filters.
       </div>
       <button
         onClick={onReset}
@@ -439,7 +439,12 @@ export default function SchoolsClient({ user }: { user: User }) {
   const tierFilter = searchParams.get('tier') ?? 'All'
   const divFilter = searchParams.get('division') ?? 'All'
 
-  // Signal filter: comma-separated states in URL, e.g. ?signal=hot,active
+  // Signal filter: comma-separated states in URL, e.g. ?signal=hot,active.
+  // The chips stand on their own — they make the recency axis filterable — and
+  // this URL reading also serves any direct/bookmarked ?signal= visit. Note: no
+  // live surface links into /schools?signal= today; the old StatsStrip
+  // ?signal=hot linker was retired with the Home page, and StatsStrip/HomeClient
+  // are now orphaned files (not rendered by any route).
   const signalParam = searchParams.get('signal')
   const signalFilter: Set<SchoolRecencyState> = new Set(
     signalParam ? signalParam.split(',').filter(s => RECENCY_STATE_ORDER.includes(s as SchoolRecencyState)) as SchoolRecencyState[] : []
