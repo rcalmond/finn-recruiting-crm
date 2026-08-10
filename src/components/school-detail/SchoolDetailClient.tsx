@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampFinnStatusValue, CampWithRelations, SchoolMilestone, MilestoneType, RecruitingStage } from '@/lib/types'
-import { STAGE_META, MILESTONE_META } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampFinnStatusValue, CampWithRelations, SchoolMilestone, MilestoneType, RecruitingStage, SchoolOffer, OfferStatus } from '@/lib/types'
+import { STAGE_META, MILESTONE_META, OFFER_TYPE_LABELS } from '@/lib/types'
 import { useSchools, useContactLog, useActionItems, useCoaches, useCamps, useCallPrepDocs, useStatusUpdates, useMilestones } from '@/hooks/useRealtimeData'
 import { stageLabel, STAGE_LABELS } from '@/lib/stages'
 import { rqMarkCompletedPatch, rqMarkUpdatedPatch, rqSetLinkPatch } from '@/lib/rq'
@@ -578,6 +578,9 @@ function Timeline({
 
   const [logFormOpen, setLogFormOpen] = useState(false)
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
+  // Recent-N truncation: long threads collapse to the most recent 8.
+  const [showAllTimeline, setShowAllTimeline] = useState(false)
+  const TIMELINE_RECENT_N = 8
 
   const sectionHeader = (
     <div style={{
@@ -587,7 +590,7 @@ function Timeline({
       <h2 style={{
         margin: 0, fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
         letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
-      }}>Conversation.</h2>
+      }}>The conversation.</h2>
       {!logFormOpen && (
         <button
           onClick={() => setLogFormOpen(true)}
@@ -648,7 +651,7 @@ function Timeline({
           onCancel={() => setLogFormOpen(false)}
         />
       )}
-      {merged.map((te, i) => {
+      {(showAllTimeline ? merged : merged.slice(0, TIMELINE_RECENT_N)).map((te, i) => {
         const id  = tlId(te)
         const exp = i < 5 || expandedIds.has(id)
 
@@ -911,6 +914,18 @@ function Timeline({
           </div>
         )
       })}
+      {merged.length > TIMELINE_RECENT_N && (
+        <button
+          onClick={() => setShowAllTimeline(v => !v)}
+          style={{
+            marginTop: 14, padding: '7px 16px', background: 'transparent',
+            border: `1.3px solid ${SD.line2}`, borderRadius: 999,
+            fontSize: 12, fontWeight: 600, color: SD.inkLo, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          {showAllTimeline ? 'Show less' : `Show all (${merged.length})`}
+        </button>
+      )}
     </section>
   )
 }
@@ -938,6 +953,7 @@ function parseLegacyCoaches(raw: string): LegacyCoach[] {
     })
 }
 
+// De-eyebrowed sub-card: small bold label (house register), not an uppercase kicker.
 function SidebarCard({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div style={{
@@ -945,11 +961,21 @@ function SidebarCard({ label, children }: { label: string; children: ReactNode }
       borderRadius: 14, padding: '16px 18px',
     }}>
       <div style={{
-        fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
-        textTransform: 'uppercase', color: SD.inkLo, marginBottom: 14,
+        fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em',
+        color: SD.ink, marginBottom: 12,
       }}>{label}</div>
       {children}
     </div>
+  )
+}
+
+// Bold-italic zone header (the house register used across phase pages).
+function ZoneHeading({ children }: { children: ReactNode }) {
+  return (
+    <h2 style={{
+      margin: '0 0 18px', fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
+      letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
+    }}>{children}</h2>
   )
 }
 
@@ -1298,23 +1324,330 @@ function AboutRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Sidebar({
-  school, coaches, actionItems, completedItems, camps, schools, today, onComplete, onAddAction, onUpdateAction, onUpdateSchool, onDraftForCoach, onSetPrimary,
-  statusUpdates, onInsertUpdate, onUpdateUpdate, onDeleteUpdate,
+// ─── Offers (surfaced above the fold — read-only; editing lives on Get In) ────
+
+function useSchoolOffers(schoolId: string) {
+  const [offers, setOffers] = useState<SchoolOffer[]>([])
+  const supabase = useMemo(() => createClient(), [])
+
+  const fetchOffers = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('school_offers')
+      .select('*')
+      .eq('school_id', schoolId)
+      .order('received_on', { ascending: false })
+    if (!error && data) setOffers(data as SchoolOffer[])
+  }, [supabase, schoolId])
+
+  useEffect(() => {
+    fetchOffers()
+    const channel = supabase
+      .channel(`school-offers-detail-${schoolId}-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'school_offers' }, fetchOffers)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [fetchOffers, supabase, schoolId])
+
+  return offers
+}
+
+// Charcoal status pill — matches the Get In treatment.
+const OFFER_STATUS_CHARCOAL: Record<OfferStatus, { bg: string; color: string; label: string }> = {
+  open:     { bg: 'rgba(220, 252, 231, 0.15)', color: '#86EFAC', label: 'Open' },
+  accepted: { bg: 'rgba(219, 234, 254, 0.15)', color: '#93C5FD', label: 'Accepted' },
+  declined: { bg: 'rgba(254, 226, 226, 0.15)', color: '#FCA5A5', label: 'Declined' },
+  expired:  { bg: 'rgba(243, 244, 246, 0.1)',  color: '#9CA3AF', label: 'Expired' },
+}
+
+function DetailOfferFieldRow({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.5, minHeight: 20 }}>
+      <span style={{
+        width: 80, flexShrink: 0, fontWeight: 600, color: 'rgba(246,241,232,0.62)',
+        fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', paddingTop: 1,
+      }}>{label}</span>
+      <span style={{ color: value ? '#F6F1E8' : 'rgba(246,241,232,0.4)', fontStyle: value ? 'normal' : 'italic' }}>
+        {value || '—'}
+      </span>
+    </div>
+  )
+}
+
+function DetailOfferCard({ offer }: { offer: SchoolOffer }) {
+  const statusPill = OFFER_STATUS_CHARCOAL[offer.status]
+  return (
+    <Link href="/get-in" style={{ textDecoration: 'none', display: 'block' }}>
+      <div style={{
+        background: '#2E2B28', borderRadius: 14,
+        padding: 'clamp(18px, 3vw, 26px)', position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{
+          position: 'absolute', top: -10, right: 8, fontSize: 100, fontWeight: 800,
+          fontStyle: 'italic', color: '#fff', opacity: 0.04, lineHeight: 1,
+          pointerEvents: 'none', userSelect: 'none',
+        }}>$</div>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{
+              fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
+              letterSpacing: '0.08em', color: 'rgba(246,241,232,0.72)',
+            }}>{OFFER_TYPE_LABELS[offer.offer_type]}</span>
+            <span style={{
+              padding: '3px 10px', borderRadius: 999,
+              background: statusPill.bg, color: statusPill.color,
+              fontSize: 10, fontWeight: 700, flexShrink: 0,
+              letterSpacing: '0.03em', textTransform: 'uppercase',
+            }}>{statusPill.label}</span>
+          </div>
+          <h3 style={{
+            margin: '0 0 14px', fontSize: 17, fontWeight: 700,
+            letterSpacing: '-0.02em', color: '#F6F1E8', fontStyle: 'italic', lineHeight: 1.3,
+          }}>{offer.headline}</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <DetailOfferFieldRow label="Money" value={offer.money_note} />
+            <DetailOfferFieldRow label="Conditions" value={offer.conditions} />
+            <DetailOfferFieldRow label="Key dates" value={offer.key_dates} />
+          </div>
+          {offer.received_on && (
+            <div style={{ marginTop: 10, fontSize: 11, color: 'rgba(246,241,232,0.4)' }}>
+              Received {offer.received_on}
+            </div>
+          )}
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+function OffersZone({ schoolId }: { schoolId: string }) {
+  const offers = useSchoolOffers(schoolId)
+  if (offers.length === 0) return null
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: offers.length > 1 ? 'repeat(auto-fit, minmax(300px, 1fr))' : '1fr',
+      gap: 16, marginBottom: 'clamp(24px, 4vw, 36px)',
+    }}>
+      {offers.map(o => <DetailOfferCard key={o.id} offer={o} />)}
+    </div>
+  )
+}
+
+// ─── Zone 2: The staff — coaches + call prep ─────────────────────────────────
+
+function StaffZone({
+  school, coaches, onDraftForCoach, onSetPrimary, callPrepDocs, onRefetchPrep, onPrepForCall,
 }: {
   school: School
   coaches: Coach[]
+  onDraftForCoach: (coachId: string) => void
+  onSetPrimary: (id: string) => Promise<unknown>
+  callPrepDocs: ReturnType<typeof useCallPrepDocs>['docs']
+  onRefetchPrep: () => void
+  onPrepForCall: () => void
+}) {
+  const [prepOpen, setPrepOpen] = useState(false)
+  return (
+    <section style={{ marginTop: 'clamp(32px, 5vw, 48px)' }}>
+      <ZoneHeading>The staff.</ZoneHeading>
+
+      {coaches.length > 0 ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+          {coaches.map(coach => {
+            const isPrimary = coach.is_primary
+            const emailToShow = isPrimary
+              ? (coach.email ?? school.generic_team_email ?? null)
+              : (coach.email ?? null)
+            return (
+              <div key={coach.id} style={{
+                background: '#fff', border: `1px solid ${SD.line}`, borderRadius: 12,
+                padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 10,
+              }}>
+                {isPrimary ? (
+                  <div style={{
+                    width: 34, height: 34, borderRadius: '50%',
+                    background: SD.ink, color: '#fff', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11, fontWeight: 800, letterSpacing: 0.5, marginTop: 1,
+                  }}>{coachInitials(coach.name)}</div>
+                ) : (
+                  <div style={{
+                    width: 34, height: 34, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: SD.inkMute }} />
+                  </div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: isPrimary ? 14 : 13, fontWeight: 700,
+                      color: isPrimary ? SD.ink : SD.inkMid,
+                      letterSpacing: -0.2, lineHeight: 1.3,
+                    }}>{coach.name}</span>
+                    {isPrimary && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 800, letterSpacing: 0.3, textTransform: 'uppercase',
+                        color: SD.tealDeep, background: SD.tealSoft, borderRadius: 999, padding: '1px 7px',
+                      }}>Primary</span>
+                    )}
+                    {coach.needs_review && (
+                      <span
+                        title="This record was flagged during backfill — verify name, role, and email"
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 3,
+                          padding: '1px 6px', borderRadius: 999,
+                          background: SD.goldSoft, color: SD.goldInk,
+                          fontSize: 9, fontWeight: 800, letterSpacing: 0.3,
+                          textTransform: 'uppercase', flexShrink: 0,
+                          border: `1px solid ${SD.goldDeep}`, cursor: 'help',
+                        }}
+                      >Needs review</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: SD.inkLo, fontWeight: 500, marginTop: 1 }}>
+                    {coach.role}
+                  </div>
+                  {emailToShow && (
+                    <a href={`mailto:${emailToShow}`} style={{
+                      display: 'block', fontSize: 11, color: SD.tealDeep,
+                      textDecoration: 'none', fontWeight: 600, marginTop: 2,
+                      wordBreak: 'break-all',
+                    }}>{emailToShow}</a>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => onDraftForCoach(coach.id)}
+                      style={{
+                        padding: '3px 10px', borderRadius: 999,
+                        background: SD.ink, color: '#fff', border: 'none',
+                        fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >Draft email</button>
+                    {!isPrimary && (
+                      <button
+                        onClick={() => onSetPrimary(coach.id)}
+                        style={{
+                          background: 'none', border: 'none', padding: 0,
+                          fontSize: 10, fontWeight: 600, color: SD.inkMute,
+                          cursor: 'pointer', fontFamily: 'inherit',
+                          textDecoration: 'underline', letterSpacing: 0.1,
+                        }}
+                      >Set as primary</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : school.head_coach ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+          {parseLegacyCoaches(school.head_coach).map((coach, i) => (
+            <div key={i} style={{
+              background: '#fff', border: `1px solid ${SD.line}`, borderRadius: 12,
+              padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 10,
+            }}>
+              {coach.isHead ? (
+                <div style={{
+                  width: 34, height: 34, borderRadius: '50%',
+                  background: SD.ink, color: '#fff', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, fontWeight: 800, letterSpacing: 0.5, marginTop: 1,
+                }}>{coachInitials(coach.name)}</div>
+              ) : (
+                <div style={{
+                  width: 34, height: 34, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: SD.inkMute }} />
+                </div>
+              )}
+              <div>
+                <div style={{
+                  fontSize: coach.isHead ? 14 : 13, fontWeight: 700,
+                  color: coach.isHead ? SD.ink : SD.inkMid, letterSpacing: -0.2, lineHeight: 1.3,
+                }}>{coach.name}</div>
+                {coach.role && (
+                  <div style={{ fontSize: 11, color: SD.inkLo, fontWeight: 500, marginTop: 1 }}>
+                    {coach.role}
+                  </div>
+                )}
+                {coach.isHead && school.coach_email && (
+                  <a href={`mailto:${school.coach_email}`} style={{
+                    display: 'block', fontSize: 11, color: SD.tealDeep,
+                    textDecoration: 'none', fontWeight: 600, marginTop: 2,
+                  }}>{school.coach_email}</a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 13, color: SD.inkLo, fontStyle: 'italic' }}>
+          No coaching contacts yet. They appear when the scraper finds them or you add one manually.
+        </div>
+      )}
+
+      {/* Call prep — lives with the people you're calling */}
+      <div style={{ marginTop: 16 }}>
+        <button
+          onClick={() => setPrepOpen(o => !o)}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', gap: 8, padding: 0,
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 700, color: SD.ink }}>
+            Call prep{callPrepDocs.length > 0 ? ` (${callPrepDocs.length})` : ''}
+          </span>
+          <span style={{
+            fontSize: 11, color: SD.inkMute,
+            transform: prepOpen ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.15s', display: 'inline-block',
+          }}>&#9660;</span>
+        </button>
+        {prepOpen && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ marginBottom: 12 }}>
+              <button
+                onClick={onPrepForCall}
+                style={{
+                  padding: '7px 14px', borderRadius: 6,
+                  border: `1.3px solid ${SD.line2}`, background: 'transparent',
+                  fontSize: 12, fontWeight: 600, color: SD.inkMid,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >Prep for call</button>
+            </div>
+            <CallPrepSection
+              docs={callPrepDocs}
+              schoolId={school.id}
+              schoolName={school.short_name ?? school.name}
+              coaches={coaches}
+              onRefetch={onRefetchPrep}
+            />
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// ─── Zone 3: Your notes — your thinking in one place ─────────────────────────
+
+function NotesZone({
+  school, actionItems, completedItems, today, onComplete, onAddAction, onUpdateAction, onUpdateSchool,
+  statusUpdates, onInsertUpdate, onUpdateUpdate, onDeleteUpdate,
+}: {
+  school: School
   actionItems: ActionItem[]
   completedItems: ActionItem[]
-  camps: CampWithRelations[]
-  schools: School[]
   today: string
   onComplete: (id: string) => Promise<void>
   onAddAction: (action: string, dueDate: string, owner: string) => Promise<void>
   onUpdateAction: (id: string, updates: { action?: string; due_date?: string | null }) => Promise<void>
   onUpdateSchool: (updates: Partial<School>) => Promise<void>
-  onDraftForCoach: (coachId: string) => void
-  onSetPrimary: (id: string) => Promise<unknown>
   statusUpdates: import('@/lib/types').SchoolStatusUpdate[]
   onInsertUpdate: (u: { school_id: string; body: string; share_with_coach: import('@/lib/types').ShareWithCoach }) => Promise<{ error: unknown }>
   onUpdateUpdate: (id: string, fields: { body?: string; share_with_coach?: import('@/lib/types').ShareWithCoach }) => Promise<unknown>
@@ -1322,17 +1655,11 @@ function Sidebar({
 }) {
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesText, setNotesText] = useState(school.notes ?? '')
-  const [editingRQ, setEditingRQ] = useState(false)
-  const [editingRqLink, setEditingRqLink] = useState(false)
-  const [rqLinkText, setRqLinkText] = useState(school.rq_link ?? '')
-  const [editingTier, setEditingTier] = useState(false)
-  const [editingAdmit, setEditingAdmit] = useState(false)
   // Strategic notes (from school_message_plan.finn_notes)
   const [stratNotes, setStratNotes] = useState('')
   const [stratNotesLoaded, setStratNotesLoaded] = useState(false)
   const stratNotesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Fetch strategic notes on mount
   useEffect(() => {
     let cancelled = false
     async function load() {
@@ -1360,282 +1687,146 @@ function Sidebar({
     }, 1000)
   }
 
-  // ── About rows — only non-null values ────────────────────────────────────────
+  return (
+    <section style={{ marginTop: 'clamp(32px, 5vw, 48px)' }}>
+      <ZoneHeading>Your notes.</ZoneHeading>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, alignItems: 'start' }}>
+
+        {/* Action items */}
+        <SidebarCard label={`Action items${actionItems.length > 0 ? ` · ${actionItems.length}` : ''}`}>
+          {actionItems.length === 0 ? (
+            <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>
+              Nothing to do right now. Add one when something comes up.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {actionItems.map(item => (
+                <EditableActionRow
+                  key={item.id}
+                  item={item}
+                  today={today}
+                  onComplete={onComplete}
+                  onUpdate={onUpdateAction}
+                />
+              ))}
+            </div>
+          )}
+          <AddActionForm onAdd={onAddAction} />
+          {completedItems.length > 0 && (
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${SD.line}` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: SD.inkLo, marginBottom: 8 }}>Recently completed</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {completedItems.map(item => (
+                  <div key={item.id}>
+                    <div style={{ fontSize: 12, color: SD.inkLo, textDecoration: 'line-through', lineHeight: 1.4 }}>{item.action}</div>
+                    <div style={{ fontSize: 10, color: SD.inkMute, marginTop: 1 }}>
+                      Completed {item.completed_at
+                        ? new Date(item.completed_at).toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' })
+                        : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </SidebarCard>
+
+        {/* Status updates */}
+        <SidebarCard label={`Status updates${statusUpdates.length > 0 ? ` · ${statusUpdates.length}` : ''}`}>
+          <StatusUpdatesPanel
+            schoolId={school.id}
+            updates={statusUpdates}
+            onInsert={onInsertUpdate}
+            onUpdate={onUpdateUpdate}
+            onDelete={onDeleteUpdate}
+          />
+        </SidebarCard>
+
+        {/* Strategic notes */}
+        <SidebarCard label="Strategic notes">
+          {stratNotesLoaded ? (
+            <textarea
+              value={stratNotes}
+              onChange={e => handleStratNotesChange(e.target.value)}
+              placeholder="What's your strategy for this school? What should upcoming emails prioritize?"
+              rows={4}
+              style={{
+                width: '100%', padding: '6px 8px', border: `1px solid ${SD.line}`,
+                borderRadius: 6, fontSize: 12, fontFamily: 'inherit',
+                color: SD.ink, resize: 'vertical', boxSizing: 'border-box',
+                background: '#fff', outline: 'none', lineHeight: 1.5,
+              }}
+            />
+          ) : (
+            <div style={{ fontSize: 11, color: SD.inkMute }}>Loading...</div>
+          )}
+        </SidebarCard>
+
+        {/* School notes */}
+        <SidebarCard label="Notes">
+          {editingNotes ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <textarea
+                autoFocus
+                value={notesText}
+                onChange={e => setNotesText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Escape') setEditingNotes(false) }}
+                rows={4}
+                style={{
+                  width: '100%', padding: '6px 8px', border: `1px solid ${SD.line}`,
+                  borderRadius: 6, fontSize: 12, fontFamily: 'inherit',
+                  background: '#fff', outline: 'none', resize: 'vertical',
+                  lineHeight: 1.5, boxSizing: 'border-box',
+                }}
+              />
+              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                <button onClick={() => setEditingNotes(false)} style={{ padding: '3px 8px', borderRadius: 4, border: `1px solid ${SD.line}`, background: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: SD.inkLo }}>Cancel</button>
+                <button onClick={async () => { await onUpdateSchool({ notes: notesText.trim() || null }); setEditingNotes(false) }} style={{ padding: '3px 8px', borderRadius: 4, border: 'none', background: SD.ink, color: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Save</button>
+              </div>
+            </div>
+          ) : (
+            <div
+              onClick={() => { setNotesText(school.notes ?? ''); setEditingNotes(true) }}
+              style={{ fontSize: 12, color: school.notes ? SD.inkMid : SD.inkLo, lineHeight: 1.55, cursor: 'pointer', fontStyle: school.notes ? 'normal' : 'italic' }}
+            >{school.notes || 'Add a note'}</div>
+          )}
+        </SidebarCard>
+      </div>
+    </section>
+  )
+}
+
+// ─── Logistics — reference: RQ, camps, the details ───────────────────────────
+
+function LogisticsStrip({
+  school, camps, schools, onUpdateSchool,
+}: {
+  school: School
+  camps: CampWithRelations[]
+  schools: School[]
+  onUpdateSchool: (updates: Partial<School>) => Promise<void>
+}) {
+  const [editingRQ, setEditingRQ] = useState(false)
+  const [editingRqLink, setEditingRqLink] = useState(false)
+  const [rqLinkText, setRqLinkText] = useState(school.rq_link ?? '')
+  const [editingTier, setEditingTier] = useState(false)
+  const [editingAdmit, setEditingAdmit] = useState(false)
+
   const aboutRows: [string, string][] = [
-    ['Division',     school.division                                                            ],
-    ['Conference',   school.conference                                         ?? ''],
-    ['Location',     school.location                                           ?? ''],
-    ['Status',       school.status                                                              ],
-    ['Last contact', school.last_contact ? fmtShortDate(school.last_contact)  : '' ],
+    ['Division',     school.division                                          ],
+    ['Conference',   school.conference                                  ?? ''],
+    ['Location',     school.location                                    ?? ''],
+    ['Status',       school.status                                            ],
+    ['Last contact', school.last_contact ? fmtShortDate(school.last_contact) : ''],
   ].filter(([, v]) => v !== '') as [string, string][]
 
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', gap: 16,
-      position: 'sticky', top: 20,
-    }}>
-      {/* Action items panel — PROMOTED to top */}
-      <SidebarCard label={`Actions${actionItems.length > 0 ? ` · ${actionItems.length}` : ''}`}>
-        {actionItems.length === 0 ? (
-          <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>
-            Nothing to do right now. Add one when something comes up.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {actionItems.map(item => (
-              <EditableActionRow
-                key={item.id}
-                item={item}
-                today={today}
-                onComplete={onComplete}
-                onUpdate={onUpdateAction}
-              />
-            ))}
-          </div>
-        )}
+    <section style={{ marginTop: 'clamp(32px, 5vw, 48px)' }}>
+      <ZoneHeading>The logistics.</ZoneHeading>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, alignItems: 'start' }}>
 
-        {/* Add action inline form */}
-        <AddActionForm onAdd={onAddAction} />
-
-        {/* Recently completed */}
-        {completedItems.length > 0 && (
-          <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${SD.line}` }}>
-            <div style={{
-              fontSize: 10, fontWeight: 700, color: SD.inkLo,
-              textTransform: 'uppercase', letterSpacing: '0.08em',
-              marginBottom: 8,
-            }}>Recently completed</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {completedItems.map(item => (
-                <div key={item.id}>
-                  <div style={{
-                    fontSize: 12, color: SD.inkLo,
-                    textDecoration: 'line-through', lineHeight: 1.4,
-                  }}>{item.action}</div>
-                  <div style={{
-                    fontSize: 10, color: SD.inkMute, marginTop: 1,
-                  }}>
-                    Completed {item.completed_at
-                      ? new Date(item.completed_at).toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' })
-                      : ''}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </SidebarCard>
-
-      {/* Status updates */}
-      <SidebarCard label={`Status updates${statusUpdates.length > 0 ? ` · ${statusUpdates.length}` : ''}`}>
-        <StatusUpdatesPanel
-          schoolId={school.id}
-          updates={statusUpdates}
-          onInsert={onInsertUpdate}
-          onUpdate={onUpdateUpdate}
-          onDelete={onDeleteUpdate}
-        />
-      </SidebarCard>
-
-      {/* Coach card — coaches table if populated, legacy fallback otherwise */}
-      <SidebarCard label="Coach">
-        {coaches.length > 0 ? (
-          // ── Coaches table records ────────────────────────────────────────────
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {coaches.map(coach => {
-              const isPrimary = coach.is_primary
-              // Primary email: coach.email first, then generic_team_email fallback
-              const emailToShow = isPrimary
-                ? (coach.email ?? school.generic_team_email ?? null)
-                : null
-              return (
-                <div key={coach.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                  {/* Avatar (primary) or dot (secondary) */}
-                  {isPrimary ? (
-                    <div style={{
-                      width: 34, height: 34, borderRadius: '50%',
-                      background: SD.ink, color: '#fff', flexShrink: 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontWeight: 800, letterSpacing: 0.5, marginTop: 1,
-                    }}>{coachInitials(coach.name)}</div>
-                  ) : (
-                    <div style={{
-                      width: 34, height: 34, flexShrink: 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: SD.inkMute }} />
-                    </div>
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <span style={{
-                        fontSize: isPrimary ? 14 : 12, fontWeight: 700,
-                        color: isPrimary ? SD.ink : SD.inkMid,
-                        letterSpacing: -0.2, lineHeight: 1.3,
-                      }}>{coach.name}</span>
-                      {coach.needs_review && (
-                        <span
-                          title="This record was flagged during backfill — verify name, role, and email"
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 3,
-                            padding: '1px 6px', borderRadius: 999,
-                            background: SD.goldSoft, color: SD.goldInk,
-                            fontSize: 9, fontWeight: 800, letterSpacing: 0.3,
-                            textTransform: 'uppercase', flexShrink: 0,
-                            border: `1px solid ${SD.goldDeep}`,
-                            cursor: 'help',
-                          }}
-                        >Needs review</span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 11, color: SD.inkLo, fontWeight: 500, marginTop: 1 }}>
-                      {coach.role}
-                    </div>
-                    {emailToShow && (
-                      <a href={`mailto:${emailToShow}`} style={{
-                        display: 'block', fontSize: 11, color: SD.tealDeep,
-                        textDecoration: 'none', fontWeight: 600, marginTop: 2,
-                        wordBreak: 'break-all',
-                      }}>{emailToShow}</a>
-                    )}
-                    {!isPrimary && (
-                      <button
-                        onClick={() => onSetPrimary(coach.id)}
-                        style={{
-                          marginTop: 4,
-                          background: 'none', border: 'none', padding: 0,
-                          fontSize: 10, fontWeight: 600, color: SD.inkMute,
-                          cursor: 'pointer', fontFamily: 'inherit',
-                          textDecoration: 'underline', letterSpacing: 0.1,
-                        }}
-                      >Set as primary</button>
-                    )}
-                    {/* Per-coach draft */}
-                    <div style={{ marginTop: 6 }}>
-                      <button
-                        onClick={() => onDraftForCoach(coach.id)}
-                        style={{
-                          padding: '3px 10px', borderRadius: 999,
-                          background: SD.ink, color: '#fff', border: 'none',
-                          fontSize: 10, fontWeight: 700,
-                          cursor: 'pointer', fontFamily: 'inherit',
-                        }}
-                      >Draft email</button>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-
-          </div>
-        ) : school.head_coach ? (
-          // ── Legacy fallback — parse head_coach string ────────────────────────
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {parseLegacyCoaches(school.head_coach).map((coach, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                {coach.isHead ? (
-                  <div style={{
-                    width: 34, height: 34, borderRadius: '50%',
-                    background: SD.ink, color: '#fff', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 11, fontWeight: 800, letterSpacing: 0.5, marginTop: 1,
-                  }}>{coachInitials(coach.name)}</div>
-                ) : (
-                  <div style={{
-                    width: 34, height: 34, flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: SD.inkMute }} />
-                  </div>
-                )}
-                <div>
-                  <div style={{
-                    fontSize: coach.isHead ? 14 : 12, fontWeight: 700,
-                    color: coach.isHead ? SD.ink : SD.inkMid, letterSpacing: -0.2, lineHeight: 1.3,
-                  }}>{coach.name}</div>
-                  {coach.role && (
-                    <div style={{ fontSize: 11, color: SD.inkLo, fontWeight: 500, marginTop: 1 }}>
-                      {coach.role}
-                    </div>
-                  )}
-                  {coach.isHead && school.coach_email && (
-                    <a href={`mailto:${school.coach_email}`} style={{
-                      display: 'block', fontSize: 11, color: SD.tealDeep,
-                      textDecoration: 'none', fontWeight: 600, marginTop: 2,
-                    }}>{school.coach_email}</a>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>No coaching contacts yet. They appear when the scraper finds them or you add one manually.</div>
-        )}
-      </SidebarCard>
-
-      {/* About block */}
-      <SidebarCard label="About">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {aboutRows.map(([label, value]) => (
-            <AboutRow key={label} label={label} value={value} />
-          ))}
-
-          {/* Tier — editable */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, flexShrink: 0 }}>Tier</div>
-            {editingTier ? (
-              <select
-                autoFocus
-                value={school.category}
-                onChange={async (e) => {
-                  const val = e.target.value as Category
-                  await onUpdateSchool({ category: val })
-                  setEditingTier(false)
-                }}
-                onBlur={() => setEditingTier(false)}
-                style={{ fontSize: 12, padding: '2px 4px', border: `1px solid ${SD.line}`, borderRadius: 4, outline: 'none' }}
-              >
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="Nope">Nope</option>
-              </select>
-            ) : (
-              <div style={{ fontSize: 12, color: SD.ink, fontWeight: 500, cursor: 'pointer' }} onClick={() => setEditingTier(true)}>
-                {school.category}
-              </div>
-            )}
-          </div>
-
-          {/* Admit — editable */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, flexShrink: 0 }}>Admit</div>
-            {editingAdmit ? (
-              <select
-                autoFocus
-                value={school.admit_likelihood ?? ''}
-                onChange={async (e) => {
-                  const val = e.target.value || null
-                  await onUpdateSchool({ admit_likelihood: val as AdmitLikelihood | null })
-                  setEditingAdmit(false)
-                }}
-                onBlur={() => setEditingAdmit(false)}
-                style={{ fontSize: 12, padding: '2px 4px', border: `1px solid ${SD.line}`, borderRadius: 4, outline: 'none' }}
-              >
-                <option value="">—</option>
-                <option value="Likely">Likely</option>
-                <option value="Target">Target</option>
-                <option value="Reach">Reach</option>
-                <option value="Far Reach">Far Reach</option>
-              </select>
-            ) : (
-              <div style={{ fontSize: 12, color: SD.ink, fontWeight: 500, cursor: 'pointer' }} onClick={() => setEditingAdmit(true)}>
-                {school.admit_likelihood ?? '—'}
-              </div>
-            )}
-          </div>
-
-          {/* RQ Status — editable with link + mark updated */}
+        {/* Recruiting questionnaire */}
+        <SidebarCard label="Questionnaire">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, flexShrink: 0 }}>RQ status</div>
             <div style={{ textAlign: 'right', flex: 1 }}>
@@ -1646,8 +1837,6 @@ function Sidebar({
                     value={school.rq_status ?? ''}
                     onChange={async (e) => {
                       const newStatus = e.target.value || null
-                      // Completed sets status + stamps the date via the shared patch;
-                      // other statuses just set the status.
                       const updates: Partial<School> = newStatus === 'Completed'
                         ? rqMarkCompletedPatch()
                         : { rq_status: newStatus }
@@ -1681,7 +1870,6 @@ function Sidebar({
                   Last updated: {new Date(school.rq_updated_at).toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' })}
                 </div>
               )}
-              {/* RQ link */}
               <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
                 {school.rq_link ? (
                   <a href={school.rq_link} target="_blank" rel="noopener noreferrer"
@@ -1711,95 +1899,97 @@ function Sidebar({
               </div>
             </div>
           </div>
+        </SidebarCard>
 
-          {/* Videos sent — with title + link */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, flexShrink: 0 }}>Videos sent</div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 12, color: SD.ink, fontWeight: 500 }}>
-                {school.last_video_url ? 'Yes' : 'No'}
-              </div>
-              {school.last_video_sent_at && (
-                <div style={{ fontSize: 10, color: SD.inkLo, marginTop: 1 }}>
-                  Last sent: {new Date(school.last_video_sent_at).toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' })}
-                  {school.last_video_title && school.last_video_url && (
-                    <> — <a href={school.last_video_url} target="_blank" rel="noopener noreferrer" style={{ color: SD.tealDeep, textDecoration: 'none' }}>{school.last_video_title}</a></>
-                  )}
-                  {!school.last_video_title && school.last_video_url && (
-                    <> — <a href={school.last_video_url} target="_blank" rel="noopener noreferrer" style={{ color: SD.tealDeep, textDecoration: 'none' }}>link</a></>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+        {/* Camps */}
+        <SidebarCamps school={school} camps={camps} schools={schools} />
 
-          {/* Notes — editable */}
-          <div style={{ marginTop: 6, paddingTop: 10, borderTop: `1px solid ${SD.line}`, position: 'relative' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo }}>Notes</div>
-              {!editingNotes && (
-                <button
-                  onClick={() => { setNotesText(school.notes ?? ''); setEditingNotes(true) }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: SD.inkLo, padding: 0, opacity: 0.6 }}
-                >&#9998;</button>
-              )}
-            </div>
-            {editingNotes ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <textarea
+        {/* The details */}
+        <SidebarCard label="The details">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {aboutRows.map(([label, value]) => (
+              <AboutRow key={label} label={label} value={value} />
+            ))}
+
+            {/* Tier — editable */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, flexShrink: 0 }}>Tier</div>
+              {editingTier ? (
+                <select
                   autoFocus
-                  value={notesText}
-                  onChange={e => setNotesText(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Escape') setEditingNotes(false) }}
-                  rows={4}
-                  style={{
-                    width: '100%', padding: '6px 8px', border: `1px solid ${SD.line}`,
-                    borderRadius: 6, fontSize: 12, fontFamily: 'inherit',
-                    background: '#fff', outline: 'none', resize: 'vertical',
-                    lineHeight: 1.5, boxSizing: 'border-box',
+                  value={school.category}
+                  onChange={async (e) => {
+                    const val = e.target.value as Category
+                    await onUpdateSchool({ category: val })
+                    setEditingTier(false)
                   }}
-                />
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                  <button onClick={() => setEditingNotes(false)} style={{ padding: '3px 8px', borderRadius: 4, border: `1px solid ${SD.line}`, background: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: SD.inkLo }}>Cancel</button>
-                  <button onClick={async () => { await onUpdateSchool({ notes: notesText.trim() || null }); setEditingNotes(false) }} style={{ padding: '3px 8px', borderRadius: 4, border: 'none', background: SD.ink, color: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Save</button>
+                  onBlur={() => setEditingTier(false)}
+                  style={{ fontSize: 12, padding: '2px 4px', border: `1px solid ${SD.line}`, borderRadius: 4, outline: 'none' }}
+                >
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="Nope">Nope</option>
+                </select>
+              ) : (
+                <div style={{ fontSize: 12, color: SD.ink, fontWeight: 500, cursor: 'pointer' }} onClick={() => setEditingTier(true)}>
+                  {school.category}
                 </div>
-              </div>
-            ) : (
-              <div
-                onClick={() => { setNotesText(school.notes ?? ''); setEditingNotes(true) }}
-                style={{ fontSize: 12, color: school.notes ? SD.inkMid : SD.inkLo, lineHeight: 1.55, cursor: 'pointer', fontStyle: school.notes ? 'normal' : 'italic' }}
-              >{school.notes || 'Add a note'}</div>
-            )}
-          </div>
-
-          {/* Strategic notes — auto-saving, writes to school_message_plan.finn_notes */}
-          <div style={{ marginTop: 6, paddingTop: 10, borderTop: `1px solid ${SD.line}` }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, marginBottom: 6 }}>
-              Strategic notes
+              )}
             </div>
-            {stratNotesLoaded ? (
-              <textarea
-                value={stratNotes}
-                onChange={e => handleStratNotesChange(e.target.value)}
-                placeholder="What's the strategy for this school? What should upcoming emails prioritize?"
-                rows={3}
-                style={{
-                  width: '100%', padding: '6px 8px', border: `1px solid ${SD.line}`,
-                  borderRadius: 6, fontSize: 12, fontFamily: 'inherit',
-                  color: SD.ink, resize: 'vertical', boxSizing: 'border-box',
-                  background: '#fff', outline: 'none', lineHeight: 1.5,
-                }}
-              />
-            ) : (
-              <div style={{ fontSize: 11, color: SD.inkMute }}>Loading...</div>
-            )}
-          </div>
-        </div>
-      </SidebarCard>
 
-      {/* Camps */}
-      <SidebarCamps school={school} camps={camps} schools={schools} />
-    </div>
+            {/* Admit — editable */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, flexShrink: 0 }}>Admit</div>
+              {editingAdmit ? (
+                <select
+                  autoFocus
+                  value={school.admit_likelihood ?? ''}
+                  onChange={async (e) => {
+                    const val = e.target.value || null
+                    await onUpdateSchool({ admit_likelihood: val as AdmitLikelihood | null })
+                    setEditingAdmit(false)
+                  }}
+                  onBlur={() => setEditingAdmit(false)}
+                  style={{ fontSize: 12, padding: '2px 4px', border: `1px solid ${SD.line}`, borderRadius: 4, outline: 'none' }}
+                >
+                  <option value="">—</option>
+                  <option value="Likely">Likely</option>
+                  <option value="Target">Target</option>
+                  <option value="Reach">Reach</option>
+                  <option value="Far Reach">Far Reach</option>
+                </select>
+              ) : (
+                <div style={{ fontSize: 12, color: SD.ink, fontWeight: 500, cursor: 'pointer' }} onClick={() => setEditingAdmit(true)}>
+                  {school.admit_likelihood ?? '—'}
+                </div>
+              )}
+            </div>
+
+            {/* Videos sent */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: SD.inkLo, flexShrink: 0 }}>Videos sent</div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 12, color: SD.ink, fontWeight: 500 }}>
+                  {school.last_video_url ? 'Yes' : 'No'}
+                </div>
+                {school.last_video_sent_at && (
+                  <div style={{ fontSize: 10, color: SD.inkLo, marginTop: 1 }}>
+                    Last sent: {new Date(school.last_video_sent_at).toLocaleDateString('en-US', { timeZone: 'America/Denver', month: 'short', day: 'numeric' })}
+                    {school.last_video_title && school.last_video_url && (
+                      <> — <a href={school.last_video_url} target="_blank" rel="noopener noreferrer" style={{ color: SD.tealDeep, textDecoration: 'none' }}>{school.last_video_title}</a></>
+                    )}
+                    {!school.last_video_title && school.last_video_url && (
+                      <> — <a href={school.last_video_url} target="_blank" rel="noopener noreferrer" style={{ color: SD.tealDeep, textDecoration: 'none' }}>link</a></>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </SidebarCard>
+      </div>
+    </section>
   )
 }
 
@@ -1856,9 +2046,8 @@ function SidebarCamps({ school, camps, schools }: {
             {hosted.length > 0 && (
               <div>
                 <div style={{
-                  fontSize: 10, fontWeight: 700, color: SD.inkLo,
-                  textTransform: 'uppercase', letterSpacing: '0.08em',
-                  marginBottom: 6,
+                  fontSize: 11, fontWeight: 700, color: SD.inkLo,
+                  letterSpacing: '-0.01em', marginBottom: 6,
                 }}>Hosted</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {hosted.map(c => (
@@ -1872,9 +2061,8 @@ function SidebarCamps({ school, camps, schools }: {
             {attending.length > 0 && (
               <div>
                 <div style={{
-                  fontSize: 10, fontWeight: 700, color: SD.inkLo,
-                  textTransform: 'uppercase', letterSpacing: '0.08em',
-                  marginBottom: 6,
+                  fontSize: 11, fontWeight: 700, color: SD.inkLo,
+                  letterSpacing: '-0.01em', marginBottom: 6,
                 }}>Attending</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {attending.map(c => (
@@ -1955,60 +2143,6 @@ function SidebarCampRow({ camp, showHost, onClick }: {
   )
 }
 
-// ─── Collapsed call prep docs ────────────────────────────────────────────────
-
-function CollapsedCallPrep({ docs, schoolId, schoolName, coaches, onRefetch, onPrepForCall }: {
-  docs: ReturnType<typeof useCallPrepDocs>['docs']
-  schoolId: string
-  schoolName: string
-  coaches: Coach[]
-  onRefetch: () => void
-  onPrepForCall: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <section style={{ marginTop: 28 }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-          display: 'flex', alignItems: 'center', gap: 8, padding: 0,
-        }}
-      >
-        <span style={{ fontSize: 13, fontWeight: 700, color: SD.ink }}>
-          Prep docs{docs.length > 0 ? ` (${docs.length})` : ''}
-        </span>
-        <span style={{
-          fontSize: 11, color: SD.inkMute,
-          transform: open ? 'rotate(180deg)' : 'none',
-          transition: 'transform 0.15s', display: 'inline-block',
-        }}>&#9660;</span>
-      </button>
-      {open && (
-        <div style={{ marginTop: 10 }}>
-          <div style={{ marginBottom: 12 }}>
-            <button
-              onClick={onPrepForCall}
-              style={{
-                padding: '7px 14px', borderRadius: 6,
-                border: `1.3px solid ${SD.line2}`, background: 'transparent',
-                fontSize: 12, fontWeight: 600, color: SD.inkMid,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >Prep for call</button>
-          </div>
-          <CallPrepSection
-            docs={docs}
-            schoolId={schoolId}
-            schoolName={schoolName}
-            coaches={coaches}
-            onRefetch={onRefetch}
-          />
-        </div>
-      )}
-    </section>
-  )
-}
 
 // ─── Main client component ────────────────────────────────────────────────────
 
@@ -2169,31 +2303,32 @@ export default function SchoolDetailClient({
         />
       </div>
 
-      {/* ── Content: summary + timeline (left) + sidebar (right) ── */}
-      <div className="detail-content" style={{
+      {/* ── Single-column zone flow (masthead → offers → hero → conversation → staff → notes → logistics) ── */}
+      <div style={{
+        maxWidth: 960, margin: '0 auto',
         padding: '0 clamp(16px, 4vw, 40px)',
-        marginTop: 'clamp(24px, 4vw, 40px)',
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 288px',
-        gap: 'clamp(24px, 4vw, 48px)',
-        alignItems: 'start',
         paddingBottom: 'clamp(24px, 4vw, 40px)',
+        marginTop: 'clamp(20px, 3vw, 28px)',
       }}>
-        <div>
-          {/* 1. Summary and Next Steps */}
-          <section style={{ marginBottom: 28 }}>
-            <h2 style={{
-              margin: '0 0 18px', fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
-              letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
-            }}>Summary and Next Steps.</h2>
-            <ConversationSummaryCard
-              schoolId={school.id}
-              schoolName={school.short_name ?? school.name}
-              onDraft={(kind, entryId, channel, recommendedAction) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel, recommendedAction })}
-            />
-          </section>
 
-          {/* 2. Conversation timeline */}
+        {/* ZONE 0 (cont.) — offers surfaced above the fold */}
+        <OffersZone schoolId={school.id} />
+
+        {/* ZONE 0 (cont.) — the summary hero: the page's single message */}
+        <section>
+          <h2 style={{
+            margin: '0 0 14px', fontSize: 'clamp(20px, 2.8vw, 26px)', fontWeight: 700,
+            letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
+          }}>Where things stand.</h2>
+          <ConversationSummaryCard
+            schoolId={school.id}
+            schoolName={school.short_name ?? school.name}
+            onDraft={(kind, entryId, channel, recommendedAction) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel, recommendedAction })}
+          />
+        </section>
+
+        {/* ZONE 1 — The conversation (Timeline renders its own heading) */}
+        <section style={{ marginTop: 'clamp(32px, 5vw, 48px)' }}>
           <Timeline
             contactLog={contactLog}
             actionItems={actionItems}
@@ -2210,24 +2345,24 @@ export default function SchoolDetailClient({
             onEditEntry={async (id, updates) => { await updateEntry(id, updates) }}
             onDeleteEntry={async (id) => { await deleteEntry(id) }}
           />
+        </section>
 
-          {/* 4. Call prep docs — collapsed disclosure */}
-          <CollapsedCallPrep
-            docs={callPrepDocs}
-            schoolId={school.id}
-            schoolName={school.short_name ?? school.name}
-            coaches={coaches}
-            onRefetch={refetchPrepDocs}
-            onPrepForCall={() => setPrepOpen(true)}
-          />
-        </div>
-        <Sidebar
+        {/* ZONE 2 — The staff */}
+        <StaffZone
           school={school}
           coaches={coaches}
+          onDraftForCoach={(coachId) => setDraftTarget({ kind: 'fresh', coachId })}
+          onSetPrimary={setPrimary}
+          callPrepDocs={callPrepDocs}
+          onRefetchPrep={refetchPrepDocs}
+          onPrepForCall={() => setPrepOpen(true)}
+        />
+
+        {/* ZONE 3 — Your notes */}
+        <NotesZone
+          school={school}
           actionItems={actionItems}
           completedItems={completedItems}
-          camps={camps}
-          schools={schools}
           today={today}
           onComplete={async (id) => { await completeItem(id) }}
           onAddAction={async (action, dueDate, owner) => {
@@ -2235,19 +2370,20 @@ export default function SchoolDetailClient({
           }}
           onUpdateAction={async (id, updates) => { await updateItem(id, updates) }}
           onUpdateSchool={async (updates) => { await updateSchool(school.id, updates) }}
-          onDraftForCoach={(coachId) => setDraftTarget({ kind: 'fresh', coachId })}
-          onSetPrimary={setPrimary}
           statusUpdates={statusUpdates}
           onInsertUpdate={async (u) => { const r = await insertUpdate(u); regenSummary(); return r }}
           onUpdateUpdate={async (id, f) => { const r = await updateUpdate(id, f); regenSummary(); return r }}
           onDeleteUpdate={async (id) => { const r = await deleteUpdate(id); regenSummary(); return r }}
         />
+
+        {/* LOGISTICS — reference: RQ, camps, the details */}
+        <LogisticsStrip
+          school={school}
+          camps={camps}
+          schools={schools}
+          onUpdateSchool={async (updates) => { await updateSchool(school.id, updates) }}
+        />
       </div>
-      <style>{`
-        @media (max-width: 860px) {
-          .detail-content { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
 
       {/* ── Modals ── */}
       {draftTarget && (() => {
