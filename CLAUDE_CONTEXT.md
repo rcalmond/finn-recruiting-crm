@@ -2150,9 +2150,9 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 
 ---
 
-## 11. Live Pipeline — Generated August 9, 2026
+## 11. Live Pipeline — Generated August 10, 2026
 
-**Active schools: 10** | Overdue actions: 21
+**Active schools: 7** | Overdue actions: 21
 (Category Nope and status Inactive excluded)
 
 ### Tier A — Highest Priority (5 schools)
@@ -2166,12 +2166,20 @@ SCHOOL: Clark
   Coach: Matthews Lima — Assistant Coach <malima@clarku.edu>
   Coach: Maitoe Suppasuesanguan — Assistant Coach <msuppasuesanguan@clarku.edu>
   Coach: Nur Adhikarie — Assistant Coach <nadhikarie@clarku.edu>
-  Last Contact: 2026-08-06
+  Last Contact: 2026-08-10
   RQ Status: Completed
   Videos Sent: Yes
   Next Action: Pre Crimson camp email (Finn) — due 2026-07-15
   Also: Send post camp and meeting update (Finn) — due 2026-08-03
   Contact Log (3 shown):
+    [2026-08-10] Outbound via Email — Samuel Matteson:
+      Coach Matteson,
+      
+      Thanks again for having me on campus on July 31 and for watching me at the
+      Crimson Camp that weekend. Getting to walk around Clark with you, and then
+      having you see me play the next day, made the whole trip really valuable.
+      
+      I also appreciated you getting the pre-read process sta...
     [2026-08-06] Inbound via Email — Clark University:
       Dear Finn,
       
@@ -2180,9 +2188,7 @@ SCHOOL: Clark
       
                             ...
     [2026-08-03] Outbound via Phone:
-      Looking forward to it!
-    [2026-08-03] Outbound via Phone:
-      Hi Coach, I’m all set for our call, let me know when your set in your end
+      Hi Coach, thank you so much for the call, I’ve just filled out the recruiting questionnaire. And I’m going to be staying in Worcester on Thursday night so I can be at Clark whatever time works best on Friday!
 
 SCHOOL: Colby
   Status: Ongoing Conversation
@@ -2247,24 +2253,27 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
   Coach: Mateo Sanchez — Assistant Coach
   Coach: Dylan Milkent — Head Coach <dmilkent@illinoistech.edu> [primary]
   Coach: Marlon McKenzie — Head Coach
-  Last Contact: 2026-07-27
+  Last Contact: 2026-08-10
   RQ Status: Completed
   Videos Sent: Yes
   Next Action: Complete Financial pre-read docs (Randy) — due 2026-08-07
   Also: Get back to Coach re: scheduling a visit (Finn) — due 2026-08-12
   Contact Log (3 shown):
-    [2026-07-27] Inbound via Email — Dylan Milkent:
-      Finn,
+    [2026-08-10] Outbound via Email — Dylan Milkent:
+      Hey Coach,
       
-      Congrats on your acceptance! This is a big step and you should feel GREAT. I have attached information regarding financial aid pre-read. Note that there is a deadline for July 27th. That is a short timeline so I understand if the August one makes more sense. Just keep me posted!
+      I finished the financial pre-read on Friday, so that's in.
       
-      Go Hawks!...
+      For the visit, a weekday with a Saturday game sounds ideal. I'm still
+      waiting on my high school soccer and golf schedules to get locked in, but
+      those should be finalized by the end of next week. Once I have those in
+      hand I'll...
+    [2026-08-10] Inbound via Phone:
+      Ok no problem! Really - the visit is up to you. I like to have weekdays because if gives you a chance to see what a weekday looks like. If you wanted to make a “weekend” out of it, typically that could be a Friday and then watching a game on Saturday. Which you could look at our schedule for what...
     [2026-07-27] Inbound via Text:
       Congrats Finn! Thats amazing news to hear!! There’s also a financial aid pre read that I can send so your family can work on that as well. 
       
       Let’s get you to campus! Let me know if there’s a time around mid/late August and early September. It may depend what your game schedule looks like for high...
-    [2026-07-27] Outbound via Text:
-      Hi Coach, the financial pre-read sounds great. Send that over and I can get that started. Unfortunately the 20th doesn’t work for me because I start school that day.  In terms of getting out to Illinois, there is still a lot with High school soccer and golf scheduling that’s still up in the air t...
 
 SCHOOL: Middlebury
   Status: Ongoing Conversation
@@ -2281,6 +2290,12 @@ SCHOOL: Middlebury
   Videos Sent: Yes
   Next Action: decide about the camp on 8/15 - 8/16 (Finn) — due 2026-07-12
   Contact Log (3 shown):
+    [2026-07-08] Outbound via Sports Recruits — Tim Peng:
+      Coach Peng,
+      
+      Quick update. I'm registered for the August 15-16 clinic in Middlebury and looking forward to getting on campus and training with your staff.
+      
+      AP scores also came back: 5 in Calc AB, 3 in Chem, 4 in APUSH. Next year I've got Calc BC, AP Physics, and AP Stats lined up, still pointed a...
     [2026-07-08] Inbound via Sports Recruits — Tim Peng:
       Thanks Finn!
       
@@ -2290,12 +2305,6 @@ SCHOOL: Middlebury
       Assistant Men’s Soccer Coach
       
       Middlebury College
-    [2026-07-08] Outbound via Sports Recruits — Tim Peng:
-      Coach Peng,
-      
-      Quick update. I'm registered for the August 15-16 clinic in Middlebury and looking forward to getting on campus and training with your staff.
-      
-      AP scores also came back: 5 in Calc AB, 3 in Chem, 4 in APUSH. Next year I've got Calc BC, AP Physics, and AP Stats lined up, still pointed a...
     [2026-06-10] Inbound via Sports Recruits — Tim Peng:
       Excellent boss
       
@@ -2314,25 +2323,36 @@ SCHOOL: WPI
   Coach: Taskin Guven — Assistant Coach
   Coach: Riley Doherty — Assistant Coach <rjdoherty@wpi.edu>
   Coach: Gabe Ramos — Assistant Coach <gramos@wpi.edu>
-  Last Contact: 2026-07-31
+  Last Contact: 2026-08-10
   RQ Status: Completed
   Videos Sent: Yes
   Next Action: Decide whether this ID camp works or the crimson (Finn) — due 2026-07-01
   Contact Log (3 shown):
+    [2026-08-10] Outbound via Email — Brian Kelley:
+      Coach Kelley,
+      
+      Thanks again for making the time on July 31 and then for coming out to
+      watch me at the Crimson Camp. It meant a lot that you drove over to see a
+      game in person.
+      
+      I also really appreciated the honest feedback on my first step. That's
+      exactly the kind of thing I want to hear. I'm add...
+    [2026-08-10] Inbound via Email — Brian Kelley:
+      Hi Finn,
+      
+      Good to hear from you again. I enjoyed meeting you and your family on campus.
+      The Crimson camp was a good level to see you play.
+      
+      Good luck with the SAQ work and your 1v1 defending!  Enjoy your upcoming season!!
+      
+      Coach Kelley
+      
+      From: Finn Almond <finnalmond08@gmail.com>
+      Sent: Monday, Aug...
     [2026-08-07] Inbound via In Person — Brian Kelley:
       At the Harvard Camp Coach Kelly said he liked Finn's defense, a physicality and left foot, but felt he was a bit slow on the first step.  He recommended Finn do SAQ specific training to improve his quickness.
-    [2026-08-04] Inbound via Phone:
-      Hi Finn,
-      It was good to see you play!  I enjoyed meeting you and your family.  Hope you got back home ok.
-    [2026-08-03] Outbound via Phone:
-      Hi Coach,
-      
-      This is Finn Almond. I just finished up the tour, I’m in the athletic center right now. Let me know where I can meet you. 
-      
-      Best, 
-      Finn Almond
 
-### Tier B (1 schools)
+### Tier C — Exploratory (2 schools)
 
 SCHOOL: Bowdoin
   Status: Ongoing Conversation
@@ -2342,12 +2362,18 @@ SCHOOL: Bowdoin
   Coach: Scott Wiercinski — Head Coach <swiercin@bowdoin.edu> [primary]
   Coach: Andrew Banadda — Assistant Coach <a.banadda@bowdoin.edu>
   Coach: Elayna Girardin — Assistant Coach
-  Last Contact: 2026-07-21
+  Last Contact: 2026-08-10
   RQ Status: Completed
   Videos Sent: Yes
   Next Action: Pre Crimson camp email (Finn) — due 2026-07-26
   Also: Send post camp follow up note (Finn) — due 2026-08-03
   Contact Log (3 shown):
+    [2026-08-10] Outbound via Sports Recruits — Scott Wiercinski:
+      Coach Wiercinski,
+      
+      Thank you for the honest note. I know coaches don't always take the time to lay it out that clearly, and I appreciate you being straight with me about where I stand and what to work on.
+      
+      The feedback on efficiency, range of pass, and organizing the group right after we lose the...
     [2026-08-04] Inbound via Sports Recruits — Scott Wiercinski:
       Thanks for the note.  It was great to work with you at the Crimson Soccer Clinic to add more specifics to our evaluation of your ability and potential.  We enjoyed working with you and hope you benefitted from your time on the field and your exploration of
        Bowdoin College.
@@ -2359,80 +2385,6 @@ SCHOOL: Bowdoin
       Thanks again for having me in your office on July 30. Getting to sit down and talk through recruiting and the program was really helpful, and Bowdoin felt even stronger in person than I expected.
       
       I really enjoyed getting to work with you over the weekend during the Crimson Cam...
-    [2026-07-21] Inbound via Sports Recruits — Scott Wiercinski:
-      Hello Finn,
-      
-      Thanks for the note.
-      
-      I am available to meet with you on Thursday, July 30th and look forward to hosting you. Please come to my office, Room 205, in the Buck Center for Health and Fitness.  The Buck Center is located near the center of campus and is included on the campus tour.
-       We c...
-
-### Tier C — Exploratory (4 schools)
-
-SCHOOL: Case Western
-  Status: Ongoing Conversation
-  Division: D3 — UAA
-  Location: Cleveland, OH
-  Admit Likelihood: Reach
-  Coach: Carter Poe — Head Coach <ccp51@case.edu> [primary]
-  Coach: Fernando Lisboa — Assistant Coach <fxm272@case.edu>
-  Last Contact: 2026-07-21
-  RQ Status: Completed
-  Videos Sent: Yes
-  Contact Log (3 shown):
-    [2026-07-21] Inbound via Sports Recruits — Carter Poe:
-      Finn,
-      
-      No worries.  Unfortunately, it doesn't look like we will be having a fall ID camp, so I think August will be our last one for a while.
-      
-      Coach Poe
-    [2026-07-20] Outbound via Sports Recruits — Carter Poe:
-      Coach Poe,
-      
-      Wanted to give you a heads up on the Aug 7-8 ID camp. It looks like I may have a high school golf tournament that Friday, and won't know exact timing until early August. If it doesn't work, is there a fall ID camp instead?
-      
-      On the academic side, my AP scores came back: 5 in Calculus A...
-    [2026-06-18] Inbound via Sports Recruits — Carter Poe:
-      Finn,
-      
-      Thanks for reaching out.  We won't be able to get out to game.  We typically don't travel that far for just one game.
-      
-      Coach Poe
-
-SCHOOL: South Dakota Mines (South Dakota School of Mines & Technology)
-  Status: Ongoing Conversation
-  Division: D2 — Rocky Mountain Athletic Conference (RMAC)
-  Location: Rapid City, SD
-  Admit Likelihood: Likely
-  Coach: Teren Schuster — Head Coach <Teren.Schuster@sdsmt.edu> [primary]
-  Coach: Rob Reagan — Assistant Coach <robert.reagan@sdsmt.edu>
-  Coach: Mike Fairchild — Other
-  Last Contact: 2026-07-14
-  RQ Status: Completed
-  Videos Sent: Yes
-  Contact Log (3 shown):
-    [2026-07-14] Inbound via Email — Teren Schuster:
-      Hello Finn,
-      
-      Last chance to sign up for our ID camp coming up this Thursday & Friday! We have quite a few ECNL & MLS Next players already registered and we would love to add you to our camp.
-      
-      Details are below!
-      
-      https://register.ryzer.com/camp.cfm?sport=7&id=329744
-      
-      							Teren Schuster, Head Me...
-    [2026-05-20] Outbound via Sports Recruits — Teren Schuster; Rob Reagan:
-      Coach Schuster,
-      
-      A quick end-of-season update: we finished league play 9W-2L-3D and I started every game at left wingback with 3 goals and 2 assists. We qualified for MLS NEXT Cup but unfortunately we don't have the numbers to attend.
-      
-      I also wanted to let you know I'll be playing with Flatirons ...
-    [2026-04-21] Outbound via Sports Recruits — Teren Schuster:
-      Hi Coach,
-      
-      It would be awesome to see you down here at one of my games. We have 4 games left in our regular season and if we win out, there's a good chance we'll go to MLS NEXT Cup in Utah in May.
-      
-      Here are my league games.  Let me know which you're looking to come to and I can get you all the de...
 
 SCHOOL: University of Rochester
   Status: Ongoing Conversation
@@ -2464,42 +2416,6 @@ SCHOOL: University of Rochester
       
       I liked the coaching style a lot....
 
-SCHOOL: Williams
-  Status: Ongoing Conversation
-  Division: D3 — NESCAC
-  Location: Williamstown, MA
-  Admit Likelihood: Far Reach
-  Coach: Steffen Siebert — Head Coach <ss40@williams.edu> [primary]
-  Coach: Bill Schmid — Assistant Coach <williamsmenssoccer@gmail.com>
-  Last Contact: 2026-05-27
-  RQ Status: Completed
-  Videos Sent: Yes
-  Next Action: reach out before ppa camp (Finn) — due 2026-07-01
-  Contact Log (3 shown):
-    [2026-05-27] Outbound via Sports Recruits — Steffen Siebert; Bill Schmid:
-      Coach Siebert,
-      
-      Quick end-of-season update. We finished league play 9W-2L-3D and I started every game at left wingback with 3 goals and 2 assists. I've been in the role full-time since November after moving over from striker at my coach's request.
-      
-      Latest reel: https://youtu.be/ajpAuqjSzpI
-      
-      I kno...
-    [2026-04-06] Inbound via Sports Recruits — Bill Schmid:
-      Finn,
-      
-      Thanks for reaching out with your interest in Williams. It’s great to hear
-      from you!
-      
-      We are in the thick of the 2027 recruiting process and would be happy to
-      learn more about you! When you have some time, please fill out our Recruit
-      Questionnaire <https://questionnaires.armssoftware.com/f...
-    [2026-04-02] Outbound via Sports Recruits — Steffen Siebert; Bill Schmid:
-      Coach Siebert,
-      
-      I'm Finn Almond, a 2027 left wingback with Albion SC Colorado MLS NEXT Academy. Williams is a program I've had on my list for a while — the NESCAC's academic culture and the level of D3 soccer in that conference are among the best in the country.
-      
-      I play left wingback in a back-th...
-
 ---
 
 ## 12. Recent Changes
@@ -2511,6 +2427,7 @@ SCHOOL: Williams
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-10 | Board ring semantics fixed: the persimmon ring now requires both recency (awaiting Finn) and a non-wait recommendation — ring means your move, not merely your turn (the same judgment gate the queue's wait-exclusion applies). Wait-status actives (Middlebury, WPI) no longer ring; legend updated. | UX fix |
 | 2026-08-09 | schools.notes retired end to end (content reviewed and discarded; removed from all generation prompts, UI, and via migration 064 the schema); strategic-notes generation input retired (live data empty; message-plan machinery untouched); Call prep upload entry point removed (generation is the section's action); school detail button audit — every action normalized to the house primary/filled, secondary/outlined, tertiary/link grammar with consistent radius and type. | Cleanup + Schema + UX |
 | 2026-08-09 | School detail refinement: stage/milestone popovers gain standard dismissal (click-out, Esc, X); Show-alternatives deprecated from the summary card; Call prep promoted to its own section with purpose copy, doc list, and empty state; notes consolidated — Strategic notes and Notes cards retired (status updates carry the role), masthead +Note replaced by an in-zone add with three capture types, legacy content preserved read-only; timeline Log entry form restyled to the house language. | UX |
 | 2026-08-09 | School detail rework: reorganized from feature-era accretion into four mental-mode zones — masthead + standing state (consolidated header block; charcoal offer cards surfaced above the fold; ConversationSummaryCard as the page hero), The conversation (timeline, recent-8 with show-all), The staff (coaches + call prep), Your notes (the four capture panels consolidated into one review area) — with camps + RQ as a compact logistics strip. Neutral chrome (page serves every phase), de-eyebrowed, tightened rows, no logic changes. | UX |

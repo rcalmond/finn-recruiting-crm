@@ -64,17 +64,22 @@ interface CellSchool {
   short_name: string | null
   category: string
   isDeclined: boolean
-  awaiting: boolean   // your turn — unreplied coach inbound (former "hot")
+  awaiting: boolean   // your move — recency-hot AND recommendation != 'wait'
 }
 
 interface Props {
   schools: School[]
   contactLog: ContactLogEntry[]
+  // Ids of active schools whose summary recommendation is 'wait' (deliberate
+  // hold). They stay in the Active row but do NOT wear the "your move" ring.
+  // Optional only so the orphaned HomeClient (unrendered, pending delete) still
+  // compiles; the live caller (GetRecruitedClient) always passes it.
+  waitSchoolIds?: Set<string>
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export default function FunnelGrid({ schools, contactLog }: Props) {
+export default function FunnelGrid({ schools, contactLog, waitSchoolIds = new Set<string>() }: Props) {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
 
@@ -115,10 +120,13 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
     const state = recency.state
     const stage = (school.recruiting_stage ?? 1) as RecruitingStage
 
-    // Awaiting (former "hot") maps into Active and carries the marker.
+    // Awaiting (former "hot") maps into Active. The ring ("your move") requires
+    // BOTH recency-hot AND a non-wait recommendation — a school on a deliberate
+    // hold sits in Active with no ring. No-summary schools aren't in the wait
+    // set, so they keep the recency-only ring.
     let row: GridRow
     let awaiting = false
-    if (state === 'hot') { row = 'active'; awaiting = true }
+    if (state === 'hot') { row = 'active'; awaiting = !waitSchoolIds.has(school.id) }
     else if (state === 'declined') row = 'cold'
     else if (state === 'active') row = 'active'
     else if (state === 'cooling') row = 'cooling'
@@ -317,7 +325,7 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
           <div style={{ marginTop: 12, display: 'flex', gap: 18, flexWrap: 'wrap', fontSize: 11, color: SD.inkLo }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 16, height: 13, borderRadius: 999, border: `2px solid ${SD.persimmon}`, background: SD.cardWhite, display: 'inline-block', flexShrink: 0 }} />
-              ring = awaiting your reply
+              ring = your move
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: SD.persimmon, display: 'inline-block', flexShrink: 0 }} />
@@ -339,8 +347,8 @@ export default function FunnelGrid({ schools, contactLog }: Props) {
 
 // ─── Chip ───────────────────────────────────────────────────────────────────
 // Styling matched to the marketing board chips (white fill, hairline border,
-// size/radius/type). The awaiting ring (2px persimmon) means "your turn" and
-// wins over the close-zone border.
+// size/radius/type). The ring (2px persimmon) means "your move" (recency-hot
+// AND a non-wait recommendation) and wins over the close-zone border.
 
 function Chip({ school, isCloseZone, onClick }: { school: CellSchool; isCloseZone: boolean; onClick: () => void }) {
   const border = school.awaiting
@@ -351,7 +359,7 @@ function Chip({ school, isCloseZone, onClick }: { school: CellSchool; isCloseZon
   return (
     <button
       onClick={onClick}
-      title={school.name + (school.awaiting ? ' (awaiting your reply)' : '') + (school.isDeclined ? ' (declined — needs triage)' : '')}
+      title={school.name + (school.awaiting ? ' (your move)' : '') + (school.isDeclined ? ' (declined — needs triage)' : '')}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 4,
         padding: '3px 9px', borderRadius: 999,

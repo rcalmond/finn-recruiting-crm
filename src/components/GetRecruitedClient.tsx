@@ -219,6 +219,12 @@ export default function GetRecruitedClient({
     return { allEligible: eligible, nonWaitSchools: nonWait, waitSchools: wait }
   }, [schools, schoolContactMap, summaryMap])
 
+  // Board ring gate: schools on a deliberate hold (recommendation = 'wait').
+  // Same judgment gate as the queue's wait-exclusion above — a held school
+  // renders as a normal Active chip, no "your move" ring. No-summary schools
+  // are absent here, so they fall back to a recency-only ring.
+  const waitSchoolIds = useMemo(() => new Set(waitSchools.map(s => s.id)), [waitSchools])
+
   // ── Priority pick (A1: rule 1 bypasses wait exclusion) ────────────────────
   const priorityId = useMemo(
     () => pickDailyPriority(allEligible, nonWaitSchools, summaryMap, offers, contactLog),
@@ -499,7 +505,7 @@ export default function GetRecruitedClient({
         </section>
 
         <div ref={gridRef}>
-          <FunnelGrid schools={schools} contactLog={contactLog} />
+          <FunnelGrid schools={schools} contactLog={contactLog} waitSchoolIds={waitSchoolIds} />
         </div>
       </div>
     </div>
