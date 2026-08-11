@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Campaign, CampaignStatus, CampaignSchool, CampaignSchoolStatus, School } from '@/lib/types'
 import DraftModal from '@/components/DraftModal'
+import { CampaignStepper, campaignState, StatePill } from './CampaignChrome'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -12,6 +14,7 @@ const C = {
   white:   '#fff',
   border:  '#E2DBC9',
   ink:     '#0E0E0E',
+  inkMid:  '#4A4A4A',
   inkLo:   '#7A7570',
   red:     '#C8102E',
   amber:   '#B45309',
@@ -64,25 +67,6 @@ function channelRec(authored_by: string | null): { label: string; style: React.C
 
 // ── Micro-components ──────────────────────────────────────────────────────────
 
-const STATUS_BADGE: Record<CampaignStatus, React.CSSProperties> = {
-  draft:     { background: '#F3F4F6', color: '#374151' },
-  active:    { background: '#DCFCE7', color: '#166534' },
-  paused:    { background: '#FEF9C3', color: '#854D0E' },
-  completed: { background: '#E0E7FF', color: '#3730A3' },
-}
-
-function StatusBadge({ status }: { status: CampaignStatus | string }) {
-  return (
-    <span style={{
-      ...(STATUS_BADGE[status as CampaignStatus] ?? STATUS_BADGE.draft),
-      fontSize: 10, fontWeight: 700, padding: '3px 10px',
-      borderRadius: 4, textTransform: 'uppercase', letterSpacing: 0.5,
-    }}>
-      {status}
-    </span>
-  )
-}
-
 const TIER_BADGE: Record<string, React.CSSProperties> = {
   A: { background: '#FEE2E2', color: '#991B1B' },
   B: { background: '#DBEAFE', color: '#1E40AF' },
@@ -102,8 +86,8 @@ function TierBadge({ tier }: { tier: string }) {
 
 function btn(variant: 'primary' | 'outline' | 'ghost' | 'danger', disabled = false, small = false): React.CSSProperties {
   const base: React.CSSProperties = {
-    padding: small ? '5px 12px' : '8px 18px',
-    borderRadius: 7, fontSize: small ? 12 : 13, fontWeight: 600,
+    padding: small ? '5px 14px' : '8px 18px',
+    borderRadius: 999, fontSize: small ? 12 : 13, fontWeight: 600,
     cursor: disabled ? 'not-allowed' : 'pointer', border: 'none',
     flexShrink: 0, transition: 'opacity 0.1s', opacity: disabled ? 0.45 : 1,
   }
@@ -185,6 +169,11 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
   const sent      = byStatus('sent')
   const dismissed = byStatus('dismissed')
   const bounced   = byStatus('bounced')
+
+  const counts: Record<string, number> = {
+    pending: pending.length, sent: sent.length, dismissed: dismissed.length, bounced: bounced.length,
+  }
+  const readyToReview = pending.filter(cs => !!cs.coach).length
 
   // ── Status transitions ──────────────────────────────────────────────────────
 
@@ -292,6 +281,7 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
 
   const bodyStartsTodo = (campaign.template?.body ?? '').trimStart().toLowerCase().startsWith('todo')
   const showTodoWarning = bodyStartsTodo && campaign.status === 'draft'
+  const hasMessageSet = !!campaign.message_set?.trim()
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -310,19 +300,11 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 8 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 750, color: C.ink, letterSpacing: -0.5, margin: '0 0 8px' }}>
+          <h1 style={{ fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 750, color: C.ink, letterSpacing: '-0.04em', fontStyle: 'italic', margin: '0 0 10px' }}>
             {campaign.name}
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {isArchived ? (
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: '3px 10px',
-                borderRadius: 4, textTransform: 'uppercase', letterSpacing: 0.5,
-                background: '#E5E7EB', color: '#6B7280',
-              }}>archived</span>
-            ) : (
-              <StatusBadge status={campaign.status} />
-            )}
+            <StatePill state={campaignState(campaign, counts)} />
             <span style={{ fontSize: 12, color: C.inkLo }}>
               Created {fmtDate(campaign.created_at)}
             </span>
@@ -397,7 +379,51 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
         </div>
       )}
 
-      {/* ── Template section ────────────────────────────────────────────────── */}
+      {/* ── Where you are: steps 3–4 ────────────────────────────────────────── */}
+      <div style={{ marginTop: 24 }}>
+        <CampaignStepper current={campaign.status === 'completed' || (sent.length > 0 && pending.length === 0) ? 4 : 3} />
+      </div>
+
+      {/* ── How sending works (Step 4 mechanics, stated up front) ───────────── */}
+      <div style={{
+        background: C.paper, border: `1px solid ${C.border}`, borderRadius: 10,
+        padding: '14px 18px', marginBottom: 8,
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 6, letterSpacing: -0.1 }}>
+          How this sends
+        </div>
+        <div style={{ fontSize: 12.5, color: C.inkLo, lineHeight: 1.6 }}>
+          Each coach gets their <strong style={{ color: C.inkMid }}>own</strong> email — no CC lists, no mass blast.
+          Open a school below to see its personalized draft, edit it, then send it from your own Gmail or SportsRecruits
+          (the app writes the draft; you press send). Mark it sent and the reply lands back in that school&apos;s timeline
+          like any other email. <strong style={{ color: C.inkMid }}>Nothing sends until you send it.</strong>
+        </div>
+      </div>
+
+      {/* ── The message ─────────────────────────────────────────────────────── */}
+      {hasMessageSet ? (
+        <div style={{
+          marginTop: 20, background: C.white,
+          border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden',
+        }}>
+          <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, background: C.paper }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: C.inkLo, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              What each coach hears about
+            </span>
+          </div>
+          <div style={{ padding: '14px 20px' }}>
+            <pre style={{
+              margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+              fontSize: 13, color: '#1F1F1F', fontFamily: 'Georgia, serif', lineHeight: 1.65,
+            }}>{campaign.message_set}</pre>
+            <div style={{ fontSize: 11.5, color: C.inkLo, marginTop: 10, fontStyle: 'italic' }}>
+              The AI works these into each email, personalized from that school&apos;s history. Review every draft below.
+            </div>
+          </div>
+        </div>
+      ) : (
+
+      /* ── Template section (legacy template-body campaigns) ─────────────────── */
       <div style={{
         marginTop: 28, background: C.white,
         border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden',
@@ -471,8 +497,9 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
           )}
         </div>
       </div>
+      )}
 
-      {/* ── Schools ─────────────────────────────────────────────────────────── */}
+      {/* ── Review: per-coach drafts ────────────────────────────────────────── */}
       <div style={{
         marginTop: 28, background: C.white,
         border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden',
@@ -480,11 +507,18 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
         {/* Card header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 16px', borderBottom: `1px solid ${C.border}`, background: C.paper,
+          padding: '12px 16px', borderBottom: `1px solid ${C.border}`, background: C.paper,
         }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: C.inkLo, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            Schools
-          </span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, letterSpacing: -0.1 }}>
+              Review each coach&apos;s draft
+            </div>
+            <div style={{ fontSize: 11.5, color: C.inkLo, marginTop: 2 }}>
+              {readyToReview > 0
+                ? `${readyToReview} draft${readyToReview === 1 ? '' : 's'} ready — open each, check it, then send. Every email is individual.`
+                : 'Each email is personalized — review before anything sends.'}
+            </div>
+          </div>
           {campaign.status !== 'completed' && (
             <button onClick={() => setShowAddModal(true)} style={btn('ghost', false, true)}>
               + Add school
@@ -587,8 +621,10 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
                   borderBottom: i < sent.length - 1 ? `1px solid ${C.border}` : 'none',
                 }}
               >
-                <div style={{ fontSize: 13, fontWeight: 500, color: C.ink }}>
-                  {cs.school?.name ?? cs.school_id}
+                <div style={{ fontSize: 13, fontWeight: 500 }}>
+                  <Link href={`/schools/${cs.school_id}`} style={{ color: C.ink, textDecoration: 'none' }}>
+                    {cs.school?.name ?? cs.school_id}
+                  </Link>
                 </div>
                 <div><TierBadge tier={cs.school?.category ?? '?'} /></div>
                 <div style={{ fontSize: 12, color: C.inkLo }}>

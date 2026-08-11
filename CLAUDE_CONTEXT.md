@@ -2150,7 +2150,7 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 
 ---
 
-## 11. Live Pipeline — Generated August 10, 2026
+## 11. Live Pipeline — Generated August 11, 2026
 
 **Active schools: 7** | Overdue actions: 21
 (Category Nope and status Inactive excluded)
@@ -2415,6 +2415,7 @@ SCHOOL: University of Rochester
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-11 | Campaigns flow rework for new-user clarity: concept stated up front (one message, many coaches, personalized each), creation restructured into an explicit four-step stepper (Who / What / Review / Send) with disable-with-reason picking, talking-points integration at the message step, per-coach review before anything is sendable, and explicit send mechanics + confirm. Campaign list states legible; designed empty state; full house-language pass. Machinery unchanged — presentation, sequence, and copy. | UX |
 | 2026-08-11 | Settings refresh: Classification Review retired (classifier outgrew human review; component shelved unimported and route unrouted, low-confidence handling verified end to end — queue empty at 0 pending, no human review action ever recorded, and low-confidence classifications already flow live because downstream surfacing keys on intent not confidence, so nothing was stranded), remaining four surfaces brought to the house language (masthead cascade, tightened rows, pill grammar, designed empty states that read an empty queue as a good state) with small functional fixes (Coach Changes and Camp Proposals rows deep-link to the school, proposal updates link to the camp, Gmail Settings surfaces sync health from last-sync freshness). Settings nav at four items. | Cleanup + UX |
 | 2026-08-11 | Benched-school summary cards render a closed state (Set aside header + bench rationale from status updates; no recommendation, no regen) — Nope-tier schools no longer show frozen active-era recommendations. Colby seen-live milestone corrected to two viewings (Harvard camp Aug 3, Colby ID Aug 9). | UX fix + Data |
 | 2026-08-10 | Board ring semantics fixed: the persimmon ring now requires both recency (awaiting Finn) and a non-wait recommendation — ring means your move, not merely your turn (the same judgment gate the queue's wait-exclusion applies). Wait-status actives (Middlebury, WPI) no longer ring; legend updated. | UX fix |

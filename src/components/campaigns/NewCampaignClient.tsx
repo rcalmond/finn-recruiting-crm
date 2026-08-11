@@ -1,66 +1,31 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import type { School, Coach, Message } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
-
-// ── Design tokens ─────────────────────────────────────────────────────────────
-
-const C = {
-  paper:   '#F6F1E8',
-  white:   '#fff',
-  border:  '#E2DBC9',
-  ink:     '#0E0E0E',
-  inkSoft: '#1F1F1F',
-  inkLo:   '#7A7570',
-  red:     '#C8102E',
-  amber:   '#B45309',
-  green:   '#16A34A',
-  teal:    '#00B2A9',
-}
+import { CampaignMasthead, CampaignConcept, CampaignStepper, cbtn, CC } from './CampaignChrome'
 
 // ── Style helpers ─────────────────────────────────────────────────────────────
-
-function btn(variant: 'primary' | 'ghost' | 'outline', disabled = false): React.CSSProperties {
-  const base: React.CSSProperties = {
-    padding: '8px 18px', borderRadius: 7, fontSize: 13, fontWeight: 600,
-    cursor: disabled ? 'not-allowed' : 'pointer', border: 'none',
-    flexShrink: 0, transition: 'opacity 0.1s',
-    opacity: disabled ? 0.5 : 1,
-  }
-  if (variant === 'primary')  return { ...base, background: C.ink, color: '#fff' }
-  if (variant === 'outline')  return { ...base, background: C.white, color: C.ink, border: `1px solid ${C.border}` }
-  return { ...base, background: 'transparent', color: C.inkLo, border: `1px solid ${C.border}` }
-}
 
 function inputStyle(multiline = false): React.CSSProperties {
   return {
     width: '100%', boxSizing: 'border-box',
-    padding: '8px 12px', borderRadius: 7,
-    border: `1px solid ${C.border}`,
-    fontSize: 13, color: C.ink, background: C.white,
+    padding: '8px 12px', borderRadius: 8,
+    border: `1px solid ${CC.line}`,
+    fontSize: 13, color: CC.ink, background: CC.white,
     outline: 'none', fontFamily: 'inherit',
     ...(multiline ? { resize: 'vertical', minHeight: 180 } : {}),
   }
 }
 
-// ── Step indicator ────────────────────────────────────────────────────────────
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontSize: 13, fontWeight: 700,
+  color: CC.ink, marginBottom: 6, letterSpacing: -0.1,
+}
 
-function StepDot({ n, active, done }: { n: number; active: boolean; done: boolean }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <div style={{
-        width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 11, fontWeight: 700,
-        background: done ? C.ink : active ? C.teal : C.border,
-        color: done || active ? '#fff' : C.inkLo,
-      }}>
-        {done ? '✓' : n}
-      </div>
-    </div>
-  )
+const sublabelStyle: React.CSSProperties = {
+  fontSize: 12, color: CC.inkLo, marginBottom: 10, lineHeight: 1.5,
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -75,10 +40,28 @@ interface Props {
 export default function NewCampaignClient({ schools, coachBySchool }: Props) {
   const router = useRouter()
 
-  // Step state: 1=name+messages, 2=scope, 3=settings
-  const [step, setStep] = useState(1)
+  // Step 1 = Who, Step 2 = What
+  const [step, setStep] = useState<1 | 2>(1)
 
-  // Step 1
+  // ── Pickability ─────────────────────────────────────────────────────────────
+  // A school is pickable when its primary coach is on file WITH an email — that's
+  // the coach the campaign will actually write to. Anything else is disabled with
+  // a reason, so a first-timer knows exactly why and what to do about it.
+
+  const nonNope = useMemo(() => schools.filter(s => s.category !== 'Nope'), [schools])
+  function coachEmail(id: string): string | null { return coachBySchool[id]?.email ?? null }
+  function pickable(id: string): boolean { return !!coachEmail(id) }
+
+  const abTier = nonNope.filter(s => s.category === 'A' || s.category === 'B')
+  const cTier  = nonNope.filter(s => s.category === 'C')
+
+  // Default selection: A/B schools that are pickable
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(abTier.filter(s => pickable(s.id)).map(s => s.id))
+  )
+  const [showCTier, setShowCTier] = useState(false)
+
+  // ── Step 2 (What) state ──────────────────────────────────────────────────────
   const [campaignName, setCampaignName]     = useState('')
   const [messageSet, setMessageSet]         = useState('')
   const [inventoryMessages, setInventoryMessages] = useState<Message[]>([])
@@ -91,29 +74,21 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
       .then(({ data }) => { if (data) setInventoryMessages(data as Message[]) })
   }, [])
 
-  // Step 2 — school scope
-  const nonNope = schools.filter(s => s.category !== 'Nope')
-  const abTier  = nonNope.filter(s => s.category === 'A' || s.category === 'B')
-  const cTier   = nonNope.filter(s => s.category === 'C')
-  const initSelected = new Set(abTier.map(s => s.id))
-  const [selected, setSelected] = useState<Set<string>>(initSelected)
-  const [showCTier, setShowCTier] = useState(false)
-
-  // Step 3
-  const [throttleDays, setThrottleDays] = useState(7)
-
   // Submission
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]           = useState<string | null>(null)
 
-  // ── Derived ────────────────────────────────────────────────────────────────
+  // ── Derived ──────────────────────────────────────────────────────────────────
 
-  const canAdvanceStep1 = campaignName.trim().length > 0
   const selectedSchools = nonNope.filter(s => selected.has(s.id))
+  const coachCount = selectedSchools.filter(s => pickable(s.id)).length
+  const canAdvanceWho = coachCount > 0
+  const canCreate = canAdvanceWho && campaignName.trim().length > 0
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   function toggleSchool(id: string) {
+    if (!pickable(id)) return
     setSelected(prev => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id); else next.add(id)
@@ -122,12 +97,16 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
   }
 
   function toggleTier(tier: 'A' | 'B' | 'C', checked: boolean) {
-    const ids = nonNope.filter(s => s.category === tier).map(s => s.id)
+    const ids = nonNope.filter(s => s.category === tier && pickable(s.id)).map(s => s.id)
     setSelected(prev => {
       const next = new Set(prev)
       ids.forEach(id => checked ? next.add(id) : next.delete(id))
       return next
     })
+  }
+
+  function tierCount(tier: string) {
+    return nonNope.filter(s => s.category === tier && selected.has(s.id)).length
   }
 
   async function handleCreate() {
@@ -139,8 +118,8 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: campaignName.trim(),
-          throttleDays,
-          schoolIds: selectedSchools.map(s => s.id),
+          throttleDays: 7,
+          schoolIds: selectedSchools.filter(s => pickable(s.id)).map(s => s.id),
           messageSet: messageSet.trim() || undefined,
           sourceMessageIds: selectedMsgIds.size > 0 ? Array.from(selectedMsgIds) : undefined,
         }),
@@ -155,49 +134,154 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
     }
   }
 
-  // ── Tier summary helper ────────────────────────────────────────────────────
+  // ── School row ────────────────────────────────────────────────────────────
 
-  function tierCount(tier: string) {
-    return nonNope.filter(s => s.category === tier && selected.has(s.id)).length
+  function SchoolRow({ s }: { s: School }) {
+    const ok = pickable(s.id)
+    const coach = coachBySchool[s.id]
+    const tierBg = s.category === 'A' ? '#FEE2E2' : s.category === 'B' ? '#DBEAFE' : '#F3F4F6'
+    const tierColor = s.category === 'A' ? '#991B1B' : s.category === 'B' ? '#1E40AF' : '#374151'
+    return (
+      <label style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '8px 10px', borderRadius: 8,
+        cursor: ok ? 'pointer' : 'default',
+        opacity: ok ? 1 : 0.65,
+        background: selected.has(s.id) ? CC.tealSoft : 'transparent',
+      }}>
+        <input
+          type="checkbox"
+          checked={selected.has(s.id)}
+          disabled={!ok}
+          onChange={() => toggleSchool(s.id)}
+          style={{ flexShrink: 0 }}
+        />
+        <span style={{ fontSize: 13, fontWeight: 550, color: CC.ink }}>{s.name}</span>
+        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: tierBg, color: tierColor }}>
+          {s.category}
+        </span>
+        <span style={{ marginLeft: 'auto', fontSize: 11.5, textAlign: 'right' }}>
+          {ok ? (
+            <span style={{ color: CC.inkLo }}>{coach?.name} · has email</span>
+          ) : (
+            <span style={{ color: CC.amber }}>
+              No coach email on file — add one on the school page
+            </span>
+          )}
+        </span>
+      </label>
+    )
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px 64px' }}>
+    <div style={{ maxWidth: 760, margin: '0 auto', padding: '32px 24px 64px' }}>
 
-      {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <button
-          onClick={() => router.push('/campaigns')}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.inkLo, padding: 0, marginBottom: 12 }}
-        >
-          ← Campaigns
-        </button>
-        <h1 style={{ fontSize: 22, fontWeight: 750, color: C.ink, letterSpacing: -0.5, margin: 0 }}>
-          New campaign
-        </h1>
-      </div>
+      <CampaignMasthead
+        title={step === 1 ? 'Who gets this?' : 'What are you saying?'}
+        back={{ href: '/campaigns', label: 'Campaigns' }}
+      />
 
-      {/* Step dots */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 32 }}>
-        {[1, 2, 3].map(n => (
-          <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <StepDot n={n} active={step === n} done={step > n} />
-            {n < 3 && <div style={{ width: 32, height: 1, background: C.border }} />}
-          </div>
-        ))}
-        <span style={{ fontSize: 12, color: C.inkLo, marginLeft: 8 }}>
-          {step === 1 ? 'Name & messages' : step === 2 ? 'School scope' : 'Settings'}
-        </span>
-      </div>
+      <CampaignStepper current={step} />
 
-      {/* ── Step 1: Name + Template ───────────────────────────────────────── */}
+      {/* ── Step 1: WHO ──────────────────────────────────────────────────────── */}
       {step === 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
+          <CampaignConcept />
+
           <div>
-            <label style={labelStyle}>Campaign name</label>
+            <div style={labelStyle}>Pick the schools this campaign goes to</div>
+            <div style={sublabelStyle}>
+              Only schools with a coach email on file can be picked — that&apos;s who the email gets written to.
+              Others are greyed out with the reason. You can fine-tune the list after too.
+            </div>
+          </div>
+
+          {/* Tier quick-select */}
+          <div style={{
+            background: CC.paper, border: `1px solid ${CC.line}`,
+            borderRadius: 10, padding: '12px 16px',
+            display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center',
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: CC.inkLo }}>Select all by tier:</span>
+            {(['A', 'B', 'C'] as const).map(tier => {
+              const tierPickable = nonNope.filter(s => s.category === tier && pickable(s.id))
+              const allOn = tierPickable.length > 0 && tierPickable.every(s => selected.has(s.id))
+              return (
+                <label key={tier} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={allOn}
+                    disabled={tierPickable.length === 0}
+                    onChange={e => { toggleTier(tier, e.target.checked); if (tier === 'C' && e.target.checked) setShowCTier(true) }}
+                  />
+                  <span>Tier {tier}</span>
+                  <span style={{ fontSize: 11, color: CC.inkLo }}>({tierCount(tier)}/{tierPickable.length})</span>
+                </label>
+              )
+            })}
+          </div>
+
+          {/* A + B schools */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: CC.ink, marginBottom: 6 }}>Tier A &amp; B</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {abTier.map(s => <SchoolRow key={s.id} s={s} />)}
+            </div>
+          </div>
+
+          {/* C tier (collapsed) */}
+          <div>
+            <button
+              onClick={() => setShowCTier(p => !p)}
+              style={{ fontSize: 12, color: CC.inkLo, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              <span>{showCTier ? '▾' : '▸'}</span>
+              <span>Tier C ({tierCount('C')}/{cTier.filter(s => pickable(s.id)).length} selected)</span>
+            </button>
+            {showCTier && (
+              <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {cTier.map(s => <SchoolRow key={s.id} s={s} />)}
+              </div>
+            )}
+          </div>
+
+          {/* Sticky-ish footer: live count + next */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 12, flexWrap: 'wrap', marginTop: 4,
+            paddingTop: 16, borderTop: `1px solid ${CC.line}`,
+          }}>
+            <span style={{ fontSize: 13, color: CC.inkMid }}>
+              {coachCount > 0
+                ? <><strong style={{ color: CC.ink }}>{coachCount}</strong> coach{coachCount === 1 ? '' : 'es'} at <strong style={{ color: CC.ink }}>{coachCount}</strong> school{coachCount === 1 ? '' : 's'} — one email each</>
+                : 'Pick at least one school with a coach email'}
+            </span>
+            <button onClick={() => setStep(2)} disabled={!canAdvanceWho} style={cbtn('primary', !canAdvanceWho)}>
+              Next: What to say →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 2: WHAT ─────────────────────────────────────────────────────── */}
+      {step === 2 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          <div style={{
+            background: CC.paper, border: `1px solid ${CC.line}`, borderRadius: 10,
+            padding: '12px 16px', fontSize: 13, color: CC.inkMid, lineHeight: 1.5,
+          }}>
+            Going to <strong style={{ color: CC.ink }}>{coachCount}</strong> coach{coachCount === 1 ? '' : 'es'}.
+            The AI writes each email individually, personalized from your prior conversations with that school —
+            you&apos;ll review every one before anything sends.
+          </div>
+
+          <div>
+            <label style={labelStyle}>Name this campaign</label>
+            <div style={sublabelStyle}>Just for you — coaches never see it.</div>
             <input
               value={campaignName}
               onChange={e => setCampaignName(e.target.value)}
@@ -207,16 +291,19 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
             />
           </div>
 
-          {/* Inventory picker */}
+          {/* Talking-points inventory */}
           {inventoryMessages.length > 0 && (
             <div>
-              <label style={labelStyle}>Select from inventory</label>
+              <label style={labelStyle}>What&apos;s this campaign carrying?</label>
+              <div style={sublabelStyle}>
+                Pick the update(s) or question(s) from your talking points — the AI works these into each email.
+              </div>
               <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
                 {(['all', 'update', 'question'] as const).map(f => (
                   <button key={f} onClick={() => setMsgTypeFilter(f)} style={{
-                    padding: '3px 10px', borderRadius: 5, border: `1px solid ${msgTypeFilter === f ? C.ink : C.border}`,
-                    background: msgTypeFilter === f ? C.ink : C.white,
-                    color: msgTypeFilter === f ? C.white : C.inkLo,
+                    padding: '3px 12px', borderRadius: 999, border: `1px solid ${msgTypeFilter === f ? CC.ink : CC.line}`,
+                    background: msgTypeFilter === f ? CC.ink : CC.white,
+                    color: msgTypeFilter === f ? CC.white : CC.inkLo,
                     fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                   }}>
                     {f === 'all' ? 'All' : f === 'update' ? 'Updates' : 'Questions'}
@@ -233,8 +320,8 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
                     return (
                       <label key={m.id} style={{
                         display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 10px',
-                        background: checked ? '#F0F9FF' : C.white, borderRadius: 6,
-                        border: `1px solid ${checked ? '#93C5FD' : C.border}`, cursor: 'pointer',
+                        background: checked ? CC.tealSoft : CC.white, borderRadius: 8,
+                        border: `1px solid ${checked ? CC.teal : CC.line}`, cursor: 'pointer',
                       }}>
                         <input
                           type="checkbox"
@@ -243,9 +330,8 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
                             const next = new Set(selectedMsgIds)
                             if (checked) next.delete(m.id); else next.add(m.id)
                             setSelectedMsgIds(next)
-                            // Auto-populate textarea
-                            const selected = inventoryMessages.filter(msg => next.has(msg.id))
-                            const lines = selected.map(msg => msg.title + (msg.notes ? ` — ${msg.notes}` : ''))
+                            const chosen = inventoryMessages.filter(msg => next.has(msg.id))
+                            const lines = chosen.map(msg => msg.title + (msg.notes ? ` — ${msg.notes}` : ''))
                             setMessageSet(lines.join('\n'))
                           }}
                           style={{ marginTop: 2, flexShrink: 0 }}
@@ -256,10 +342,10 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
                               fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
                               textTransform: 'uppercase', background: typeBg, color: typeColor,
                             }}>{m.type}</span>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: C.ink }}>{m.title}</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: CC.ink }}>{m.title}</span>
                           </div>
                           {m.notes && (
-                            <div style={{ fontSize: 11, color: C.inkLo, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: 11, color: CC.inkLo, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {m.notes}
                             </div>
                           )}
@@ -272,7 +358,7 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
           )}
 
           <div>
-            <label style={labelStyle}>{inventoryMessages.length > 0 ? 'Or write custom messages' : 'Messages to communicate'}</label>
+            <label style={labelStyle}>{inventoryMessages.length > 0 ? 'Anything else to say' : 'What do you want to tell each coach?'}</label>
             <textarea
               value={messageSet}
               onChange={e => setMessageSet(e.target.value)}
@@ -280,201 +366,25 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
               placeholder={'Spring club season just wrapped — won league title\nLikely attending MLS NEXT Cup in late May (to confirm)\nWorking out summer ID camp schedule\nCurious how your program plays with wingbacks'}
               style={{ ...inputStyle(true), minHeight: 140 }}
             />
-            <div style={{ marginTop: 4, fontSize: 11, color: C.inkLo }}>
-              One message per line. The AI will personalize each email based on prior conversations with each school.
+            <div style={{ marginTop: 4, fontSize: 11, color: CC.inkLo }}>
+              One point per line. The AI personalizes each email from these and the school&apos;s history — you review every draft next.
             </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button
-              onClick={() => setStep(2)}
-              disabled={!canAdvanceStep1}
-              style={btn('primary', !canAdvanceStep1)}
-            >
-              Next: School scope →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Step 2: School scope ──────────────────────────────────────────── */}
-      {step === 2 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-          {/* Tier toggles */}
-          <div style={{
-            background: C.paper, border: `1px solid ${C.border}`,
-            borderRadius: 8, padding: '12px 16px',
-            display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center',
-          }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: C.inkLo }}>Select all by tier:</span>
-            {(['A', 'B', 'C'] as const).map(tier => {
-              const tierSchools = nonNope.filter(s => s.category === tier)
-              const allOn = tierSchools.every(s => selected.has(s.id))
-              return (
-                <label key={tier} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
-                  <input
-                    type="checkbox"
-                    checked={allOn}
-                    onChange={e => {
-                      toggleTier(tier, e.target.checked)
-                      if (tier === 'C' && e.target.checked) setShowCTier(true)
-                    }}
-                  />
-                  <span>Tier {tier}</span>
-                  <span style={{ fontSize: 11, color: C.inkLo }}>({tierCount(tier)}/{tierSchools.length})</span>
-                </label>
-              )
-            })}
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: C.inkLo }}>
-              <strong style={{ color: C.ink }}>{selected.size}</strong> schools selected
-            </span>
-          </div>
-
-          {/* A + B schools */}
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.inkLo, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>
-              Tier A & B
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {abTier.map(s => (
-                <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '6px 0' }}>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(s.id)}
-                    onChange={() => toggleSchool(s.id)}
-                  />
-                  <span style={{ fontSize: 13, color: C.ink }}>{s.name}</span>
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4,
-                    background: s.category === 'A' ? '#FEE2E2' : '#DBEAFE',
-                    color: s.category === 'A' ? '#991B1B' : '#1E40AF',
-                  }}>{s.category}</span>
-                  {coachBySchool[s.id] && (
-                    <span style={{ fontSize: 11, color: C.inkLo, marginLeft: 'auto' }}>
-                      {coachBySchool[s.id].name}
-                    </span>
-                  )}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* C tier (collapsed by default) */}
-          <div>
-            <button
-              onClick={() => setShowCTier(p => !p)}
-              style={{ fontSize: 12, color: C.inkLo, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
-            >
-              <span>{showCTier ? '▾' : '▸'}</span>
-              <span>Tier C ({tierCount('C')}/{cTier.length} selected)</span>
-            </button>
-            {showCTier && (
-              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {cTier.map(s => (
-                  <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '6px 0' }}>
-                    <input
-                      type="checkbox"
-                      checked={selected.has(s.id)}
-                      onChange={() => toggleSchool(s.id)}
-                    />
-                    <span style={{ fontSize: 13, color: C.ink }}>{s.name}</span>
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4,
-                      background: '#F3F4F6', color: '#374151',
-                    }}>C</span>
-                    {coachBySchool[s.id] && (
-                      <span style={{ fontSize: 11, color: C.inkLo, marginLeft: 'auto' }}>
-                        {coachBySchool[s.id].name}
-                      </span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <button onClick={() => setStep(1)} style={btn('outline')}>← Back</button>
-            <button
-              onClick={() => setStep(3)}
-              disabled={selected.size === 0}
-              style={btn('primary', selected.size === 0)}
-            >
-              Next: Settings →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Step 3: Throttle + Create ─────────────────────────────────────── */}
-      {step === 3 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-          <div>
-            <label style={labelStyle}>Throttle days</label>
-            <input
-              type="number"
-              min={1}
-              max={90}
-              value={throttleDays}
-              onChange={e => setThrottleDays(Number(e.target.value))}
-              style={{ ...inputStyle(), maxWidth: 120 }}
-            />
-            <p style={{ fontSize: 11, color: C.inkLo, marginTop: 6 }}>
-              Not enforced yet — will take effect in Phase 2b.
-            </p>
-          </div>
-
-          {/* Summary card */}
-          <div style={{
-            background: C.paper, border: `1px solid ${C.border}`,
-            borderRadius: 8, padding: '16px 20px',
-            display: 'flex', flexDirection: 'column', gap: 10,
-          }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.inkLo, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-              Review before creating
-            </div>
-            <Row label="Campaign name" value={campaignName} />
-            <Row label="Schools" value={`${selected.size} selected`} />
-            <Row label="Throttle" value={`${throttleDays} days (advisory)`} />
-            <Row label="Status" value="draft" />
           </div>
 
           {error && (
-            <div style={{ fontSize: 13, color: C.red, background: '#FEF2F2', border: `1px solid #FCA5A5`, borderRadius: 7, padding: '10px 14px' }}>
+            <div style={{ fontSize: 13, color: CC.red, background: '#FEF2F2', border: `1px solid #FCA5A5`, borderRadius: 8, padding: '10px 14px' }}>
               {error}
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <button onClick={() => setStep(2)} style={btn('outline')}>← Back</button>
-            <button
-              onClick={handleCreate}
-              disabled={submitting}
-              style={btn('primary', submitting)}
-            >
-              {submitting ? 'Creating…' : 'Create as draft'}
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+            <button onClick={() => setStep(1)} style={cbtn('secondary')}>← Back</button>
+            <button onClick={handleCreate} disabled={!canCreate || submitting} style={cbtn('primary', !canCreate || submitting)}>
+              {submitting ? 'Creating…' : 'Create drafts → Review'}
             </button>
           </div>
         </div>
       )}
     </div>
   )
-}
-
-// ── Micro-components ──────────────────────────────────────────────────────────
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: 'flex', gap: 12, fontSize: 13 }}>
-      <span style={{ color: C.inkLo, minWidth: 120 }}>{label}</span>
-      <span style={{ color: C.ink, fontWeight: 500 }}>{value}</span>
-    </div>
-  )
-}
-
-const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: 12, fontWeight: 700,
-  color: C.inkLo, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4,
 }

@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import type { Campaign, CampaignStatus } from '@/lib/types'
+import type { Campaign } from '@/lib/types'
+import { CampaignMasthead, CampaignConcept, campaignState, StatePill, cbtn } from './CampaignChrome'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -18,39 +19,6 @@ const C = {
   green:   '#16A34A',
   teal:    '#00B2A9',
   amber:   '#B45309',
-}
-
-// ── Status badge ──────────────────────────────────────────────────────────────
-
-const STATUS_STYLES: Record<CampaignStatus, React.CSSProperties> = {
-  draft:     { background: '#F3F4F6', color: '#374151' },
-  active:    { background: '#DCFCE7', color: '#166534' },
-  paused:    { background: '#FEF9C3', color: '#854D0E' },
-  completed: { background: '#E0E7FF', color: '#3730A3' },
-}
-
-function StatusBadge({ status, archived }: { status: string; archived?: boolean }) {
-  if (archived) {
-    return (
-      <span style={{
-        fontSize: 10, fontWeight: 700, padding: '2px 8px',
-        borderRadius: 4, textTransform: 'uppercase', letterSpacing: 0.4,
-        background: '#E5E7EB', color: '#6B7280',
-      }}>
-        archived
-      </span>
-    )
-  }
-  const style = STATUS_STYLES[status as CampaignStatus] ?? STATUS_STYLES.draft
-  return (
-    <span style={{
-      ...style,
-      fontSize: 10, fontWeight: 700, padding: '2px 8px',
-      borderRadius: 4, textTransform: 'uppercase', letterSpacing: 0.4,
-    }}>
-      {status}
-    </span>
-  )
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -144,21 +112,19 @@ export default function CampaignsClient() {
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 24px 64px' }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 750, color: C.ink, letterSpacing: -0.5, margin: 0 }}>
-          Campaigns
-        </h1>
-        <button
-          onClick={() => router.push('/campaigns/new')}
-          style={{
-            padding: '8px 18px', borderRadius: 7, fontSize: 13, fontWeight: 600,
-            background: C.ink, color: '#fff', border: 'none', cursor: 'pointer',
-          }}
-        >
-          + New campaign
-        </button>
-      </div>
+      {/* Masthead */}
+      <CampaignMasthead
+        title="Campaigns."
+        subtitle="One message, sent to many coaches at once — personalized for each school. Set one up when you have something worth sending to your whole list."
+        right={
+          <button onClick={() => router.push('/campaigns/new')} style={cbtn('primary')}>
+            + New campaign
+          </button>
+        }
+      />
+
+      {/* What a campaign is */}
+      <CampaignConcept />
 
       {/* Filter pills */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
@@ -194,25 +160,26 @@ export default function CampaignsClient() {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty state — reuses the Get Seen "Outreach at scale" framing */}
       {!loading && !error && filtered.length === 0 && (
         <div style={{
-          background: C.paper, border: `1px solid ${C.border}`,
-          borderRadius: 8, padding: '48px 24px', textAlign: 'center',
+          background: C.white, border: `1px solid ${C.border}`,
+          borderRadius: 14, padding: '48px 28px', textAlign: 'center',
         }}>
-          <div style={{ fontSize: 14, color: C.inkLo, marginBottom: 16 }}>
-            {filter === 'archived' ? 'No archived campaigns.' : 'Campaigns let you email multiple coaches in one pass. Create one when you have a showcase or update to share.'}
-          </div>
-          {filter !== 'archived' && (
-            <button
-              onClick={() => router.push('/campaigns/new')}
-              style={{
-                padding: '8px 18px', borderRadius: 7, fontSize: 13, fontWeight: 600,
-                background: C.ink, color: '#fff', border: 'none', cursor: 'pointer',
-              }}
-            >
-              Create your first campaign
-            </button>
+          {filter === 'archived' ? (
+            <div style={{ fontSize: 14, color: C.inkLo }}>No archived campaigns.</div>
+          ) : (
+            <>
+              <div style={{ fontSize: 16, fontWeight: 700, fontStyle: 'italic', color: C.ink, letterSpacing: -0.3, marginBottom: 8 }}>
+                Outreach at scale.
+              </div>
+              <div style={{ fontSize: 13.5, color: C.inkLo, lineHeight: 1.55, maxWidth: 400, margin: '0 auto 18px' }}>
+                Going to a showcase? Email every attending coach — personalized, in one pass. Start your first campaign when you have something to share.
+              </div>
+              <button onClick={() => router.push('/campaigns/new')} style={cbtn('primary')}>
+                + New campaign
+              </button>
+            </>
           )}
         </div>
       )}
@@ -226,12 +193,12 @@ export default function CampaignsClient() {
           {/* Table header */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 90px 56px 56px 56px 100px 32px',
-            padding: '10px 16px',
+            gridTemplateColumns: '1fr auto 32px',
+            padding: '10px 16px', gap: 12,
             borderBottom: `1px solid ${C.border}`,
             background: C.paper,
           }}>
-            {['Campaign', 'Status', 'Pend.', 'Sent', 'Dimsd.', 'Created', ''].map(h => (
+            {['Campaign', 'State', ''].map(h => (
               <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.inkLo, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 {h}
               </div>
@@ -240,21 +207,19 @@ export default function CampaignsClient() {
 
           {/* Rows */}
           {filtered.map((c, i) => {
-            const pending   = c.counts['pending']   ?? 0
-            const sent      = c.counts['sent']      ?? 0
-            const dismissed = c.counts['dismissed'] ?? 0
             const created   = new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
             const isArchived = !!c.archived_at
+            const state = campaignState(c, c.counts)
 
             return (
               <div
                 key={c.id}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 90px 56px 56px 56px 100px 32px',
-                  padding: '13px 16px',
+                  gridTemplateColumns: '1fr auto 32px', gap: 12,
+                  padding: '13px 16px', alignItems: 'center',
                   borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : 'none',
-                  opacity: isArchived ? 0.55 : 1,
+                  opacity: isArchived ? 0.6 : 1,
                   transition: 'background 0.1s',
                 }}
                 onMouseEnter={e => (e.currentTarget.style.background = C.paper)}
@@ -262,18 +227,13 @@ export default function CampaignsClient() {
               >
                 <div
                   onClick={() => router.push(`/campaigns/${c.id}`)}
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: 'pointer', minWidth: 0 }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{c.name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 650, color: C.ink, letterSpacing: -0.2 }}>{c.name}</div>
+                  <div style={{ fontSize: 11.5, color: C.inkLo, marginTop: 2 }}>Created {created}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <StatusBadge status={c.status} archived={isArchived} />
-                </div>
-                <CountCell n={pending}   color={pending > 0 ? C.amber : C.inkLo} />
-                <CountCell n={sent}      color={sent > 0 ? C.green : C.inkLo} />
-                <CountCell n={dismissed} color={dismissed > 0 ? C.inkLo : C.inkLo} />
-                <div style={{ fontSize: 12, color: C.inkLo, display: 'flex', alignItems: 'center' }}>
-                  {created}
+                  <StatePill state={state} />
                 </div>
                 {/* Kebab menu trigger */}
                 <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -400,14 +360,3 @@ export default function CampaignsClient() {
   )
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function CountCell({ n, color }: { n: number; color: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center' }}>
-      <span style={{ fontSize: 13, fontWeight: n > 0 ? 600 : 400, color: n > 0 ? color : C.inkLo }}>
-        {n}
-      </span>
-    </div>
-  )
-}

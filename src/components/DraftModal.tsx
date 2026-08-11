@@ -685,6 +685,17 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
           {/* ── Review ────────────────────────────────────────────────── */}
           {stage === 'review' && (
             <>
+              {/* Campaign reassurance: this is one individual, personalized email */}
+              {isCampaign && (
+                <div style={{
+                  padding: '8px 12px', borderRadius: 6,
+                  background: '#F6F1E8', border: '1px solid #E2DBC9',
+                  fontSize: 12, color: '#4A4A4A', lineHeight: 1.45,
+                }}>
+                  This is {mode.coachName ? <strong>{mode.coachName}</strong> : 'this coach'}&apos;s own email — personalized for {mode.schoolName}. Review and edit it here; nothing sends until you send it yourself.
+                </div>
+              )}
+
               {/* Subject (fresh only) */}
               {isFresh && (
                 <div>
