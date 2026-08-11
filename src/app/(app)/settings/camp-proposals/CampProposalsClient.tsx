@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import type { CampProposal, CampProposalProposedData, Category, School } from '@/lib/types'
+import { SettingsMasthead, SettingsEmptyState, pill } from '@/components/settings/SettingsChrome'
 
 const LV = {
   paper:    '#F6F1E8',
@@ -94,30 +96,21 @@ export default function CampProposalsClient({ proposals: initialProposals, schoo
       padding: '32px clamp(20px, 4vw, 40px)',
       fontFamily: "'Inter', -apple-system, sans-serif",
     }}>
-      {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 750, color: LV.ink, letterSpacing: -0.5, margin: 0 }}>
-          Camp Proposals
-        </h1>
-        <p style={{ fontSize: 13, color: LV.inkLo, marginTop: 4 }}>
-          Review camp proposals from email extraction and web discovery.
-        </p>
-        {pending.length > 0 && (
-          <p style={{ fontSize: 13, color: LV.ink, marginTop: 6, fontWeight: 500 }}>
-            {pending.length} proposal{pending.length !== 1 ? 's' : ''} pending review
-          </p>
-        )}
-      </div>
+      {/* Masthead */}
+      <SettingsMasthead
+        title="Camp proposals."
+        subtitle="Camps pulled from your email and web discovery. Confirm the ones worth tracking — applying one adds it to the school and marks Finn interested."
+        pending={pending.length > 0
+          ? `${pending.length} proposal${pending.length !== 1 ? 's' : ''} waiting on you`
+          : null}
+      />
 
       {/* Empty state */}
       {pending.length === 0 && (
-        <div style={{
-          background: '#fff', border: `1px solid ${LV.line}`,
-          borderRadius: 10, padding: '48px 24px',
-          textAlign: 'center', color: LV.inkLo, fontSize: 14,
-        }}>
-          No pending camp proposals.
-        </div>
+        <SettingsEmptyState
+          title="Nothing needs your review."
+          note="No new camps or updates waiting. Fresh proposals from email and web discovery show up here as they're found."
+        />
       )}
 
       {/* New camps section */}
@@ -183,10 +176,14 @@ function ProposalGroup({ schoolId, group, schoolMap, processing, onAction, schoo
           fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
           background: tier.bg, color: tier.color,
         }}>{school?.category}</span>
-        <span style={{
-          fontSize: 11, fontWeight: 700, color: LV.inkLo,
-          textTransform: 'uppercase', letterSpacing: '0.08em',
-        }}>{schoolName}</span>
+        {schoolId !== 'unknown' ? (
+          <Link
+            href={`/schools/${schoolId}`}
+            style={{ fontSize: 14, fontWeight: 650, color: LV.ink, letterSpacing: -0.2, textDecoration: 'none' }}
+          >{schoolName}</Link>
+        ) : (
+          <span style={{ fontSize: 14, fontWeight: 650, color: LV.ink, letterSpacing: -0.2 }}>{schoolName}</span>
+        )}
       </div>
       {group.map(p => (
         <ProposalCard
@@ -252,9 +249,12 @@ function ProposalCard({ proposal, schools, schoolMap, isProcessing, onApply, onR
           }}>New camp</span>
         )}
         {proposal.matched_camp_id && (
-          <span style={{ fontSize: 11, fontWeight: 600, color: LV.tealDeep }}>
-            {proposal.update_summary || 'Updates existing camp'}
-          </span>
+          <Link
+            href={`/camps/${proposal.matched_camp_id}`}
+            style={{ fontSize: 11, fontWeight: 600, color: LV.tealDeep, textDecoration: 'none' }}
+          >
+            {proposal.update_summary || 'Updates existing camp'} →
+          </Link>
         )}
       </div>
 
@@ -329,22 +329,12 @@ function ProposalCard({ proposal, schools, schoolMap, isProcessing, onApply, onR
         <button
           onClick={() => onApply(editedData)}
           disabled={isProcessing}
-          style={{
-            padding: '7px 16px', background: LV.tealDeep, color: '#fff',
-            border: 'none', borderRadius: 999,
-            fontSize: 12, fontWeight: 700, cursor: 'pointer',
-            fontFamily: 'inherit',
-          }}
+          style={pill('accent', isProcessing)}
         >Apply</button>
         <button
           onClick={onReject}
           disabled={isProcessing}
-          style={{
-            padding: '7px 16px', background: 'none',
-            border: `1px solid ${LV.line}`, borderRadius: 999,
-            fontSize: 12, fontWeight: 600, color: LV.inkMid,
-            cursor: 'pointer', fontFamily: 'inherit',
-          }}
+          style={pill('ghost', isProcessing)}
         >Reject</button>
       </div>
     </div>

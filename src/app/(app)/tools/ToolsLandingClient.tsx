@@ -12,12 +12,10 @@ type ToolCard = {
 export default function ToolsLandingClient({
   pendingCoachChanges,
   pendingGmailPartials,
-  pendingClassification,
   pendingCampProposals,
 }: {
   pendingCoachChanges: number
   pendingGmailPartials: number
-  pendingClassification: number
   pendingCampProposals: number
 }) {
   const tools: ToolCard[] = [
@@ -32,12 +30,6 @@ export default function ToolsLandingClient({
       description: "Resolve emails the Gmail parser couldn't fully process",
       href: '/settings/gmail-partials',
       count: pendingGmailPartials,
-    },
-    {
-      label: 'Classification Review',
-      description: 'Confirm AI intent labels for low-confidence email classifications',
-      href: '/settings/classification-review',
-      count: pendingClassification,
     },
     {
       label: 'Camp Proposals',

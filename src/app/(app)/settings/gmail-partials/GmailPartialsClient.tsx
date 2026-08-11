@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { SettingsMasthead, SettingsEmptyState, pill } from '@/components/settings/SettingsChrome'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -324,21 +325,8 @@ const selectStyle: React.CSSProperties = {
   background: LV.paper, outline: 'none',
 }
 
-function btnStyle(
-  variant: 'primary' | 'secondary' | 'ghost' | 'danger',
-  disabled = false
-): React.CSSProperties {
-  const base: React.CSSProperties = {
-    padding: '6px 14px', borderRadius: 6,
-    fontSize: 12, fontWeight: 600,
-    border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
-    flexShrink: 0,
-  }
-  if (variant === 'primary') return { ...base, background: disabled ? LV.border : LV.ink, color: disabled ? LV.inkLo : '#fff' }
-  if (variant === 'secondary') return { ...base, background: LV.paper, color: LV.ink, border: `1px solid ${LV.border}` }
-  if (variant === 'danger') return { ...base, background: disabled ? LV.border : LV.red, color: '#fff' }
-  return { ...base, background: 'transparent', color: LV.inkLo, border: `1px solid ${LV.border}` }
-}
+// Buttons follow the shared house pill grammar.
+const btnStyle = pill
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -369,48 +357,36 @@ export default function GmailPartialsClient({ partials }: Props) {
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', padding: '32px 24px' }}>
 
-      {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 750, color: LV.ink, letterSpacing: -0.5, margin: 0 }}>
-              Parse Review
-            </h1>
-            <p style={{ fontSize: 13, color: LV.inkLo, marginTop: 4 }}>
-              Resolve emails the Gmail parser couldn&apos;t fully process. Link to existing coaches or correct the parse manually.
-            </p>
-            {visible.length > 0 && (
-              <p style={{ fontSize: 13, color: LV.ink, marginTop: 6, fontWeight: 500 }}>
-                {visible.length} email{visible.length !== 1 ? 's' : ''} couldn&apos;t be linked to a coach
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Masthead */}
+      <SettingsMasthead
+        title="Parse review."
+        subtitle="Synced emails the parser couldn't tie to a coach. Link each one to the right coach, create a new one, or mark it as not-a-coach."
+        pending={visible.length > 0
+          ? `${visible.length} email${visible.length !== 1 ? 's' : ''} couldn't be linked to a coach`
+          : null}
+      />
 
       {/* Empty state */}
       {grouped.length === 0 && (
-        <div style={{
-          background: LV.white, border: `1px solid ${LV.border}`,
-          borderRadius: 10, padding: '48px 24px',
-          textAlign: 'center', color: LV.inkLo, fontSize: 14,
-        }}>
-          No Gmail partials to review.
-        </div>
+        <SettingsEmptyState
+          title="Nothing needs your review."
+          note="Every synced email linked cleanly to a coach. Anything the parser can't place will surface here."
+        />
       )}
 
       {/* Per-school groups */}
       {grouped.map(group => (
         <div key={group.schoolId} style={{ marginBottom: 28 }}>
           <div style={{
-            fontSize: 11, fontWeight: 700, color: LV.inkLo,
-            textTransform: 'uppercase', letterSpacing: 0.6,
             marginBottom: 10,
             display: 'flex', alignItems: 'center', gap: 10,
           }}>
             <Link
               href={`/schools/${group.schoolId}`}
-              style={{ color: LV.inkLo, textDecoration: 'none' }}
+              style={{
+                fontSize: 14, fontWeight: 650, color: LV.ink,
+                letterSpacing: -0.2, textDecoration: 'none',
+              }}
             >
               {group.schoolName}
             </Link>

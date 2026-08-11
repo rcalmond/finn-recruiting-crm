@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { SettingsMasthead, SettingsEmptyState, pill } from '@/components/settings/SettingsChrome'
 
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -164,27 +166,14 @@ function ChangeRowCard({
         <button
           onClick={() => handle('apply')}
           disabled={loading !== null}
-          style={{
-            padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
-            background: loading === 'apply' ? LV.border : LV.ink,
-            color: loading === 'apply' ? LV.inkLo : '#fff',
-            border: 'none', cursor: loading !== null ? 'not-allowed' : 'pointer',
-            flexShrink: 0,
-          }}
+          style={pill('primary', loading !== null)}
         >
           {loading === 'apply' ? 'Applying…' : 'Apply'}
         </button>
         <button
           onClick={() => handle('reject')}
           disabled={loading !== null}
-          style={{
-            padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
-            background: 'transparent',
-            color: loading === 'reject' ? LV.inkLo : LV.red,
-            border: `1px solid ${loading === 'reject' ? LV.border : LV.red}`,
-            cursor: loading !== null ? 'not-allowed' : 'pointer',
-            flexShrink: 0,
-          }}
+          style={pill('secondary', loading !== null)}
         >
           {loading === 'reject' ? 'Rejecting…' : 'Reject'}
         </button>
@@ -213,34 +202,21 @@ export default function CoachChangesClient({ groups }: Props) {
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', padding: '32px 24px' }}>
 
-      {/* Page header */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 750, color: LV.ink, letterSpacing: -0.5, margin: 0 }}>
-              Coach Changes
-            </h1>
-            <p style={{ fontSize: 13, color: LV.inkLo, marginTop: 4 }}>
-              Review coach roster changes flagged by the biweekly sync. Approve, reject, or update each change.
-            </p>
-            {totalPending > 0 && (
-              <p style={{ fontSize: 13, color: LV.ink, marginTop: 6, fontWeight: 500 }}>
-                {totalPending} change{totalPending !== 1 ? 's' : ''} pending review across {groups.length} school{groups.length !== 1 ? 's' : ''}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Masthead */}
+      <SettingsMasthead
+        title="Coach changes."
+        subtitle="Roster moves the biweekly sync flagged for a look. Apply the real ones, reject the noise — each writes straight to the school's staff."
+        pending={totalPending > 0
+          ? `${totalPending} change${totalPending !== 1 ? 's' : ''} across ${groups.length} school${groups.length !== 1 ? 's' : ''} waiting on you`
+          : null}
+      />
 
       {/* Empty state */}
       {groups.length === 0 && (
-        <div style={{
-          background: LV.white, border: `1px solid ${LV.border}`,
-          borderRadius: 10, padding: '48px 24px',
-          textAlign: 'center', color: LV.inkLo, fontSize: 14,
-        }}>
-          No coaching staff changes to review.
-        </div>
+        <SettingsEmptyState
+          title="Nothing needs your review."
+          note="The rosters are current — no coaching-staff changes flagged since the last sync."
+        />
       )}
 
       {/* Per-school groups */}
@@ -248,12 +224,18 @@ export default function CoachChangesClient({ groups }: Props) {
         <div key={group.schoolId} style={{ marginBottom: 28 }}>
           {/* School header */}
           <div style={{
-            fontSize: 11, fontWeight: 700, color: LV.inkLo,
-            textTransform: 'uppercase', letterSpacing: 0.6,
             marginBottom: 10,
             display: 'flex', alignItems: 'center', gap: 10,
           }}>
-            <span>{group.schoolName}</span>
+            <Link
+              href={`/schools/${group.schoolId}`}
+              style={{
+                fontSize: 14, fontWeight: 650, color: LV.ink,
+                letterSpacing: -0.2, textDecoration: 'none',
+              }}
+            >
+              {group.schoolName}
+            </Link>
             <span style={{
               padding: '1px 7px', borderRadius: 8,
               background: LV.border, color: LV.inkLo,

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { SettingsMasthead, SP, pill } from '@/components/settings/SettingsChrome'
 
 interface Props {
   connected:      boolean
@@ -75,20 +76,35 @@ export default function GmailSettingsClient({
     })
   }
 
+  // ── Sync health ──────────────────────────────────────────────────────────
+  // The cron syncs every 15 min. Health is derived from last_sync_at freshness:
+  // green if recent, amber if the sync looks behind, grey if it never ran.
+
+  function syncHealth(iso: string | null): { dot: string; label: string; note: string | null } {
+    if (!iso) return { dot: '#D1D5DB', label: 'Never synced', note: 'Run a sync to start capturing email.' }
+    const ageMin = (Date.now() - new Date(iso).getTime()) / 60_000
+    const rel =
+      ageMin < 1   ? 'just now'
+      : ageMin < 60  ? `${Math.round(ageMin)}m ago`
+      : ageMin < 1440 ? `${Math.round(ageMin / 60)}h ago`
+      : `${Math.round(ageMin / 1440)}d ago`
+    // Healthy window: within ~45 min (three cron cycles of slack).
+    if (ageMin <= 45) return { dot: SP.green, label: rel, note: null }
+    return { dot: SP.amber, label: rel, note: 'Last sync is older than the 15-minute cron cadence — the job may be behind. Try Sync Now.' }
+  }
+
+  const health = syncHealth(lastSyncAt)
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '32px 24px' }}>
 
-      {/* Page header */}
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 750, color: '#0E0E0E', letterSpacing: -0.5, margin: 0 }}>
-          Gmail Settings
-        </h1>
-        <p style={{ fontSize: 13, color: '#7A7570', marginTop: 4 }}>
-          Manage Gmail integration — sync schedule, authentication, and connected accounts.
-        </p>
-      </div>
+      {/* Masthead */}
+      <SettingsMasthead
+        title="Gmail."
+        subtitle="Your inbox connection — where recruiting email flows in from. Check sync health, run a manual catch-up, or manage the account link."
+      />
 
       {/* Connection card */}
       <div style={{
@@ -116,23 +132,14 @@ export default function GmailSettingsClient({
             <button
               onClick={handleDisconnect}
               disabled={disconnecting}
-              style={{
-                padding: '8px 16px', borderRadius: 7, fontSize: 13, fontWeight: 600,
-                background: 'transparent', border: '1px solid #E2DBC9',
-                color: disconnecting ? '#B5B0A8' : '#7A7570',
-                cursor: disconnecting ? 'not-allowed' : 'pointer',
-              }}
+              style={pill('ghost', disconnecting)}
             >
               {disconnecting ? 'Disconnecting…' : 'Disconnect'}
             </button>
           ) : (
             <a
               href="/api/auth/gmail/connect"
-              style={{
-                padding: '8px 16px', borderRadius: 7, fontSize: 13, fontWeight: 600,
-                background: '#0E0E0E', color: '#fff',
-                textDecoration: 'none', display: 'inline-block',
-              }}
+              style={{ ...pill('primary'), textDecoration: 'none', display: 'inline-block' }}
             >
               Connect Gmail
             </a>
@@ -168,11 +175,24 @@ export default function GmailSettingsClient({
               <div style={{ fontSize: 11, fontWeight: 600, color: '#7A7570', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
                 Last sync
               </div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#0E0E0E', marginTop: 6 }}>
-                {formatDate(lastSyncAt)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: health.dot, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#0E0E0E' }}>{health.label}</span>
               </div>
+              <div style={{ fontSize: 11, color: '#A8A39B', marginTop: 3 }}>{formatDate(lastSyncAt)}</div>
             </div>
           </div>
+
+          {/* Sync-behind warning */}
+          {health.note && (
+            <div style={{
+              margin: '0 0 16px', padding: '9px 12px', borderRadius: 8,
+              background: '#FEF3C7', border: '1px solid #FDE68A',
+              fontSize: 12, color: '#92400E', lineHeight: 1.45,
+            }}>
+              {health.note}
+            </div>
+          )}
 
           {/* Sync Now */}
           <div style={{ borderTop: '1px solid #E2DBC9', paddingTop: 16 }}>
@@ -188,14 +208,7 @@ export default function GmailSettingsClient({
               <button
                 onClick={handleSync}
                 disabled={syncing}
-                style={{
-                  marginLeft: 16, flexShrink: 0,
-                  padding: '8px 18px', borderRadius: 7, fontSize: 13, fontWeight: 600,
-                  background: syncing ? '#E2DBC9' : '#0E0E0E',
-                  color: syncing ? '#7A7570' : '#fff',
-                  border: 'none', cursor: syncing ? 'not-allowed' : 'pointer',
-                  transition: 'background 0.15s',
-                }}
+                style={{ ...pill('primary', syncing), marginLeft: 16 }}
               >
                 {syncing ? 'Syncing…' : 'Sync Now'}
               </button>
