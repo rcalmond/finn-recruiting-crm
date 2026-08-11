@@ -2199,12 +2199,19 @@ SCHOOL: Colby
   Coach: Ben Manoogian — Assistant Coach <bmanoogi@colby.edu> [primary]
   Coach: Yuri Nascimento — Assistant Coach <ynascime@colby.edu>
   Coach: Karl Schroeder — Assistant Coach
-  Last Contact: 2026-08-03
+  Last Contact: 2026-08-10
   RQ Status: Completed
   Videos Sent: Yes
   Next Action: decide which ID camp to go to (Finn) — due 2026-07-01
   Also: Email follow up from Camp (Finn) — due 2026-08-03
   Contact Log (3 shown):
+    [2026-08-10] Outbound via Email — Ben Manoogian:
+      Coach Elvert and Coach Manoogian,
+      
+      Thanks again for having me at the ID camp on Sunday. I came in wanting to
+      show more on the attacking side and in 1v1 situations, and I hope some of
+      that came through on the day. I felt good getting forward and taking guys
+      on as well as staying defensively sound....
     [2026-08-03] Outbound via Sports Recruits — Ben Manoogian; Sean Elvert:
       Coach Manoogian,
       
@@ -2220,27 +2227,6 @@ SCHOOL: Colby
       
       Best,
       Finn Almond
-    [2026-07-26] Inbound via Sports Recruits — Sean  Elvert:
-      I would recommend following up via email after the event!
-      
-      Sean Elvert 
-      
-      Head Men’s Soccer Coach  
-      
-      Colby College 
-      
-      Selvert@Colby.edu
-      
-      Recruit
-       Questionnaire
-      
-      From: Finn Almond 
-      
-      Date: Saturday, July 25, 2026 at 3:03 PM
-      
-      To: Sean Elvert 
-      
-      Subject: Finn Almond | Left Wingback | Class of 2027 | Col...
 
 SCHOOL: Illinois Institute of Technology (Illinois Tech)
   Status: Ongoing Conversation
@@ -2270,10 +2256,12 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
       hand I'll...
     [2026-08-10] Inbound via Phone:
       Ok no problem! Really - the visit is up to you. I like to have weekdays because if gives you a chance to see what a weekday looks like. If you wanted to make a “weekend” out of it, typically that could be a Friday and then watching a game on Saturday. Which you could look at our schedule for what...
-    [2026-07-27] Inbound via Text:
-      Congrats Finn! Thats amazing news to hear!! There’s also a financial aid pre read that I can send so your family can work on that as well. 
+    [2026-07-27] Inbound via Email — Dylan Milkent:
+      Finn,
       
-      Let’s get you to campus! Let me know if there’s a time around mid/late August and early September. It may depend what your game schedule looks like for high...
+      Congrats on your acceptance! This is a big step and you should feel GREAT. I have attached information regarding financial aid pre-read. Note that there is a deadline for July 27th. That is a short timeline so I understand if the August one makes more sense. Just keep me posted!
+      
+      Go Hawks!...
 
 SCHOOL: Middlebury
   Status: Ongoing Conversation
@@ -2328,15 +2316,6 @@ SCHOOL: WPI
   Videos Sent: Yes
   Next Action: Decide whether this ID camp works or the crimson (Finn) — due 2026-07-01
   Contact Log (3 shown):
-    [2026-08-10] Outbound via Email — Brian Kelley:
-      Coach Kelley,
-      
-      Thanks again for making the time on July 31 and then for coming out to
-      watch me at the Crimson Camp. It meant a lot that you drove over to see a
-      game in person.
-      
-      I also really appreciated the honest feedback on my first step. That's
-      exactly the kind of thing I want to hear. I'm add...
     [2026-08-10] Inbound via Email — Brian Kelley:
       Hi Finn,
       
@@ -2349,6 +2328,15 @@ SCHOOL: WPI
       
       From: Finn Almond <finnalmond08@gmail.com>
       Sent: Monday, Aug...
+    [2026-08-10] Outbound via Email — Brian Kelley:
+      Coach Kelley,
+      
+      Thanks again for making the time on July 31 and then for coming out to
+      watch me at the Crimson Camp. It meant a lot that you drove over to see a
+      game in person.
+      
+      I also really appreciated the honest feedback on my first step. That's
+      exactly the kind of thing I want to hear. I'm add...
     [2026-08-07] Inbound via In Person — Brian Kelley:
       At the Harvard Camp Coach Kelly said he liked Finn's defense, a physicality and left foot, but felt he was a bit slow on the first step.  He recommended Finn do SAQ specific training to improve his quickness.
 
@@ -2427,6 +2415,7 @@ SCHOOL: University of Rochester
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-11 | Benched-school summary cards render a closed state (Set aside header + bench rationale from status updates; no recommendation, no regen) — Nope-tier schools no longer show frozen active-era recommendations. Colby seen-live milestone corrected to two viewings (Harvard camp Aug 3, Colby ID Aug 9). | UX fix + Data |
 | 2026-08-10 | Board ring semantics fixed: the persimmon ring now requires both recency (awaiting Finn) and a non-wait recommendation — ring means your move, not merely your turn (the same judgment gate the queue's wait-exclusion applies). Wait-status actives (Middlebury, WPI) no longer ring; legend updated. | UX fix |
 | 2026-08-09 | schools.notes retired end to end (content reviewed and discarded; removed from all generation prompts, UI, and via migration 064 the schema); strategic-notes generation input retired (live data empty; message-plan machinery untouched); Call prep upload entry point removed (generation is the section's action); school detail button audit — every action normalized to the house primary/filled, secondary/outlined, tertiary/link grammar with consistent radius and type. | Cleanup + Schema + UX |
 | 2026-08-09 | School detail refinement: stage/milestone popovers gain standard dismissal (click-out, Esc, X); Show-alternatives deprecated from the summary card; Call prep promoted to its own section with purpose copy, doc list, and empty state; notes consolidated — Strategic notes and Notes cards retired (status updates carry the role), masthead +Note replaced by an in-zone add with three capture types, legacy content preserved read-only; timeline Log entry form restyled to the house language. | UX |

@@ -2261,6 +2261,8 @@ export default function SchoolDetailClient({
           <ConversationSummaryCard
             schoolId={school.id}
             schoolName={school.short_name ?? school.name}
+            benched={school.category === 'Nope' || school.status === 'Inactive'}
+            setAsideNote={statusUpdates.length > 0 ? { body: statusUpdates[0].body } : null}
             onDraft={(kind, entryId, channel, recommendedAction) => setDraftTarget({ kind, replyToContactLogId: entryId, inboundChannel: channel, recommendedAction })}
           />
         </section>

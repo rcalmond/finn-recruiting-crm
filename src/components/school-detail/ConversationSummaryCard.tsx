@@ -35,6 +35,14 @@ const CATEGORY_BADGE: Record<RecommendedActionCategory, { bg: string; color: str
 interface Props {
   schoolId: string
   schoolName: string
+  // When the school is set aside (Nope tier or Inactive) the card renders a
+  // closed state instead of a recommendation — no action button, no regen. The
+  // generator already returns null for these tiers, so their stored summary (if
+  // any) is stale active-era text; we deliberately don't show it. setAsideNote
+  // carries the most recent bench-rationale status update so the reason stays
+  // on the hero.
+  benched?: boolean
+  setAsideNote?: { body: string } | null
   onDraft: (kind: 'fresh' | 'reply', entryId?: string, channel?: string, recommendedAction?: RecommendedAction) => void
 }
 
@@ -83,7 +91,7 @@ function actionButton(category: RecommendedActionCategory): { label: string; bg:
 // conversation-summary generator never produced an "alternatives" field, so no
 // always-on token cost existed to slim.
 
-export default function ConversationSummaryCard({ schoolId, schoolName: _schoolName, onDraft }: Props) {
+export default function ConversationSummaryCard({ schoolId, schoolName: _schoolName, benched = false, setAsideNote, onDraft }: Props) {
   const [summary, setSummary] = useState<SchoolConversationSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -122,6 +130,39 @@ export default function ConversationSummaryCard({ schoolId, schoolName: _schoolN
       setRefreshing(false)
     }
   }, [schoolId])
+
+  // ── Set-aside (closed) state ──────────────────────────────────────────────
+  //
+  // Benched schools (Nope / Inactive) don't get a recommendation. The generator
+  // returns null for these tiers, so any stored summary is frozen active-era
+  // text that would misleadingly imply a next move. Show a muted "Set aside"
+  // header and the most recent bench rationale instead — no action, no regen.
+
+  if (benched) {
+    return (
+      <div style={{
+        background: SD.paperDeep, border: `1px solid ${SD.line}`,
+        borderRadius: 14, padding: 20,
+      }}>
+        <div style={{
+          fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+          letterSpacing: '0.08em', color: SD.inkMute,
+          marginBottom: setAsideNote ? 10 : 0,
+        }}>
+          Set aside
+        </div>
+        {setAsideNote ? (
+          <p style={{ margin: 0, fontSize: 14, color: SD.inkMid, lineHeight: 1.6 }}>
+            {setAsideNote.body}
+          </p>
+        ) : (
+          <p style={{ margin: 0, fontSize: 13, color: SD.inkLo, lineHeight: 1.6 }}>
+            Not an active target right now — no next move recommended.
+          </p>
+        )}
+      </div>
+    )
+  }
 
   // ── Loading state ───────────────────────────────────────────────────────
 
