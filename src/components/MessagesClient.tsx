@@ -8,19 +8,20 @@ import type { Message, MessageType, Category } from '@/lib/types'
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 
+// Brand chrome (Throughball, Brand Sweep Pass 4C). Softer ink + pitch accent.
+// The guidance panel's old jewel phase-colors are gone — it now uses the shared
+// ghost-numeral ramp so the app has ONE phase-color story (matching the
+// marketing Roadmap). TYPE_DOT (message-type) is DATA and stays.
 const C = {
   paper:  '#F6F1E8',
   white:  '#fff',
   border: '#E2DBC9',
-  ink:    '#0E0E0E',
+  ink:    '#1A1A1A',
   inkMid: '#4A4A4A',
-  inkLo:  '#7A7570',
-  inkMute:'#A8A39B',
+  inkLo:  '#6B655A',
+  inkMute:'#8A8478',
   red:    '#C8102E',
-  // Jewel phase accents (for the guidance panel)
-  petrol:    '#0E5F6B',
-  persimmon: '#C13E24',
-  violet:    '#3E2C5E',
+  pitch:  '#1F6B48',
 }
 
 const TYPE_DOT: Record<MessageType, string> = { update: '#166534', question: '#1E40AF' }
@@ -128,7 +129,7 @@ export default function MessagesClient() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 'clamp(44px, 6vw, 68px)', fontWeight: 700, letterSpacing: '-0.04em', color: C.ink, lineHeight: 0.95, fontStyle: 'italic' }}>
-              Talking points.
+              Talking points<span style={{ color: C.pitch }}>.</span>
             </h1>
             <p style={{ margin: '12px 0 0', fontSize: 15, color: C.inkLo, fontWeight: 450, letterSpacing: '-0.01em', maxWidth: 560, lineHeight: 1.5 }}>
               The updates, questions, and storylines that fuel your outreach.
@@ -206,7 +207,7 @@ export default function MessagesClient() {
               style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
             >
               <h2 style={{ margin: 0, fontSize: 'clamp(16px, 2.2vw, 20px)', fontWeight: 700, letterSpacing: '-0.02em', color: C.ink, fontStyle: 'italic' }}>
-                Archived.
+                Archived<span style={{ color: C.pitch }}>.</span>
               </h2>
               <span style={{ fontSize: 13, fontWeight: 600, color: C.inkLo }}>{archived.length}</span>
               <span style={{ fontSize: 12, color: C.inkMute, transform: archivedOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}>▾</span>
@@ -277,7 +278,7 @@ export default function MessagesClient() {
 function SectionHeader({ title, count }: { title: string; count?: number }) {
   return (
     <h2 style={{ margin: '0 0 12px', fontSize: 'clamp(16px, 2.2vw, 20px)', fontWeight: 700, letterSpacing: '-0.02em', color: C.ink, fontStyle: 'italic' }}>
-      {title}
+      {title.replace(/\.$/, '')}<span style={{ color: C.pitch }}>.</span>
       {count != null && <span style={{ fontSize: 13, fontWeight: 600, color: C.inkLo, fontStyle: 'normal', marginLeft: 8 }}>{count}</span>}
     </h2>
   )
@@ -286,10 +287,11 @@ function SectionHeader({ title, count }: { title: string; count?: number }) {
 // ── Phase guidance panel (static copy; auto-matching messages to archetypes is a future enhancement) ──
 
 function GuidancePanel({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  // Numbered acts on the shared ghost-numeral ramp (02→04), not four hues.
   const cols = [
-    { accent: C.petrol,    phase: 'Get Seen',      title: 'Who you are.', body: 'Your intro, academic identity, position, and film — the story that makes a coach look twice.' },
-    { accent: C.persimmon, phase: 'Get Recruited', title: 'What’s new — and what you’re asking.', body: 'Season results, new film, and test scores as they land — plus the questions that show you’re serious: their recruiting timeline, how they evaluate, where you fit.' },
-    { accent: C.violet,    phase: 'Get In',        title: 'The decision materials.', body: 'Pre-read asks, visit logistics, and application and aid timelines.' },
+    { n: '02', ramp: '#D8C9A8', phase: 'Get Seen',      title: 'Who you are.', body: 'Your intro, academic identity, position, and film — the story that makes a coach look twice.' },
+    { n: '03', ramp: '#1F6B48', phase: 'Get Recruited', title: 'What’s new — and what you’re asking.', body: 'Season results, new film, and test scores as they land — plus the questions that show you’re serious: their recruiting timeline, how they evaluate, where you fit.' },
+    { n: '04', ramp: '#1A1A1A', phase: 'Get In',        title: 'The decision materials.', body: 'Pre-read asks, visit logistics, and application and aid timelines.' },
   ]
   return (
     <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, overflow: 'hidden' }}>
@@ -306,8 +308,9 @@ function GuidancePanel({ open, onToggle }: { open: boolean; onToggle: () => void
         <div style={{ padding: '0 18px 18px' }}>
           <div className="tp-guide-cols" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             {cols.map(c => (
-              <div key={c.phase} style={{ borderTop: `2px solid ${c.accent}`, paddingTop: 10 }}>
-                <div style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: c.accent, marginBottom: 4 }}>{c.phase}</div>
+              <div key={c.phase} style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+                <div style={{ fontSize: 26, fontWeight: 800, fontStyle: 'italic', lineHeight: 1, letterSpacing: '-0.04em', color: c.ramp, marginBottom: 6 }}>{c.n}</div>
+                <div style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.pitch, marginBottom: 4 }}>{c.phase}</div>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, fontStyle: 'italic', letterSpacing: '-0.01em', marginBottom: 5 }}>{c.title}</div>
                 <div style={{ fontSize: 12, color: C.inkMid, lineHeight: 1.5 }}>{c.body}</div>
               </div>

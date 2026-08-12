@@ -13,17 +13,21 @@ import EditAssetModal from './EditAssetModal'
 import ReplaceAssetModal from './ReplaceAssetModal'
 import VersionHistoryDrawer from './VersionHistoryDrawer'
 
+// Brand chrome (Throughball, Brand Sweep Pass 4C). pitch is the accent (glyphs,
+// section-header periods); ink softened. The freshness ramp (green/amber/rust)
+// is DATA-semantic staleness and is left untouched per the firewall.
 const LV = {
   paper: '#F6F1E8',
   white: '#fff',
-  ink: '#0E0E0E',
+  ink: '#1A1A1A',
   inkMid: '#4A4A4A',
-  inkLo: '#7A7570',
-  inkMute: '#A8A39B',
+  inkLo: '#6B655A',
+  inkMute: '#8A8478',
   line: '#E2DBC9',
-  green: '#2D6A4F',   // Get Ready phase accent (this is a Get Ready sub-page)
-  amber: '#D4A017',
-  rust: '#B5502F',
+  pitch: '#1F6B48',   // brand chrome accent
+  green: '#2D6A4F',   // DATA: freshness "fresh" band (kept)
+  amber: '#D4A017',   // DATA: freshness "aging" band
+  rust: '#B5502F',    // DATA: freshness "stale" band
 }
 
 type Modal =
@@ -131,7 +135,7 @@ export default function AssetsClient({ user }: { user: User }) {
           Get Ready
         </Link>
         <h1 style={{ margin: 0, fontSize: 'clamp(44px, 6vw, 68px)', fontWeight: 700, letterSpacing: '-0.04em', color: LV.ink, lineHeight: 0.95, fontStyle: 'italic' }}>
-          The kit.
+          The kit<span style={{ color: LV.pitch }}>.</span>
         </h1>
         <p style={{ margin: '12px 0 0', fontSize: 15, color: LV.inkLo, fontWeight: 450, letterSpacing: '-0.01em', maxWidth: 600, lineHeight: 1.5 }}>
           The files coaches actually see — your film, your resume, your academics. Kept current, ready to send.
@@ -152,7 +156,7 @@ export default function AssetsClient({ user }: { user: User }) {
             <div className="kit-slot-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
 
               {/* Reel */}
-              <SlotShell present={!!reel} glyph="▶" glyphColor={LV.green} glyphOpacity={0.1} label="Highlight reel">
+              <SlotShell present={!!reel} glyph="▶" glyphColor={LV.pitch} glyphOpacity={0.1} label="Highlight reel">
                 {reel ? (
                   <>
                     <div style={slotName}>{reel.name}</div>
@@ -170,7 +174,7 @@ export default function AssetsClient({ user }: { user: User }) {
               </SlotShell>
 
               {/* Test scores */}
-              <SlotShell present={!!(playerScores?.sat || (playerScores?.ap?.length) || scoreFiles.length)} glyph="★" glyphColor={LV.green} glyphOpacity={0.08} label="Test scores">
+              <SlotShell present={!!(playerScores?.sat || (playerScores?.ap?.length) || scoreFiles.length)} glyph="★" glyphColor={LV.pitch} glyphOpacity={0.08} label="Test scores">
                 {(playerScores?.sat || playerScores?.ap?.length || scoreFiles.length) ? (
                   <>
                     {playerScores?.sat && (
@@ -197,7 +201,7 @@ export default function AssetsClient({ user }: { user: User }) {
               </SlotShell>
 
               {/* Resume */}
-              <SlotShell present={!!resume} glyph="▤" glyphColor={LV.green} glyphOpacity={0.08} label="Resume">
+              <SlotShell present={!!resume} glyph="▤" glyphColor={LV.pitch} glyphOpacity={0.08} label="Resume">
                 {resume ? (
                   <>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -218,7 +222,7 @@ export default function AssetsClient({ user }: { user: User }) {
               </SlotShell>
 
               {/* Transcript */}
-              <SlotShell present={!!transcript} glyph="☰" glyphColor={LV.green} glyphOpacity={0.09} label="Transcript">
+              <SlotShell present={!!transcript} glyph="☰" glyphColor={LV.pitch} glyphOpacity={0.09} label="Transcript">
                 {transcript ? (
                   <>
                     <div style={{ fontSize: 'clamp(20px, 2.6vw, 24px)', fontWeight: 800, color: LV.ink, letterSpacing: '-0.02em', lineHeight: 1 }}>Current</div>
@@ -301,7 +305,7 @@ export default function AssetsClient({ user }: { user: User }) {
 function SectionHeader({ title, count, inline }: { title: string; count?: number; inline?: boolean }) {
   return (
     <h2 style={{ margin: inline ? 0 : '0 0 12px', fontSize: 'clamp(16px, 2.2vw, 20px)', fontWeight: 700, letterSpacing: '-0.02em', color: LV.ink, fontStyle: 'italic' }}>
-      {title}
+      {title.replace(/\.$/, '')}<span style={{ color: LV.pitch }}>.</span>
       {count != null && <span style={{ fontSize: 13, fontWeight: 600, color: LV.inkLo, fontStyle: 'normal', marginLeft: 8 }}>{count}</span>}
     </h2>
   )
