@@ -10,13 +10,17 @@ import { summarizeRq } from '@/lib/rq'
 import BatchReelModal from '@/components/today/BatchReelModal'
 import MergedTimeline, { buildMerged, type MergedItem, type UpcomingCampItem, type TimelineEventItem } from '@/components/get-seen/MergedTimeline'
 
-// Timeline DATA colors — camp = green (filled = registered), unchanged semantics.
-const GREEN = { accent: '#2D6A4F', accentSoft: '#D7EFE0', accentDeep: '#1B4332' }
-// Page CHROME — petrol, the Get Seen jewel accent (first in-app jewel migration).
-const PETROL = { accent: '#0E5F6B', soft: '#CDE7EA', deep: '#083F47' }
+// Brand chrome (Throughball, Brand Sweep Pass 3B). The old petrol jewel accent
+// and the freshness green are repointed at the shared --tb-pitch token. The
+// timeline's DATA dot colors live in MergedTimeline and are NOT touched here.
+const PITCH = '#1F6B48'
+const CREAM = '#FBF6EC'      // SOLID on pitch/ink fills (AA)
+const WARM_WHITE = '#FFFDF9'
+const GREEN = { accent: PITCH, accentSoft: '#E3EFE9', accentDeep: PITCH }   // freshness ≤30d
+const PETROL = { accent: PITCH, soft: CREAM, deep: PITCH }                  // was #0E5F6B
 const SD = {
-  paper: '#F6F1E8', ink: '#0E0E0E', inkMid: '#4A4A4A', inkLo: '#7A7570',
-  inkMute: '#A8A39B', line: '#E2DBC9', lineWarm: '#DDD5C3', cream: '#F6F1E8',
+  paper: '#F6F1E8', ink: '#1A1A1A', inkMid: '#4A4A4A', inkLo: '#6B655A',
+  inkMute: '#8A8478', line: '#E2DBC9', lineWarm: '#DDD5C3', cream: CREAM,
   rust: '#B5502F', rustSoft: '#FAF0EA', amber: '#D4A017', event: '#5B7A99', eventSoft: '#E7EDF3',
 }
 
@@ -70,7 +74,7 @@ function getNextMove(items: MergedItem[], activeCampaignCount: number): { headli
 function ZoneHeader({ title, href, linkText }: { title: string; href?: string; linkText?: string }) {
   return (
     <div style={{ marginBottom: 16, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-      <h2 style={{ margin: 0, fontSize: 'clamp(23px, 3.2vw, 30px)', fontWeight: 700, letterSpacing: '-0.03em', color: SD.ink, fontStyle: 'italic' }}>{title}</h2>
+      <h2 style={{ margin: 0, fontSize: 'clamp(23px, 3.2vw, 30px)', fontWeight: 700, letterSpacing: '-0.03em', color: SD.ink, fontStyle: 'italic' }}>{title.replace(/\.$/, '')}<span style={{ color: PITCH }}>.</span></h2>
       {href && <Link href={href} style={{ fontSize: 12, fontWeight: 600, color: PETROL.accent, textDecoration: 'none', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>{linkText} →</Link>}
     </div>
   )
@@ -90,7 +94,7 @@ function ToolCard({ title, href, linkText, children }: { title: string; href?: s
   return (
     <div style={TOOL_CARD}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: SD.ink, fontStyle: 'italic' }}>{title}</h3>
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: SD.ink, fontStyle: 'italic' }}>{title.replace(/\.$/, '')}<span style={{ color: PITCH }}>.</span></h3>
         {href && <Link href={href} style={{ fontSize: 12, fontWeight: 600, color: PETROL.accent, textDecoration: 'none', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>{linkText} →</Link>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>{children}</div>
@@ -100,7 +104,7 @@ function ToolCard({ title, href, linkText, children }: { title: string; href?: s
 
 const pillLink: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-  background: PETROL.accent, color: '#fff', borderRadius: 999, fontSize: 12, fontWeight: 650,
+  background: PETROL.accent, color: CREAM, borderRadius: 999, fontSize: 12, fontWeight: 650,
   textDecoration: 'none', letterSpacing: '-0.01em',
 }
 
@@ -166,7 +170,7 @@ export default function GetSeenClient({
     <div style={{ minHeight: '100vh', background: SD.paper, fontFamily: "'Inter', -apple-system, sans-serif", paddingBottom: 80 }}>
       {/* Masthead — name + purpose subtitle only (no status line) */}
       <div style={{ padding: '24px clamp(28px, 4vw, 56px) 4px' }}>
-        <h1 style={{ margin: 0, fontSize: 'clamp(56px, 7vw, 88px)', fontWeight: 700, letterSpacing: '-0.04em', color: SD.ink, lineHeight: 0.95, fontStyle: 'italic' }}>Get Seen.</h1>
+        <h1 style={{ margin: 0, fontSize: 'clamp(56px, 7vw, 88px)', fontWeight: 700, letterSpacing: '-0.04em', color: SD.ink, lineHeight: 0.95, fontStyle: 'italic' }}>Get Seen<span style={{ color: PITCH }}>.</span></h1>
         <p style={{ margin: '12px 0 0', fontSize: 15, color: SD.inkLo, fontWeight: 450, letterSpacing: '-0.01em', maxWidth: 620 }}>
           Camps, showcases, questionnaires, film — every way to get your name in front of the coaches who should know it.
         </p>
@@ -180,8 +184,8 @@ export default function GetSeenClient({
           <div style={{ position: 'absolute', top: -10, right: 8, fontSize: 90, fontWeight: 800, fontStyle: 'italic', color: '#fff', opacity: 0.07, lineHeight: 1, pointerEvents: 'none', userSelect: 'none' }}>◉</div>
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: PETROL.soft, marginBottom: 6 }}>Next move</div>
-            <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: SD.cream, fontStyle: 'italic', letterSpacing: '-0.02em' }}>{nextMove.headline}</h3>
-            <p style={{ margin: '0 0 14px', fontSize: 13, color: '#E4F0F2', lineHeight: 1.55 }}>{nextMove.body}</p>
+            <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: WARM_WHITE, fontStyle: 'italic', letterSpacing: '-0.02em' }}>{nextMove.headline}</h3>
+            <p style={{ margin: '0 0 14px', fontSize: 13, color: CREAM, lineHeight: 1.55 }}>{nextMove.body}</p>
             <Link href={nextMove.href} style={{ display: 'inline-block', padding: '7px 16px', fontSize: 12, fontWeight: 650, color: SD.cream, border: `1.5px solid ${SD.cream}`, borderRadius: 999, textDecoration: 'none', letterSpacing: '-0.01em' }}>
               {nextMove.buttonText}
             </Link>
@@ -258,7 +262,7 @@ export default function GetSeenClient({
                       style={{
                         marginTop: 12, ...pillLink, border: 'none', cursor: (!reelUrl || cov.allTargetSchoolIds.length === 0) ? 'default' : 'pointer',
                         fontFamily: 'inherit', background: (!reelUrl || cov.allTargetSchoolIds.length === 0) ? SD.line : PETROL.accent,
-                        color: (!reelUrl || cov.allTargetSchoolIds.length === 0) ? SD.inkMute : '#fff',
+                        color: (!reelUrl || cov.allTargetSchoolIds.length === 0) ? SD.inkMute : CREAM,
                       }}
                     >
                       {cov.allTargetSchoolIds.length === 0 ? 'All top schools have it ✓' : 'Send your reel →'}

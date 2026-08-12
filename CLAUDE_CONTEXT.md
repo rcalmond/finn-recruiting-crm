@@ -2415,6 +2415,7 @@ SCHOOL: University of Rochester
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-12 | Brand sweep Pass 3B (Get Seen): page + shared-timeline chrome migrated to the one-accent Pitch Green system (old petrol jewel accent → --tb-pitch, softer ink, green periods, solid cream on fills). The timeline data dots (camp green / showcase blue / outreach rust) and the toolkit metrics are untouched. | Brand |
 | 2026-08-12 | Brand sweep Pass 3A (global nav): AppNav active-item, settings-pill, and mobile-badge states migrated from crimson to Pitch Green — app-wide nav chrome now on-brand. | Brand |
 | 2026-08-12 | Brand sweep Pass 2 (Get Ready): page chrome migrated to the one-accent Pitch Green system (old emerald phase color → shared --tb-pitch token, softer brand ink, parchment grounds), self-reference naming swept to Throughball/Regista per catalog (discovery reasoning attributed to Regista), nav wordmark confirmed. Data-semantic colors (Targets bars, tier chips) untouched. | Brand |
 | 2026-08-12 | Marketing CTA copy: primary CTAs changed from "Start free" to "Try it now →" (nav, hero, closing) — the trial/signup model isn't built yet, so "Start free" overpromised; /demo target and Pitch Green pill unchanged. | Copy |

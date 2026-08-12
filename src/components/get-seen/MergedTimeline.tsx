@@ -24,12 +24,15 @@ export interface TimelineEventItem {
   status: string
 }
 
-// Timeline DATA colors — camp = green (filled = registered), unchanged semantics.
+// DATA colors — camp = green (filled = registered), showcase = event blue,
+// outreach = rust. These encode the legend's meaning and are NOT touched by the
+// brand pass (firewall).
 const GREEN = { accent: '#2D6A4F', accentSoft: '#D7EFE0', accentDeep: '#1B4332' }
-const PETROL = { accent: '#0E5F6B', soft: '#CDE7EA' }
+// CHROME — the "next event" hero card was petrol; migrated to the shared pitch.
+const PETROL = { accent: '#1F6B48', soft: '#FBF6EC' }
 const SD = {
-  ink: '#0E0E0E', inkLo: '#7A7570', inkMute: '#A8A39B', line: '#E2DBC9', lineWarm: '#DDD5C3',
-  cream: '#F6F1E8', rust: '#B5502F', rustSoft: '#FAF0EA', event: '#5B7A99', eventSoft: '#E7EDF3',
+  ink: '#1A1A1A', inkLo: '#6B655A', inkMute: '#8A8478', line: '#E2DBC9', lineWarm: '#DDD5C3',
+  cream: '#FBF6EC', rust: '#B5502F', rustSoft: '#FAF0EA', event: '#5B7A99', eventSoft: '#E7EDF3',
 }
 
 const WINDOW_DAYS = 70 // 10 weeks
@@ -103,7 +106,7 @@ function RailMarker({ it }: { it: MergedItem }) {
 }
 
 function cardStyle(isHero: boolean, isOutreach: boolean): React.CSSProperties {
-  if (isHero) return { background: PETROL.accent, borderRadius: 10, padding: '9px 11px', boxShadow: '0 6px 16px rgba(14,95,107,0.28)' }
+  if (isHero) return { background: PETROL.accent, borderRadius: 10, padding: '9px 11px', boxShadow: '0 6px 16px rgba(31,107,72,0.28)' }
   return {
     background: '#fff', borderRadius: 10, padding: '8px 10px',
     border: `${isOutreach ? '1.5px' : '1px'} solid ${isOutreach ? SD.rust : SD.line}`,
