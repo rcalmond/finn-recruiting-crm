@@ -63,7 +63,7 @@ export default function CampDetailClient({ campId }: { campId: string }) {
       }}>
         <span>Camp not found.</span>
         <Link href="/calendar" style={{ color: LV.tealDeep, fontWeight: 600, textDecoration: 'none' }}>
-          ← Back to camps
+          ← Back to Calendar
         </Link>
       </div>
     )
@@ -79,7 +79,7 @@ export default function CampDetailClient({ campId }: { campId: string }) {
       <Link href="/calendar" style={{
         fontSize: 12, color: LV.inkMute, textDecoration: 'none', fontWeight: 600,
         display: 'inline-block', marginBottom: 16,
-      }}>← Back to camps</Link>
+      }}>← Back to Calendar</Link>
 
       {/* Header */}
       <HeaderSection camp={campData} onUpdate={updateCamp} />

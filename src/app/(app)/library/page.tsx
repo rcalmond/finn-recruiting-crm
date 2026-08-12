@@ -162,11 +162,11 @@ export default async function LibraryPage() {
       }}>
         <LibTile
           href="/kit"
-          title="Assets."
+          title="The kit."
           count={assetCount}
           blurb="Highlight reels, game film, resume, transcripts, and any links you've shared with coaches."
           items={['Highlight reel', 'Game film', 'Resume', 'Transcript', 'Sports Recruits profile']}
-          cta="Open Assets"
+          cta="Open the kit"
         />
         <LibTile
           href="/questions"
