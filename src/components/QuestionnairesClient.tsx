@@ -8,11 +8,13 @@ import {
   rqMarkCompletedPatch, rqMarkUpdatedPatch, rqSetDatePatch, rqSetLinkPatch,
 } from '@/lib/rq'
 
-// ─── Design tokens — Get Seen petrol vocabulary ──────────────────────────────
-const PETROL = { accent: '#0E5F6B', soft: '#CDE7EA', deep: '#083F47' }
+// Brand chrome (Throughball, Brand Sweep Pass 4D). The old petrol accent is
+// repointed at the shared --tb-pitch; softer ink. TIER_STYLE + the staleness
+// banding are DATA and stay.
+const PETROL = { accent: '#1F6B48', soft: '#E3EFE9', deep: '#1F6B48' }
 const C = {
-  paper: '#F6F1E8', white: '#fff', ink: '#0E0E0E', inkMid: '#4A4A4A',
-  inkLo: '#7A7570', inkMute: '#A8A39B', line: '#E2DBC9',
+  paper: '#F6F1E8', white: '#fff', ink: '#1A1A1A', inkMid: '#4A4A4A',
+  inkLo: '#6B655A', inkMute: '#8A8478', line: '#E2DBC9', pitch: '#1F6B48',
   rust: '#B5502F', amber: '#D4A017', green: '#2D6A4F',
 }
 
@@ -68,7 +70,7 @@ export default function QuestionnairesClient() {
       {/* Masthead */}
       <div style={{ padding: '24px clamp(28px, 4vw, 56px) 4px', maxWidth: 900, margin: '0 auto' }}>
         <h1 style={{ margin: 0, fontSize: 'clamp(44px, 6vw, 68px)', fontWeight: 700, letterSpacing: '-0.04em', color: C.ink, lineHeight: 0.95, fontStyle: 'italic' }}>
-          Questionnaires.
+          Questionnaires<span style={{ color: C.pitch }}>.</span>
         </h1>
         <p style={{ margin: '12px 0 0', fontSize: 15, color: C.inkLo, fontWeight: 450, letterSpacing: '-0.01em', maxWidth: 560, lineHeight: 1.5 }}>
           Every program&apos;s first filter — free to complete, noticed when missing.
@@ -135,7 +137,7 @@ export default function QuestionnairesClient() {
 function SectionHeader({ title, count }: { title: string; count: number }) {
   return (
     <h2 style={{ margin: '0 0 12px', display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 'clamp(16px, 2.2vw, 20px)', fontWeight: 700, letterSpacing: '-0.02em', color: C.ink, fontStyle: 'italic' }}>
-      {title}
+      <span>{title.replace(/\.$/, '')}<span style={{ color: C.pitch }}>.</span></span>
       <span style={{ fontSize: 13, fontWeight: 600, color: C.inkLo, fontStyle: 'normal' }}>{count}</span>
     </h2>
   )

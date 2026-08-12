@@ -13,15 +13,18 @@ import AddCampModal from './AddCampModal'
 import EventModal from './EventModal'
 import MergedTimeline, { type UpcomingCampItem, type TimelineEventItem } from './get-seen/MergedTimeline'
 
+// Brand chrome (Throughball, Brand Sweep Pass 4D). petrol repointed at the shared
+// --tb-pitch; softer ink. The shared MergedTimeline (its data dots) already
+// migrated in Pass 3B and renders here too.
 const LV = {
   paper:   '#F6F1E8',
   white:   '#fff',
-  ink:     '#0E0E0E',
+  ink:     '#1A1A1A',
   inkMid:  '#4A4A4A',
-  inkLo:   '#7A7570',
-  inkMute: '#A8A39B',
+  inkLo:   '#6B655A',
+  inkMute: '#8A8478',
   line:    '#E2DBC9',
-  petrol:  '#0E5F6B',   // Get Seen jewel accent — this page is Get Seen's child
+  petrol:  '#1F6B48',   // was #0E5F6B — now the shared pitch
   green:   '#2D6A4F',
   rust:    '#B5502F',
 }
@@ -125,7 +128,7 @@ export default function CampsClient({ user }: { user: User }) {
           Get Seen
         </Link>
         <h1 style={{ margin: 0, fontSize: 'clamp(44px, 6vw, 68px)', fontWeight: 700, letterSpacing: '-0.04em', color: LV.ink, lineHeight: 0.95, fontStyle: 'italic' }}>
-          Calendar.
+          Calendar<span style={{ color: LV.petrol }}>.</span>
         </h1>
         <p style={{ margin: '12px 0 0', fontSize: 15, color: LV.inkLo, fontWeight: 450, letterSpacing: '-0.01em', maxWidth: 600, lineHeight: 1.5 }}>
           Every camp, showcase, and outreach moment — what&apos;s coming, and where you stand.
@@ -145,7 +148,7 @@ export default function CampsClient({ user }: { user: User }) {
         <section>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 10, flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, fontSize: 'clamp(16px, 2.2vw, 20px)', fontWeight: 700, letterSpacing: '-0.02em', color: LV.ink, fontStyle: 'italic' }}>
-              Up next.<span style={{ fontSize: 13, fontWeight: 600, color: LV.inkLo, fontStyle: 'normal', marginLeft: 8 }}>{upNext.length}</span>
+              Up next<span style={{ color: LV.petrol }}>.</span><span style={{ fontSize: 13, fontWeight: 600, color: LV.inkLo, fontStyle: 'normal', marginLeft: 8 }}>{upNext.length}</span>
             </h2>
             <div style={{ display: 'flex', gap: 8 }}>
               <button style={addPill} onClick={() => setShowAddCamp(true)}>+ Camp</button>
@@ -170,7 +173,7 @@ export default function CampsClient({ user }: { user: User }) {
         {past.length > 0 && (
           <section>
             <button onClick={() => setPastOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
-              <h2 style={{ margin: 0, fontSize: 'clamp(16px, 2.2vw, 20px)', fontWeight: 700, letterSpacing: '-0.02em', color: LV.ink, fontStyle: 'italic' }}>Past &amp; done.</h2>
+              <h2 style={{ margin: 0, fontSize: 'clamp(16px, 2.2vw, 20px)', fontWeight: 700, letterSpacing: '-0.02em', color: LV.ink, fontStyle: 'italic' }}>Past &amp; done<span style={{ color: LV.petrol }}>.</span></h2>
               <span style={{ fontSize: 13, fontWeight: 600, color: LV.inkLo }}>{past.length}</span>
               <span style={{ fontSize: 12, color: LV.inkMute, transform: pastOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}>▾</span>
             </button>
