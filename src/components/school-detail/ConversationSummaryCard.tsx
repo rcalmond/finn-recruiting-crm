@@ -9,13 +9,16 @@ import type { RecommendedAction, RecommendedActionCategory, SchoolConversationSu
 const SD = {
   paper:     '#F6F1E8',
   paperDeep: '#EFE8D8',
-  ink:       '#0E0E0E',
+  ink:       '#1A1A1A',
   inkSoft:   '#1F1F1F',
   inkMid:    '#4A4A4A',
-  inkLo:     '#7A7570',
-  inkMute:   '#A8A39B',
+  inkLo:     '#6B655A',
+  inkMute:   '#8A8478',
   line:      '#E2DBC9',
   line2:     '#D3CAB3',
+  pitch:     '#1F6B48',  // brand chrome (Regista label, primary action)
+  cream:     '#FBF6EC',  // solid on pitch/ink fills
+  // DATA: teal is the reply CATEGORY_BADGE color (matches the ACTIVE taxonomy).
   teal:      '#00B2A9',
   tealDeep:  '#006A65',
   tealSoft:  '#D7F0ED',
@@ -64,7 +67,7 @@ function relativeTime(isoStr: string): string {
 function actionButton(category: RecommendedActionCategory): { label: string; bg: string; color: string; border?: string } {
   switch (category) {
     case 'reply':
-      return { label: 'Draft reply', bg: SD.teal, color: '#fff' }
+      return { label: 'Draft reply', bg: SD.pitch, color: SD.cream }
     case 'follow_up':
       return { label: 'Draft follow-up', bg: SD.ink, color: '#fff' }
     case 'check_in':
@@ -211,6 +214,14 @@ export default function ConversationSummaryCard({ schoolId, schoolName: _schoolN
 
   return (
     <div>
+      {/* 0. Regista attribution — this card is the judgment engine's read */}
+      <div style={{
+        fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
+        letterSpacing: '0.1em', color: SD.pitch, marginBottom: 8,
+      }}>
+        Regista&apos;s read
+      </div>
+
       {/* 1. Summary text */}
       <p style={{
         margin: '0 0 14px', fontSize: 14, color: SD.ink,

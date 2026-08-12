@@ -2150,7 +2150,7 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 
 ---
 
-## 11. Live Pipeline — Generated August 11, 2026
+## 11. Live Pipeline — Generated August 12, 2026
 
 **Active schools: 7** | Overdue actions: 21
 (Category Nope and status Inactive excluded)
@@ -2415,6 +2415,7 @@ SCHOOL: University of Rochester
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-12 | Brand sweep Pass 4A (School Detail): chrome accents migrated to Pitch Green — teal inline-actions/links, the primary Draft-reply action, the + Add affordances, and section-header periods; softer ink. The conversation-summary card is now explicitly Regista's, marked with a Regista's-read eyebrow (the flagship judgment moment on the page). The charcoal offer cards, the benched Set-aside cards, and all data colors (recency chip, tier/milestone badges, action-category badges, inbound-message + Email/In-Person channel + timeline styling) are untouched. | Brand |
 | 2026-08-12 | Brand sweep Pass 3D (Get In): page chrome migrated to Pitch Green (old violet act-accent → --tb-pitch, the endgame hero is now a full-fill pitch card with cream text, softer ink, green periods). The charcoal offer cards stay ink-weight (the §5 weight register, unchanged). The endgame move is attributed to Regista; offers/admissions data stays Throughball. Data-semantic colors untouched. This completes the four-phase brand system. | Brand |
 | 2026-08-12 | Brand sweep Pass 3C (Get Recruited): page chrome migrated to Pitch Green — the priority hero is now a full-fill pitch card (cream text, ghost numeral), the board's awaiting ring (the your-move signal) migrated persimmon → pitch, softer ink, green periods. The next-move eyebrow and page subtitle attribute the judgment to Regista. The board's tile/recency/tier/temperature colors and the category stripes are untouched. | Brand |
 | 2026-08-12 | Brand sweep Pass 3B (Get Seen): page + shared-timeline chrome migrated to the one-accent Pitch Green system (old petrol jewel accent → --tb-pitch, softer ink, green periods, solid cream on fills). The timeline data dots (camp green / showcase blue / outreach rust) and the toolkit metrics are untouched. | Brand |

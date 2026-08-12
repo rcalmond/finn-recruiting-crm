@@ -24,16 +24,23 @@ import NotePopover from '@/components/school-detail/NotePopover'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
+// Brand chrome (Throughball, Brand Sweep Pass 4A). pitch is the shared accent
+// (links, primary actions, section-header periods). DATA colors are left intact:
+// teal = the ACTIVE recency chip + Email channel + inbound-message styling;
+// red = the overdue-status indicator; gold = the In-Person channel. The offer
+// cards and the summary card's category badge keep their taxonomy too.
 const SD = {
   paper:     '#F6F1E8',
   paperDeep: '#EFE8D8',
-  ink:       '#0E0E0E',
+  ink:       '#1A1A1A',
   inkSoft:   '#1F1F1F',
   inkMid:    '#4A4A4A',
-  inkLo:     '#7A7570',
-  inkMute:   '#A8A39B',
+  inkLo:     '#6B655A',
+  inkMute:   '#8A8478',
   line:      '#E2DBC9',
   line2:     '#D3CAB3',
+  pitch:     '#1F6B48',
+  cream:     '#FBF6EC',
   red:       '#C8102E',
   redDeep:   '#9A0B23',
   redInk:    '#FFE4E8',
@@ -633,7 +640,7 @@ function Timeline({
       <h2 style={{
         margin: 0, fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
         letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
-      }}>The conversation.</h2>
+      }}>The conversation<span style={{ color: SD.pitch }}>.</span></h2>
       {!logFormOpen && (
         <button
           onClick={() => setLogFormOpen(true)}
@@ -793,7 +800,7 @@ function Timeline({
                       <button
                         onClick={() => onDraft('reply', entry.id, entry.channel)}
                         style={{
-                          padding: '4px 12px', background: SD.teal, color: '#fff',
+                          padding: '4px 12px', background: SD.pitch, color: SD.cream,
                           border: 'none', borderRadius: 999,
                           fontSize: 11, fontWeight: 700, cursor: 'pointer',
                           letterSpacing: -0.1, fontFamily: 'inherit',
@@ -1012,13 +1019,17 @@ function SidebarCard({ label, children }: { label: string; children: ReactNode }
   )
 }
 
-// Bold-italic zone header (the house register used across phase pages).
+// Bold-italic zone header (the house register used across phase pages), with a
+// Pitch Green trailing period when the label is a plain string.
 function ZoneHeading({ children }: { children: ReactNode }) {
+  const text = typeof children === 'string' ? children : null
   return (
     <h2 style={{
       margin: '0 0 18px', fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
       letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
-    }}>{children}</h2>
+    }}>
+      {text ? <>{text.replace(/\.$/, '')}<span style={{ color: SD.pitch }}>.</span></> : children}
+    </h2>
   )
 }
 
@@ -1277,7 +1288,7 @@ function AddActionForm({ onAdd }: { onAdd: (action: string, dueDate: string, own
         onClick={() => setOpen(true)}
         style={{
           marginTop: 10, padding: '5px 0', background: 'none', border: 'none',
-          cursor: 'pointer', fontSize: 11, fontWeight: 700, color: SD.tealDeep,
+          cursor: 'pointer', fontSize: 11, fontWeight: 700, color: SD.pitch,
           fontFamily: 'inherit', textAlign: 'left',
         }}
       >+ Add action item</button>
@@ -1527,7 +1538,7 @@ function StaffZone({
                     {isPrimary && (
                       <span style={{
                         fontSize: 9, fontWeight: 800, letterSpacing: 0.3, textTransform: 'uppercase',
-                        color: SD.tealDeep, background: SD.tealSoft, borderRadius: 999, padding: '1px 7px',
+                        color: SD.pitch, background: '#E3EFE9', borderRadius: 999, padding: '1px 7px',
                       }}>Primary</span>
                     )}
                     {coach.needs_review && (
@@ -1549,7 +1560,7 @@ function StaffZone({
                   </div>
                   {emailToShow && (
                     <a href={`mailto:${emailToShow}`} style={{
-                      display: 'block', fontSize: 11, color: SD.tealDeep,
+                      display: 'block', fontSize: 11, color: SD.pitch,
                       textDecoration: 'none', fontWeight: 600, marginTop: 2,
                       wordBreak: 'break-all',
                     }}>{emailToShow}</a>
@@ -1993,7 +2004,7 @@ function SidebarCamps({ school, camps, schools }: {
             style={{
               padding: '3px 10px', borderRadius: 999,
               border: `1px solid ${SD.line}`, background: '#fff',
-              fontSize: 10, fontWeight: 700, color: SD.tealDeep,
+              fontSize: 10, fontWeight: 700, color: SD.pitch,
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >+ Add</button>
@@ -2257,7 +2268,7 @@ export default function SchoolDetailClient({
           <h2 style={{
             margin: '0 0 14px', fontSize: 'clamp(20px, 2.8vw, 26px)', fontWeight: 700,
             letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
-          }}>Where things stand.</h2>
+          }}>Where things stand<span style={{ color: SD.pitch }}>.</span></h2>
           <ConversationSummaryCard
             schoolId={school.id}
             schoolName={school.short_name ?? school.name}
