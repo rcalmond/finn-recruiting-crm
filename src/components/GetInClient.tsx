@@ -13,24 +13,28 @@ import {
   STAGE_META, MILESTONE_META,
 } from '@/lib/types'
 
+// Brand chrome (Throughball, Brand Sweep Pass 3D). The old violet page-chrome is
+// repointed at the shared --tb-pitch token (masthead accents, endgame hero fill,
+// links). The CHARCOAL offer cards are the WEIGHT register (ink) — NOT chrome —
+// and stay charcoal.
 const SD = {
   paper:    '#F6F1E8',
-  ink:      '#0E0E0E',
+  ink:      '#1A1A1A',
   inkMid:   '#4A4A4A',
-  inkLo:    '#7A7570',
-  inkMute:  '#A8A39B',
+  inkLo:    '#6B655A',
+  inkMute:  '#8A8478',
   line:     '#E2DBC9',
   tealDeep: '#006A65',
-  // March charcoal palette
+  // March charcoal palette — the offer-card weight register (kept)
   charcoal:    '#2E2B28',
   charcoalMid: '#3D3A36',
   charcoalLo:  '#4D4A46',
   cream:       '#F6F1E8',
   creamMid:    '#D8D2C6',
   creamLo:     '#A8A39B',
-  creamHead:   '#FFFDF9',  // hero heading on the violet fill
-  creamBody:   '#FBF6EC',  // hero body on the violet fill (solid, AA-safe)
-  violet:      '#3E2C5E',  // page chrome — Get In jewel color (from the marketing ladder)
+  creamHead:   '#FFFDF9',  // hero heading on the pitch fill
+  creamBody:   '#FBF6EC',  // hero body on the pitch fill (solid, AA-safe)
+  violet:      '#1F6B48',  // was #3E2C5E — now the shared pitch (endgame hero + chrome)
   rust:        '#B5502F',
 }
 
@@ -638,7 +642,7 @@ export default function GetInClient() {
           fontWeight: 700, letterSpacing: '-0.04em',
           color: SD.ink, lineHeight: 0.95,
           fontStyle: 'italic',
-        }}>Get In.</h1>
+        }}>Get In<span style={{ color: SD.violet }}>.</span></h1>
         <p style={{
           margin: '12px 0 0', fontSize: 15, color: SD.inkLo,
           fontWeight: 450, letterSpacing: '-0.01em', maxWidth: 640, lineHeight: 1.5,
@@ -662,7 +666,7 @@ export default function GetInClient() {
             }}>
               <div style={{ position: 'absolute', top: -12, right: 10, fontSize: 104, fontWeight: 800, fontStyle: 'italic', color: SD.creamHead, opacity: 0.13, lineHeight: 1, pointerEvents: 'none', userSelect: 'none' }}>◆</div>
               <div style={{ position: 'relative', zIndex: 1 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: SD.creamHead, marginBottom: 6 }}>Next move</div>
+                <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: SD.creamHead, marginBottom: 6 }}>Regista · your move</div>
                 <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: SD.creamHead, fontStyle: 'italic', letterSpacing: '-0.02em', lineHeight: 1.3 }}>{endgameMove.headline}</h3>
                 <p style={{ margin: '0 0 14px', fontSize: 13, color: SD.creamBody, lineHeight: 1.55 }}>{endgameMove.body}</p>
                 <span style={{ display: 'inline-block', padding: '8px 18px', fontSize: 12, fontWeight: 700, color: SD.violet, background: SD.creamHead, borderRadius: 999, letterSpacing: '-0.01em' }}>{endgameMove.buttonText}</span>
@@ -674,7 +678,7 @@ export default function GetInClient() {
           <div style={{ background: '#fff', border: `1px solid ${SD.line}`, borderRadius: 14, padding: 'clamp(20px, 2.6vw, 26px)', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: -10, right: 12, fontSize: 88, fontWeight: 800, fontStyle: 'italic', color: SD.ink, opacity: 0.04, lineHeight: 1, pointerEvents: 'none', userSelect: 'none' }}>◆</div>
             <div style={{ position: 'relative', zIndex: 1 }}>
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: SD.inkMute, marginBottom: 6 }}>Next move</div>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: SD.inkMute, marginBottom: 6 }}>Regista</div>
               <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: SD.ink, fontStyle: 'italic', letterSpacing: '-0.02em' }}>{endgameMove.headline}</h3>
               <p style={{ margin: 0, fontSize: 13, color: SD.inkMid, lineHeight: 1.55 }}>{endgameMove.body}</p>
             </div>
@@ -687,13 +691,13 @@ export default function GetInClient() {
             <h2 style={{
               margin: 0, fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
               letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
-            }}>On the table.</h2>
+            }}>On the table<span style={{ color: SD.violet }}>.</span></h2>
             <button
               onClick={() => setModalOffer('add')}
               style={{
                 all: 'unset', cursor: 'pointer',
                 padding: '7px 14px', fontSize: 12, fontWeight: 700,
-                color: '#fff', background: SD.violet, borderRadius: 999,
+                color: SD.creamHead, background: SD.violet, borderRadius: 999,
               }}
             >
               + Add Offer
@@ -738,7 +742,7 @@ export default function GetInClient() {
             <h2 style={{
               margin: '0 0 14px', fontSize: 'clamp(18px, 2.5vw, 24px)', fontWeight: 700,
               letterSpacing: '-0.04em', color: SD.ink, fontStyle: 'italic',
-            }}>The short list.</h2>
+            }}>The short list<span style={{ color: SD.violet }}>.</span></h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {endgameSchools.map(school => {
                 const schoolMilestones = milestonesMap.get(school.id) ?? []

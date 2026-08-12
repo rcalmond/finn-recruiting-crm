@@ -2415,6 +2415,7 @@ SCHOOL: University of Rochester
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-12 | Brand sweep Pass 3D (Get In): page chrome migrated to Pitch Green (old violet act-accent → --tb-pitch, the endgame hero is now a full-fill pitch card with cream text, softer ink, green periods). The charcoal offer cards stay ink-weight (the §5 weight register, unchanged). The endgame move is attributed to Regista; offers/admissions data stays Throughball. Data-semantic colors untouched. This completes the four-phase brand system. | Brand |
 | 2026-08-12 | Brand sweep Pass 3C (Get Recruited): page chrome migrated to Pitch Green — the priority hero is now a full-fill pitch card (cream text, ghost numeral), the board's awaiting ring (the your-move signal) migrated persimmon → pitch, softer ink, green periods. The next-move eyebrow and page subtitle attribute the judgment to Regista. The board's tile/recency/tier/temperature colors and the category stripes are untouched. | Brand |
 | 2026-08-12 | Brand sweep Pass 3B (Get Seen): page + shared-timeline chrome migrated to the one-accent Pitch Green system (old petrol jewel accent → --tb-pitch, softer ink, green periods, solid cream on fills). The timeline data dots (camp green / showcase blue / outreach rust) and the toolkit metrics are untouched. | Brand |
 | 2026-08-12 | Brand sweep Pass 3A (global nav): AppNav active-item, settings-pill, and mobile-badge states migrated from crimson to Pitch Green — app-wide nav chrome now on-brand. | Brand |
