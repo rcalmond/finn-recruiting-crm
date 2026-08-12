@@ -3,8 +3,24 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { ThroughballLogo } from '@/components/brand/ThroughballLogo'
 
 type Mode = 'password' | 'magic'
+
+// Brand chrome tokens (Throughball — the product front door).
+const B = {
+  parchment: '#F6F1E8',
+  warmWhite: '#FFFDF9',
+  cream:     '#FBF6EC',
+  ink:       '#1A1A1A',
+  muted:     '#6B655A',
+  faint:     '#8A8478',
+  border:    '#E2DBC9',
+  borderDeep:'#C9C2B2',
+  pitch:     '#1F6B48',
+  danger:    '#9A0B23',
+  dangerSoft:'#FCE4E8',
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -49,81 +65,94 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-blue-700">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="text-4xl mb-2">⚽</div>
-          <h1 className="text-2xl font-bold text-gray-900">Recruiting CRM</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Finn Almond · Class of 2027 · LWB
+    <div style={{
+      minHeight: '100vh', background: B.parchment,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24, boxSizing: 'border-box',
+    }}>
+      <div style={{
+        background: B.warmWhite,
+        border: `1px solid ${B.border}`,
+        borderRadius: 18,
+        boxShadow: '0 24px 60px rgba(26,26,26,0.10)',
+        padding: 'clamp(28px, 5vw, 40px)',
+        width: '100%', maxWidth: 384, boxSizing: 'border-box',
+      }}>
+        {/* Front door — the brand, not a person */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 28 }}>
+          <ThroughballLogo size={24} treatment="ink" />
+          <p style={{ margin: '18px 0 0', fontSize: 13, color: B.muted, letterSpacing: '-0.01em', lineHeight: 1.5 }}>
+            The assist for your kid&apos;s recruiting.
           </p>
-          <p className="text-xs text-gray-400 mt-0.5">Albion SC MLS NEXT Academy</p>
         </div>
 
         {/* Mode toggle */}
-        <div className="flex rounded-lg bg-gray-100 p-1 mb-5">
-          <button
-            type="button"
-            onClick={() => { setMode('password'); setError(null); setSuccess(null) }}
-            className={`flex-1 py-1.5 rounded-md text-sm font-semibold transition ${mode === 'password' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}
-          >
-            Password
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMode('magic'); setError(null); setSuccess(null) }}
-            className={`flex-1 py-1.5 rounded-md text-sm font-semibold transition ${mode === 'magic' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}
-          >
-            Magic Link
-          </button>
+        <div style={{
+          display: 'flex', gap: 3, padding: 3, marginBottom: 20,
+          background: B.cream, borderRadius: 999, border: `1px solid ${B.border}`,
+        }}>
+          {(['password', 'magic'] as Mode[]).map(m => {
+            const on = mode === m
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => { setMode(m); setError(null); setSuccess(null) }}
+                style={{
+                  flex: 1, padding: '7px 0', borderRadius: 999, border: 'none', cursor: 'pointer',
+                  fontSize: 13, fontWeight: on ? 700 : 550, fontFamily: 'inherit', letterSpacing: '-0.01em',
+                  background: on ? B.ink : 'transparent',
+                  color: on ? B.cream : B.muted,
+                  transition: 'background 0.15s, color 0.15s',
+                }}
+              >
+                {m === 'password' ? 'Password' : 'Magic Link'}
+              </button>
+            )
+          })}
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
+            <label style={labelStyle}>Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={fieldStyle}
               placeholder="you@example.com"
             />
           </div>
 
           {mode === 'password' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
+              <label style={labelStyle}>Password</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={fieldStyle}
                 placeholder="••••••••"
               />
             </div>
           )}
 
           {mode === 'magic' && (
-            <p className="text-xs text-gray-500">
+            <p style={{ fontSize: 12.5, color: B.faint, lineHeight: 1.5, margin: 0 }}>
               We&apos;ll email you a one-click sign-in link. No password needed.
             </p>
           )}
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+            <p style={{ fontSize: 13, color: B.danger, background: B.dangerSoft, borderRadius: 8, padding: '9px 12px', margin: 0, lineHeight: 1.4 }}>
               {error}
             </p>
           )}
 
           {success && (
-            <p className="text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">
+            <p style={{ fontSize: 13, color: B.pitch, background: B.cream, border: `1px solid ${B.border}`, borderRadius: 8, padding: '9px 12px', margin: 0, lineHeight: 1.4 }}>
               {success}
             </p>
           )}
@@ -132,15 +161,33 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 rounded-lg text-sm transition disabled:opacity-60"
+              style={{
+                width: '100%', padding: '11px 0', borderRadius: 999, border: 'none',
+                background: B.pitch, color: B.cream,
+                fontSize: 14, fontWeight: 700, fontFamily: 'inherit', letterSpacing: '-0.01em',
+                cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.6 : 1,
+                transition: 'opacity 0.15s',
+              }}
             >
               {loading
                 ? (mode === 'magic' ? 'Sending…' : 'Signing in…')
-                : (mode === 'magic' ? 'Send Magic Link' : 'Sign In')}
+                : (mode === 'magic' ? 'Send magic link' : 'Sign in')}
             </button>
           )}
         </form>
       </div>
     </div>
   )
+}
+
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontSize: 11, fontWeight: 700, color: B.muted,
+  textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6,
+}
+
+const fieldStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 12px', boxSizing: 'border-box',
+  border: `1px solid ${B.border}`, borderRadius: 9,
+  fontSize: 14, fontFamily: 'inherit', background: B.warmWhite, color: B.ink,
+  outline: 'none',
 }

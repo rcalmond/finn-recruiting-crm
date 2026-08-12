@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { School, Division, AdmitLikelihood, Category, ActionOwner, ActionItem, Coach, CoachRole } from '@/lib/types'
 import { useContactLog, useActionItems, useCoaches } from '@/hooks/useRealtimeData'
-import { STATUS_COLORS, ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate } from '@/lib/utils'
+import { ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate } from '@/lib/utils'
 import ContactLogPanel from './ContactLogPanel'
 import DraftModal from './DraftModal'
 import PrepForCallModal from './PrepForCallModal'
@@ -208,12 +208,13 @@ export default function SchoolModal(props: Props) {
         {isEdit && (
           <div style={{ padding: '14px 28px 0', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {(() => {
-              const sc = STATUS_COLORS[s!.status]
+              // Vestigial status pill removed (Pipeline removal follow-up) — the
+              // stage/milestone model supersedes the legacy status enum. Admit,
+              // tier, and division pills stay (data-semantic).
               const ac = s!.admit_likelihood ? ADMIT_COLORS[s!.admit_likelihood] : M.inkMute
               const cc = CATEGORY_COLORS[s!.category]
               return (
                 <>
-                  <span style={pill(sc.bg, sc.text)}>{s!.status}</span>
                   {s!.admit_likelihood && <span style={pill(ac + '18', ac)}>{s!.admit_likelihood}</span>}
                   <span style={pill(cc + '14', cc)}>{categoryLabel(s!.category)}</span>
                   {s!.division && <span style={pill(M.paperDeep, M.inkMid)}>{s!.division}{s!.conference ? ` · ${s!.conference}` : ''}</span>}
