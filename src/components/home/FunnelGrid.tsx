@@ -13,14 +13,18 @@ const SD = {
   paper:     '#F6F1E8',
   paperDeep: '#EFE8D8',
   cardWhite: '#FFFDF9',
-  ink:       '#0E0E0E',
+  ink:       '#1A1A1A',
   inkMid:    '#4A4A4A',
-  inkLo:     '#7A7570',
-  inkMute:   '#A8A39B',
+  inkLo:     '#6B655A',
+  inkMute:   '#8A8478',
   line:      '#E2DBC9',
   line2:     '#D3CAB3',
   lineWarm:  '#DDD5C3',
-  persimmon: '#C13E24', // page act-accent — board accents (from the marketing ladder)
+  // DATA: persimmon marks the "Close" temperature zone (tint, zone label, tile
+  // border, legend dot). Kept — it encodes temperature, not brand chrome.
+  persimmon: '#C13E24',
+  // CHROME: the awaiting ring ("your move" UI signal) is the brand accent.
+  pitch:     '#1F6B48',
 }
 
 const TIER_DOT: Record<string, string> = {
@@ -175,7 +179,7 @@ export default function FunnelGrid({ schools, contactLog, waitSchoolIds = new Se
             margin: 0, fontSize: 'clamp(18px, 2.5vw, 22px)', fontWeight: 700,
             letterSpacing: '-0.03em', color: SD.ink, fontStyle: 'italic',
           }}>
-            The board.
+            The board<span style={{ color: SD.pitch }}>.</span>
           </h2>
           <span style={{
             fontSize: 12, color: SD.inkMute,
@@ -324,7 +328,7 @@ export default function FunnelGrid({ schools, contactLog, waitSchoolIds = new Se
           {/* Legend */}
           <div style={{ marginTop: 12, display: 'flex', gap: 18, flexWrap: 'wrap', fontSize: 11, color: SD.inkLo }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 16, height: 13, borderRadius: 999, border: `2px solid ${SD.persimmon}`, background: SD.cardWhite, display: 'inline-block', flexShrink: 0 }} />
+              <span style={{ width: 16, height: 13, borderRadius: 999, border: `2px solid ${SD.pitch}`, background: SD.cardWhite, display: 'inline-block', flexShrink: 0 }} />
               ring = your move
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -347,12 +351,12 @@ export default function FunnelGrid({ schools, contactLog, waitSchoolIds = new Se
 
 // ─── Chip ───────────────────────────────────────────────────────────────────
 // Styling matched to the marketing board chips (white fill, hairline border,
-// size/radius/type). The ring (2px persimmon) means "your move" (recency-hot
+// size/radius/type). The ring (2px pitch) means "your move" (recency-hot
 // AND a non-wait recommendation) and wins over the close-zone border.
 
 function Chip({ school, isCloseZone, onClick }: { school: CellSchool; isCloseZone: boolean; onClick: () => void }) {
   const border = school.awaiting
-    ? `2px solid ${SD.persimmon}`
+    ? `2px solid ${SD.pitch}`
     : isCloseZone
     ? '1px solid rgba(193, 62, 36, 0.35)'
     : `1px solid ${SD.lineWarm}`

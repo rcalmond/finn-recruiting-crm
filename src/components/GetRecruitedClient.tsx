@@ -14,18 +14,23 @@ import type { SourceHealth } from '@/lib/ingestion-health'
 
 // ─── Design tokens: March vocabulary ──────────────────────────────────────────
 
+// Brand chrome (Throughball, Brand Sweep Pass 3C). The old persimmon act-accent
+// is repointed at the shared --tb-pitch token; the priority hero becomes a
+// full-fill Pitch Green card. DATA (CATEGORY_STRIPE below, SCHOOL_RECENCY_STYLE,
+// tier/temperature on the board) is untouched.
 const M = {
   paper:     '#F6F1E8',
   cardWhite: '#FFFDF9',
-  ink:       '#0E0E0E',
+  ink:       '#1A1A1A',
   inkMid:    '#4A4A4A',
-  inkLo:     '#7A7570',
-  inkMute:   '#A8A39B',
+  inkLo:     '#6B655A',
+  inkMute:   '#8A8478',
   line:      '#E2DBC9',
   lineWarm:  '#DDD5C3',
-  persimmon: '#C13E24',  // page act-accent — from the marketing ladder (AA-adjusted)
-  creamHead: '#FFFDF9',  // hero heading on the persimmon fill
-  creamBody: '#FBF6EC',  // hero body on the persimmon fill (solid, AA-safe)
+  persimmon: '#1F6B48',  // was #C13E24 — now the shared pitch (priority hero fill + accent)
+  pitchLight: '#7BC49A', // green accent on ink/charcoal grounds
+  creamHead: '#FFFDF9',  // hero heading on the pitch fill
+  creamBody: '#FBF6EC',  // hero body on the pitch fill (solid, AA-safe)
   charcoal:  '#2E2B28',
   charcoalMid: '#3D3A36',
   cream:     '#F6F1E8',
@@ -280,14 +285,14 @@ export default function GetRecruitedClient({
           fontSize: 'clamp(56px, 7vw, 88px)',
           fontWeight: 700, letterSpacing: '-0.04em',
           color: M.ink, lineHeight: 0.95, fontStyle: 'italic',
-        }}>Get Recruited.</h1>
+        }}>Get Recruited<span style={{ color: M.persimmon }}>.</span></h1>
 
         {/* Subtitle — the queue below carries what's urgent (no status line) */}
         <p style={{
           margin: '12px 0 0', fontSize: 15, color: M.inkLo,
           fontWeight: 450, letterSpacing: '-0.01em', maxWidth: 640, lineHeight: 1.5,
         }}>
-          Every conversation summarized, every reply read, and your next move ranked at the top.
+          Regista reads every conversation, weighs every reply, and ranks your next move at the top.
         </p>
       </div>
 
@@ -299,7 +304,7 @@ export default function GetRecruitedClient({
           <h2 style={{
             margin: '0 0 16px', fontSize: 'clamp(18px, 2.5vw, 22px)', fontWeight: 700,
             letterSpacing: '-0.03em', color: M.ink, fontStyle: 'italic',
-          }}>Up next.</h2>
+          }}>Up next<span style={{ color: M.persimmon }}>.</span></h2>
 
           {!hasQueue ? (
             /* ── Zero state: Caught up ──────────────────────────── */
@@ -311,8 +316,8 @@ export default function GetRecruitedClient({
               <GhostNumeral n="0" color="#fff" opacity={0.08} />
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 16, color: M.teal }}>✓</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: M.teal, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  <span style={{ fontSize: 16, color: M.pitchLight }}>✓</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: M.pitchLight, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     All clear
                   </span>
                 </div>
@@ -320,7 +325,7 @@ export default function GetRecruitedClient({
                   margin: '0 0 8px', fontSize: 22, fontWeight: 700,
                   color: M.cream, fontStyle: 'italic', letterSpacing: '-0.03em',
                 }}>
-                  Caught up.
+                  Caught up<span style={{ color: M.pitchLight }}>.</span>
                 </h3>
                 <p style={{ margin: '0 0 16px', fontSize: 13, color: '#A8A39B', lineHeight: 1.6 }}>
                   Nothing pressing right now. The board below is still worth a scan.
@@ -353,7 +358,7 @@ export default function GetRecruitedClient({
                     overflow: 'hidden',
                     transition: 'box-shadow 0.15s',
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 18px rgba(193,62,36,0.28)' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 18px rgba(31,107,72,0.28)' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
                 >
                   <GhostNumeral n="1" color={M.creamHead} opacity={0.15} />
@@ -363,7 +368,7 @@ export default function GetRecruitedClient({
                         fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
                         letterSpacing: '0.08em', color: M.creamHead,
                       }}>
-                        Priority №1 · {priorityRecencyStyle?.label ?? ''}
+                        Regista · {priorityRecencyStyle?.label ?? 'your move'}
                       </span>
                       <span style={{ fontSize: 10, fontWeight: 700, color: M.creamBody }}>
                         {prioritySchool.short_name || prioritySchool.name}

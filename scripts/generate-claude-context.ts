@@ -2392,6 +2392,7 @@ const FALLBACK_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-12 | Brand sweep Pass 3C (Get Recruited): page chrome migrated to Pitch Green — the priority hero is now a full-fill pitch card (cream text, ghost numeral), the board's awaiting ring (the your-move signal) migrated persimmon → pitch, softer ink, green periods. The next-move eyebrow and page subtitle attribute the judgment to Regista. The board's tile/recency/tier/temperature colors and the category stripes are untouched. | Brand |
 | 2026-08-12 | Brand sweep Pass 3B (Get Seen): page + shared-timeline chrome migrated to the one-accent Pitch Green system (old petrol jewel accent → --tb-pitch, softer ink, green periods, solid cream on fills). The timeline data dots (camp green / showcase blue / outreach rust) and the toolkit metrics are untouched. | Brand |
 | 2026-08-12 | Brand sweep Pass 3A (global nav): AppNav active-item, settings-pill, and mobile-badge states migrated from crimson to Pitch Green — app-wide nav chrome now on-brand. | Brand |
 | 2026-08-12 | Brand sweep Pass 2 (Get Ready): page chrome migrated to the one-accent Pitch Green system (old emerald phase color → shared --tb-pitch token, softer brand ink, parchment grounds), self-reference naming swept to Throughball/Regista per catalog (discovery reasoning attributed to Regista), nav wordmark confirmed. Data-semantic colors (Targets bars, tier chips) untouched. | Brand |
