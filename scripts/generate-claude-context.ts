@@ -238,7 +238,7 @@ const FALLBACK_HEADER = `# Finn Almond — College Soccer Recruiting App: Claude
 
 ## 1. What This App Is
 
-A personal recruiting CRM for **Randy Almond** (parent/manager) and **Finn Almond** (player).
+**Throughball** (powered by **Regista**) — a college soccer recruiting CRM, now being productized for sale to other recruiting families (see the Throughball Rebrand + Productization section in 9). Regista is the named judgment engine: it reads coach replies, ranks the next move, and drafts responses. Currently a single-user personal instance for **Randy Almond** (parent/manager) and **Finn Almond** (player), served on the finnsoccer.com domain.
 Data lives in Supabase. Frontend is Next.js + React + TypeScript deployed on Vercel.
 The app tracks 10 active target schools (A: 4, B: 2, C: 4), consolidated from a summer peak of ~27
 after post-camp triage — across division, coaching contacts, outreach status,
@@ -295,6 +295,10 @@ conference          text
 location            text
 status              'Not Contacted' | 'Intro Sent' | 'Ongoing Conversation' |
                     'Visit Scheduled' | 'Offer' | 'Inactive'
+                    -- VESTIGIAL: superseded by the recruiting_stage/milestone model.
+                    -- No longer editable in the UI (the editor + masthead/modal pills
+                    -- were removed). Column stays because deriveStage still reads it
+                    -- (future cleanup). New schools still get a default on insert.
 last_contact        date
 head_coach          text
 coach_email         text
@@ -533,6 +537,8 @@ Optional nullable linkage — most events link no schools.
 All tables have RLS enabled. Any authenticated user gets full access.
 Use the **service role key** in scripts/server-side code to bypass RLS.
 Use the **anon key** in the frontend (Next.js client components).
+
+**not_found_log** (migration 065) — 404 logging (log-only, no notification). Columns: id, path, referrer, user_id (nullable — authed user_id distinguishes internal-bug 404s from anonymous noise), user_agent, created_at. RLS on with NO policies: writes come only from the server via the service role (the /api/not-found-log fire-and-forget beacon); anon/authed clients get no access. The daily internal-404 email digest is DEFERRED admin tooling — do not build it into the customer product.
 ---
 
 ## 5. Email Subject Line Format
@@ -569,22 +575,23 @@ and are legacy — note this in contact log if surfaced.
 
 - **Frontend**: Next.js + React + TypeScript
 - **Database**: Supabase (PostgreSQL) with RLS enabled
-- **Auth**: Supabase Auth
-- **Styling**: Tailwind CSS + inline styles (March parchment vocabulary)
+- **Auth**: Supabase Auth (Supabase PRO — no free-tier auto-pause)
+- **Email**: Resend for outbound app/auth email (custom SMTP, from Throughball noreply@finnsoccer.com, DKIM/SPF verified); SendGrid Inbound Parse for reading coach replies (inbound only — SendGrid outbound is NOT used); ImprovMX forwards inbound personal mail to Gmail
+- **Styling**: Tailwind CSS + inline styles (Throughball parchment + Pitch Green vocabulary)
 - **Deployment**: Vercel (auto-deploy from main; no Vercel CLI — see CLAUDE.md)
-- **Design vocabulary** (jewel system, August 8 2026 — continuity through REGISTER, not hue): Parchment base (#F6F1E8), ink (#0E0E0E) = primary text. Jewel phase ladder (in-app AND marketing): emerald (#1E6B4C) = Get Ready, petrol (#0E5F6B) = Get Seen, persimmon (#C13E24, AA-adjusted from #D0492E) = Get Recruited AND the page-level act-accent, violet (#3E2C5E) = Get In. Warm charcoal (#2E2B28) = offer/judgment weight register (Get In offer cards, marketing judgment box). Hero body text renders solid cream (#FBF6EC) on jewel fills — opacity-blended cream fails AA on lighter fills. Rust (#B5502F) is now LEGACY (persimmon replaced it as the act-accent); it survives only as a data-semantic color — the timeline outreach-send glyph, the >90d freshness band, and some category pills. Act-colors, weight-colors, and data-semantic colors are distinct roles that must not collide.
+- **Design vocabulary** (Throughball one-accent system — the discipline is the identity; the earlier jewel / four-phase-color ladder was retired by the brand sweep): Parchment base (#F6F1E8), ink (#1A1A1A) = primary text, with muted/faint neutrals. Pitch Green (#1F6B48) is the SINGLE brand accent — it points, it never floods; bold-italic mastheads carry a green trailing period. The weighted-pass-arrow mark + wordmark are the identity. Phases render as numbered acts (01-04) with a ghost-numeral ramp, NOT four hues. Cream (#FBF6EC) renders solid on fills (opacity-blended cream fails AA on lighter fills). DATA-SEMANTIC colors are EXEMPT and unchanged: recency/temperature dots, tier chips, category stripes, freshness bands, and the timeline outreach-send glyph encode data, never brand chrome — Pitch Green stays a SEPARATE token from the tier-A green even though the family is shared. The ink/charcoal weight register (Get In offer cards, Regista pronouncement cards, settled states) is not chrome and stays ink. Brand color, data color, and weight color are distinct roles that must not collide.
 - **Public / auth split**: The root route \`/\` is now a PUBLIC, auth-free marketing page (see the Marketing Front Door section in 9). \`/demo\` is a public stub. Everything else is auth-gated. Auth is enforced by allowlist in \`src/proxy.ts\` (Next middleware): only \`/\`, \`/demo\`, \`/auth/*\`, \`/api/*\`, and \`/design-preview/*\` skip the login redirect — when adding a new public route, add it to that allowlist.
-- **Navigation**: Four journey phases + Schools + Settings. Every phase page follows the cascade grammar (masthead = name + subtitle; full-fill jewel hero card; no eyebrows; second-person). All four jewel migrations are in-app.
-  - \`/get-ready\` — emerald. Two zones: The kit (2x2 asset grid + Your Talking Points) and The list (Targets segmented rows + School Discovery, migrations 059 + 062)
-  - \`/get-seen\` — petrol. The calendar (the merged 10-week timeline via the shared \`MergedTimeline\` component) + an Every-way-in toolkit (questionnaires, film, outreach, coaches)
-  - \`/get-recruited\` — persimmon. The daily surface (queue hero + 4-row board — Awaiting Finn folded into Active with a ring marker); signed-in users also land here from the marketing page's Open-the-app button
-  - \`/get-in\` — violet chrome, charcoal offer cards. Offers, admissions, the endgame (pickEndgameMove hero)
+- **Navigation**: Four journey phases + Schools + Settings, plus a nav ACCOUNT MENU (AppNav sidebar footer + a mobile Account item) that holds the app's only sign-out + change-password. Every phase page follows the cascade grammar (masthead = name + green trailing period; pitch chrome; second-person). Brand chrome is Pitch Green across all four — the jewel per-phase colors were retired by the brand sweep.
+  - /get-ready — Two zones: The kit (2x2 asset grid + Your Talking Points) and The list (Targets segmented rows + School Discovery, migrations 059 + 062)
+  - /get-seen — The calendar (the merged 10-week timeline via the shared MergedTimeline component) + an Every-way-in toolkit (questionnaires, film, outreach, coaches)
+  - /get-recruited — The daily surface (queue hero + 4-row board — Awaiting Finn folded into Active with a ring marker); signed-in users also land here from the marketing page and after login
+  - /get-in — the endgame (pickEndgameMove hero); offer cards stay ink/charcoal (weight register, not chrome)
   - /schools — top-level, phase-independent. Whole rows are real anchor links to detail (native new-tab); filters trimmed to signal chips + search; a collapsed Bench disclosure surfaces all Nope-tier and Inactive schools (55; search auto-expands and filters it). List/Map toggle retained.
   - /schools/[id] (school detail) — the app's oldest surface, restructured by mental mode into zones: masthead + standing state (charcoal offer cards above the fold, ConversationSummaryCard as the hero), The conversation (contact-log timeline, recent-8 with Show all), The staff (coach cards + call prep), Your tracking (action items + status updates; in-zone +Add with three capture types), The logistics (RQ + camps + details strip). Neutral chrome — the page serves every phase.
-  - /questionnaires — the RQ workbench (Get Seen child, petrol), reached from Get Seen's questionnaires card. Lifecycle sections (Not started / Needs an update at 180 days / Current) over active schools; the card and the page share the summarizeRq helper.
-  - Confirmed-orphaned, pending delete: StatsStrip.tsx and HomeClient.tsx (the retired Home surface — no route renders them), CampsCalendar.tsx (month-grid removed). The old signal deep-link into /schools is gone with them.
-  - Settings — collapsed: Coach Changes, Parse Review, Classification Review, Camp Proposals, Gmail Settings
-  - **Renamed surfaces (routes + nav labels unchanged — consistency pass pending)**: Talking Points = \`/messages\`, The kit = \`/assets\`, Calendar = \`/camps\`. Calendar's month-grid view was removed (the shared timeline is the temporal overview). Campaigns and Library remain reachable via deep links from phase pages.
+  - /questionnaires — the RQ workbench (Get Seen child), reached from Get Seen's questionnaires card. Lifecycle sections (Not started / Needs an update at 180 days / Current) over active schools; the card and the page share the summarizeRq helper.
+  - Deleted (housekeeping + /pipeline removal): the orphaned components CampsCalendar, HomeClient and its subtree (StatsStrip, HomeSchoolCard, StrategicSection, PendingCampDecisionsModal), and QuestionsPanel. The old signal deep-link into /schools went with them.
+  - Settings — three items: Coach Changes, Camp Proposals, Gmail Settings (Parse Review and Classification Review retired), plus Tools. A Throughball-branded /auth/login and a branded Offside. 404 page front the app.
+  - **Deep routes** (renamed to match their labels): Talking Points = /talking-points, The kit = /kit, Calendar = /calendar (+ /calendar/[id]); /questionnaires and /campaigns (+ /campaigns/[id], /campaigns/new) reachable via deep links from phase pages. RETIRED: /pipeline (removed in three passes — editor rehomed to school detail, sign-out to the nav account menu, then deleted), plus /library, /questions, and the /dashboard stub.
 - **Key paths**:
   - \`src/lib/types.ts\` — TypeScript types (School, ContactLogEntry, ActionItem, SchoolOffer, etc.)
   - \`src/lib/supabase.ts\` — Supabase client initialization
@@ -2358,11 +2365,41 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 
 - CLEARED — schools.notes decision: content reviewed and discarded, retired from every generation and UI site, column dropped via migration 064.
 - WashU alias exclusion fix — recommended (send short_name/aliases through the exclude id-bridge), still NOT confirmed shipped. Same class as the Mines fix.
-- Route/nav rename consistency pass — user-facing names Talking Points, The kit, Calendar diverge from routes /messages, /assets, /camps and their nav labels; /questionnaires is already aligned. Pending.
-- Orphan deletes — CampsCalendar.tsx, StatsStrip.tsx, and HomeClient.tsx are all confirmed unrendered; safe to delete in a follow-up.
+- CLEARED — Route/nav rename consistency pass: /assets to /kit, /messages to /talking-points, /camps to /calendar, all internal links in lockstep (see the Throughball Rebrand + Productization section).
+- CLEARED — Orphan deletes: CampsCalendar, StatsStrip, HomeClient and its subtree all deleted.
+- CLEARED — the whole auth/email chain (Throughball-branded login, the magic-link redirect fix, Resend SMTP), the full brand sweep, /pipeline removal, and DNS cleanup (see the Throughball Rebrand + Productization section).
+- STILL OPEN (productization) — /demo content, signup/trial/billing, multi-tenant data isolation, acquiring the Throughball domain, and the cold-start demo conversation; plus the DEFERRED internal-404 email digest (admin tooling only, never customer-facing).
 - DraftModal coachId-slot quirk — BatchReelModal passes a schoolId in the coachId slot (pre-existing, unchanged); flagged.
 - Prep-doc upload unreachable by design — the Call prep Upload entry point was removed; UploadPrepDocModal + the upload API are intact but have no UI entry (restoration is one line if wanted).
 - Phone-breakpoint verification gap — the Chrome tooling captures at a fixed desktop width, so the mobile breakpoint is verified at the code level only.
+
+### Throughball Rebrand + Productization (August 2026)
+
+The app was rebranded from finnsoccer.com to **Throughball, powered by Regista** as the first step toward productizing it for sale to other recruiting families. The full brand doctrine lives in /docs (throughball-brand-guidelines.md + throughball-visual-identity.html) — this section records what was BUILT.
+
+**1. Brand identity + the two-name architecture.** Throughball = the product and place (organization, the record, every surface). Regista = the named judgment engine (reads coach replies, ranks the next move, drafts responses). The test for which name applies: does this require an opinion about a specific coach interaction? No means Throughball or second-person benefit; yes means Regista. Visual system: Pitch Green #1F6B48 as the SINGLE accent (the discipline is the identity — green points, it never floods), ink + parchment neutrals, the weighted-pass-arrow mark, bold-italic mastheads with a green trailing period, phases as numbered acts (01-04) with a ghost-numeral ramp rather than four hues. Competitive positioning: the advisor-as-software / judgment wedge, against full-service incumbents (fear-selling, hidden pricing), passive exposure platforms, and new filing-cabinet CRMs. Complementary to the rails families already have (SportsRecruits, Hudl).
+
+**2. The brand sweep (marketing + every app surface).** Applied as scoped, individually-shipped, verified passes:
+- Pass 0 foundations: --tb-* design tokens, the ThroughballMark/Wordmark/Logo components, global self-reference renaming.
+- Pass 1 marketing page: mark/wordmark, one-accent color, the Roadmap as numbered acts, the Regista intelligence-moment card, voice sweep, taglines ("The assist for your kid's recruiting" primary; "Get recruited. Without the guesswork." promise).
+- Pass 2 Get Ready (the in-app pattern-setter), Pass 3 global nav + Get Seen/Get Recruited/Get In, Pass 4 all deep surfaces (school detail, Schools, Talking Points, The kit, Calendar, Questionnaires, Campaigns, Settings).
+- THE DATA-COLOR FIREWALL (critical, still binding): recency/temperature dots, tier chips, and category stripes encode DATA, not brand chrome. They are NEVER recolored to Pitch Green by any brand work. Pitch Green stays a SEPARATE token from the tier-A green even though they are the same family. The ink weight register (offer cards, Regista pronouncement cards, settled states) stays ink/charcoal — it is not chrome and does not go green.
+
+**3. Route renames.** Deep routes aligned with their labels: /assets to /kit, /messages to /talking-points, /camps to /calendar (with nested detail routes). All internal links, nav items, and cross-page deep-links moved in lockstep. No redirects (bookmarks not a concern). DB tables, API paths, and internal type identifiers unchanged. The route audit also surfaced and retired orphaned routes.
+
+**4. /pipeline removal (three passes).** /pipeline was a legacy surface that had quietly become load-bearing three ways: the only school-field editor, the only sign-out, and the post-login landing. Removed via prerequisite-gated passes: (1) rehomed the school editor (SchoolModal) IN PLACE into school detail — the "..." Edit button now opens the modal instead of routing to /pipeline, bringing name/short_name/division/location/conference/last_contact + coach management + delete in-house; (2) rehomed sign-out + change-password to a nav ACCOUNT MENU (AppNav, the only sign-out now) and repointed the 4 auth redirects to /get-recruited; (3) deleted /pipeline + its orphaned components. The vestigial status enum was dropped from the editor UI (stage/milestone superseded it) though the column stays (deriveStage still reads it — a future cleanup).
+
+**5. Housekeeping + the 404 system.** Deleted confirmed-orphan routes and components; retired Parse Review (0 partials ever, data path intact); fixed small nits. Added 404 LOGGING (a not_found_log table capturing path/referrer/user_id/user_agent — authed user_id distinguishes internal-bug 404s from anonymous noise) and a branded "Offside." 404 page. NOTE: the 404 NOTIFICATION (a daily internal-404 email digest to Randy) is DEFERRED to future admin tooling and must stay OUT of the customer-facing product.
+
+**6. Production auth + email.** Login is now Throughball-branded (no Finn-specific content). Auth emails send via custom SMTP through RESEND (free tier) from "Throughball <noreply@finnsoccer.com>" on the authenticated finnsoccer.com domain (DKIM/SPF verified). Branded magic-link email template. KEY FIX: magic-link emailRedirectTo is hardcoded to NEXT_PUBLIC_SITE_URL (or https://finnsoccer.com) then /auth/callback — NOT window.location.origin, which produced a bare-origin redirect_to that dumped users on the marketing page instead of /get-recruited. The Supabase Redirect URLs allowlist must contain /auth/callback + the wildcard. Supabase upgraded to PRO (removes free-tier auto-pause). THREE non-overlapping email tools: ImprovMX (inbound personal mail to Gmail, free), SendGrid inbound Parse (the app reads coach replies via the "in" MX), Resend (outbound app auth email). SendGrid outbound is NOT used.
+
+**Architectural patterns reinforced:**
+1. Brand color, data color, and weight color are different roles that must not collide — one accent for chrome, the data taxonomy left intact, ink for weight.
+2. Prerequisite-gated removal: when a legacy surface is load-bearing in multiple ways, rehome each capability in its own verified pass and delete only after; never delete-then-discover.
+3. Config vs code discipline in auth debugging: diagnose from evidence (the actual sent email's redirect_to was the ground truth), and separate what the user fixes in a dashboard from what changes in code.
+4. Deterministic over context-derived: hardcode canonical URLs rather than computing them from browser context (window.location.origin) where an ambiguous runtime context can leak a wrong value.
+
+**Productization prerequisites still OPEN (the path to actually selling):** the /demo page (route exists, content not built); signup/trial/billing (the revenue gate — none exists, app is single-user); multi-tenant data isolation; acquire the Throughball domain (then re-verify Resend + swap NEXT_PUBLIC_SITE_URL); the cold-start demo conversation.
 
 ---
 
@@ -2392,6 +2429,7 @@ const FALLBACK_FOOTER = `
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-12 | Context doc: added the Throughball Rebrand + Productization narrative to Section 9 (brand identity + the two-name architecture, the brand sweep + the data-color firewall, route renames, /pipeline removal, housekeeping + the 404 system, production auth/email via Resend, and four reinforced patterns) and refreshed the current-state sections — product identity (Throughball powered by Regista), design vocabulary (one-accent Pitch Green, jewel ladder retired), page inventory (current routes, nav account menu, branded login + Offside 404, /pipeline and orphans removed), and schema notes (not_found_log; status enum vestigial). Dual-edited the live file + the generator fallback constants. | Docs |
 | 2026-08-12 | Magic-link redirect_to fix: the sent email carried redirect_to as the bare root (https://finnsoccer.com) instead of /auth/callback, so magic links landed on marketing and the code-exchange never ran. The in-repo string was already /auth/callback — the bare-origin value came from window.location.origin resolving to an unexpected context — so emailRedirectTo is now pinned to an explicit canonical URL (process.env.NEXT_PUBLIC_SITE_URL or https://finnsoccer.com) + /auth/callback, removing window.location.origin as a variable. Set NEXT_PUBLIC_SITE_URL to override for preview/local and the future Throughball domain. Password login (no redirect_to) was never affected. | Bug fix |
 | 2026-08-12 | Marketing CTA restructure: the three journeys given distinct labels/links — nav "Sign in" (signed-out) → /auth/login, hero + closing primaries "See it in action →" → /demo, hero secondary "How it works" → smooth-scroll to the Roadmap section (anchor was already wired). Removed the ambiguous shared "Try it now" label (0 remaining). The /demo route already exists, so those links resolve. | UX |
 | 2026-08-12 | Auth front-door branding + magic-link diagnosis: /auth/login rebranded to Throughball (parchment ground, warm-white card, ThroughballLogo lockup, house tabs, Pitch Green Sign in) and de-personalized — the Finn-specific subtitle replaced with a product-generic tagline, all old blue/gray removed. Vestigial status pill also removed from SchoolModal header (matching the Pass-2 masthead removal; status column + deriveStage untouched). Magic-link email delivered as paste-ready Supabase-template content (dashboard-controlled). The magic-link otp_expired / wrong-domain (finn-recruiting-crm.vercel.app) failure diagnosed as a Supabase Site URL + Redirect URL misconfig plus an origin-dependent emailRedirectTo — dashboard fix is Randy's; the one candidate code change (pin emailRedirectTo to a canonical NEXT_PUBLIC_SITE_URL) is HELD pending confirmation, no auth-mechanism code changed. | Brand + Refactor |
@@ -2542,12 +2580,11 @@ const FALLBACK_FOOTER = `
 
 ## 14. "Copy for Claude" Export (strategy sessions in Claude.ai)
 
-The app has a "Copy for Claude" button on the \`/pipeline\` page (\`src/components/DashboardClient.tsx\`),
-which now defaults to the Pipeline tab (Dashboard and Question Bank tabs removed July 2026).
-The button copies a formatted plaintext pipeline summary to the clipboard for pasting into Claude.ai
-strategy sessions.
-
-Format per school:
+HISTORICAL: the app once had a "Copy for Claude" button on the /pipeline page (DashboardClient) that
+copied a formatted plaintext pipeline summary to the clipboard for Claude.ai strategy sessions. That
+button was removed when /pipeline was deleted (see the Throughball Rebrand + Productization section in
+9). Its role is now served directly by this file — Section 11 (Live Pipeline) is regenerated from the
+DB by npm run export-context. The legacy per-school format was:
 \`\`\`
 SCHOOL: [name]
   Status: [status]
