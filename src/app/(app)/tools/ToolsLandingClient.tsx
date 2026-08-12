@@ -11,11 +11,9 @@ type ToolCard = {
 
 export default function ToolsLandingClient({
   pendingCoachChanges,
-  pendingGmailPartials,
   pendingCampProposals,
 }: {
   pendingCoachChanges: number
-  pendingGmailPartials: number
   pendingCampProposals: number
 }) {
   const tools: ToolCard[] = [
@@ -24,12 +22,6 @@ export default function ToolsLandingClient({
       description: 'Review coach roster changes flagged by the biweekly sync',
       href: '/settings/coach-changes',
       count: pendingCoachChanges,
-    },
-    {
-      label: 'Parse Review',
-      description: "Resolve emails the Gmail parser couldn't fully process",
-      href: '/settings/gmail-partials',
-      count: pendingGmailPartials,
     },
     {
       label: 'Camp Proposals',

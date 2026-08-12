@@ -737,7 +737,12 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
             mode={{
               kind: 'campaign',
               schoolId: draftSchool.school_id,
-              coachId: draftSchool.coach_id ?? draftSchool.school_id, // fallback shouldn't happen
+              // TYPE-LIE: coachId is typed non-null, but a campaign school may lack
+              // a resolved coach_id. We fall back to the school id; the draft API's
+              // coach lookup then finds nothing and renders the template body
+              // (json.fallback). Normally coach_id is present, so this is a rare
+              // path — documented rather than widening coachId to nullable.
+              coachId: draftSchool.coach_id ?? draftSchool.school_id,
               schoolName,
               coachName: draftSchool.coach?.name ?? undefined,
               coachRole: draftSchool.coach?.role ?? undefined,

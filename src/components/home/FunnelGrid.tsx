@@ -76,8 +76,7 @@ interface Props {
   contactLog: ContactLogEntry[]
   // Ids of active schools whose summary recommendation is 'wait' (deliberate
   // hold). They stay in the Active row but do NOT wear the "your move" ring.
-  // Optional only so the orphaned HomeClient (unrendered, pending delete) still
-  // compiles; the live caller (GetRecruitedClient) always passes it.
+  // Optional for safety; the live caller (GetRecruitedClient) always passes it.
   waitSchoolIds?: Set<string>
 }
 

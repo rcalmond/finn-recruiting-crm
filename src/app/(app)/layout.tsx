@@ -20,19 +20,6 @@ async function getPendingCoachChanges(): Promise<number> {
   }
 }
 
-async function getPendingGmailPartials(): Promise<number> {
-  try {
-    const { count } = await makeAdmin()
-      .from('contact_log')
-      .select('id', { count: 'exact', head: true })
-      .eq('parse_status', 'partial')
-      .not('gmail_message_id', 'is', null)
-    return count ?? 0
-  } catch {
-    return 0
-  }
-}
-
 async function getPendingCampProposals(): Promise<number> {
   try {
     const { count } = await makeAdmin()
@@ -46,9 +33,8 @@ async function getPendingCampProposals(): Promise<number> {
 }
 
 export default async function AppShellLayout({ children }: { children: React.ReactNode }) {
-  const [pendingCoachChanges, pendingGmailPartials, pendingCampProposals] = await Promise.all([
+  const [pendingCoachChanges, pendingCampProposals] = await Promise.all([
     getPendingCoachChanges(),
-    getPendingGmailPartials(),
     getPendingCampProposals(),
   ])
 
@@ -58,7 +44,6 @@ export default async function AppShellLayout({ children }: { children: React.Rea
       <div className="hidden md:block">
         <AppSidebar
           pendingCoachChanges={pendingCoachChanges}
-          pendingGmailPartials={pendingGmailPartials}
           pendingCampProposals={pendingCampProposals}
         />
       </div>
@@ -72,7 +57,6 @@ export default async function AppShellLayout({ children }: { children: React.Rea
       <div className="block md:hidden">
         <AppBottomNav
           pendingCoachChanges={pendingCoachChanges}
-          pendingGmailPartials={pendingGmailPartials}
           pendingCampProposals={pendingCampProposals}
         />
       </div>

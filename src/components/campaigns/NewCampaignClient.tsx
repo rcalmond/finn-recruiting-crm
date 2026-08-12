@@ -118,7 +118,8 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: campaignName.trim(),
-          throttleDays: 7,
+          // throttleDays intentionally omitted — the throttle UI was retired; the
+          // API defaults throttle_days to 7 (see /api/campaigns route).
           schoolIds: selectedSchools.filter(s => pickable(s.id)).map(s => s.id),
           messageSet: messageSet.trim() || undefined,
           sourceMessageIds: selectedMsgIds.size > 0 ? Array.from(selectedMsgIds) : undefined,

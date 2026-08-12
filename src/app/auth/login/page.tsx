@@ -29,7 +29,7 @@ export default function LoginPage() {
         setLoading(false)
         return
       }
-      router.push('/dashboard')
+      router.push('/pipeline')
       router.refresh()
     } else {
       const { error } = await supabase.auth.signInWithOtp({

@@ -19,7 +19,7 @@ type SettingsSubItem = {
 
 // Phase routes — content pages reachable from phase landing pages
 const PHASE_CONTENT_PATHS: Record<string, string[]> = {
-  '/get-ready':     ['/library', '/kit', '/questions', '/talking-points'],
+  '/get-ready':     ['/kit', '/talking-points'],
   '/get-seen':      ['/campaigns', '/calendar'],
   '/get-recruited':  [],
   '/get-in':        [],
@@ -28,7 +28,6 @@ const PHASE_CONTENT_PATHS: Record<string, string[]> = {
 // Settings sub-items (settings routes)
 const SETTINGS_PATHS = [
   '/settings/coach-changes',
-  '/settings/gmail-partials',
   '/settings/camp-proposals',
   '/settings/gmail',
   '/tools',
@@ -45,14 +44,11 @@ function buildPhaseNavItems(): NavItem[] {
 
 function buildSettingsSubItems(
   pendingCoachChanges: number,
-  pendingGmailPartials: number,
   pendingCampProposals: number,
 ): SettingsSubItem[] {
   return [
     { label: 'Coach Changes',  href: '/settings/coach-changes',
       count: pendingCoachChanges > 0 ? pendingCoachChanges : undefined },
-    { label: 'Parse Review',   href: '/settings/gmail-partials',
-      count: pendingGmailPartials > 0 ? pendingGmailPartials : undefined },
     { label: 'Camp Proposals', href: '/settings/camp-proposals',
       count: pendingCampProposals > 0 ? pendingCampProposals : undefined },
     { label: 'Gmail Settings', href: '/settings/gmail' },
@@ -77,21 +73,19 @@ function isPhaseActive(href: string, pathname: string) {
 // ── Sidebar (desktop) ──────────────────────────────────────────────
 export function AppSidebar({
   pendingCoachChanges = 0,
-  pendingGmailPartials = 0,
   pendingCampProposals = 0,
 }: {
   pendingCoachChanges?: number
-  pendingGmailPartials?: number
   pendingCampProposals?: number
 }) {
   const pathname = usePathname()
   const PHASE_ITEMS = buildPhaseNavItems()
-  const SETTINGS_ITEMS = buildSettingsSubItems(pendingCoachChanges, pendingGmailPartials, pendingCampProposals)
+  const SETTINGS_ITEMS = buildSettingsSubItems(pendingCoachChanges, pendingCampProposals)
 
   const settingsActive = isSettingsPath(pathname)
   const [settingsOpen, setSettingsOpen] = useState(settingsActive)
 
-  const totalSettingsBadge = pendingCoachChanges + pendingGmailPartials + pendingCampProposals
+  const totalSettingsBadge = pendingCoachChanges + pendingCampProposals
 
   const isTopActive = (href: string) => {
     if (href === '/schools') return pathname.startsWith('/schools')
@@ -272,16 +266,14 @@ export function AppSidebar({
 // ── Bottom nav (mobile) ────────────────────────────────────────────
 export function AppBottomNav({
   pendingCoachChanges = 0,
-  pendingGmailPartials = 0,
   pendingCampProposals = 0,
 }: {
   pendingCoachChanges?: number
-  pendingGmailPartials?: number
   pendingCampProposals?: number
 }) {
   const pathname = usePathname()
 
-  const totalSettingsBadge = pendingCoachChanges + pendingGmailPartials + pendingCampProposals
+  const totalSettingsBadge = pendingCoachChanges + pendingCampProposals
 
   const MOBILE_ITEMS: NavItem[] = [
     { label: 'Ready',      href: '/get-ready'     },

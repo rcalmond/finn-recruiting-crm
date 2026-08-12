@@ -447,8 +447,7 @@ export default function SchoolsClient({ user }: { user: User }) {
   // The chips stand on their own — they make the recency axis filterable — and
   // this URL reading also serves any direct/bookmarked ?signal= visit. Note: no
   // live surface links into /schools?signal= today; the old StatsStrip
-  // ?signal=hot linker was retired with the Home page, and StatsStrip/HomeClient
-  // are now orphaned files (not rendered by any route).
+  // ?signal=hot linker was retired with the Home page (both since deleted).
   const signalParam = searchParams.get('signal')
   const signalFilter: Set<SchoolRecencyState> = new Set(
     signalParam ? signalParam.split(',').filter(s => RECENCY_STATE_ORDER.includes(s as SchoolRecencyState)) as SchoolRecencyState[] : []

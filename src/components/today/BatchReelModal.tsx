@@ -253,6 +253,11 @@ export default function BatchReelModal({ schoolIds, schools, userId, reelUrl, re
           mode={{
             kind: 'fresh',
             schoolId: draftingSchool.id,
+            // TYPE-LIE: the coachId slot is typed non-null, but a batch reel send
+            // has no specific coach. We pass the school id here on purpose; the
+            // draft API's coach lookup finds no coach with that id and gracefully
+            // falls back to a school-level draft. Left as a documented type-lie
+            // rather than widening coachId to nullable across all DraftModal modes.
             coachId: draftingSchool.id,
             schoolName: draftingSchool.name,
           }}

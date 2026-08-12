@@ -17,17 +17,11 @@ export default async function ToolsPage() {
 
   const admin = makeAdmin()
 
-  const [coachChanges, gmailPartials, campProposals] = await Promise.all([
+  const [coachChanges, campProposals] = await Promise.all([
     admin
       .from('coach_changes')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'manual')
-      .then(r => r.count ?? 0),
-    admin
-      .from('contact_log')
-      .select('id', { count: 'exact', head: true })
-      .eq('parse_status', 'partial')
-      .not('gmail_message_id', 'is', null)
       .then(r => r.count ?? 0),
     admin
       .from('camp_proposals')
@@ -39,7 +33,6 @@ export default async function ToolsPage() {
   return (
     <ToolsLandingClient
       pendingCoachChanges={coachChanges}
-      pendingGmailPartials={gmailPartials}
       pendingCampProposals={campProposals}
     />
   )
