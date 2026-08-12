@@ -4,10 +4,18 @@ import Link from 'next/link'
 import DiscoverSection from '@/components/get-ready/DiscoverSection'
 import type { PlayerScores } from '@/lib/types'
 
-const GREEN = { accent: '#2D6A4F', accentSoft: '#D7EFE0', accentDeep: '#1B4332' }
+// Brand chrome (Throughball, Brand Sweep Pass 2). The one accent is --tb-pitch;
+// GREEN is repointed at it so every chrome use migrates from the old emerald to
+// the shared token. DATA-semantic ramps (tier/depth/selectivity/division bars)
+// are inlined below and NOT routed through this — the firewall holds.
+const PITCH = '#1F6B48'
+const PITCH_SOFT = '#E3EFE9' // subtle active-state tint (a fill, not cream)
+const CREAM = '#FBF6EC'      // SOLID on green/ink fills — never opacity-blended (AA)
+const WARM_WHITE = '#FFFDF9'
+const GREEN = { accent: PITCH, accentSoft: PITCH_SOFT, accentDeep: PITCH }
 const SD = {
-  paper: '#F6F1E8', ink: '#0E0E0E', inkMid: '#4A4A4A', inkLo: '#7A7570',
-  inkMute: '#A8A39B', line: '#E2DBC9', cream: '#F6F1E8',
+  paper: '#F6F1E8', ink: '#1A1A1A', inkMid: '#4A4A4A', inkLo: '#6B655A',
+  inkMute: '#8A8478', line: '#E2DBC9',
   rust: '#B5502F', amber: '#D4A017',
 }
 
@@ -68,7 +76,7 @@ function ZoneHeader({ title, sub, href, linkText }: { title: string; sub?: strin
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
         <h2 style={{ margin: 0, fontSize: 'clamp(23px, 3.2vw, 30px)', fontWeight: 700, letterSpacing: '-0.03em', color: SD.ink, fontStyle: 'italic' }}>
-          {title}
+          {title.replace(/\.$/, '')}<span style={{ color: PITCH }}>.</span>
         </h2>
         {href && (
           <Link href={href} style={{ fontSize: 12, fontWeight: 600, color: GREEN.accent, textDecoration: 'none', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
@@ -85,7 +93,7 @@ function ZoneHeader({ title, sub, href, linkText }: { title: string; sub?: strin
 function CardTitle({ title, href, linkText }: { title: string; href?: string; linkText?: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, position: 'relative', zIndex: 1 }}>
-      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: SD.ink, fontStyle: 'italic' }}>{title}</h3>
+      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: SD.ink, fontStyle: 'italic' }}>{title.replace(/\.$/, '')}<span style={{ color: PITCH }}>.</span></h3>
       {href && <Link href={href} style={{ fontSize: 12, fontWeight: 600, color: GREEN.accent, textDecoration: 'none', letterSpacing: '-0.01em' }}>{linkText ?? 'View all'} →</Link>}
     </div>
   )
@@ -150,7 +158,7 @@ function getReadyNextMove(
   }
   return {
     headline: 'Widen your list.',
-    body: 'Your profile and film are current. Now grow your target list — browse by division, region, and academics, or find more like the schools you already like.',
+    body: 'Your profile and film are current. Now grow your target list — browse by division, region, and academics, or let Regista find more like the schools you already like.',
     href: '#discover',
     buttonText: 'Discover schools →',
   }
@@ -332,9 +340,12 @@ export default function GetReadyClient({
     { label: 'evaluating', n: depth.evaluating, color: '#CE8468' },
     { label: 'building', n: depth.building, color: '#E8C5B4' },
   ]
+  // DATA-semantic selectivity ramp — a stepped green family for the segmented
+  // bar. Inlined literals (NOT the brand token) so the data read is untouched by
+  // the chrome migration. Firewall: this is meaning, not brand chrome.
   const selectivitySegments = [
-    { label: 'most selective', n: selectivity.most_selective, color: GREEN.accentDeep },
-    { label: 'highly selective', n: selectivity.highly_selective, color: GREEN.accent },
+    { label: 'most selective', n: selectivity.most_selective, color: '#1B4332' },
+    { label: 'highly selective', n: selectivity.highly_selective, color: '#2D6A4F' },
     { label: 'selective', n: selectivity.selective, color: '#5B9C7B' },
     { label: 'accessible', n: selectivity.accessible, color: '#A7D9BF' },
     { label: 'unrated', n: selectivity.unrated, color: '#CFC8BA' },
@@ -350,7 +361,7 @@ export default function GetReadyClient({
     <div style={{ minHeight: '100vh', background: SD.paper, fontFamily: "'Inter', -apple-system, sans-serif", paddingBottom: 80 }}>
       {/* Masthead — phase name + subtitle only (no status line; the next-move card is the message) */}
       <div style={{ padding: '24px clamp(28px, 4vw, 56px) 4px' }}>
-        <h1 style={{ margin: 0, fontSize: 'clamp(56px, 7vw, 88px)', fontWeight: 700, letterSpacing: '-0.04em', color: SD.ink, lineHeight: 0.95, fontStyle: 'italic' }}>Get Ready.</h1>
+        <h1 style={{ margin: 0, fontSize: 'clamp(56px, 7vw, 88px)', fontWeight: 700, letterSpacing: '-0.04em', color: SD.ink, lineHeight: 0.95, fontStyle: 'italic' }}>Get Ready<span style={{ color: PITCH }}>.</span></h1>
         <p style={{ margin: '12px 0 0', fontSize: 15, color: SD.inkLo, fontWeight: 450, letterSpacing: '-0.01em' }}>
           Build your list and your profile so coaches take notice.
         </p>
@@ -368,12 +379,12 @@ export default function GetReadyClient({
           }}>
             <GhostGlyph opacity={0.08}>▶</GhostGlyph>
             <div style={{ position: 'relative', zIndex: 1 }}>
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: GREEN.accentSoft, marginBottom: 6 }}>Next move</div>
-              <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: SD.cream, fontStyle: 'italic', letterSpacing: '-0.02em' }}>{nextMove.headline}</h3>
-              <p style={{ margin: '0 0 14px', fontSize: 13, color: GREEN.accentSoft, lineHeight: 1.55 }}>{nextMove.body}</p>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: CREAM, marginBottom: 6 }}>Next move</div>
+              <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: WARM_WHITE, fontStyle: 'italic', letterSpacing: '-0.02em' }}>{nextMove.headline}</h3>
+              <p style={{ margin: '0 0 14px', fontSize: 13, color: CREAM, lineHeight: 1.55 }}>{nextMove.body}</p>
               <Link href={nextMove.href} style={{
                 display: 'inline-block', padding: '7px 16px', fontSize: 12, fontWeight: 650,
-                color: SD.cream, border: `1.5px solid ${SD.cream}`, borderRadius: 999,
+                color: CREAM, border: `1.5px solid ${CREAM}`, borderRadius: 999,
                 textDecoration: 'none', letterSpacing: '-0.01em',
               }}>
                 {nextMove.buttonText}

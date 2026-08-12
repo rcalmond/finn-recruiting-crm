@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import { ThroughballWordmark } from '@/components/brand/ThroughballLogo'
 
 type NavItem = {
   label: string
@@ -120,16 +121,7 @@ export function AppSidebar({
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '4px 12px 28px', textDecoration: 'none',
       }}>
-        <div style={{
-          width: 28, height: 28, borderRadius: 7,
-          background: '#C8102E', color: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 14, fontWeight: 800, letterSpacing: -0.3,
-          fontStyle: 'italic', flexShrink: 0,
-        }}>F</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#0E0E0E', letterSpacing: -0.4 }}>
-          Throughball
-        </div>
+        <ThroughballWordmark size={17} />
       </Link>
 
       {/* Phase nav items */}

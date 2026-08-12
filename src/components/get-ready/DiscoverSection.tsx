@@ -9,10 +9,16 @@ import type {
 } from '@/lib/types'
 import { ENROLLMENT_LABELS, ACADEMIC_LABELS, DISCOVERY_PROGRAMS, PROGRAM_LABELS } from '@/lib/types'
 
-const GREEN = { accent: '#2D6A4F', accentSoft: '#D7EFE0', accentDeep: '#1B4332' }
+// Brand chrome (Throughball, Brand Sweep Pass 2). GREEN is repointed at the
+// shared --tb-pitch token; every use here is page chrome (facets, buttons,
+// badges) — no data-semantic colors live in this component.
+const PITCH = '#1F6B48'
+const PITCH_SOFT = '#E3EFE9'
+const CREAM = '#FBF6EC'
+const GREEN = { accent: PITCH, accentSoft: PITCH_SOFT, accentDeep: PITCH }
 const SD = {
-  paper: '#F6F1E8', ink: '#0E0E0E', inkMid: '#4A4A4A', inkLo: '#7A7570',
-  inkMute: '#A8A39B', line: '#E2DBC9', cream: '#F6F1E8', rust: '#B5502F',
+  paper: '#F6F1E8', ink: '#1A1A1A', inkMid: '#4A4A4A', inkLo: '#6B655A',
+  inkMute: '#8A8478', line: '#E2DBC9', cream: '#F6F1E8', rust: '#B5502F',
   cardWhite: '#FFFDF9',
 }
 
@@ -302,11 +308,11 @@ export default function DiscoverSection() {
     }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: SD.ink, fontStyle: 'italic' }}>
-          Find schools.
+          Find schools<span style={{ color: PITCH }}>.</span>
         </h3>
       </div>
       <p style={{ margin: '0 0 16px', fontSize: 13, color: SD.inkLo, lineHeight: 1.5 }}>
-        Browse men&apos;s soccer programs by the facets that matter, or let the app find more like the ones you already like.
+        Browse men&apos;s soccer programs by the facets that matter, or let Regista find more like the ones you already like.
       </p>
 
       {/* Facets */}
@@ -355,7 +361,7 @@ export default function DiscoverSection() {
             padding: '8px 16px', fontSize: 12, fontWeight: 700, borderRadius: 999,
             border: 'none', fontFamily: 'inherit',
             background: canFindMore && !proposalsLoading ? GREEN.accent : SD.line,
-            color: canFindMore && !proposalsLoading ? '#fff' : SD.inkMute,
+            color: canFindMore && !proposalsLoading ? CREAM : SD.inkMute,
             cursor: canFindMore && !proposalsLoading ? 'pointer' : 'default',
           }}
         >
@@ -417,10 +423,10 @@ export default function DiscoverSection() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
             <div>
               <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: GREEN.accent }}>
-                Like your list{proposalsCached ? ' · cached' : ''}
+                Regista · like your list{proposalsCached ? ' · cached' : ''}
               </div>
               <h4 style={{ margin: '2px 0 0', fontSize: 15, fontWeight: 700, color: SD.ink, fontStyle: 'italic', letterSpacing: '-0.02em' }}>
-                Worth a look.
+                Worth a look<span style={{ color: PITCH }}>.</span>
               </h4>
             </div>
             <button onClick={() => findMore(true)} disabled={proposalsLoading} style={{
