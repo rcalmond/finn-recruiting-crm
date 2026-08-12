@@ -24,16 +24,20 @@ import { createClient } from '@/lib/supabase/client'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
+// Neutral-chrome page (it serves every phase). Ink softened to the brand token;
+// pitch is the accent for the masthead/bench periods and any chrome link. The
+// signal chips + tier badges + recency dots are DATA and are untouched.
 const SL = {
   paper:     '#F6F1E8',
   paperDeep: '#EFE8D8',
-  ink:       '#0E0E0E',
+  ink:       '#1A1A1A',
   inkMid:    '#4A4A4A',
-  inkLo:     '#7A7570',
-  inkMute:   '#A8A39B',
+  inkLo:     '#6B655A',
+  inkMute:   '#8A8478',
   line:      '#E2DBC9',
   line2:     '#D3CAB3',
-  ink0:      '#0E0E0E',
+  ink0:      '#1A1A1A',
+  pitch:     '#1F6B48',
 }
 
 // ─── Category pill colors (matches Home cards) ──────────────────────────────
@@ -291,7 +295,7 @@ function BenchSection({ schools, count, open, onToggle, padX }: {
         }}
       >
         <h2 style={{ margin: 0, fontSize: 'clamp(16px, 2.2vw, 20px)', fontWeight: 700, letterSpacing: -0.4, color: SL.ink, fontStyle: 'italic' }}>
-          The bench.
+          The bench<span style={{ color: SL.pitch }}>.</span>
         </h2>
         <span style={{ fontSize: 13, fontWeight: 600, color: SL.inkLo }}>{count}</span>
         <span style={{ fontSize: 12, color: SL.inkMute, transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}>▾</span>
@@ -619,7 +623,7 @@ export default function SchoolsClient({ user }: { user: User }) {
               <h1 style={{
                 margin: 0, fontSize: 44, fontWeight: 700,
                 letterSpacing: -1.8, color: SL.ink, lineHeight: 1, fontStyle: 'italic',
-              }}>Schools.</h1>
+              }}>Schools<span style={{ color: SL.pitch }}>.</span></h1>
               <div style={{ fontSize: 14, color: SL.inkLo, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                 {filtered.length} of {total}
               </div>
