@@ -133,9 +133,9 @@ export function AppSidebar({
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '10px 14px', borderRadius: 8,
-                background: on ? '#0E0E0E' : 'transparent',
+                background: on ? '#1A1A1A' : 'transparent',
                 cursor: 'pointer', fontSize: 14,
-                color: on ? '#fff' : '#4A4A4A',
+                color: on ? '#FBF6EC' : '#4A4A4A',
                 fontWeight: on ? 600 : 450,
                 letterSpacing: -0.1,
                 fontStyle: 'italic',
@@ -155,9 +155,9 @@ export function AppSidebar({
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '10px 14px', borderRadius: 8,
-                background: on ? '#0E0E0E' : 'transparent',
+                background: on ? '#1A1A1A' : 'transparent',
                 cursor: 'pointer', fontSize: 14,
-                color: on ? '#fff' : '#4A4A4A',
+                color: on ? '#FBF6EC' : '#4A4A4A',
                 fontWeight: on ? 600 : 450,
                 letterSpacing: -0.1,
                 transition: 'background 0.15s',
@@ -178,9 +178,9 @@ export function AppSidebar({
             all: 'unset',
             display: 'flex', alignItems: 'center', gap: 12,
             padding: '10px 14px', borderRadius: 8,
-            background: settingsActive && !settingsOpen ? '#0E0E0E' : 'transparent',
+            background: settingsActive && !settingsOpen ? '#1A1A1A' : 'transparent',
             cursor: 'pointer', fontSize: 14,
-            color: settingsActive && !settingsOpen ? '#fff' : settingsActive ? '#0E0E0E' : '#4A4A4A',
+            color: settingsActive && !settingsOpen ? '#FBF6EC' : settingsActive ? '#1A1A1A' : '#4A4A4A',
             fontWeight: settingsActive ? 600 : 450,
             letterSpacing: -0.1,
             transition: 'background 0.15s',
@@ -204,8 +204,8 @@ export function AppSidebar({
             <span style={{
               marginLeft: 'auto',
               padding: '1px 7px', borderRadius: 10,
-              background: settingsActive && !settingsOpen ? '#C8102E' : 'transparent',
-              color: settingsActive && !settingsOpen ? '#fff' : '#7A7570',
+              background: settingsActive && !settingsOpen ? '#1F6B48' : 'transparent',
+              color: settingsActive && !settingsOpen ? '#FBF6EC' : '#7A7570',
               fontSize: 11, fontWeight: 700,
             }}>{totalSettingsBadge}</span>
           )}
@@ -221,9 +221,9 @@ export function AppSidebar({
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '8px 14px', borderRadius: 8,
-                    background: on ? '#0E0E0E' : 'transparent',
+                    background: on ? '#1A1A1A' : 'transparent',
                     cursor: 'pointer', fontSize: 13,
-                    color: on ? '#fff' : '#4A4A4A',
+                    color: on ? '#FBF6EC' : '#4A4A4A',
                     fontWeight: on ? 600 : 450,
                     letterSpacing: -0.1,
                     transition: 'background 0.15s',
@@ -233,8 +233,8 @@ export function AppSidebar({
                       <span style={{
                         marginLeft: 'auto',
                         padding: '1px 7px', borderRadius: 10,
-                        background: on ? '#C8102E' : 'transparent',
-                        color: on ? '#fff' : '#7A7570',
+                        background: on ? '#1F6B48' : 'transparent',
+                        color: on ? '#FBF6EC' : '#7A7570',
                         fontSize: 11, fontWeight: 700,
                       }}>{item.count}</span>
                     )}
@@ -256,12 +256,12 @@ export function AppSidebar({
       }}>
         <div style={{
           width: 32, height: 32, borderRadius: '50%',
-          background: '#0E0E0E', color: '#fff',
+          background: '#1A1A1A', color: '#FBF6EC',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 12, fontWeight: 700, flexShrink: 0,
         }}>FA</div>
         <div style={{ lineHeight: 1.25, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 650, color: '#0E0E0E' }}>Finn Almond</div>
+          <div style={{ fontSize: 13, fontWeight: 650, color: '#1A1A1A' }}>Finn Almond</div>
           <div style={{ fontSize: 11, color: '#7A7570' }}>Class of &apos;27 · LWB</div>
         </div>
       </div>
@@ -314,7 +314,7 @@ export function AppBottomNav({
           <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
             <div style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-              color: on ? '#0E0E0E' : '#7A7570',
+              color: on ? '#1A1A1A' : '#7A7570',
               fontSize: 11, fontWeight: on ? 700 : 500,
               position: 'relative',
               fontStyle: on ? 'italic' : 'normal',
@@ -322,7 +322,7 @@ export function AppBottomNav({
               {on && (
                 <div style={{
                   position: 'absolute', top: -10, width: 24, height: 3,
-                  background: '#C8102E', borderRadius: 2,
+                  background: '#1F6B48', borderRadius: 2,
                 }} />
               )}
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -330,7 +330,7 @@ export function AppBottomNav({
                 {item.count != null && (
                   <span style={{
                     padding: '0 5px', borderRadius: 8,
-                    background: '#C8102E', color: '#fff',
+                    background: '#1F6B48', color: '#FBF6EC',
                     fontSize: 9, fontWeight: 700,
                     lineHeight: '16px',
                   }}>{item.count}</span>
