@@ -275,7 +275,7 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
             padding: '12px 16px', fontSize: 13, color: CC.inkMid, lineHeight: 1.5,
           }}>
             Going to <strong style={{ color: CC.ink }}>{coachCount}</strong> coach{coachCount === 1 ? '' : 'es'}.
-            The AI writes each email individually, personalized from your prior conversations with that school —
+            Regista writes each email individually, personalized from your prior conversations with that school —
             you&apos;ll review every one before anything sends.
           </div>
 
@@ -367,7 +367,7 @@ export default function NewCampaignClient({ schools, coachBySchool }: Props) {
               style={{ ...inputStyle(true), minHeight: 140 }}
             />
             <div style={{ marginTop: 4, fontSize: 11, color: CC.inkLo }}>
-              One point per line. The AI personalizes each email from these and the school&apos;s history — you review every draft next.
+              One point per line. Regista personalizes each email from these and the school&apos;s history — you review every draft next.
             </div>
           </div>
 

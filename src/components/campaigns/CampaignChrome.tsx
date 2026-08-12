@@ -9,19 +9,21 @@ export const CC = {
   paper:     '#F6F1E8',
   paperDeep: '#EFE8D8',
   white:     '#fff',
-  ink:       '#0E0E0E',
+  ink:       '#1A1A1A',
   inkMid:    '#4A4A4A',
-  inkLo:     '#7A7570',
-  inkMute:   '#A8A39B',
+  inkLo:     '#6B655A',
+  inkMute:   '#8A8478',
   line:      '#E2DBC9',
   line2:     '#D3CAB3',
   red:       '#C8102E',
   amber:     '#B45309',
   green:     '#16A34A',
   blue:      '#0369A1',
-  teal:      '#00B2A9',
-  tealDeep:  '#006A65',
-  tealSoft:  '#D7F0ED',
+  // Brand chrome (Pass 4E): the stepper + Ready-to-review pill were teal — now
+  // the shared pitch. The teal keys are repointed so every chrome use migrates.
+  teal:      '#1F6B48',
+  tealDeep:  '#1F6B48',
+  tealSoft:  '#E3EFE9',
 } as const
 
 // ─── House pill button ───────────────────────────────────────────────────────
@@ -76,7 +78,7 @@ export function CampaignMasthead({
             fontSize: 'clamp(24px, 3.4vw, 30px)', fontWeight: 750,
             letterSpacing: '-0.04em', fontStyle: 'italic', color: CC.ink,
           }}>
-            {title}
+            {typeof title === 'string' ? <>{title.replace(/\.$/, '')}<span style={{ color: CC.teal }}>.</span></> : title}
           </h1>
           {subtitle && (
             <p style={{ margin: '8px 0 0', fontSize: 14, color: CC.inkMid, lineHeight: 1.55, maxWidth: 620 }}>

@@ -395,7 +395,7 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
         <div style={{ fontSize: 12.5, color: C.inkLo, lineHeight: 1.6 }}>
           Each coach gets their <strong style={{ color: C.inkMid }}>own</strong> email — no CC lists, no mass blast.
           Open a school below to see its personalized draft, edit it, then send it from your own Gmail or SportsRecruits
-          (the app writes the draft; you press send). Mark it sent and the reply lands back in that school&apos;s timeline
+          (Regista writes the draft; you press send). Mark it sent and the reply lands back in that school&apos;s timeline
           like any other email. <strong style={{ color: C.inkMid }}>Nothing sends until you send it.</strong>
         </div>
       </div>
@@ -417,7 +417,7 @@ export default function CampaignDetailClient({ campaign: init, schools: initScho
               fontSize: 13, color: '#1F1F1F', fontFamily: 'Georgia, serif', lineHeight: 1.65,
             }}>{campaign.message_set}</pre>
             <div style={{ fontSize: 11.5, color: C.inkLo, marginTop: 10, fontStyle: 'italic' }}>
-              The AI works these into each email, personalized from that school&apos;s history. Review every draft below.
+              Regista works these into each email, personalized from that school&apos;s history. Review every draft below.
             </div>
           </div>
         </div>

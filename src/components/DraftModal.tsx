@@ -678,7 +678,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
               padding: '40px 0', textAlign: 'center', color: '#A8A39B',
               fontSize: 13,
             }}>
-              {campaignHasMessageSet ? 'Generating personalized draft...' : 'Generating draft...'}
+              {campaignHasMessageSet ? 'Regista is drafting this one…' : 'Generating draft...'}
             </div>
           )}
 

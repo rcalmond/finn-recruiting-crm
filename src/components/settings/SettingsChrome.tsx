@@ -10,18 +10,21 @@ export const SP = {
   paper:     '#F6F1E8',
   paperDeep: '#EFE8D8',
   white:     '#fff',
-  ink:       '#0E0E0E',
+  ink:       '#1A1A1A',
   inkMid:    '#4A4A4A',
-  inkLo:     '#7A7570',
-  inkMute:   '#A8A39B',
+  inkLo:     '#6B655A',
+  inkMute:   '#8A8478',
   line:      '#E2DBC9',
   line2:     '#D3CAB3',
   red:       '#C8102E',
   amber:     '#B45309',
+  // green stays for the Gmail sync-health dot (a data-semantic health status).
   green:     '#16A34A',
-  teal:      '#00B2A9',
-  tealDeep:  '#006A65',
-  tealSoft:  '#D7F0ED',
+  // Brand chrome (Pass 4E): the empty-state check + accent pill were teal — now
+  // the shared pitch. Repointed so every chrome use migrates.
+  teal:      '#1F6B48',
+  tealDeep:  '#1F6B48',
+  tealSoft:  '#E3EFE9',
 } as const
 
 // ─── Masthead cascade ────────────────────────────────────────────────────────
@@ -44,7 +47,7 @@ export function SettingsMasthead({
         fontSize: 'clamp(24px, 3.4vw, 30px)', fontWeight: 750,
         letterSpacing: '-0.04em', fontStyle: 'italic', color: SP.ink,
       }}>
-        {title}
+        {title.replace(/\.$/, '')}<span style={{ color: SP.teal }}>.</span>
       </h1>
       <p style={{
         margin: '8px 0 0', fontSize: 14, color: SP.inkMid,
