@@ -35,23 +35,19 @@ export default function BrandTestPage() {
         </p>
       </div>
 
-      <Panel label="Mark — ink / pitch, at size">
+      <Panel label="Mark — ink / pitch, at size (runner's dotted path)">
+        <ThroughballMark size={240} treatment="ink" />
+        <ThroughballMark size={150} treatment="pitch" />
+      </Panel>
+
+      <Panel label="Mark — icon variant (runner drops at small sizes)">
         <ThroughballMark size={72} treatment="ink" />
         <ThroughballMark size={48} treatment="ink" />
-        <ThroughballMark size={32} treatment="ink" />
-        <ThroughballMark size={72} treatment="pitch" />
         <ThroughballMark size={48} treatment="pitch" />
       </Panel>
 
-      <Panel label="Mark — icon variant (runner's dotted path drops at small sizes)">
-        <ThroughballMark size={20} treatment="ink" />
-        <ThroughballMark size={16} treatment="ink" />
-        <ThroughballMark size={16} treatment="pitch" />
-      </Panel>
-
       <Panel label="Mark — reversed (cream on ink)" dark>
-        <ThroughballMark size={72} treatment="reversed" />
-        <ThroughballMark size={48} treatment="reversed" />
+        <ThroughballMark size={240} treatment="reversed" />
       </Panel>
 
       <Panel label="Wordmark — accented period (pitch green) / plain">

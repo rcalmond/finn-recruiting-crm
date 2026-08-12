@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Throughball — Visual Identity</title>
+<style>
+  :root{
+    --pitch:#1F6B48; --pitch-light:#7BC49A;
+    --ink:#1A1A1A; --muted:#6B655A; --faint:#8A8478;
+    --parchment:#F6F1E8; --warm-white:#FFFDF9; --cream:#FBF6EC;
+    --border:#E2DBC9; --border-deep:#C9C2B2;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--parchment); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:48px 32px 96px;}
+  .doc-title{font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:var(--faint); font-weight:600; margin:0 0 4px;}
+  h1.brand{font-size:52px; font-weight:800; font-style:italic; letter-spacing:-0.025em; margin:0 0 8px;}
+  h1.brand .dot{color:var(--pitch);}
+  .sub{font-size:16px; color:var(--muted); margin:0 0 48px;}
+  section{margin:0 0 56px;}
+  .eyebrow{font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--faint); font-weight:600; margin:0 0 16px; border-bottom:1px solid var(--border); padding-bottom:8px;}
+  .card{background:var(--warm-white); border:1px solid var(--border); border-radius:16px; padding:32px;}
+  .note{font-size:13px; color:var(--faint); line-height:1.6; margin:12px 0 0;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr;}}
+
+  /* palette */
+  .swatches{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px;}
+  .sw{border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--warm-white);}
+  .sw .chip{height:64px;}
+  .sw .meta{padding:10px 12px;}
+  .sw .nm{font-size:13px; font-weight:600; margin:0;}
+  .sw .hx{font-size:12px; color:var(--muted); margin:2px 0 0; font-variant-numeric:tabular-nums;}
+  .sw .role{font-size:11px; color:var(--faint); margin:4px 0 0; line-height:1.4;}
+
+  /* buttons */
+  .btn{display:inline-block; border-radius:999px; font-size:14px; font-weight:600; padding:10px 20px; text-decoration:none;}
+  .btn-primary{background:var(--pitch); color:var(--cream);}
+  .btn-secondary{background:transparent; color:var(--ink); border:1px solid var(--border-deep);}
+  .btn-tertiary{color:var(--pitch); font-weight:600; text-decoration:none; font-size:14px;}
+  .btn-row{display:flex; gap:12px; align-items:center; flex-wrap:wrap;}
+
+  /* typography samples */
+  .masthead-sample{font-size:40px; font-weight:800; font-style:italic; letter-spacing:-0.025em; margin:0;}
+  .masthead-sample .dot{color:var(--pitch);}
+  .type-eyebrow{font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--faint); font-weight:600;}
+  .type-body{font-size:15px; color:var(--muted); max-width:52ch;}
+  .ghost-num{font-size:64px; font-weight:800; font-style:italic; line-height:1;}
+
+  /* mock frames */
+  .mock{border-radius:16px; overflow:hidden; border:1px solid var(--border);}
+  .mock-label{font-size:11px; letter-spacing:0.1em; text-transform:uppercase; font-weight:700; color:var(--faint); text-align:center; padding:8px; background:var(--warm-white); border-bottom:1px solid var(--border);}
+
+  .ladder{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
+  .ladder .num{font-size:30px; font-weight:800; font-style:italic; margin:0;}
+  .ladder .ph{font-size:15px; font-weight:800; font-style:italic; margin:2px 0 0;}
+  .ladder .desc{font-size:12px; color:var(--muted); margin:4px 0 0; line-height:1.4;}
+
+  .attr-table{width:100%; border-collapse:collapse; font-size:14px;}
+  .attr-table td{padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:top;}
+  .attr-table tr:last-child td{border-bottom:none;}
+  .tag{display:inline-block; font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; white-space:nowrap;}
+  .tag-tb{background:var(--ink); color:var(--cream);}
+  .tag-rg{background:var(--pitch); color:var(--cream);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="doc-title">Visual Identity — Companion to the Brand Guidelines</p>
+  <h1 class="brand">Throughball<span class="dot">.</span></h1>
+  <p class="sub">The assist for your kid's recruiting. &nbsp;·&nbsp; Powered by Regista.</p>
+
+  <!-- MARK -->
+  <section>
+    <p class="eyebrow">The mark &amp; wordmark</p>
+    <div class="card" style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+      <svg viewBox="0 0 360 120" width="360" height="120" style="max-width:100%;">
+        <circle cx="30" cy="86" r="7.5" fill="#1A1A1A"/>
+        <path d="M 43 81 C 118 32, 236 24, 322 52" fill="none" stroke="#1A1A1A" stroke-width="5" stroke-linecap="round"/>
+        <path d="M 309 39 L 326 53 L 305 58" fill="none" stroke="#1A1A1A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 74 96 C 128 68, 204 60, 266 72" fill="none" stroke="#1A1A1A" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="1 11" opacity="0.35"/>
+      </svg>
+      <p style="font-size:42px; font-weight:800; font-style:italic; letter-spacing:-0.025em; margin:8px 0 0;">Throughball<span style="color:var(--pitch);">.</span></p>
+    </div>
+    <p class="note">The ball (filled dot), the weighted pass-curve, the arrowhead — plus the runner's dotted path converging to meet it. Two paths meeting at the right spot: literally a through ball, literally what Regista does (its pass meeting the kid's run). Drawn, not geometric — rounded caps, organic curve, the tactics-notebook hand. The arrowhead alone works as the app icon at small sizes. The wordmark is the house bold-italic with a trailing period carrying the accent — the smallest ownable signature, repeated on phase names and section headers.</p>
+  </section>
+
+  <!-- COLOR -->
+  <section>
+    <p class="eyebrow">Color — one accent, one ink, warm neutrals</p>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#1F6B48;"></div><div class="meta"><p class="nm">Pitch Green</p><p class="hx">#1F6B48</p><p class="role">The accent. Period, primary buttons, links, Regista's voice, phase-03. The only accent — it points, never floods.</p></div></div>
+      <div class="sw"><div class="chip" style="background:#7BC49A;"></div><div class="meta"><p class="nm">Pitch Green Light</p><p class="hx">#7BC49A</p><p class="role">Green on ink/green grounds where #1F6B48 lacks contrast.</p></div></div>
+      <div class="sw"><div class="chip" style="background:#1A1A1A;"></div><div class="meta"><p class="nm">Ink</p><p class="hx">#1A1A1A</p><p class="role">Text + the weight register. Offer cards, Regista pronouncements, settled states.</p></div></div>
+      <div class="sw"><div class="chip" style="background:#6B655A;"></div><div class="meta"><p class="nm">Ink, muted</p><p class="hx">#6B655A</p><p class="role">Body, secondary copy.</p></div></div>
+      <div class="sw"><div class="chip" style="background:#8A8478;"></div><div class="meta"><p class="nm">Ink, faint</p><p class="hx">#8A8478</p><p class="role">Eyebrows, captions, tertiary.</p></div></div>
+      <div class="sw"><div class="chip" style="background:#F6F1E8; border-bottom:1px solid var(--border);"></div><div class="meta"><p class="nm">Parchment</p><p class="hx">#F6F1E8</p><p class="role">Primary background. The warm-paper world.</p></div></div>
+      <div class="sw"><div class="chip" style="background:#FFFDF9; border-bottom:1px solid var(--border);"></div><div class="meta"><p class="nm">Warm White</p><p class="hx">#FFFDF9</p><p class="role">Card + panel surfaces.</p></div></div>
+      <div class="sw"><div class="chip" style="background:#FBF6EC; border-bottom:1px solid var(--border);"></div><div class="meta"><p class="nm">Cream</p><p class="hx">#FBF6EC</p><p class="role">SOLID body text on ink/green fills. Never opacity-blended — it fails AA.</p></div></div>
+      <div class="sw"><div class="chip" style="background:#E2DBC9;"></div><div class="meta"><p class="nm">Warm Border</p><p class="hx">#E2DBC9</p><p class="role">Hairline borders, dividers.</p></div></div>
+      <div class="sw"><div class="chip" style="background:#C9C2B2;"></div><div class="meta"><p class="nm">Border, deeper</p><p class="hx">#C9C2B2</p><p class="role">Outlined-button borders.</p></div></div>
+    </div>
+    <p class="note"><strong>Data-semantic colors are exempt.</strong> Recency dots (HOT red / ACTIVE teal / COOLING amber / COLD gray / PROSPECTING outline / DECLINED muted), tier chips (A green / B blue / C amber / Nope gray), and category stripes encode <em>data</em>, not brand chrome — they keep their own taxonomy and stay legible. The brand palette governs chrome; the data rainbow governs meaning. Different layers, different jobs.</p>
+  </section>
+
+  <!-- GHOST NUMERAL RAMP -->
+  <section>
+    <p class="eyebrow">The Roadmap — numbered acts, one color deepening</p>
+    <div class="card">
+      <div class="ladder">
+        <div><p class="num" style="color:#E2DBC9;">01</p><p class="ph">Get Ready<span style="color:var(--pitch);">.</span></p><p class="desc">Build your profile, film, and list.</p></div>
+        <div><p class="num" style="color:#D8C9A8;">02</p><p class="ph">Get Seen<span style="color:var(--pitch);">.</span></p><p class="desc">In front of the right coaches.</p></div>
+        <div><p class="num" style="color:#1F6B48;">03</p><p class="ph">Get Recruited<span style="color:var(--pitch);">.</span></p><p class="desc">Work every conversation.</p></div>
+        <div><p class="num" style="color:#1A1A1A;">04</p><p class="ph">Get In<span style="color:var(--pitch);">.</span></p><p class="desc">Offers, admissions, the decision.</p></div>
+      </div>
+    </div>
+    <p class="note">The four phases are numbered acts, not four color-coded worlds. The ghost numeral deepens through the journey — faint parchment-tone (01) → warm tan (02) → green (03) → full ink (04) — rebuilding the "warming ladder" as escalating weight inside one palette. This is the fix for color-anarchy: momentum shown through depth, not hue.</p>
+  </section>
+
+  <!-- BUTTONS + TYPE -->
+  <section>
+    <p class="eyebrow">Component grammar</p>
+    <div class="grid2">
+      <div class="card">
+        <p class="type-eyebrow" style="margin:0 0 14px;">Buttons — one primary per surface</p>
+        <div class="btn-row" style="margin-bottom:16px;">
+          <a class="btn btn-primary" href="#">Start free →</a>
+          <a class="btn btn-secondary" href="#">See how it works</a>
+          <a class="btn-tertiary" href="#">Learn more →</a>
+        </div>
+        <p class="note" style="margin:0;">Filled pill (Pitch Green, cream text) for the one primary action; outlined pill for secondary; text-link for tertiary. Fully rounded, consistent type size per level.</p>
+      </div>
+      <div class="card">
+        <p class="type-eyebrow" style="margin:0 0 8px;">Type — scale contrast is the signature</p>
+        <p class="type-eyebrow">REGISTA · YOUR MOVE</p>
+        <p class="masthead-sample" style="margin:2px 0 6px;">Reply to Coach Matteson<span class="dot">.</span></p>
+        <p class="type-body" style="margin:0;">Giant bold-italic mastheads against tiny tracked eyebrow labels — massive scale contrast, sentence case, trailing period.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- MARKETING MOCK -->
+  <section>
+    <p class="eyebrow">In context — the marketing hero</p>
+    <div class="mock">
+      <div class="mock-label">Marketing · homepage hero</div>
+      <div style="background:var(--parchment); padding:0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:18px 28px;">
+          <span style="font-size:20px; font-weight:800; font-style:italic;">Throughball<span style="color:var(--pitch);">.</span></span>
+          <span style="font-size:12px; font-weight:600; color:var(--cream); background:var(--ink); padding:7px 16px; border-radius:999px;">Start free</span>
+        </div>
+        <div style="padding:20px 28px 36px;">
+          <svg viewBox="0 0 260 46" width="220" height="40" style="margin-bottom:12px;">
+            <circle cx="16" cy="34" r="4.5" fill="#1A1A1A"/>
+            <path d="M 24 31 C 90 12, 170 10, 238 22" fill="none" stroke="#1F6B48" stroke-width="3" stroke-linecap="round"/>
+            <path d="M 228 14 L 240 23 L 226 28" fill="none" stroke="#1F6B48" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <p style="font-size:38px; line-height:1.05; font-weight:800; font-style:italic; letter-spacing:-0.025em; margin:0 0 4px;">Your kid does the running.</p>
+          <p style="font-size:38px; line-height:1.05; font-weight:800; font-style:italic; letter-spacing:-0.025em; color:var(--pitch); margin:0 0 16px;">We play the pass.</p>
+          <p style="font-size:15px; color:var(--muted); max-width:46ch; margin:0 0 22px;">Every coach reply read, every next move weighted, every email perfectly timed. The assist for your kid's recruiting.</p>
+          <div class="btn-row">
+            <a class="btn btn-primary" href="#">Start free →</a>
+            <a class="btn btn-secondary" href="#">See how it works</a>
+          </div>
+        </div>
+        <div style="background:var(--warm-white); padding:22px 28px; border-top:1px solid var(--border);">
+          <p class="type-eyebrow" style="margin:0 0 14px;">The Throughball Roadmap</p>
+          <div class="ladder">
+            <div><p class="num" style="color:#E2DBC9; font-size:24px;">01</p><p class="ph" style="font-size:13px;">Get Ready.</p></div>
+            <div><p class="num" style="color:#D8C9A8; font-size:24px;">02</p><p class="ph" style="font-size:13px;">Get Seen.</p></div>
+            <div><p class="num" style="color:#1F6B48; font-size:24px;">03</p><p class="ph" style="font-size:13px;">Get Recruited.</p></div>
+            <div><p class="num" style="color:#1A1A1A; font-size:24px;">04</p><p class="ph" style="font-size:13px;">Get In.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- APP MOCK -->
+  <section>
+    <p class="eyebrow">In context — an in-app page (Get Recruited)</p>
+    <div class="mock">
+      <div class="mock-label">Product · Get Recruited</div>
+      <div style="background:var(--parchment); padding:24px 28px;">
+        <p style="font-size:28px; font-weight:800; font-style:italic; letter-spacing:-0.025em; margin:0 0 4px;">Get Recruited<span style="color:var(--pitch);">.</span></p>
+        <p style="font-size:13px; color:var(--muted); margin:0 0 20px;">Every conversation read. Your next move, ranked at the top.</p>
+
+        <p class="type-eyebrow" style="color:var(--pitch); margin:0 0 8px;">Regista · your move</p>
+        <div style="background:var(--ink); border-radius:12px; padding:16px 18px; margin-bottom:16px; position:relative; overflow:hidden;">
+          <span style="position:absolute; right:14px; top:-10px; font-size:72px; font-weight:800; font-style:italic; color:rgba(31,107,72,0.28);">1</span>
+          <p style="font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--pitch-light); font-weight:600; margin:0 0 4px;">Clark · awaiting you</p>
+          <p style="font-size:16px; font-weight:600; font-style:italic; color:var(--cream); margin:0 0 10px;">Reply to Coach Matteson.</p>
+          <p style="font-size:12px; color:#C9C2B2; margin:0 0 12px; max-width:52ch;">Regista read the reply: a warm hold, not a no. Send the graceful follow-up — request nothing, keep the door open.</p>
+          <span style="display:inline-block; font-size:12px; font-weight:600; color:var(--ink); background:var(--cream); padding:7px 16px; border-radius:999px;">Draft reply →</span>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+          <div style="flex:1; background:var(--warm-white); border:1px solid var(--border); border-left:3px solid #1F6B48; border-radius:0 10px 10px 0; padding:12px 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <p style="font-size:14px; font-weight:600; margin:0;">Colby</p>
+              <span style="width:9px; height:9px; border-radius:50%; background:#C97A2C;" title="cooling"></span>
+            </div>
+            <p style="font-size:11px; color:var(--muted); margin:2px 0 0;">Send your post-camp follow-up.</p>
+          </div>
+          <div style="flex:1; background:var(--warm-white); border:1px solid var(--border); border-radius:10px; padding:12px 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <p style="font-size:14px; font-weight:600; margin:0;">WPI</p>
+              <span style="width:9px; height:9px; border-radius:50%; background:#3E7CA8;" title="active"></span>
+            </div>
+            <p style="font-size:11px; color:var(--muted); margin:2px 0 0;">Give Coach Kelley a few days.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note">Note the two color layers coexisting: <strong>brand chrome</strong> is Pitch-Green-and-ink (the period, the eyebrow, the primary button, Regista's card), while <strong>data-semantic dots</strong> (the amber "cooling" and blue "active" markers) keep their own taxonomy. The next-move card is Regista speaking — ink fill, cream text, the ghost numeral, a judgment stated plainly. The rows below are Throughball — organization, structure, the record.</p>
+  </section>
+
+  <!-- THROUGHBALL VS REGISTA -->
+  <section>
+    <p class="eyebrow">Throughball vs. Regista — who gets named where</p>
+    <div class="card">
+      <p style="font-size:16px; margin:0 0 4px;"><strong>Throughball is the place. Regista is the mind.</strong></p>
+      <p class="type-body" style="margin:0 0 20px;">The test: <em>does this require an opinion about a specific coach interaction?</em> No → Throughball (organization, structure, the record). Yes → Regista (reading meaning, forming a judgment, deciding what matters).</p>
+      <table class="attr-table">
+        <tr><td>Everything in one place — conversations, coaches, deadlines</td><td><span class="tag tag-tb">Throughball</span></td></tr>
+        <tr><td>The Schools list, the board, the timeline, the calendar</td><td><span class="tag tag-tb">Throughball</span></td></tr>
+        <tr><td>Storing coach emails, camps, questionnaire status</td><td><span class="tag tag-tb">Throughball</span></td></tr>
+        <tr><td>Sending your reel to many coaches in one pass</td><td><span class="tag tag-tb">Throughball</span></td></tr>
+        <tr><td>Reading a coach's reply and telling you what it means</td><td><span class="tag tag-rg">Regista</span></td></tr>
+        <tr><td>Ranking your next move each morning</td><td><span class="tag tag-rg">Regista</span></td></tr>
+        <tr><td>Drafting the graceful response</td><td><span class="tag tag-rg">Regista</span></td></tr>
+        <tr><td>Knowing a roster-depth soft-no from a hard no</td><td><span class="tag tag-rg">Regista</span></td></tr>
+        <tr><td>Flagging a school going quiet / a deadline that matters</td><td><span class="tag tag-rg">Regista</span></td></tr>
+      </table>
+      <p class="note">The name <strong>Regista</strong> appears at moments of visible intelligence — the next-move hero, reply interpretation, draft composition, marketing copy about how it thinks. Everywhere else it's Throughball or second-person benefit. Don't stamp Regista on furniture; don't withhold it from the judgment.</p>
+    </div>
+  </section>
+
+  <p style="font-size:12px; color:var(--faint); text-align:center; margin:64px 0 0; border-top:1px solid var(--border); padding-top:24px;">Throughball Visual Identity v1.0 · companion to <em>throughball-brand-guidelines.md</em></p>
+
+</div>
+</body>
+</html>

@@ -29,33 +29,36 @@ function treatmentColor(t: BrandTreatment): string {
 
 // ─── The Mark ────────────────────────────────────────────────────────────────
 //
-// A through-ball drawn as a tactics-board play: a filled ball at the origin, an
-// arced pass-curve rising into space with an arrowhead, and a runner's dotted
-// path converging to the same space. Rounded caps/joins — drawn, not geometric.
-// The runner's dotted path drops for the small icon variant.
+// The weighted pass-arrow, drawn to the visual-identity companion geometry: a
+// filled ball at the origin, a weighted pass-curve sweeping across, an arrowhead,
+// and the runner's dotted path converging to meet it. Two paths meeting at the
+// right spot — literally a through ball. Rounded caps, organic curve, the
+// tactics-notebook hand. Horizontal (≈3:1); `size` sets the width. The runner's
+// dotted path drops for the small icon variant.
 
 export function ThroughballMark({
-  size = 32,
+  size = 132,
   treatment = 'ink',
   showRunner = true,
   title = 'Throughball',
   style,
 }: {
+  /** Mark width in px; height is size / 3. */
   size?: number
   treatment?: BrandTreatment
-  /** Show the runner's dotted path. Auto-drops at very small sizes. */
+  /** Show the runner's dotted path. Auto-drops at small (icon) sizes. */
   showRunner?: boolean
   title?: string
   style?: CSSProperties
 }) {
   const color = treatmentColor(treatment)
-  const runner = showRunner && size >= 22
+  const runner = showRunner && size >= 90
 
   return (
     <svg
       width={size}
-      height={size}
-      viewBox="0 0 40 40"
+      height={size / 3}
+      viewBox="0 0 360 120"
       fill="none"
       role="img"
       aria-label={title}
@@ -63,38 +66,38 @@ export function ThroughballMark({
     >
       <title>{title}</title>
 
-      {/* Runner's dotted path — converges up toward the space */}
+      {/* Runner's dotted path — converges to meet the pass */}
       {runner && (
         <path
-          d="M15 35 Q 26 30 31 18"
+          d="M 74 96 C 128 68 204 60 266 72"
           stroke="currentColor"
-          strokeWidth={2.4}
+          strokeWidth={2.2}
           strokeLinecap="round"
-          strokeDasharray="0.1 4.6"
-          opacity={0.5}
+          strokeDasharray="1 11"
+          opacity={0.35}
         />
       )}
 
-      {/* Pass curve — arced, rising from the ball into space */}
+      {/* Weighted pass-curve */}
       <path
-        d="M11 26 Q 20 8 32 15"
+        d="M 43 81 C 118 32 236 24 322 52"
         stroke="currentColor"
-        strokeWidth={3.4}
+        strokeWidth={5}
         strokeLinecap="round"
       />
 
-      {/* Arrowhead at the pass destination */}
+      {/* Arrowhead — the app icon at small sizes */}
       <path
-        d="M26.2 15.4 L 32 15 L 29 9.6"
+        d="M 309 39 L 326 53 L 305 58"
         stroke="currentColor"
-        strokeWidth={3.4}
+        strokeWidth={5}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
       />
 
       {/* Ball — filled, at the origin of the pass */}
-      <circle cx="8.5" cy="28" r="4" fill="currentColor" />
+      <circle cx="30" cy="86" r="7.5" fill="currentColor" />
     </svg>
   )
 }
@@ -146,18 +149,18 @@ export function ThroughballWordmark({
 export function ThroughballLogo({
   size = 26,
   treatment = 'ink',
-  gap = 10,
+  gap = 8,
   style,
 }: {
-  /** Wordmark font size; the mark scales to ~1.35x. */
+  /** Wordmark font size; the mark scales above it. */
   size?: number
   treatment?: BrandTreatment
   gap?: number
   style?: CSSProperties
 }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap, ...style }}>
-      <ThroughballMark size={Math.round(size * 1.35)} treatment={treatment} />
+    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap, ...style }}>
+      <ThroughballMark size={Math.round(size * 4.4)} treatment={treatment} showRunner={false} />
       <ThroughballWordmark size={size} treatment={treatment} />
     </span>
   )

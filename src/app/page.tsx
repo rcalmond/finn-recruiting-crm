@@ -3,9 +3,9 @@ import MarketingHome from '@/components/marketing/MarketingHome'
 
 // Public marketing home. No auth, no data — renders for signed-out visitors.
 export const metadata: Metadata = {
-  title: 'finnsoccer — get recruited, without the guesswork',
+  title: 'Throughball — Get recruited. Without the guesswork.',
   description:
-    'The college soccer recruiting process, organized — every coach conversation, camp, and offer in one place, with a clear next move at every step.',
+    'The assist for your kid’s recruiting. Every coach conversation, camp, and offer in one place — with Regista reading each reply and weighting your next move.',
 }
 
 export default function Home() {
