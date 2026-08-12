@@ -57,7 +57,7 @@ function HeaderCTA() {
           textDecoration: 'none', whiteSpace: 'nowrap',
         }}
       >
-        {signedIn ? 'Open Throughball →' : 'Try it now →'}
+        {signedIn ? 'Open Throughball →' : 'Sign in'}
       </Link>
     </div>
   )
@@ -215,9 +215,9 @@ export default function MarketingHome() {
           Every coach reply read, every next move weighted, every email perfectly timed. The assist for your kid&apos;s recruiting.
         </p>
         <div className="mh-hero-ctas" style={{ display: 'flex', gap: 12, marginTop: 30, flexWrap: 'wrap' }}>
-          <Link href="/demo" style={primaryPill}>Try it now →</Link>
+          <Link href="/demo" style={primaryPill}>See it in action →</Link>
           <button onClick={() => roadmapRef.current?.scrollIntoView({ behavior: 'smooth' })} style={secondaryPill}>
-            See how it works
+            How it works
           </button>
         </div>
       </section>
@@ -320,7 +320,7 @@ export default function MarketingHome() {
         <p style={{ margin: '0 auto 28px', fontSize: 16, color: T.muted, lineHeight: 1.5, maxWidth: 460 }}>
           Five minutes, your kid&apos;s actual schools, and Regista&apos;s read on where each one stands.
         </p>
-        <Link href="/demo" style={primaryPill}>Try it now →</Link>
+        <Link href="/demo" style={primaryPill}>See it in action →</Link>
       </section>
 
       {/* ── 6. Footer ──────────────────────────────────────────── */}
