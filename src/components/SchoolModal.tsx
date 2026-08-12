@@ -1,36 +1,43 @@
 'use client'
 
 import { useState } from 'react'
-import type { School, Division, Status, AdmitLikelihood, Category, ActionOwner, ActionItem, Coach, CoachRole } from '@/lib/types'
+import type { School, Division, AdmitLikelihood, Category, ActionOwner, ActionItem, Coach, CoachRole } from '@/lib/types'
 import { useContactLog, useActionItems, useCoaches } from '@/hooks/useRealtimeData'
 import { STATUS_COLORS, ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate } from '@/lib/utils'
 import ContactLogPanel from './ContactLogPanel'
 import DraftModal from './DraftModal'
 import PrepForCallModal from './PrepForCallModal'
 
-const STATUSES: Status[] = ['Not Contacted', 'Intro Sent', 'Ongoing Conversation', 'Visit Scheduled', 'Offer', 'Inactive']
+// status is intentionally NOT editable here — the stage/milestone model
+// superseded the legacy Status enum (Pipeline removal Pass 1). New schools get
+// a default status on insert; existing schools' status is left untouched on save.
+const DEFAULT_NEW_STATUS = 'Not Contacted' as const
 const DIVISIONS: Division[] = ['D1', 'D2', 'D3']
 const ADMITS: AdmitLikelihood[] = ['Likely', 'Target', 'Reach', 'Far Reach']
 const CATEGORIES: Category[] = ['A', 'B', 'C', 'Nope']
 const OWNERS: ActionOwner[] = ['Finn', 'Randy']
 const COACH_ROLES: CoachRole[] = ['Head Coach', 'Interim Head Coach', 'Associate Head Coach', 'Assistant Coach', 'Interim Assistant Coach', 'Other']
 
-// ─── Design tokens (matches app design language) ─────────────────────────────
+// ─── Design tokens (Throughball brand — chrome is Pitch Green) ────────────────
+// Chrome (pitch, ink, cream, borders) is brand. Destructive red (#9A0B23) is a
+// danger semantic, not the legacy #C8102E accent. Tier/admit/status pills the
+// modal SHOWS use the data-semantic color systems (STATUS/ADMIT/CATEGORY) and
+// are left untouched — never recolored to brand.
 const M = {
   paper:     '#F6F1E8',
   paperDeep: '#EFE8D8',
-  ink:       '#0E0E0E',
+  ink:       '#1A1A1A',
   inkMid:    '#4A4A4A',
-  inkLo:     '#7A7570',
-  inkMute:   '#A8A39B',
+  inkLo:     '#6B655A',
+  inkMute:   '#8A8478',
   line:      '#E2DBC9',
   line2:     '#D3CAB3',
   white:     '#FFFFFF',
-  red:       '#C8102E',
+  cream:     '#FBF6EC',
+  pitch:     '#1F6B48',
+  pitchLight:'#7BC49A',
+  red:       '#9A0B23',
   redSoft:   '#FCE4E8',
-  teal:      '#00B2A9',
-  tealDeep:  '#006A65',
-  tealSoft:  '#D7F0ED',
   gold:      '#F6EB61',
   goldDeep:  '#C8B22E',
   goldSoft:  '#FBF3C4',
@@ -67,7 +74,6 @@ export default function SchoolModal(props: Props) {
   const [division, setDivision] = useState<Division>(s?.division ?? 'D3')
   const [conference, setConference] = useState(s?.conference ?? '')
   const [location, setLocation] = useState(s?.location ?? '')
-  const [status, setStatus] = useState<Status>(s?.status ?? 'Not Contacted')
   const [lastContact, setLastContact] = useState(s?.last_contact ?? '')
   const [headCoach, setHeadCoach] = useState(s?.head_coach ?? '')
   const [coachEmail, setCoachEmail] = useState(s?.coach_email ?? '')
@@ -159,10 +165,12 @@ export default function SchoolModal(props: Props) {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
+    // status is deliberately omitted from the edit payload (left untouched) and
+    // defaulted only for a brand-new school on insert.
     const data = {
       name, short_name: shortName || null, category, division,
       conference: conference || null, location: location || null,
-      status, last_contact: lastContact || null, head_coach: headCoach || null,
+      last_contact: lastContact || null, head_coach: headCoach || null,
       coach_email: coachEmail || null,
       admit_likelihood: (admit || null) as AdmitLikelihood | null,
       rq_status: rqStatus || null,
@@ -170,7 +178,7 @@ export default function SchoolModal(props: Props) {
     if (isEdit) {
       await (props as EditProps).onUpdate(data)
     } else {
-      await (props as AddProps).onInsert(data as Omit<School, 'id' | 'created_at' | 'updated_at'>)
+      await (props as AddProps).onInsert({ ...data, status: DEFAULT_NEW_STATUS } as Omit<School, 'id' | 'created_at' | 'updated_at'>)
     }
     setSaving(false)
     props.onClose()
@@ -189,8 +197,7 @@ export default function SchoolModal(props: Props) {
         <div style={{ padding: '24px 28px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, fontStyle: 'italic', letterSpacing: '-0.04em', color: M.ink }}>
-              {isEdit ? s!.name : 'Add School.'}
-              {isEdit && '.'}
+              {isEdit ? s!.name : 'Add School'}<span style={{ color: M.pitch }}>.</span>
             </h2>
             {isEdit && s!.location && <div style={{ fontSize: 12, color: M.inkLo, marginTop: 3, letterSpacing: '-0.01em' }}>{s!.location}</div>}
           </div>
@@ -252,7 +259,7 @@ export default function SchoolModal(props: Props) {
                   <input value={shortName} onChange={e => setShortName(e.target.value)} style={fieldStyle} placeholder="e.g. Rochester" />
                 </Field>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                 <Field label="Tier">
                   <select value={category} onChange={e => setCategory(e.target.value as Category)} style={fieldStyle}>
                     {CATEGORIES.map(c => <option key={c} value={c}>{categoryLabel(c)}</option>)}
@@ -269,11 +276,6 @@ export default function SchoolModal(props: Props) {
                     {ADMITS.map(a => <option key={a}>{a}</option>)}
                   </select>
                 </Field>
-                <Field label="Status">
-                  <select value={status} onChange={e => setStatus(e.target.value as Status)} style={fieldStyle}>
-                    {STATUSES.map(st => <option key={st}>{st}</option>)}
-                  </select>
-                </Field>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <Field label="Location">
@@ -288,7 +290,7 @@ export default function SchoolModal(props: Props) {
               {isEdit && (
                 <div style={{ borderTop: `1px solid ${M.line}`, paddingTop: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <h3 style={sectionHeader}>Coaches. <span style={{ fontStyle: 'normal', fontWeight: 400, color: M.inkMute, fontSize: 12 }}>({coaches.length})</span></h3>
+                    <h3 style={sectionHeader}>Coaches<span style={{ color: M.pitch }}>.</span> <span style={{ fontStyle: 'normal', fontWeight: 400, color: M.inkMute, fontSize: 12 }}>({coaches.length})</span></h3>
                     {!addingCoach && (
                       <button
                         type="button"
@@ -418,7 +420,7 @@ export default function SchoolModal(props: Props) {
               {isEdit && (
                 <div style={{ borderTop: `1px solid ${M.line}`, paddingTop: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <h3 style={sectionHeader}>Actions. <span style={{ fontStyle: 'normal', fontWeight: 400, color: M.inkMute, fontSize: 12 }}>({actionItems.length}/3)</span></h3>
+                    <h3 style={sectionHeader}>Actions<span style={{ color: M.pitch }}>.</span> <span style={{ fontStyle: 'normal', fontWeight: 400, color: M.inkMute, fontSize: 12 }}>({actionItems.length}/3)</span></h3>
                     {actionItems.length < 3 && !addingNew && (
                       <button
                         type="button"
@@ -449,13 +451,13 @@ export default function SchoolModal(props: Props) {
                             <span style={{ fontSize: 13, color: M.ink }}>{item.action}</span>
                           </div>
                           {item.owner && (
-                            <span style={{ fontSize: 11, fontWeight: 600, color: item.owner === 'Finn' ? M.tealDeep : M.goldInk, flexShrink: 0 }}>{item.owner}</span>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: item.owner === 'Finn' ? M.pitch : M.goldInk, flexShrink: 0 }}>{item.owner}</span>
                           )}
                           {item.due_date && (
                             <span style={{ fontSize: 11, color: M.inkMute, flexShrink: 0 }}>{formatDate(item.due_date)}</span>
                           )}
                           <button type="button" onClick={() => startEditItem(item)} style={mutedSmBtn}>Edit</button>
-                          <button type="button" onClick={() => completeActionItem(item.id)} style={{ ...mutedSmBtn, color: M.red }}>✓</button>
+                          <button type="button" onClick={() => completeActionItem(item.id)} title="Mark done" style={{ ...mutedSmBtn, color: M.pitch }}>✓</button>
                         </div>
                       )
                     ))}
@@ -560,7 +562,7 @@ export default function SchoolModal(props: Props) {
                 )
               })()}
               <button type="button" onClick={props.onClose} style={outlinedBtn}>Cancel</button>
-              <button form="school-form" type="submit" disabled={saving || !name} style={{ padding: '7px 18px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 650, fontFamily: 'inherit', letterSpacing: '-0.01em', background: M.ink, color: M.white, opacity: saving || !name ? 0.4 : 1 }}>
+              <button form="school-form" type="submit" disabled={saving || !name} style={{ padding: '7px 18px', borderRadius: 999, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 650, fontFamily: 'inherit', letterSpacing: '-0.01em', background: M.pitch, color: M.white, opacity: saving || !name ? 0.4 : 1 }}>
                 {saving ? 'Saving…' : 'Save'}
               </button>
             </div>
@@ -613,14 +615,14 @@ const editRow: React.CSSProperties = {
 const addRow: React.CSSProperties = {
   display: 'grid', gridTemplateColumns: '2fr 1.5fr 2fr auto auto',
   gap: 6, alignItems: 'end',
-  background: M.tealSoft, borderRadius: 8, padding: '8px 12px',
-  border: `1px dashed ${M.teal}50`,
+  background: M.cream, borderRadius: 8, padding: '8px 12px',
+  border: `1px dashed ${M.pitch}55`,
 }
 
 const primarySmBtn: React.CSSProperties = {
   padding: '4px 10px', borderRadius: 999, border: 'none', cursor: 'pointer',
   fontSize: 11, fontWeight: 650, fontFamily: 'inherit', flexShrink: 0,
-  background: M.ink, color: M.white,
+  background: M.pitch, color: M.white,
 }
 
 const mutedSmBtn: React.CSSProperties = {

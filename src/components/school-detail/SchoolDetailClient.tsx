@@ -16,6 +16,7 @@ import { todayStr } from '@/lib/utils'
 import DraftModal from '@/components/DraftModal'
 import PrepForCallModal from '@/components/PrepForCallModal'
 import AddCampModal from '@/components/AddCampModal'
+import SchoolModal from '@/components/SchoolModal'
 import EditableActionRow from '@/components/EditableActionRow'
 import ConversationSummaryCard from '@/components/school-detail/ConversationSummaryCard'
 import CallPrepSection from '@/components/school-detail/CallPrepSection'
@@ -94,7 +95,7 @@ function StageDots({ stage, size = 9 }: { stage: number; size?: number }) {
 
 function DetailHeader({
   school, stage, prevSchool, nextSchool, contactLog, onTierChange,
-  onStageChange, milestones, onUpsertMilestone, onRemoveMilestone,
+  onStageChange, milestones, onUpsertMilestone, onRemoveMilestone, onEdit,
 }: {
   school: School; stage: number
   prevSchool: School | null; nextSchool: School | null
@@ -104,6 +105,7 @@ function DetailHeader({
   milestones: SchoolMilestone[]
   onUpsertMilestone: (ms: { school_id: string; milestone: MilestoneType; occurred_on?: string | null; note?: string | null }) => Promise<unknown>
   onRemoveMilestone: (id: string) => Promise<unknown>
+  onEdit: () => void
 }) {
   const router = useRouter()
   const [stageOpen, setStageOpen] = useState(false)
@@ -211,9 +213,9 @@ function DetailHeader({
               }}
             >›</button>
           </div>
-          {/* "..." menu — routes to pipeline modal for edits */}
+          {/* "..." menu — opens the school editor modal in place */}
           <button
-            onClick={() => router.push(`/pipeline?school=${school.id}`)}
+            onClick={onEdit}
             title="Edit school"
             style={{
               width: 26, height: 26, borderRadius: 6, background: 'transparent',
@@ -2140,10 +2142,11 @@ export default function SchoolDetailClient({
   const searchParams = useSearchParams()
   const [draftTarget, setDraftTarget] = useState<DraftTarget | null>(null)
   const [prepOpen, setPrepOpen]       = useState(false)
+  const [editOpen, setEditOpen]       = useState(false)
   const autoOpenHandled = useRef(false)
 
   // ── Realtime subscriptions ─────────────────────────────────────────────────
-  const { schools, loading: schoolsLoading, updateSchool } = useSchools()
+  const { schools, loading: schoolsLoading, updateSchool, deleteSchool } = useSchools()
   const { entries: contactLog, loading: logLoading, insertContact, updateEntry, deleteEntry, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
   const { items: actionItems, completedItems, loading: actionsLoading, completeItem, insertItem, updateItem } = useActionItems(initialSchool.id)
   const { coaches, setPrimary } = useCoaches(initialSchool.id)
@@ -2250,6 +2253,7 @@ export default function SchoolDetailClient({
         milestones={milestones}
         onUpsertMilestone={upsertMilestone}
         onRemoveMilestone={removeMilestone}
+        onEdit={() => setEditOpen(true)}
       />
 
       {/* ── Single-column zone flow (masthead → offers → hero → conversation → staff → call prep → tracking → logistics) ── */}
@@ -2420,6 +2424,15 @@ export default function SchoolDetailClient({
           coaches={coaches}
           onClose={() => setPrepOpen(false)}
           onGenerated={refetchPrepDocs}
+        />
+      )}
+      {editOpen && (
+        <SchoolModal
+          school={school}
+          userId={user.id}
+          onUpdate={async (updates) => { await updateSchool(school.id, updates) }}
+          onDelete={async () => { await deleteSchool(school.id); router.push('/schools') }}
+          onClose={() => setEditOpen(false)}
         />
       )}
     </div>
