@@ -2,6 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Throughball brand tokens (Brand Sweep Pass 0 — foundations) ───────────
+ * Single source of truth for the Throughball brand palette. Consumed two ways:
+ *   - Tailwind classes (bg-tb-pitch, text-tb-ink, …) — mapped in tailwind.config.js
+ *   - Inline styles / var()          — var(--tb-pitch) etc.
+ * These are BRAND CHROME only. They are deliberately SEPARATE from the app's
+ * data-semantic color systems (recency SCHOOL_RECENCY_STYLE, tier CATEGORY_COLORS,
+ * conversation-card category stripes), which encode information and must never
+ * be recolored to the brand palette. --tb-cream is used SOLID on fills only
+ * (never opacity-blended — it fails AA when blended).
+ */
+:root {
+  --tb-pitch:        #1F6B48;
+  --tb-pitch-light:  #7BC49A;
+  --tb-ink:          #1A1A1A;
+  --tb-muted:        #6B655A;
+  --tb-faint:        #8A8478;
+  --tb-parchment:    #F6F1E8;
+  --tb-warm-white:   #FFFDF9;
+  --tb-cream:        #FBF6EC;
+  --tb-border:       #E2DBC9;
+  --tb-border-deep:  #C9C2B2;
+}
+
 @layer base {
   body {
     @apply bg-paper text-ink antialiased;

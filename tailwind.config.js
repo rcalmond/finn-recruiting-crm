@@ -38,6 +38,22 @@ module.exports = {
           'gold-deep': '#C8B22E',
           'gold-ink': '#5A4E0F',
         },
+        // Throughball brand palette (Brand Sweep Pass 0). Values live as CSS
+        // variables in globals.css :root — this maps them to Tailwind classes
+        // (bg-tb-pitch, text-tb-ink, border-tb-border, …). Brand chrome only —
+        // kept separate from the data-semantic taxonomies (recency/tier/category).
+        tb: {
+          pitch:         'var(--tb-pitch)',
+          'pitch-light': 'var(--tb-pitch-light)',
+          ink:           'var(--tb-ink)',
+          muted:         'var(--tb-muted)',
+          faint:         'var(--tb-faint)',
+          parchment:     'var(--tb-parchment)',
+          'warm-white':  'var(--tb-warm-white)',
+          cream:         'var(--tb-cream)',
+          border:        'var(--tb-border)',
+          'border-deep': 'var(--tb-border-deep)',
+        },
       },
       borderRadius: {
         sm: '6px',

@@ -128,7 +128,7 @@ export function AppSidebar({
           fontStyle: 'italic', flexShrink: 0,
         }}>F</div>
         <div style={{ fontSize: 15, fontWeight: 700, color: '#0E0E0E', letterSpacing: -0.4 }}>
-          finnsoccer
+          Throughball
         </div>
       </Link>
 

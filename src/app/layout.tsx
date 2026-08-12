@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Finn Almond — Soccer Recruiting CRM',
+  title: 'Throughball',
   description: 'Class of 2027 | Left Wingback | Albion SC MLS NEXT Academy',
 }
 
