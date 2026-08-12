@@ -157,9 +157,9 @@ export default function PendingCampDecisionsModal({ campIds, camps, onClose }: P
                 opacity: isBusy ? 0.5 : 1,
                 transition: 'opacity 0.15s',
               }}>
-                {/* Clickable camp info → navigates to /camps/[id] */}
+                {/* Clickable camp info → navigates to /calendar/[id] */}
                 <div
-                  onClick={() => { onClose(); router.push(`/camps/${c.camp.id}`) }}
+                  onClick={() => { onClose(); router.push(`/calendar/${c.camp.id}`) }}
                   style={{ cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
@@ -240,7 +240,7 @@ export default function PendingCampDecisionsModal({ campIds, camps, onClose }: P
                     }}
                   >Skip for now</button>
                   <button
-                    onClick={() => { onClose(); router.push(`/camps/${c.camp.id}`) }}
+                    onClick={() => { onClose(); router.push(`/calendar/${c.camp.id}`) }}
                     style={{
                       padding: '5px 14px', fontSize: 11, fontWeight: 600,
                       background: 'none', color: LV.tealDeep, border: 'none',

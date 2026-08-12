@@ -161,7 +161,7 @@ export default async function LibraryPage() {
         maxWidth: 880,
       }}>
         <LibTile
-          href="/assets"
+          href="/kit"
           title="Assets."
           count={assetCount}
           blurb="Highlight reels, game film, resume, transcripts, and any links you've shared with coaches."

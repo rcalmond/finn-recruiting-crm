@@ -108,7 +108,7 @@ export default function CampsClient({ user }: { user: User }) {
     return { upNext: up, past: done }
   }, [activeCamps, events, today])
 
-  const onItemClick = () => router.push('/camps')
+  const onItemClick = () => router.push('/calendar')
 
   if (loading) {
     return <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: LV.inkLo, fontSize: 14 }}>Loading...</div>
@@ -163,7 +163,7 @@ export default function CampsClient({ user }: { user: User }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {upNext.map(item => (
                 <UnifiedRow key={item.kind === 'camp' ? `c-${item.camp.camp.id}` : `e-${item.event.id}`} item={item} today={today}
-                  onClick={() => item.kind === 'camp' ? router.push(`/camps/${item.camp.camp.id}`) : setEventModal(item.event)} />
+                  onClick={() => item.kind === 'camp' ? router.push(`/calendar/${item.camp.camp.id}`) : setEventModal(item.event)} />
               ))}
             </div>
           )}
@@ -181,7 +181,7 @@ export default function CampsClient({ user }: { user: User }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
                 {past.map(item => (
                   <UnifiedRow key={item.kind === 'camp' ? `c-${item.camp.camp.id}` : `e-${item.event.id}`} item={item} today={today} dim
-                    onClick={() => item.kind === 'camp' ? router.push(`/camps/${item.camp.camp.id}`) : setEventModal(item.event)} />
+                    onClick={() => item.kind === 'camp' ? router.push(`/calendar/${item.camp.camp.id}`) : setEventModal(item.event)} />
                 ))}
               </div>
             )}
@@ -191,7 +191,7 @@ export default function CampsClient({ user }: { user: User }) {
 
       {/* Add camp modal */}
       {showAddCamp && (
-        <AddCampModal schools={schools} onClose={() => setShowAddCamp(false)} onCreated={(id) => { setShowAddCamp(false); router.push(`/camps/${id}`) }} />
+        <AddCampModal schools={schools} onClose={() => setShowAddCamp(false)} onCreated={(id) => { setShowAddCamp(false); router.push(`/calendar/${id}`) }} />
       )}
 
       {/* Event add/edit/delete modal */}

@@ -48,7 +48,7 @@ function getNextMove(items: MergedItem[], activeCampaignCount: number): { headli
     return {
       headline: `${n.label} — ${n.d <= 0 ? 'today' : n.d === 1 ? 'tomorrow' : `${n.d} days out`}.`,
       body: 'A send moment is coming up. Line up which schools it targets and have your material ready before the date.',
-      href: '/camps', buttonText: 'Open Events →',
+      href: '/calendar', buttonText: 'Open Events →',
     }
   }
   if (n) {
@@ -58,14 +58,14 @@ function getNextMove(items: MergedItem[], activeCampaignCount: number): { headli
       body: isCamp
         ? 'Your nearest event on the calendar. Review the coaching staff and prep your intro.'
         : 'A showcase or tournament is coming up. Confirm your attendance and note which coaches will be there.',
-      href: '/camps', buttonText: 'Open Camps →',
+      href: '/calendar', buttonText: 'Open Calendar →',
     }
   }
   return {
     headline: 'Plan your fall showcase circuit.',
     body: 'Nothing upcoming. Fall ID camps and showcases are your next exposure window — build the schedule now.',
-    href: activeCampaignCount > 0 ? '/campaigns' : '/camps',
-    buttonText: activeCampaignCount > 0 ? 'Open Campaigns →' : 'Open Camps →',
+    href: activeCampaignCount > 0 ? '/campaigns' : '/calendar',
+    buttonText: activeCampaignCount > 0 ? 'Open Campaigns →' : 'Open Calendar →',
   }
 }
 
@@ -125,7 +125,7 @@ export default function GetSeenClient({
 
   const merged = buildMerged(upcomingCamps, upcomingEvents)
   const nextMove = getNextMove(merged, activeCampaignCount)
-  const onItemClick = () => router.push('/camps')
+  const onItemClick = () => router.push('/calendar')
 
   // ── Film machinery (resurrected) — current reel + batch coverage ──────────
   const [reelUrl, setReelUrl] = useState<string | null>(null)
@@ -194,7 +194,7 @@ export default function GetSeenClient({
 
         {/* ── Zone A: The calendar ───────────────────────────────── */}
         <div>
-          <ZoneHeader title="The calendar." href="/camps" linkText="Manage on Camps" />
+          <ZoneHeader title="The calendar." href="/calendar" linkText="Manage on Calendar" />
           <SectionCard>
             <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: PETROL.accent, marginBottom: 4 }}>Next 10 weeks</div>
             <MergedTimeline
@@ -269,7 +269,7 @@ export default function GetSeenClient({
                     </button>
                   </>
                 ) : (
-                  <Link href="/assets" style={{ ...pillLink }}>Add your reel →</Link>
+                  <Link href="/kit" style={{ ...pillLink }}>Add your reel →</Link>
                 )}
               </div>
             </ToolCard>

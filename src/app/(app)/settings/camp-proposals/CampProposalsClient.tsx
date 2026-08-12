@@ -250,7 +250,7 @@ function ProposalCard({ proposal, schools, schoolMap, isProcessing, onApply, onR
         )}
         {proposal.matched_camp_id && (
           <Link
-            href={`/camps/${proposal.matched_camp_id}`}
+            href={`/calendar/${proposal.matched_camp_id}`}
             style={{ fontSize: 11, fontWeight: 600, color: LV.tealDeep, textDecoration: 'none' }}
           >
             {proposal.update_summary || 'Updates existing camp'} →

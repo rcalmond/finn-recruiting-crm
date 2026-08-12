@@ -144,7 +144,7 @@ function getReadyNextMove(
     return {
       headline: 'Plan your fall reel.',
       body: 'Your reel is the first thing coaches watch. Fall club season is your refresh window — capture your footage now.',
-      href: '/assets',
+      href: '/kit',
       buttonText: 'Open Library →',
     }
   }
@@ -152,7 +152,7 @@ function getReadyNextMove(
     return {
       headline: 'Update your resume.',
       body: 'Summer stats, new test scores, and your fall courseload — make sure coaches see your latest.',
-      href: '/assets',
+      href: '/kit',
       buttonText: 'Open Library →',
     }
   }
@@ -179,7 +179,7 @@ function AssetCardFrame({ present, glyph, glyphColor, glyphOpacity, children }: 
   present: boolean; glyph: string; glyphColor?: string; glyphOpacity?: number; children: React.ReactNode
 }) {
   return (
-    <Link href="/assets" style={{ textDecoration: 'none', display: 'block', height: '100%' }}>
+    <Link href="/kit" style={{ textDecoration: 'none', display: 'block', height: '100%' }}>
       <div style={{
         ...ASSET_CARD,
         background: present ? '#fff' : SD.paper,
@@ -395,7 +395,7 @@ export default function GetReadyClient({
 
         {/* ── The kit: the 2×2 asset grid ────────────────────────── */}
         <div>
-          <ZoneHeader title="The kit." href="/assets" linkText="Open assets" />
+          <ZoneHeader title="The kit." href="/kit" linkText="Open the kit" />
           <div className="gr-asset-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
             <ReelCard reelAsset={reelAsset} />
             <ScoresCard scores={playerScores} />
@@ -407,7 +407,7 @@ export default function GetReadyClient({
         {/* ── Talking points — standalone card between the kit and the list ─── */}
         <SectionCard>
           <GhostGlyph opacity={0.05}>❝</GhostGlyph>
-          <CardTitle title="Your talking points." href="/messages" linkText="Open Messages" />
+          <CardTitle title="Your talking points." href="/talking-points" linkText="Open Talking Points" />
           <p style={{ margin: '0 0 14px', fontSize: 13, color: SD.inkLo, lineHeight: 1.5, maxWidth: 560, position: 'relative', zIndex: 1 }}>
             The updates, questions, and storylines that fuel your outreach — so every email has something worth saying.
           </p>

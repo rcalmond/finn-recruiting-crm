@@ -62,7 +62,7 @@ export default function CampDetailClient({ campId }: { campId: string }) {
         color: LV.inkLo, fontSize: 14,
       }}>
         <span>Camp not found.</span>
-        <Link href="/camps" style={{ color: LV.tealDeep, fontWeight: 600, textDecoration: 'none' }}>
+        <Link href="/calendar" style={{ color: LV.tealDeep, fontWeight: 600, textDecoration: 'none' }}>
           ← Back to camps
         </Link>
       </div>
@@ -76,7 +76,7 @@ export default function CampDetailClient({ campId }: { campId: string }) {
       fontFamily: "'Inter', -apple-system, sans-serif",
     }}>
       {/* Back link */}
-      <Link href="/camps" style={{
+      <Link href="/calendar" style={{
         fontSize: 12, color: LV.inkMute, textDecoration: 'none', fontWeight: 600,
         display: 'inline-block', marginBottom: 16,
       }}>← Back to camps</Link>
@@ -99,7 +99,7 @@ export default function CampDetailClient({ campId }: { campId: string }) {
       />
 
       {/* Delete */}
-      <DeleteSection campId={campId} onDelete={deleteCamp} onDeleted={() => router.push('/camps')} />
+      <DeleteSection campId={campId} onDelete={deleteCamp} onDeleted={() => router.push('/calendar')} />
     </div>
   )
 }

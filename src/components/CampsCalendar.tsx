@@ -271,7 +271,7 @@ export default function CampsCalendar({ camps, viewYear, viewMonth, onMonthChang
                               dateStr={ds}
                               viewMonth={viewMonth}
                               viewYear={viewYear}
-                              onClick={() => router.push(`/camps/${c.camp.id}`)}
+                              onClick={() => router.push(`/calendar/${c.camp.id}`)}
                             />
                           </div>
                         )
@@ -294,7 +294,7 @@ export default function CampsCalendar({ camps, viewYear, viewMonth, onMonthChang
                           columnIndex={di}
                           isOpen={popoverDate === ds}
                           onToggle={() => setPopoverDate(prev => prev === ds ? null : ds)}
-                          onNavigate={(id) => { setPopoverDate(null); router.push(`/camps/${id}`) }}
+                          onNavigate={(id) => { setPopoverDate(null); router.push(`/calendar/${id}`) }}
                         />
                       </div>
                     )}

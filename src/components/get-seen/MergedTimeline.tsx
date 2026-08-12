@@ -74,7 +74,7 @@ export function buildMerged(camps: UpcomingCampItem[], events: TimelineEventItem
     start_date: c.start_date,
     end_date: c.end_date && c.end_date !== c.start_date ? c.end_date : null,
     d: daysUntil(c.start_date),
-    finn_status: c.finn_status, href: '/camps',
+    finn_status: c.finn_status, href: '/calendar',
   }))
   const fromEvents: MergedItem[] = events.map(e => ({
     id: e.id, source: 'event', kind: e.kind,

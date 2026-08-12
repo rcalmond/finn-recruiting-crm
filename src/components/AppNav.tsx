@@ -19,8 +19,8 @@ type SettingsSubItem = {
 
 // Phase routes — content pages reachable from phase landing pages
 const PHASE_CONTENT_PATHS: Record<string, string[]> = {
-  '/get-ready':     ['/library', '/assets', '/questions', '/messages'],
-  '/get-seen':      ['/campaigns', '/camps'],
+  '/get-ready':     ['/library', '/kit', '/questions', '/talking-points'],
+  '/get-seen':      ['/campaigns', '/calendar'],
   '/get-recruited':  [],
   '/get-in':        [],
 }

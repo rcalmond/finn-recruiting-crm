@@ -2025,7 +2025,7 @@ function SidebarCamps({ school, camps, schools }: {
                 }}>Hosted</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {hosted.map(c => (
-                    <SidebarCampRow key={c.camp.id} camp={c} onClick={() => router.push(`/camps/${c.camp.id}`)} />
+                    <SidebarCampRow key={c.camp.id} camp={c} onClick={() => router.push(`/calendar/${c.camp.id}`)} />
                   ))}
                 </div>
               </div>
@@ -2040,7 +2040,7 @@ function SidebarCamps({ school, camps, schools }: {
                 }}>Attending</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {attending.map(c => (
-                    <SidebarCampRow key={c.camp.id} camp={c} showHost onClick={() => router.push(`/camps/${c.camp.id}`)} />
+                    <SidebarCampRow key={c.camp.id} camp={c} showHost onClick={() => router.push(`/calendar/${c.camp.id}`)} />
                   ))}
                 </div>
               </div>
@@ -2053,7 +2053,7 @@ function SidebarCamps({ school, camps, schools }: {
         <AddCampModal
           schools={schools}
           onClose={() => setShowAddModal(false)}
-          onCreated={(id) => { setShowAddModal(false); router.push(`/camps/${id}`) }}
+          onCreated={(id) => { setShowAddModal(false); router.push(`/calendar/${id}`) }}
           prefilledHostSchoolId={school.id}
         />
       )}
