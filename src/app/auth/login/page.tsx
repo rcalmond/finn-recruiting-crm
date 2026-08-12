@@ -48,10 +48,17 @@ export default function LoginPage() {
       router.push('/get-recruited')
       router.refresh()
     } else {
+      // Magic-link redirect must be the FULL callback path on the canonical
+      // origin. window.location.origin proved unreliable here — the sent email's
+      // redirect_to came through as the bare root (no /auth/callback), landing
+      // users on marketing instead of the code-exchange route. Pin to an explicit
+      // site URL; NEXT_PUBLIC_SITE_URL overrides for preview/local and the future
+      // Throughball domain.
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://finnsoccer.com'
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${siteUrl}/auth/callback`,
         },
       })
       if (error) {
