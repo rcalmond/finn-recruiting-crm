@@ -1,4 +1,5 @@
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import { AppSidebar, AppBottomNav } from '@/components/AppNav'
 
 function makeAdmin() {
@@ -33,10 +34,13 @@ async function getPendingCampProposals(): Promise<number> {
 }
 
 export default async function AppShellLayout({ children }: { children: React.ReactNode }) {
-  const [pendingCoachChanges, pendingCampProposals] = await Promise.all([
+  const supabase = await createClient()
+  const [{ data: { user } }, pendingCoachChanges, pendingCampProposals] = await Promise.all([
+    supabase.auth.getUser(),
     getPendingCoachChanges(),
     getPendingCampProposals(),
   ])
+  const userEmail = user?.email ?? ''
 
   return (
     <>
@@ -45,6 +49,7 @@ export default async function AppShellLayout({ children }: { children: React.Rea
         <AppSidebar
           pendingCoachChanges={pendingCoachChanges}
           pendingCampProposals={pendingCampProposals}
+          userEmail={userEmail}
         />
       </div>
 
@@ -58,6 +63,7 @@ export default async function AppShellLayout({ children }: { children: React.Rea
         <AppBottomNav
           pendingCoachChanges={pendingCoachChanges}
           pendingCampProposals={pendingCampProposals}
+          userEmail={userEmail}
         />
       </div>
     </>

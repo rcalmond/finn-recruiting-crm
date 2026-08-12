@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { ThroughballWordmark } from '@/components/brand/ThroughballLogo'
+import AccountMenu from '@/components/AccountMenu'
 
 type NavItem = {
   label: string
@@ -74,9 +75,11 @@ function isPhaseActive(href: string, pathname: string) {
 export function AppSidebar({
   pendingCoachChanges = 0,
   pendingCampProposals = 0,
+  userEmail = '',
 }: {
   pendingCoachChanges?: number
   pendingCampProposals?: number
+  userEmail?: string
 }) {
   const pathname = usePathname()
   const PHASE_ITEMS = buildPhaseNavItems()
@@ -242,23 +245,8 @@ export function AppSidebar({
 
       <div style={{ flex: 1 }} />
 
-      {/* User footer */}
-      <div style={{
-        padding: '12px 14px',
-        borderTop: '1px solid #E2DBC9',
-        display: 'flex', alignItems: 'center', gap: 10,
-      }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: '50%',
-          background: '#1A1A1A', color: '#FBF6EC',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 12, fontWeight: 700, flexShrink: 0,
-        }}>FA</div>
-        <div style={{ lineHeight: 1.25, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 650, color: '#1A1A1A' }}>Finn Almond</div>
-          <div style={{ fontSize: 11, color: '#7A7570' }}>Class of &apos;27 · LWB</div>
-        </div>
-      </div>
+      {/* Account menu — sign out + change password (rehomed from /pipeline) */}
+      <AccountMenu email={userEmail} variant="sidebar" />
     </aside>
   )
 }
@@ -267,9 +255,11 @@ export function AppSidebar({
 export function AppBottomNav({
   pendingCoachChanges = 0,
   pendingCampProposals = 0,
+  userEmail = '',
 }: {
   pendingCoachChanges?: number
   pendingCampProposals?: number
+  userEmail?: string
 }) {
   const pathname = usePathname()
 
@@ -332,6 +322,8 @@ export function AppBottomNav({
           </Link>
         )
       })}
+      {/* Account menu — sign out + change password (rehomed from /pipeline) */}
+      <AccountMenu email={userEmail} variant="mobile" />
     </nav>
   )
 }

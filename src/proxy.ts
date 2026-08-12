@@ -47,7 +47,7 @@ export async function proxy(request: NextRequest) {
 
   if (user && isAuthRoute && !isUpdatePassword) {
     const url = request.nextUrl.clone()
-    url.pathname = '/pipeline'
+    url.pathname = '/get-recruited'
     return NextResponse.redirect(url)
   }
 

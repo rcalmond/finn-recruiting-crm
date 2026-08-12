@@ -343,20 +343,9 @@ function DetailHeader({
             </div>
           </>
         )}
-        {!recencyStyle && school.status !== 'Not Contacted' && (
-          <>
-            <div style={{ width: 1, height: 14, background: SD.line2, flexShrink: 0 }} />
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '3px 10px', borderRadius: 999,
-              background: SD.tealSoft, color: SD.tealDeep,
-              fontSize: 11, fontWeight: 700, letterSpacing: -0.1,
-            }}>
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: SD.teal }} />
-              {school.status}
-            </div>
-          </>
-        )}
+        {/* Vestigial status pill removed (Pipeline removal Pass 2) — the
+            stage/milestone model supersedes the legacy status enum; recency is
+            shown above, stage/tier/division below. */}
       </div>
 
       {/* Milestone badges */}

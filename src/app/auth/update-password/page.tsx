@@ -20,7 +20,7 @@ export default function UpdatePasswordPage() {
     setLoading(true)
     const { error } = await supabase.auth.updateUser({ password })
     if (error) { setError(error.message); setLoading(false); return }
-    router.push('/pipeline')
+    router.push('/get-recruited')
   }
 
   return (
