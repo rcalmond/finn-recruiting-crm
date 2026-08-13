@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useCamps, useSchools, useCampPrepDoc } from '@/hooks/useRealtimeData'
 import { createClient } from '@/lib/supabase/client'
 import CampPrepModal from '@/components/CampPrepModal'
+import CampDocGenerator from '@/components/CampDocGenerator'
 import type { CampWithRelations, CampFinnStatusValue, Category, School } from '@/lib/types'
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
@@ -741,6 +742,16 @@ function CampPrepSection({ camp }: { camp: CampWithRelations }) {
           )}
         </div>
       </div>
+
+      {doc?.extracted_schedule && (
+        <CampDocGenerator
+          docId={doc.id}
+          schoolId={camp.hostSchool.id}
+          schoolName={camp.hostSchool.short_name || camp.hostSchool.name}
+          content={doc.content}
+          onGenerated={refetch}
+        />
+      )}
 
       {modalOpen && (
         <CampPrepModal
