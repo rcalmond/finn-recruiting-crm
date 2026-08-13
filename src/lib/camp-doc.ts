@@ -16,9 +16,23 @@ import type { ResearchSnapshot } from './school-research'
 
 export const CAMP_DOC_MODEL = 'claude-opus-4-8'
 
+/** The coach's actual new text sits at the top of raw_source; the tail is quoted
+ *  thread history + HTML/signature noise. Collapse whitespace and cap so a 60k-char
+ *  outlier can't blow the context — the quotable line is always near the top. */
+const RAW_SOURCE_CAP = 2500
+function cleanRawSource(raw: string): string {
+  return raw.replace(/\s+/g, ' ').trim().slice(0, RAW_SOURCE_CAP)
+}
+
 // ─── Output schema ─────────────────────────────────────────────────────────────
 
 export interface CampDocQuote { quote: string; who: string; when?: string | null }
+export interface CampDocTouchpoint {
+  date: string
+  classification: 'unprompted' | 'responsive'   // did the coach raise it, or answer a family question?
+  quote: string | null                          // verbatim from raw_source, or null if not quotable
+  what: string                                  // what the message was / why it classifies that way
+}
 export interface CampDocDayBlock { time: string | null; activity: string; guidance: string }
 export interface CampDocDay { label: string; is_travel_day?: boolean; blocks: CampDocDayBlock[]; sleep: string; recovery?: string | null }
 export interface CampDocStaff { name: string; role: string; credentials: string; your_angle: string; primary_relationship?: boolean }
@@ -26,7 +40,14 @@ export interface CampDocAttrition { cycle: string; position: string; players: st
 
 export interface CampDoc {
   masthead: { player: string; school: string; camp: string; dates: string; venue: string | null; surface: string | null; framing: string }
-  where_you_stand: { read: string; quotes: CampDocQuote[]; asymmetry: string; not_yet: string; verdict: string }
+  where_you_stand: {
+    read: string
+    coach_touchpoints: CampDocTouchpoint[]   // every inbound coach message classified + cited
+    relationship_opened_by: string           // low-information axis (usually the player)
+    advancement: string                      // who has driven advancement — evidence-anchored to specific messages
+    not_yet: string
+    verdict: string
+  }
   the_mission: { rubric_found: boolean; rubric_quote: CampDocQuote | null; mission: string; calibration: string }
   the_staff: CampDocStaff[] | null
   the_fit: { attrition: CampDocAttrition[]; profile_gap: string; honest_context: string; unsourced: string | null } | null
@@ -71,15 +92,20 @@ SECTIONS
 ═══════════════════════════════════════════════════════════════════
 0. MASTHEAD — player, school, camp, dates, venue, surface, and a one-line framing of what this weekend is.
 
-1. WHERE YOU STAND (read this first) — sourced ONLY from the thread:
-   - Quote coaches VERBATIM (these quotes are the entire credibility of this section).
-   - Name the ASYMMETRY: who initiated each touchpoint. "They reached out to you" and "every touchpoint has been you reaching out" are OPPOSITE findings — determine which is true from the thread's direction/authored_by and state it plainly.
+1. WHERE YOU STAND (read this first) — sourced ONLY from the thread. This section must DISCRIMINATE; a plausible summary judgment is a failure.
+   - CLASSIFY EACH INBOUND (coach) message into coach_touchpoints: is it UNPROMPTED (the coach raises something the family did NOT ask about — an invitation, a proactive scheduling offer, an unrequested update) or RESPONSIVE (it answers a question the family raised)? The test is the IMMEDIATELY PRECEDING outbound message: did it raise this topic? For each, give the date, the classification, and — if you can quote the coach's own words from that message's VERBATIM SOURCE — the quote (else quote: null), plus a short "what".
+   - SEPARATE TWO AXES:
+     * relationship_opened_by — who sent the first email. This is almost always the player and carries little information; state it in one clause and move on.
+     * advancement — who has driven the RELATIONSHIP FORWARD: invitations, camp asks, next-step offers. This is the interesting finding. Anchor it to specific messages by date + quote.
+   - EVIDENCE RULE (hard): every asymmetry/advancement claim must cite the specific message that proves it (date + quoted language). A claim with no message behind it is NOT permitted. In particular, you may write "every touchpoint has been you reaching out" ONLY IF NO inbound message classified as unprompted. If even one did, that sentence is banned and advancement must credit the coach for those touchpoints.
    - Name what has NOT happened yet (e.g. no pre-read, no roster-spot or recruiting-class language).
-   - Land on a VERDICT: are they evaluating you or recruiting you, and what does this camp convert (evaluation -> interest, interest -> a real conversation, etc.).
+   - VERDICT: evaluating vs recruiting, and what this camp converts — consistent with the classification above.
 
 2. THE MISSION:
    - RUBRIC HUNT: scan the thread for any moment a coach said what they want to see. If found, quote it verbatim (set rubric_found true, put it in rubric_quote) and make it the mission. If not found, set rubric_found false and say so explicitly, then derive a mission from position, stage, and the camp format.
    - CALIBRATION: using the WHOLE list, state how to talk about this school relative to the others — who holds the top-choice card (only if the player's own record/offers show it; do NOT invent a ranking the family never stated), what language is and isn't on the table, and any second-order effect (peer programs talk to each other). If the family hasn't declared a top choice, say that and advise accordingly — do not manufacture one.
+
+GENERAL PRINCIPLE (§1 and §2): every comparative or asymmetry claim is evidence-anchored — tied to a specific message, offer, or stage — or it is not made. Do not produce a confident summary judgment when the specific evidence is available and unexamined.
 
 3. THE STAFF — ONLY if research returned staff (else set the_staff to null). Per coach: their credentials/record FROM RESEARCH, then a "YOUR ANGLE" line tied to something real in the thread or research. Identify the PRIMARY RELATIONSHIP from the CRM thread (who actually corresponds with the family) — set primary_relationship true on that coach — NOT from research (research is public facts only and does not know who emails you).
 
@@ -120,7 +146,7 @@ HARD CONSTRAINTS -> THE PLAN (and DEDUPE)
 Return ONLY the JSON document (no markdown fences, no commentary), matching:
 {
   "masthead": { "player": "...", "school": "...", "camp": "...", "dates": "...", "venue": "... or null", "surface": "... or null", "framing": "one line" },
-  "where_you_stand": { "read": "the lead, 1-3 short paragraphs", "quotes": [ { "quote": "verbatim", "who": "coach name/role", "when": "date or null" } ], "asymmetry": "...", "not_yet": "...", "verdict": "..." },
+  "where_you_stand": { "read": "the lead, 1-3 short paragraphs", "coach_touchpoints": [ { "date": "YYYY-MM-DD", "classification": "unprompted|responsive", "quote": "verbatim from VERBATIM SOURCE or null", "what": "what it was / why it classifies that way" } ], "relationship_opened_by": "one clause", "advancement": "who has driven it forward, citing specific dates + quotes", "not_yet": "...", "verdict": "..." },
   "the_mission": { "rubric_found": true/false, "rubric_quote": { "quote": "...", "who": "...", "when": null } or null, "mission": "...", "calibration": "..." },
   "the_staff": [ { "name": "...", "role": "...", "credentials": "...", "your_angle": "...", "primary_relationship": true/false } ] or null,
   "the_fit": { "attrition": [ { "cycle": "...", "position": "...", "players": ["..."] } ], "profile_gap": "...", "honest_context": "the mandatory anti-hype paragraph", "unsourced": "what research could not source, or null" } or null,
@@ -167,11 +193,15 @@ export function buildCampDocUserPrompt(ctx: {
   L.push(`\nTRAVEL PROSE:\n${ctx.inputs.travel_prose}`)
   if (ctx.inputs.extra_notes?.trim()) L.push(`\nEXTRA NOTES:\n${ctx.inputs.extra_notes}`)
   L.push('')
-  L.push(`=== FULL COACH THREAD (${ctx.contactLog.length} entries, oldest first — the ONLY source for Where You Stand and the rubric hunt; quote verbatim) ===`)
+  L.push(`=== FULL COACH THREAD (${ctx.contactLog.length} entries, oldest first — the ONLY source for Where You Stand and the rubric hunt) ===`)
+  L.push('For each inbound (coach) message you may see a VERBATIM SOURCE — that is the coach\'s own raw words and is the ONLY thing you may put in quotation marks as a coach quote. SUMMARY is our paraphrase, for understanding only — never quote from a SUMMARY. If a message has no VERBATIM SOURCE, you may paraphrase it but must NOT quote it.')
   if (ctx.contactLog.length === 0) L.push('No contact logged — this is a cold relationship.')
   for (const e of ctx.contactLog) {
     L.push(`[${e.date}] ${e.direction} via ${e.channel}${e.coach_name ? ` — ${e.coach_name}` : ''}${e.authored_by ? ` (authored_by=${e.authored_by})` : ''}${e.intent ? ` (intent=${e.intent})` : ''}`)
-    L.push(e.summary ?? '(no body)')
+    L.push(`SUMMARY: ${e.summary ?? '(no body)'}`)
+    if (e.direction === 'Inbound' && e.raw_source && e.raw_source.trim()) {
+      L.push(`VERBATIM SOURCE (quote coach words only from here): ${cleanRawSource(e.raw_source)}`)
+    }
     L.push('')
   }
   L.push('=== COACHES ON FILE (CRM — who the family corresponds with; primary relationship lives here, NOT in research) ===')

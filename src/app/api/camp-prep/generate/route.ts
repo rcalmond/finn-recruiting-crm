@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
           usedResearch: !!research,
           usage: { inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens },
           counts: {
-            quotes: doc.where_you_stand?.quotes?.length ?? 0,
+            touchpoints: doc.where_you_stand?.coach_touchpoints?.length ?? 0,
             planDays: doc.the_plan?.length ?? 0,
             staff: doc.the_staff?.length ?? 0,
             hasFit: !!doc.the_fit,

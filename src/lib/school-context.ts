@@ -45,6 +45,7 @@ export interface ContactLogRow {
   summary: string | null
   authored_by: string | null
   intent: string | null
+  raw_source: string | null   // raw email body — the ONLY source for verbatim coach quotes
 }
 
 export interface CampRow {
@@ -137,7 +138,7 @@ export async function fetchSchoolContext(
       .order('is_primary', { ascending: false }),
     // 2. Full contact_log (chronological) — ALWAYS filtered
     admin.from('contact_log')
-      .select('date, sent_at, direction, channel, coach_name, summary, authored_by, intent')
+      .select('date, sent_at, direction, channel, coach_name, summary, authored_by, intent, raw_source')
       .eq('school_id', schoolId)
       .not('parse_status', 'in', '("orphan","non_coach")')
       .order('sent_at', { ascending: true }),
