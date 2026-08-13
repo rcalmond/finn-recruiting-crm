@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFinnStatus, CampFinnStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message, CallPrepDoc, SchoolStatusUpdate, ShareWithCoach, SchoolMilestone, MilestoneType, CalendarEvent } from '@/lib/types'
 import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp as updateCampMutation, updateFinnStatus as updateFinnStatusMutation, deleteCamp as deleteCampMutation, addSchoolAttendee as addSchoolAttendeeMutation, removeSchoolAttendee as removeSchoolAttendeeMutation } from '@/lib/camps'
+import type { CurrentResearchRow } from '@/lib/school-research'
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
 
@@ -785,6 +786,33 @@ export function useCallPrepDocs(schoolId?: string) {
   useEffect(() => { fetchDocs() }, [fetchDocs])
 
   return { docs, loading, refetch: fetchDocs }
+}
+
+// ─── School research (the shared per-school research asset) ──────────────────
+
+export function useSchoolResearch(schoolId?: string) {
+  const [research, setResearch] = useState<CurrentResearchRow | null>(null)
+  const [loading, setLoading] = useState(true)
+  const supabase = useMemo(() => createClient(), [])
+
+  const fetchResearch = useCallback(async () => {
+    if (!schoolId) { setResearch(null); setLoading(false); return }
+    const { data, error } = await supabase
+      .from('school_research')
+      .select('id, school_id, generated_at, status, model, tool_call_count, error, is_current, snapshot, sources, fetched_urls')
+      .eq('school_id', schoolId)
+      .eq('is_current', true)
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) console.error('[useSchoolResearch] fetch error:', error)
+    setResearch((data as CurrentResearchRow | null) ?? null)
+    setLoading(false)
+  }, [supabase, schoolId])
+
+  useEffect(() => { fetchResearch() }, [fetchResearch])
+
+  return { research, loading, refetch: fetchResearch }
 }
 
 // ─── School Status Updates ────────────────────────────────────────────────────

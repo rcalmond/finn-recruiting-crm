@@ -20,6 +20,7 @@ import SchoolModal from '@/components/SchoolModal'
 import EditableActionRow from '@/components/EditableActionRow'
 import ConversationSummaryCard from '@/components/school-detail/ConversationSummaryCard'
 import CallPrepSection from '@/components/school-detail/CallPrepSection'
+import ResearchSection from '@/components/school-detail/ResearchSection'
 import StatusUpdatesPanel from '@/components/school-detail/StatusUpdatesPanel'
 import NotePopover from '@/components/school-detail/NotePopover'
 
@@ -2307,6 +2308,11 @@ export default function SchoolDetailClient({
           onRefetchPrep={refetchPrepDocs}
           onPrepForCall={() => setPrepOpen(true)}
         />
+
+        {/* ZONE 2c — Research (the record; feeds staff, call prep, and the doc generator) */}
+        <section style={{ marginTop: 'clamp(32px, 5vw, 48px)' }}>
+          <ResearchSection schoolId={school.id} schoolName={school.name} />
+        </section>
 
         {/* ZONE 3 — Your tracking */}
         <NotesZone
