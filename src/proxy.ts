@@ -35,9 +35,10 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname === '/demo' ||
     request.nextUrl.pathname.startsWith('/demo/')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
-  const isDesignPreview = request.nextUrl.pathname.startsWith('/design-preview')
+  // /design-preview is deliberately NOT allowlisted: it is an internal design
+  // reference whose mockups carry identity data — auth required.
 
-  if (!user && !isAuthRoute && !isPublicRoute && !isApiRoute && !isDesignPreview) {
+  if (!user && !isAuthRoute && !isPublicRoute && !isApiRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)

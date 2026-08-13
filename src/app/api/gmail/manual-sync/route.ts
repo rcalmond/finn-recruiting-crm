@@ -1,27 +1,22 @@
 /**
  * POST /api/gmail/manual-sync
  *
- * Session-authenticated proxy for /api/cron/gmail-sync.
- * Lets the Settings UI trigger an incremental sync without exposing
- * CRON_SECRET to the browser.
- *
- * Flow:
- *   1. Validate Supabase session — 401 if not signed in
- *   2. Call /api/cron/gmail-sync internally with Authorization: Bearer <CRON_SECRET>
- *   3. Forward the JSON response to the client
- *
- * The cron route handles its own Gmail auth, rate limiting, and dedup.
- * This route does nothing except gate on user session and inject the secret.
+ * Proxy for /api/cron/gmail-sync, gated on CRON_SECRET ONLY (emergency patch,
+ * pre-tenancy): a session gate let ANY authenticated user trigger the global
+ * Gmail sync, which is wrong the moment a second family exists. Until this
+ * moves to proper admin tooling, callers must present the cron secret — the
+ * Settings UI button will get 401, which is the intended state for now.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 
 export async function POST(req: NextRequest) {
-  // Auth guard — must be a signed-in CRM user
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  // Cron-secret gate — an unset secret REFUSES (never falls open).
+  const cronSecretGate = process.env.CRON_SECRET
+  if (!cronSecretGate) {
+    return NextResponse.json({ error: 'Sync disabled: CRON_SECRET is not configured' }, { status: 503 })
+  }
+  if (req.headers.get('authorization') !== `Bearer ${cronSecretGate}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

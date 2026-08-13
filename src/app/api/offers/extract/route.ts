@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
+import { createClient } from '@/lib/supabase/server'
 
 function makeAdmin() {
   return createServiceClient(
@@ -19,6 +20,11 @@ function makeAdmin() {
  */
 export async function POST(request: Request) {
   try {
+    // Standard auth gate — this route reads a school's full inbound thread.
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { schoolId } = await request.json()
     if (!schoolId) return NextResponse.json({ error: 'schoolId required' }, { status: 400 })
 

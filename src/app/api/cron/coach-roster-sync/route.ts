@@ -45,20 +45,15 @@ export async function GET(req: NextRequest) {
   // Vercel sends: Authorization: Bearer <CRON_SECRET>
   // Same auth pattern as /api/cron/gmail-sync.
 
+  // An unset secret REFUSES in every environment — never falls open.
   const cronSecret = process.env.CRON_SECRET
-  const isProd     = process.env.NODE_ENV === 'production'
-
-  if (cronSecret) {
-    const auth = req.headers.get('authorization')
-    if (auth !== `Bearer ${cronSecret}`) {
-      console.warn(`[coach-roster-sync] ${startedAt} — rejected: invalid CRON_SECRET`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  } else if (isProd) {
-    console.error(`[coach-roster-sync] ${startedAt} — CRON_SECRET is not configured in production`)
-    return NextResponse.json({ error: 'CRON_SECRET is not configured' }, { status: 500 })
-  } else {
-    console.warn(`[coach-roster-sync] ${startedAt} — CRON_SECRET not set; running unauthenticated (dev only)`)
+  if (!cronSecret) {
+    console.error(`[coach-roster-sync] ${startedAt} — CRON_SECRET is not configured; refusing`)
+    return NextResponse.json({ error: 'CRON_SECRET is not configured' }, { status: 503 })
+  }
+  if (req.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+    console.warn(`[coach-roster-sync] ${startedAt} — rejected: invalid CRON_SECRET`)
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const admin = serviceClient()

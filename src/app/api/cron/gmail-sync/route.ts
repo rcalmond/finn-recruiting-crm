@@ -79,28 +79,15 @@ export async function GET(req: NextRequest) {
   // (x-vercel-cron: 1 header) as a belt-and-suspenders check, but the
   // Authorization check is the real gate.
 
+  // An unset secret REFUSES in every environment — never falls open.
   const cronSecret = process.env.CRON_SECRET
-  const isProd     = process.env.NODE_ENV === 'production'
-
-  if (cronSecret) {
-    // Secret is configured — enforce it in all environments
-    const auth = req.headers.get('authorization')
-    if (auth !== `Bearer ${cronSecret}`) {
-      console.warn(`[gmail-sync] ${startedAt} — rejected: invalid CRON_SECRET`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  } else if (isProd) {
-    // Production with no secret configured — hard failure.
-    // This prevents the endpoint from being publicly accessible in prod
-    // if CRON_SECRET was accidentally omitted from Vercel env vars.
-    console.error(`[gmail-sync] ${startedAt} — CRON_SECRET is not configured in production`)
-    return NextResponse.json(
-      { error: 'CRON_SECRET is not configured' },
-      { status: 500 }
-    )
-  } else {
-    // Development with no secret — allow with a warning (local convenience)
-    console.warn(`[gmail-sync] ${startedAt} — CRON_SECRET not set; running unauthenticated (dev only)`)
+  if (!cronSecret) {
+    console.error(`[gmail-sync] ${startedAt} — CRON_SECRET is not configured; refusing`)
+    return NextResponse.json({ error: 'CRON_SECRET is not configured' }, { status: 503 })
+  }
+  if (req.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+    console.warn(`[gmail-sync] ${startedAt} — rejected: invalid CRON_SECRET`)
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const admin = serviceClient()

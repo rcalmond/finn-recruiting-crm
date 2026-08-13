@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
           .from('prep_docs')
           .select('id, coach_name_snapshot, generated_at')
           .eq('school_id', schoolId)
+          .eq('doc_type', 'call')   // the 14-day reuse rule is call-prep-only; a camp doc must not satisfy it
           .gte('generated_at', fourteenDaysAgo)
           .order('generated_at', { ascending: false })
           .limit(1)

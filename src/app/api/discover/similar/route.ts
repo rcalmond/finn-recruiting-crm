@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
+import { createClient } from '@/lib/supabase/server'
 
 function makeAdmin() {
   return createServiceClient(
@@ -47,6 +48,11 @@ function seedHash(seeds: Seed[]): string {
 
 export async function POST(request: Request) {
   try {
+    // Standard auth gate — reads player_profile + burns model spend.
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { seeds, exclude, force } = (await request.json()) as { seeds?: Seed[]; exclude?: string[]; force?: boolean }
     if (!Array.isArray(seeds) || seeds.length < 3) {
       return NextResponse.json({ error: 'Need at least 3 seed schools' }, { status: 400 })

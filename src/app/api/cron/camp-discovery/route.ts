@@ -38,14 +38,15 @@ interface SchoolStats {
 export async function GET(req: NextRequest) {
   const startedAt = new Date().toISOString()
 
-  // Auth guard
+  // Auth guard — an unset secret REFUSES in every environment (never falls open).
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret) {
-    const auth = req.headers.get('authorization')
-    if (auth !== `Bearer ${cronSecret}`) {
-      console.warn(`[camp-discovery] ${startedAt} — rejected: invalid CRON_SECRET`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  if (!cronSecret) {
+    console.error(`[camp-discovery] ${startedAt} — CRON_SECRET is not configured; refusing`)
+    return NextResponse.json({ error: 'CRON_SECRET is not configured' }, { status: 503 })
+  }
+  if (req.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+    console.warn(`[camp-discovery] ${startedAt} — rejected: invalid CRON_SECRET`)
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   // Check Tavily key
