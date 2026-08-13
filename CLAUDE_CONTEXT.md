@@ -305,6 +305,32 @@ primary key (event_id, school_id)
 ```
 Optional nullable linkage — most events link no schools.
 
+### Table: prep_docs (renamed from call_prep_docs — camp-prep migrations 0-3, run manually 2026-08, not in supabase/migrations/)
+
+One row per prep document, call OR camp. Created as call_prep_docs (migration 049), generalized by the camp-prep stretch.
+
+- id (uuid pk), school_id FK, created_at, generated_at
+- doc_type — 'call' | 'camp'
+- coach_id FK + coach_name_snapshot — snapshot pattern; coach_name_snapshot is now NULLABLE with a call-requires-coach check (a call doc must carry a coach; camp docs have none)
+- camp_id — FK to camps ON DELETE SET NULL, with camp_name_snapshot / camp_dates_snapshot (snapshot pattern mirroring coach_id/coach_name_snapshot — the doc survives camp deletion)
+- storage_path — renamed from docx_storage_path; NULLABLE with an uploaded-requires-file check. For camp docs it is set when the PDF is first built — the PDF is a DERIVED artifact; content is the document
+- research_id — FK to school_research. Set historically on call docs; NO LONGER SET by camp generation (Phase 5.5 scope cut; column left in place)
+- inputs (jsonb) — the three verbatim camp-prep input fields (camp_email_raw, travel_prose, extra_notes)
+- extracted_schedule (jsonb) — the confirmed CampExtraction (null until the user confirms)
+- content (jsonb) — the structured CampDoc; source of truth for the in-app render, print, and PDF
+- framing_notes, tool_call_count, source — call-prep-era fields, unchanged
+
+### Table: school_research (camp-prep migration 1C)
+
+Per-school grounded research snapshots. Columns: id, school_id, generated_at, status (enum), model, tool_call_count, error, is_current, snapshot (jsonb), sources (jsonb), fetched_urls (jsonb URL ledger). is_current is flipped atomically by the set_current_research(p_school_id, p_id) SQL function — a FAILED run never becomes current; superseded rows are retained for history. 30-day staleness convention (STALE_DAYS in src/lib/school-research.ts). Currently consumed ONLY by the school-detail Research section — the camp doc deliberately does not read it (see Camp Prep Design Rules in Section 9).
+
+### Table: player_profile — camp-prep fields (camp-prep migrations 4 + 7)
+
+The existing singleton extended with: home_timezone (IANA), position, grad_year, preparation_notes, recruiting_preferences. The last two are FAMILY-AUTHORED ECHO FIELDS whose column comments are binding on every generator; quoted verbatim:
+
+- preparation_notes: "Free text, authored BY THE FAMILY, describing the player's own established preparation and recovery routine (equipment, timing, food preferences, anything they already do). Generators ECHO this into the relevant moment of a schedule. Generators MUST NOT infer, extend, diagnose, or originate any medical, rehabilitation, or dietary protocol from it, and MUST NOT store structured medical data here. If empty, generated guidance stays general."
+- recruiting_preferences: "Free text, authored BY THE FAMILY, stating declared preferences and any constraint on what may be said to schools (e.g. which program holds the top-choice card, what language is off the table). Generators ECHO this into calibration. Generators MUST NOT infer, rank, or manufacture a preference the family has not written here. If empty, calibration states that no preference is on record and instructs against manufacturing a ranking."
+
 ### RLS
 All tables have RLS enabled. Any authenticated user gets full access.
 Use the **service role key** in scripts/server-side code to bypass RLS.
@@ -2147,7 +2173,7 @@ Finn's academic numbers corrected everywhere: GPA 3.81W/3.56UW (was 3.78/3.57), 
 
 ### Throughball Rebrand + Productization (August 2026)
 
-The app was rebranded from finnsoccer.com to **Throughball, powered by Regista** as the first step toward productizing it for sale to other recruiting families. The full brand doctrine lives in /docs (throughball-brand-guidelines.md + throughball-visual-identity.html) — this section records what was BUILT.
+The app was rebranded from finnsoccer.com to **Throughball, powered by Regista** as the first step toward productizing it for sale to other recruiting families. The brand doctrine lives in docs/throughball-visual-identity.html (+ .docx) and, live, in the /design-preview/brand route + src/components/brand — there is NO throughball-brand-guidelines.md (a previously documented path that never existed). This section records what was BUILT.
 
 **1. Brand identity + the two-name architecture.** Throughball = the product and place (organization, the record, every surface). Regista = the named judgment engine (reads coach replies, ranks the next move, drafts responses). The test for which name applies: does this require an opinion about a specific coach interaction? No means Throughball or second-person benefit; yes means Regista. Visual system: Pitch Green #1F6B48 as the SINGLE accent (the discipline is the identity — green points, it never floods), ink + parchment neutrals, the weighted-pass-arrow mark, bold-italic mastheads with a green trailing period, phases as numbered acts (01-04) with a ghost-numeral ramp rather than four hues. Competitive positioning: the advisor-as-software / judgment wedge, against full-service incumbents (fear-selling, hidden pricing), passive exposure platforms, and new filing-cabinet CRMs. Complementary to the rails families already have (SportsRecruits, Hudl).
 
@@ -2172,6 +2198,60 @@ The app was rebranded from finnsoccer.com to **Throughball, powered by Regista**
 4. Deterministic over context-derived: hardcode canonical URLs rather than computing them from browser context (window.location.origin) where an ambiguous runtime context can leak a wrong value.
 
 **Productization prerequisites still OPEN (the path to actually selling):** the /demo page (route exists, content not built); signup/trial/billing (the revenue gate — none exists, app is single-user); multi-tenant data isolation; acquire the Throughball domain (then re-verify Resend + swap NEXT_PUBLIC_SITE_URL); the cold-start demo conversation.
+
+---
+
+### Camp Prep Docs — Current State (August 2026)
+
+The camp prep feature is COMPLETE (commits 99b1815 through 00a31af; the dated Recent Changes rows record the increments). It lives on camp detail (/calendar/[id]) as the Prep doc card. The pipeline:
+
+1. INPUT — three unstructured fields (camp email pasted verbatim, travel/logistics prose, extra notes), persisted verbatim in prep_docs.inputs.
+2. EXTRACTION — Sonnet (claude-sonnet-4-6, blocking JSON) structures day-by-day schedule blocks, check-in, playing surface, HARD CONSTRAINTS (the highest-value output: paper-only forms, unsupervised breaks, schedule-runs-late caveats, optional sessions), travel segments, lodging + meal windows, competing commitments (each with a date field — explicit or resolved from relative day-words against a reference date; null when the prose gives none), and the timezone delta from player_profile.home_timezone. Extraction states facts only; absent times stay null, never guessed.
+3. CONFIRM — an editable form, hard constraints first; undated commitments are visibly undated (red date field) with a note that they will not be pinned to a day. Confirming persists prep_docs.extracted_schedule. Draft reuse is keyed on camp_id — one draft per camp (useCampPrepDoc); the 14-day reuse rule remains call-prep-only.
+4. GENERATION — Opus (claude-opus-4-8), a single call (~18-23k input tokens, ~100s): no research read, no cross-thread digest. Sections: masthead, where_you_stand (coach_touchpoints + advancement + not_yet + verdict), the_mission (+ calibration echoing recruiting_preferences), the_staff (name/role/angle from the CRM thread only — a no-thread coach gets name and role, your_angle omitted), the_plan, before_leaving, footer.
+5. VALIDATE-BEFORE-PERSIST — validateCampDoc (src/lib/camp-doc-validate.ts) checks the shape, the plan-date span (earliest of today / first dated commitment through the return-travel day), and every touchpoint's quote evidence. One automatic retry; a second failure is a visible error and the PRIOR content is kept — a malformed run never silently drops a section. finalizeCampDoc then writes the code-computed fields (below) and the doc persists to prep_docs.content.
+6. RENDER / PRINT / PDF — CampDocView renders content as read-only HTML on camp detail; an at-media-print stylesheet prints the document only (US Letter, no orphaned day headers, no split session blocks); GET /api/camp-prep/pdf/[id] builds the PDF server-side via camp-doc-pdf.ts (pdfmake; SEPARATE from call-prep-pdf.ts and its per-school accents), uploads to the assets bucket, sets storage_path, and streams — with the generation date in the footer.
+
+COMPUTED IN CODE (the model emits evidence, never the conclusion):
+- Plan day labels: the model emits an ISO date + a short descriptor per day, anchored to the camps table dates handed to it (Camp Day N = the Nth camp date). formatPlanLabel computes the human weekday/month/day label in home_timezone. The model never formats a date.
+- Touchpoint classification: the model emits preceding_outbound_date + preceding_outbound_quote (the family words that raised the subject, VERBATIM — the validator rejects a quote not found in that outbound's raw_source) or the marker NO_PRIOR_MENTION. finalizeCampDoc derives responsive/unprompted. The model never writes the label.
+
+UI STATES (one control row in CampDocGenerator; one primary per state; destructive actions live ONLY in the overflow menu, whose confirm names what gets deleted):
+- Document exists: Download PDF (primary), Print, quiet Regenerate; overflow: Edit inputs, Delete draft & document.
+- Draft with confirmed extraction: Generate document (primary), Edit inputs; overflow: Discard draft.
+- Mid-flow draft (no confirmed extraction): Edit inputs (primary); overflow: Discard draft.
+- No draft: the single Generate prep doc entry in the card header.
+
+DEV HARNESS — scripts/camp-doc-harness.ts: records a school's full generation context from the DB into a fixture (--record), then regenerates DB-free and diffs the document section by section. It mirrors endpoint validation exactly (retry once, then hard-fail without writing output). Fixtures are gitignored (they carry real coach email bodies); re-seed locally with --record.
+
+### Camp Prep Design Rules (August 2026 — binding)
+
+These rules are the stretch's real output; they bind future work on any generated document:
+
+- ECHO OVER DERIVE. The document echoes family-authored fields and CRM data; it does not assert derived external facts. Every defect in the stretch landed in a section asserting facts about the outside world; the echo sections never failed once. THE FIT (attrition/profile-gap) was cut for this reason and returns in v2 only with the guards below.
+- EVIDENCE-EMIT-AND-COMPUTE. When model output must satisfy a hard constraint, the model emits EVIDENCE and code computes the conclusion — plan day labels (ISO date + descriptor in, formatted label out) and touchpoint classification (verbatim quote or NO_PRIOR_MENTION in, responsive/unprompted out). Prose classification rules drifted three times (5.1, 5.6, 6.2) before this pattern held.
+- FAIL-CLOSED ON ABSENCE. Empty and failed are distinct everywhere: the thread-load guard refuses to generate when the contact_log fetch errors or mismatches, and a failed recruiting_preferences read degrades calibration (no absence assertion, no ranking) while an EMPTY field may honestly state that no preference is on record. A failed lookup never becomes a confident "there is none."
+- ABSENCE-PROSE RULE. No generator reads entities out of a research prose field that EXPLAINS an absence (not_found_reason and its class) — an explanation is not a data source. Documented on ResearchSnapshot in src/lib/school-research.ts.
+- HARNESS GATE. Any change touching the camp-doc prompt runs BOTH fixtures through scripts/camp-doc-harness.ts before ship and must hold the classification gate: Middlebury 1 unprompted of 8 (the 2026-04-08 May-camp invite), Colby 0 of 7.
+
+### Productization Running List (August 2026)
+
+The single consolidated list (supersedes scattered mentions in earlier dated sections; the Rebrand section's open-prerequisites paragraph stands as history).
+
+CUSTOMER-BLOCKING before any signup:
+- Prep-doc routes have NO ownership check — any authenticated user can fetch any doc (GET /api/call-prep-docs/[id] and /api/camp-prep/pdf/[id] check auth only).
+- The assets storage bucket has no path-prefix RLS.
+- player_profile is a global singleton with no edit UI — the camp-prep fields (home_timezone, position, grad_year, preparation_notes) plus recruiting_preferences are currently set only via SQL.
+- Single-player-named columns: camp_finn_status, school_message_plan.finn_notes.
+
+NON-BLOCKING:
+- Storage cleanup on delete: deleting a prep_docs row leaves its PDF in the assets bucket.
+- Hardcoded player-name literal ('Finn Almond' in the call-prep and camp-prep generation paths) to be replaced by player_profile reads.
+- The call-prep 14-day reuse query does not filter doc_type — a camp doc generated for the same school within 14 days satisfies the call-prep reuse check (found during this consolidation; call-prep-only in intent, not yet in code).
+- Call-prep PDF still uses per-school accent colors (pre-brand; deliberately untouched by the camp renderer).
+- The prep-doc upload route has no UI entry point (removal was deliberate; restoration is one line).
+- The camp extractor resolves relative day-words ("today"/"tomorrow") against the PASTE date, not the date the notes were written — a family pasting old notes gets shifted commitment dates (the confirm screen's editable date field is the current guard).
+- THE FIT v2 — the research pipeline stays warm for it; on return it must read entities from STRUCTURED research fields only.
 
 ---
 
@@ -2453,6 +2533,7 @@ SCHOOL: University of Rochester
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-13 | CAMP PREP STRETCH — CONSOLIDATED (commits 99b1815 through 00a31af; the fourteen dated rows below record the increments and stand as history). Feature complete: prep_docs generalized from call_prep_docs (doc_type, camp_id + name/dates snapshots, storage_path nullable), the school_research pipeline (consumed by school detail only), player_profile camp fields including the family-authored preparation_notes and recruiting_preferences echo fields; the camp prep pipeline runs input -> Sonnet extraction -> editable confirm -> Opus generation -> validate-before-persist (one retry, visible failure, prior content kept) -> in-app render -> print stylesheet -> PDF with generation date. Mid-stretch SCOPE CUT (5.5): every derived-fact section was removed (THE FIT deferred to v2, staff credentials dropped, research and the cross-thread digest taken off the document's critical path) — the document now echoes only family-authored fields, CRM data, and the confirmed extraction. Day labels and touchpoint classifications are computed in code from model-emitted evidence. Current-state documentation added this pass: Section 4 tables (prep_docs, school_research, player_profile camp fields), and Section 9's Camp Prep Docs — Current State, Camp Prep Design Rules, and Productization Running List. | Feature |
 | 2026-08-13 | Camp-prep UI tighten — the Prep doc card's controls restructured by state (presentation only, no logic changes). Previously two rows (Discard/Resume in the header plus Regenerate/Download PDF/Print in the generator row) put five buttons on a card whose job is showing the document. Now one control row owned by CampDocGenerator: DOCUMENT EXISTS — primary Download PDF, secondaries Print and a quieter borderless Regenerate, with Edit inputs and Delete draft & document tucked into a small overflow menu (the delete confirm names that it removes the confirmed draft AND the generated document); DRAFT WITH CONFIRMED EXTRACTION — primary Generate document, secondary Edit inputs, overflow Discard draft; MID-FLOW DRAFT (no confirmed extraction) — primary Edit inputs, overflow Discard draft; NO DRAFT — unchanged single Generate prep doc entry in the header. Rules enforced: one primary per state, max two visible secondaries, destructive actions live only in the overflow (never adjacent to the primary) and confirm by naming what gets deleted. Resume relabeled Edit inputs everywhere in camp prep (post-generation it reopens the confirmed extraction, not an unfinished process); the mid-flow draft subheader now reads draft-in-progress instead of pointing at a Generate button that is not there. Data-color firewall unchanged — buttons are chrome. | Feature |
 | 2026-08-13 | Camp-prep Phase 6.2 — computed touchpoint classification (third drift; the judgment moved into code, same playbook as day labels). A regeneration classified the 2025-11-28 Elias reply-to-cold-intro as unprompted by reasoning around the prose rule (third instance after 5.1 and 5.6), so the model no longer writes the label at all: for each inbound coach message it emits EVIDENCE — preceding_outbound_date plus preceding_outbound_quote (the family words that raised the subject, copied verbatim from that outbound's raw source) or the marker NO_PRIOR_MENTION — and finalizeCampDoc derives classification in code after validation, before persist: quote present = responsive, NO_PRIOR_MENTION = unprompted. The validator (validate-before-persist path) rejects a touchpoint missing both fields and rejects a preceding_outbound_quote that does not appear verbatim in that date's outbound source (buildOutboundQuoteCorpus; same failure class as a fabricated coach quote); outbound raw sources are now included in the prompt so quotes are copyable and checkable. The evidence instruction carries a SUBJECT TEST both ways: a coach introducing a concrete offer the family never raised is NO_PRIOR_MENTION even though an outbound exists (a tangential general-interest quote cannot launder a new camp invite into responsive), while answering-plus-a-push is still an answer (a reply pointing at the form/ID clinic answers a process question; the push goes in prose, never in the label). Downstream consistency: the read, advancement, verdict, and masthead framing must derive from the computed labels — coach-initiated count is exactly the NO_PRIOR_MENTION count, and initiative claims cite those dates. Gate re-verified on both fixtures: Middlebury 1 unprompted of 8 (the 2026-04-08 May-camp invite; Nov-28 back to responsive with the intro question as evidence), Colby 0 of 7. The harness now mirrors the endpoint (retry once on validation failure, then hard-fail without writing output — it caught a live flatten recurrence). Also: the PDF footer now carries the generation date next to the page number, and a DATED competing commitment never silently disappears — before the first plan day it is acknowledged as accumulated load in the first day's guidance (Murphy Creek 2026-08-12 now appears as yesterday's-round load context; West Woods sits on its actual date). Note: docs generated before 6.2 lack the evidence fields and will fail the PDF route's validation until regenerated once. | Schema |
 | 2026-08-13 | Camp-prep copy cleanup — removed stale pre-generation strings left from Phases 3-4 (generation shipped in Phase 5). The post-save modal no longer says 'Document generation is the next step (coming soon)'; it now says the confirmed schedule is stored and Generate document is available on the camp page. The Prep doc section subheader no longer says 'Document generation is the next step' — when a document exists it describes the document (generated date, plan-day count, coach-touchpoint count); a saved-but-ungenerated draft points at Generate document below. No logic, generation, validation, or schema changes. | Copy |
