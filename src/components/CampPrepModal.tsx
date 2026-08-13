@@ -122,7 +122,7 @@ export default function CampPrepModal({
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: C.cream, border: `1px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.pitch, fontSize: 22 }}>✓</div>
             <div style={{ fontSize: 15, fontWeight: 650, color: C.ink }}>Draft saved.</div>
             <div style={{ fontSize: 13, color: C.muted, maxWidth: 340, lineHeight: 1.5 }}>
-              The confirmed schedule is stored. Document generation is the next step (coming soon) — you can reopen and edit this draft anytime.
+              The confirmed schedule is stored. Generate document is now available on the camp page — and you can reopen and edit this draft anytime.
             </div>
             <PitchButton onClick={onClose}>Done</PitchButton>
           </div>

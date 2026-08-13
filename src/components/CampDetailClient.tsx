@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import CampPrepModal from '@/components/CampPrepModal'
 import CampDocGenerator from '@/components/CampDocGenerator'
 import type { CampWithRelations, CampFinnStatusValue, Category, School } from '@/lib/types'
+import type { CampDoc } from '@/lib/camp-doc'
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 
@@ -704,6 +705,12 @@ function CampPrepSection({ camp }: { camp: CampWithRelations }) {
   const ext = doc?.extracted_schedule ?? null
   const dayCount = ext?.days?.length ?? 0
   const constraintCount = ext?.hard_constraints?.length ?? 0
+  // A generated document (content present) is described by what it contains; a draft
+  // without content still points at Generate.
+  const generatedDoc = (doc?.content ?? null) as CampDoc | null
+  const planDayCount = generatedDoc?.the_plan?.length ?? 0
+  const touchpointCount = generatedDoc?.where_you_stand?.coach_touchpoints?.length ?? 0
+  const generatedDate = doc?.generated_at ? new Date(doc.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
 
   async function discard() {
     if (!doc) return
@@ -721,7 +728,8 @@ function CampPrepSection({ camp }: { camp: CampWithRelations }) {
           </h3>
           <div style={{ marginTop: 3, fontSize: 12, color: PP.muted, lineHeight: 1.5 }}>
             {loading ? 'Loading…'
-              : doc ? `Draft saved${doc.camp_dates_snapshot ? ` · ${doc.camp_dates_snapshot}` : ''} — ${dayCount} day${dayCount === 1 ? '' : 's'}, ${constraintCount} hard constraint${constraintCount === 1 ? '' : 's'}. Document generation is the next step.`
+              : generatedDoc ? `Document generated${generatedDate ? ` ${generatedDate}` : ''} · ${planDayCount}-day plan · ${touchpointCount} coach touchpoint${touchpointCount === 1 ? '' : 's'}.`
+              : doc ? `Draft saved${doc.camp_dates_snapshot ? ` · ${doc.camp_dates_snapshot}` : ''} — ${dayCount} day${dayCount === 1 ? '' : 's'}, ${constraintCount} hard constraint${constraintCount === 1 ? '' : 's'}. Generate document below.`
               : 'Turn the camp email and your travel notes into a confirmed prep sheet — schedule, check-in, surface, and the operational constraints.'}
           </div>
         </div>
