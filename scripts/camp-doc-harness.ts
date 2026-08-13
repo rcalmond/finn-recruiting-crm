@@ -22,7 +22,7 @@ import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { fetchSchoolContext } from '../src/lib/school-context'
 import { extractJsonObject } from '../src/lib/agentic-research'
-import { CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, finalizeCampDoc, isoAddDays, type CampDoc, type DocPlayerProfile, type DocSchoolListItem, type PreferencesRead } from '../src/lib/camp-doc'
+import { CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, buildOutboundQuoteCorpus, finalizeCampDoc, isoAddDays, type CampDoc, type DocPlayerProfile, type DocSchoolListItem, type PreferencesRead } from '../src/lib/camp-doc'
 import { validateCampDoc } from '../src/lib/camp-doc-validate'
 import type { CampExtraction, CampPrepInputs } from '../src/lib/camp-prep'
 import type { ContactLogRow, CoachRow, OfferRow } from '../src/lib/school-context'
@@ -143,23 +143,42 @@ async function generate(schoolQuery: string, fixturePath: string) {
   console.log(`fixture: ${fx.schoolName} · thread=${fx.contactLog.length} · prefs=${fx.preferences.status} · campDates=[${(fx.campDates ?? []).join(', ') || 'none'}]`)
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  const t0 = Date.now()
-  const message = await anthropic.messages.create({
-    model: CAMP_DOC_MODEL, max_tokens: 16000,
-    system: buildCampDocSystemPrompt(),
-    messages: [{ role: 'user', content: buildCampDocUserPrompt(fx) }],
-  })
-  const secs = ((Date.now() - t0) / 1000).toFixed(1)
-  const parsed = extractJsonObject(message.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')) as CampDoc
 
-  // Same guards as the endpoint: validate shape+span, then compute plan-day labels.
+  // Same guards as the endpoint: validate shape + span + quote evidence BEFORE
+  // accepting the run — one automatic retry, then hard-fail without writing the out
+  // file (a malformed doc saved as the new baseline would poison every later diff).
   const commitmentDates = (fx.extraction.travel?.competing_commitments ?? []).map(c => c.date).filter((d): d is string => !!d)
   const planDateSpan = (fx.campDates ?? []).length
     ? { min: [fx.referenceDate, ...commitmentDates].sort()[0], max: isoAddDays(fx.campDates[fx.campDates.length - 1], 1) }
     : undefined
-  const errors = validateCampDoc(parsed, planDateSpan ? { planDateSpan } : undefined)
-  if (errors.length) console.warn(`  ⚠ shape validation: ${errors.join('; ')}`)
-  const doc = finalizeCampDoc(parsed, fx.player.home_timezone) as unknown as Record<string, unknown>
+  const outboundQuotes = buildOutboundQuoteCorpus(fx.contactLog, fx.player.home_timezone)
+  const t0 = Date.now()
+  const genOnce = async () => {
+    const msg = await anthropic.messages.create({
+      model: CAMP_DOC_MODEL, max_tokens: 16000,
+      system: buildCampDocSystemPrompt(),
+      messages: [{ role: 'user', content: buildCampDocUserPrompt(fx) }],
+    })
+    const parsed = extractJsonObject(msg.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')) as CampDoc
+    return { msg, parsed, errors: validateCampDoc(parsed, { ...(planDateSpan ? { planDateSpan } : {}), outboundQuotes }) }
+  }
+  let attempt = await genOnce()
+  if (attempt.errors.length) {
+    console.warn(`  ⚠ shape validation failed (attempt 1): ${attempt.errors.join('; ')} — retrying once`)
+    attempt = await genOnce()
+  }
+  if (attempt.errors.length) {
+    console.error(`  ✗ shape validation failed (attempt 2): ${attempt.errors.join('; ')} — NOT writing output`)
+    process.exit(1)
+  }
+  const message = attempt.msg
+  const secs = ((Date.now() - t0) / 1000).toFixed(1)
+  const doc = finalizeCampDoc(attempt.parsed, fx.player.home_timezone) as unknown as Record<string, unknown>
+
+  const tps = (doc as unknown as CampDoc).where_you_stand?.coach_touchpoints ?? []
+  const unpromptedCount = tps.filter(t => t.classification === 'unprompted').length
+  console.log(`\ncomputed classification: ${unpromptedCount} unprompted / ${tps.length} touchpoints`)
+  for (const t of tps) console.log(`  [${t.date}] ${(t.classification ?? '?').toUpperCase()} — evidence: ${t.preceding_outbound_quote === 'NO_PRIOR_MENTION' ? 'NO_PRIOR_MENTION' : `"${(t.preceding_outbound_quote || '').slice(0, 60)}" (${t.preceding_outbound_date})`}`)
 
   const outPath = fixturePath.replace(/\.json$/, '.out.json')
   const prevPath = fixturePath.replace(/\.json$/, '.prev.json')

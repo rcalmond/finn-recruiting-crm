@@ -42,7 +42,7 @@ function miniLabel(label: string, value: string): Content {
   return { text: [{ text: `${label}  `, bold: true, color: FAINT, fontSize: 9, characterSpacing: 1 }, { text: value, color: INK, fontSize: 11 }], margin: [0, 0, 0, 5] }
 }
 
-function buildDocDefinition(d: CampDoc): TDocumentDefinitions {
+function buildDocDefinition(d: CampDoc, generatedDate?: string): TDocumentDefinitions {
   const content: Content[] = []
   const M = d.masthead
 
@@ -166,7 +166,8 @@ function buildDocDefinition(d: CampDoc): TDocumentDefinitions {
     defaultStyle: { font: 'Helvetica', fontSize: 11, color: INK, lineHeight: 1.4 },
     footer: (currentPage: number, pageCount: number) => ({
       columns: [
-        { text: 'Throughball · powered by Regista', fontSize: 8, color: FAINT, italics: true, margin: [72, 0, 0, 0] },
+        // The generation date disambiguates a printed copy the moment the doc is regenerated.
+        { text: `Throughball · powered by Regista${generatedDate ? ` · generated ${generatedDate}` : ''}`, fontSize: 8, color: FAINT, italics: true, margin: [72, 0, 0, 0] },
         { text: `${currentPage} / ${pageCount}`, fontSize: 8, color: FAINT, alignment: 'right', margin: [0, 0, 72, 0] },
       ], margin: [0, 20, 0, 0],
     }),
@@ -190,8 +191,8 @@ const FONTS = {
 }
 const noopUrlResolver = { resolve: () => {}, resolved: () => [] }
 
-export async function generateCampDocPdf(data: CampDoc): Promise<Buffer> {
-  const docDefinition = buildDocDefinition(data)
+export async function generateCampDocPdf(data: CampDoc, opts?: { generatedDate?: string }): Promise<Buffer> {
+  const docDefinition = buildDocDefinition(data, opts?.generatedDate)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const printer = new (PdfPrinterClass as any)(FONTS, undefined, noopUrlResolver)
   const pdfDoc = await printer.createPdfKitDocument(docDefinition)

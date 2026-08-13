@@ -19,7 +19,7 @@ import { createClient } from '@/lib/supabase/server'
 import { fetchSchoolContext } from '@/lib/school-context'
 import { extractJsonObject } from '@/lib/agentic-research'
 import {
-  CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, finalizeCampDoc, isoAddDays,
+  CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, buildOutboundQuoteCorpus, finalizeCampDoc, isoAddDays,
   type CampDoc, type DocPlayerProfile, type DocSchoolListItem, type PreferencesRead,
 } from '@/lib/camp-doc'
 import { validateCampDoc } from '@/lib/camp-doc-validate'
@@ -159,10 +159,12 @@ export async function POST(req: NextRequest) {
           preferences,
         })
 
-        // Generate, then VALIDATE SHAPE before persisting. A malformed document (e.g.
-        // a run that hoists where_you_stand's fields to the top level) must look like a
-        // failure, not a silently-dropped section. One automatic retry; a second failure
+        // Generate, then VALIDATE SHAPE + EVIDENCE before persisting. A malformed
+        // document must look like a failure, not a silently-dropped section; a
+        // preceding-outbound quote that isn't verbatim in the thread is the same class
+        // of failure as a fabricated coach quote. One automatic retry; a second failure
         // is a reported error and the previous content is left intact (no write).
+        const outboundQuotes = buildOutboundQuoteCorpus(sctx.contactLog, player.home_timezone)
         const sys = buildCampDocSystemPrompt()
         const genOnce = async () => {
           const msg = await anthropic.messages.create({
@@ -173,7 +175,7 @@ export async function POST(req: NextRequest) {
           let parsed: unknown = null
           let parseErr: string | null = null
           try { parsed = extractJsonObject(raw) } catch (err) { parseErr = err instanceof Error ? err.message : String(err) }
-          const errors = parseErr ? [`json parse: ${parseErr}`] : validateCampDoc(parsed, { planDateSpan })
+          const errors = parseErr ? [`json parse: ${parseErr}`] : validateCampDoc(parsed, { planDateSpan, outboundQuotes })
           return { msg, doc: parsed as CampDoc, errors }
         }
 

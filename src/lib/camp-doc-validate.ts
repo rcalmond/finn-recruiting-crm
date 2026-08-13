@@ -12,11 +12,25 @@
  * strict on the fields the renderer depends on, lenient on prose content.
  */
 
+import { isNoPriorMention } from './camp-doc'
 import type { CampDoc } from './camp-doc'
 
 type Obj = Record<string, unknown>
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 const isStr = (v: unknown): v is string => typeof v === 'string'
+
+// Quote-vs-source comparison: normalize the punctuation and whitespace an email
+// pipeline mangles (curly quotes, dashes, runs of spaces) but nothing semantic.
+function normalizeQuote(s: string): string {
+  return s
+    .replace(/[‘’ʼ]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, '-')
+    .replace(/…/g, '...')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 function parseableIso(s: unknown): boolean {
@@ -27,8 +41,13 @@ function parseableIso(s: unknown): boolean {
  * @param opts.planDateSpan when provided (endpoint/harness), every plan day's `date`
  *   must fall within [min, max] inclusive (first dated commitment / today → return
  *   travel). Omitted for the render-time defensive check (no anchor context there).
+ * @param opts.outboundQuotes when provided (endpoint/harness), each touchpoint's
+ *   preceding_outbound_quote must appear VERBATIM in the outbound corpus for its
+ *   preceding_outbound_date (see buildOutboundQuoteCorpus). A quote that isn't in the
+ *   source is the same class of failure as a fabricated coach quote. Omitted at
+ *   render time (no thread context there).
  */
-export function validateCampDoc(doc: unknown, opts?: { planDateSpan?: { min: string; max: string } }): string[] {
+export function validateCampDoc(doc: unknown, opts?: { planDateSpan?: { min: string; max: string }; outboundQuotes?: Record<string, string> }): string[] {
   const e: string[] = []
   if (!isObj(doc)) return ['root: not an object']
 
@@ -49,7 +68,21 @@ export function validateCampDoc(doc: unknown, opts?: { planDateSpan?: { min: str
     else w.coach_touchpoints.forEach((t, i) => {
       if (!isObj(t)) { e.push(`coach_touchpoints[${i}]: not an object`); return }
       if (!isStr(t.date)) e.push(`coach_touchpoints[${i}].date: expected string`)
-      if (t.classification !== 'unprompted' && t.classification !== 'responsive') e.push(`coach_touchpoints[${i}].classification: expected 'unprompted'|'responsive'`)
+      // Phase 6.2: the model emits evidence; the label is computed in finalizeCampDoc.
+      const q = t.preceding_outbound_quote
+      if (!isStr(q) || !q.trim()) {
+        e.push(`coach_touchpoints[${i}].preceding_outbound_quote: expected a verbatim outbound quote or NO_PRIOR_MENTION (missing evidence — cannot classify)`)
+      } else if (!isNoPriorMention(q)) {
+        if (!isStr(t.preceding_outbound_date) || !t.preceding_outbound_date.trim()) {
+          e.push(`coach_touchpoints[${i}].preceding_outbound_date: required when a preceding-outbound quote is given`)
+        } else if (opts?.outboundQuotes) {
+          const corpus = opts.outboundQuotes[t.preceding_outbound_date]
+          if (!corpus) e.push(`coach_touchpoints[${i}]: no outbound message on ${t.preceding_outbound_date} to quote from`)
+          else if (!normalizeQuote(corpus).includes(normalizeQuote(q))) {
+            e.push(`coach_touchpoints[${i}].preceding_outbound_quote: not found verbatim in the ${t.preceding_outbound_date} outbound (same failure class as a fabricated coach quote)`)
+          }
+        }
+      }
       if (t.quote !== null && !isStr(t.quote)) e.push(`coach_touchpoints[${i}].quote: expected string or null`)
       if (!isStr(t.what)) e.push(`coach_touchpoints[${i}].what: expected string`)
     })

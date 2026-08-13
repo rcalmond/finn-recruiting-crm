@@ -32,7 +32,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const admin = serviceClient()
   const { data: doc, error } = await admin
     .from('prep_docs')
-    .select('content, school_id, camp_name_snapshot, camp_dates_snapshot, doc_type')
+    .select('content, school_id, camp_name_snapshot, camp_dates_snapshot, doc_type, generated_at')
     .eq('id', id)
     .single()
 
@@ -45,8 +45,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const errs = validateCampDoc(doc.content)
   if (errs.length) return NextResponse.json({ error: `Document is malformed and cannot be rendered: ${errs.slice(0, 4).join('; ')}` }, { status: 422 })
 
+  const generatedDate = doc.generated_at
+    ? new Date(doc.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : undefined
   let pdf: Buffer
-  try { pdf = await generateCampDocPdf(doc.content as CampDoc) }
+  try { pdf = await generateCampDocPdf(doc.content as CampDoc, { generatedDate }) }
   catch (err) { return NextResponse.json({ error: `PDF build failed: ${err instanceof Error ? err.message : 'unknown'}` }, { status: 500 }) }
 
   const storagePath = `camp-prep/${doc.school_id}/${id}.pdf`
