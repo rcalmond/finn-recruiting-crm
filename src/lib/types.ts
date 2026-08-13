@@ -465,17 +465,28 @@ export interface PrepResult {
 
 export type CallPrepSource = 'generated' | 'uploaded'
 
+export type PrepDocType = 'call' | 'camp'
+
 export interface CallPrepDoc {
   id: string
   school_id: string
   coach_id: string | null
   coach_name_snapshot: string
   framing_notes: string | null
-  storage_path: string
+  storage_path: string | null      // null for a camp draft (no file yet)
   tool_call_count: number | null
   source: CallPrepSource
   generated_at: string
   created_at: string
+  // Camp-prep extensions (migrations 2-4). Null on legacy call docs.
+  doc_type: PrepDocType
+  camp_id: string | null
+  research_id: string | null
+  camp_name_snapshot: string | null
+  camp_dates_snapshot: string | null
+  inputs: import('./camp-prep').CampPrepInputs | null
+  extracted_schedule: import('./camp-prep').CampExtraction | null
+  content: unknown | null
 }
 
 // ─── Coaches ──────────────────────────────────────────────────────────────────

@@ -3,7 +3,9 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useCamps, useSchools } from '@/hooks/useRealtimeData'
+import { useCamps, useSchools, useCampPrepDoc } from '@/hooks/useRealtimeData'
+import { createClient } from '@/lib/supabase/client'
+import CampPrepModal from '@/components/CampPrepModal'
 import type { CampWithRelations, CampFinnStatusValue, Category, School } from '@/lib/types'
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
@@ -97,6 +99,9 @@ export default function CampDetailClient({ campId }: { campId: string }) {
         onAdd={addSchoolAttendee}
         onRemove={removeSchoolAttendee}
       />
+
+      {/* Prep doc */}
+      <CampPrepSection camp={campData} />
 
       {/* Delete */}
       <DeleteSection campId={campId} onDelete={deleteCamp} onDeleted={() => router.push('/calendar')} />
@@ -680,6 +685,78 @@ function AttendeesSection({ camp, schools, onAdd, onRemove }: {
       )}
     </div>
   )
+}
+
+// ─── Prep doc (camp) ─────────────────────────────────────────────────────────
+
+const PP = {
+  warmWhite: '#FFFDF9', cream: '#FBF6EC', ink: '#1A1A1A', muted: '#6B655A',
+  faint: '#8A8478', line: '#E2DBC9', line2: '#D3CAB3', pitch: '#1F6B48', danger: '#9A0B23',
+}
+
+function CampPrepSection({ camp }: { camp: CampWithRelations }) {
+  const { doc, loading, refetch } = useCampPrepDoc(camp.camp.id)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const supabase = useMemo(() => createClient(), [])
+
+  const ext = doc?.extracted_schedule ?? null
+  const dayCount = ext?.days?.length ?? 0
+  const constraintCount = ext?.hard_constraints?.length ?? 0
+
+  async function discard() {
+    if (!doc) return
+    await supabase.from('prep_docs').delete().eq('id', doc.id)
+    setConfirmDiscard(false)
+    refetch()
+  }
+
+  return (
+    <div style={{ marginTop: 28, background: PP.warmWhite, border: `1px solid ${PP.line}`, borderRadius: 12, padding: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, fontStyle: 'italic', letterSpacing: '-0.02em', color: PP.ink }}>
+            Prep doc<span style={{ color: PP.pitch }}>.</span>
+          </h3>
+          <div style={{ marginTop: 3, fontSize: 12, color: PP.muted, lineHeight: 1.5 }}>
+            {loading ? 'Loading…'
+              : doc ? `Draft saved${doc.camp_dates_snapshot ? ` · ${doc.camp_dates_snapshot}` : ''} — ${dayCount} day${dayCount === 1 ? '' : 's'}, ${constraintCount} hard constraint${constraintCount === 1 ? '' : 's'}. Document generation is the next step.`
+              : 'Turn the camp email and your travel notes into a confirmed prep sheet — schedule, check-in, surface, and the operational constraints.'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          {doc && !confirmDiscard && (
+            <button onClick={() => setConfirmDiscard(true)} style={ghostBtn(PP.danger)}>Discard</button>
+          )}
+          {confirmDiscard && (
+            <>
+              <button onClick={discard} style={{ ...ghostBtn(PP.danger), background: PP.danger, color: PP.cream, border: 'none' }}>Confirm discard</button>
+              <button onClick={() => setConfirmDiscard(false)} style={ghostBtn(PP.muted)}>Cancel</button>
+            </>
+          )}
+          {!confirmDiscard && (
+            <button onClick={() => setModalOpen(true)} style={{ padding: '7px 15px', borderRadius: 999, border: 'none', background: PP.pitch, color: PP.cream, fontSize: 12.5, fontWeight: 650, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              {doc ? 'Resume' : 'Generate prep doc'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {modalOpen && (
+        <CampPrepModal
+          campId={camp.camp.id}
+          campName={camp.camp.name}
+          existingDoc={doc ? { id: doc.id, inputs: doc.inputs, extracted_schedule: doc.extracted_schedule } : null}
+          onClose={() => setModalOpen(false)}
+          onSaved={refetch}
+        />
+      )}
+    </div>
+  )
+}
+
+function ghostBtn(color: string): React.CSSProperties {
+  return { padding: '7px 13px', borderRadius: 999, border: `1.3px solid ${color}40`, background: 'transparent', color, fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }
 }
 
 // ─── Delete ──────────────────────────────────────────────────────────────────

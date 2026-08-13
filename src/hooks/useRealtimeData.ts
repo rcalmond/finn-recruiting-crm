@@ -774,6 +774,7 @@ export function useCallPrepDocs(schoolId?: string) {
       .from('prep_docs')
       .select('*')
       .eq('school_id', schoolId)
+      .eq('doc_type', 'call')          // camp docs live on the camp detail page, not here
       .order('generated_at', { ascending: false })
     if (error) {
       console.error('[useCallPrepDocs] fetch error:', error)
@@ -786,6 +787,33 @@ export function useCallPrepDocs(schoolId?: string) {
   useEffect(() => { fetchDocs() }, [fetchDocs])
 
   return { docs, loading, refetch: fetchDocs }
+}
+
+// ─── Camp prep doc (one per camp; drafts have null content/storage_path) ─────
+
+export function useCampPrepDoc(campId?: string) {
+  const [doc, setDoc] = useState<CallPrepDoc | null>(null)
+  const [loading, setLoading] = useState(true)
+  const supabase = useMemo(() => createClient(), [])
+
+  const fetchDoc = useCallback(async () => {
+    if (!campId) { setDoc(null); setLoading(false); return }
+    const { data, error } = await supabase
+      .from('prep_docs')
+      .select('*')
+      .eq('camp_id', campId)
+      .eq('doc_type', 'camp')
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) console.error('[useCampPrepDoc] fetch error:', error)
+    setDoc((data as CallPrepDoc | null) ?? null)
+    setLoading(false)
+  }, [supabase, campId])
+
+  useEffect(() => { fetchDoc() }, [fetchDoc])
+
+  return { doc, loading, refetch: fetchDoc }
 }
 
 // ─── School research (the shared per-school research asset) ──────────────────
