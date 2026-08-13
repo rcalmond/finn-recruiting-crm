@@ -57,7 +57,7 @@ async function main() {
   }
 
   const digest = await extractDeclaredFacts(db, anthropic, player.home_timezone)
-  console.error(`declared-facts digest: ${digest.facts.length} facts / ${digest.candidateCount} candidates / ~${digest.inputTokens} tokens`)
+  console.error(`declared-facts digest: status=${digest.status} / ${digest.facts.length} facts / ${digest.candidateCount} candidates / ~${digest.inputTokens} tokens`)
   console.error('generating doc (Opus)…')
   const userPrompt = buildCampDocUserPrompt({
     today: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: player.home_timezone }),
@@ -65,7 +65,7 @@ async function main() {
     extraction: draft!.extracted_schedule as CampExtraction, inputs: (draft!.inputs as CampPrepInputs),
     contactLog: sctx.contactLog, coaches: sctx.coaches, offers: sctx.offers,
     research: research?.snapshot ?? null, researchStatus: research?.status ?? null,
-    schoolName: sctx.school!.name, schoolList, declaredFacts: digest.facts,
+    schoolName: sctx.school!.name, schoolList, declaredFacts: digest,
   })
   const message = await anthropic.messages.create({ model: CAMP_DOC_MODEL, max_tokens: 16000, system: buildCampDocSystemPrompt(), messages: [{ role: 'user', content: userPrompt }] })
   const rawText = message.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')

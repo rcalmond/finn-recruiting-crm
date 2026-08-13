@@ -63,6 +63,19 @@ export async function POST(req: NextRequest) {
         const sctx = await fetchSchoolContext(db, draft.school_id)
         if (!sctx.school) { send('error', { message: 'Host school not found.' }); controller.close(); return }
 
+        // Fail-closed guard: fetchSchoolContext swallows query errors (empty thread ==
+        // failed fetch). A silent thread-fetch failure must NOT become a confident
+        // "cold relationship / nothing has happened yet" in §1/§2. Verify the thread.
+        const { count: threadCount, error: threadErr } = await db
+          .from('contact_log')
+          .select('id', { count: 'exact', head: true })
+          .eq('school_id', draft.school_id)
+          .not('parse_status', 'in', '("orphan","non_coach")')
+        if (threadErr || ((threadCount ?? 0) > 0 && sctx.contactLog.length === 0)) {
+          send('error', { message: 'Could not load the coach thread reliably — refusing to generate (the document would misread the relationship).' })
+          controller.close(); return
+        }
+
         // ── Current research ──
         const research = await getCurrentResearch(db, draft.school_id)
 
@@ -99,6 +112,8 @@ export async function POST(req: NextRequest) {
         // ── Cross-thread declared-facts digest (calibration only) ──
         send('progress', { stage: 'calibration', message: 'Scanning all threads for declared preferences…' })
         const digest = await extractDeclaredFacts(db, anthropic, player.home_timezone)
+        console.log(`[camp-prep/generate] declared-facts digest: status=${digest.status} facts=${digest.facts.length} candidates=${digest.candidateCount}${digest.reason ? ` reason=${digest.reason}` : ''}`)
+        if (digest.status === 'failed') console.warn(`[camp-prep/generate] digest FAILED — calibration will degrade (no absence assertion): ${digest.reason}`)
 
         // ── Generate ──
         send('progress', { stage: 'generate', message: 'Regista is writing the document (Opus)…' })
@@ -116,7 +131,7 @@ export async function POST(req: NextRequest) {
           researchStatus: research?.status ?? null,
           schoolName: sctx.school.name,
           schoolList,
-          declaredFacts: digest.facts,
+          declaredFacts: digest,
         })
 
         const message = await anthropic.messages.create({
@@ -139,7 +154,7 @@ export async function POST(req: NextRequest) {
         send('complete', {
           docId,
           usedResearch: !!research,
-          declaredFacts: { count: digest.facts.length, candidatesScanned: digest.candidateCount, extractionInputTokens: digest.inputTokens },
+          declaredFacts: { status: digest.status, count: digest.facts.length, reason: digest.reason ?? null, candidatesScanned: digest.candidateCount, extractionInputTokens: digest.inputTokens },
           usage: { inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens },
           counts: {
             touchpoints: doc.where_you_stand?.coach_touchpoints?.length ?? 0,

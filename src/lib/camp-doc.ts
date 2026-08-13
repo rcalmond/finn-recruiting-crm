@@ -87,6 +87,16 @@ export interface DocSchoolListItem { name: string; tier: string; stage: number; 
 
 export interface DeclaredFact { school: string; date: string; kind: string; quote: string }
 
+// A discriminated result so 'nothing was declared' (empty) can never be confused
+// with 'the lookup failed' (failed). Downstream must NOT assert absence on 'failed'.
+export interface DeclaredFactsResult {
+  status: 'ok' | 'empty' | 'failed'
+  facts: DeclaredFact[]
+  reason?: string
+  candidateCount: number
+  inputTokens: number
+}
+
 // Coarse pre-filter to bound the corpus before the Sonnet extraction. Declarations
 // are keyword-rich; Sonnet does the precision + verbatim quoting.
 const DECLARATION_RE = /top choice|first choice|number one|#1|top of my list|high(?:est)? on my list|committed|\bcommit\b|decid|\bchose\b|choosing|going with|pre.?read|\boffer|dream school|my (?:top|number|favou?rite)|priority/i
@@ -102,24 +112,26 @@ export async function extractDeclaredFacts(
   admin: SupabaseClient<any, any, any>,
   anthropic: Anthropic,
   homeTz: string,
-): Promise<{ facts: DeclaredFact[]; candidateCount: number; inputTokens: number }> {
-  const { data } = await admin
-    .from('contact_log')
-    .select('date, sent_at, direction, summary, raw_source, schools(name)')
-    .eq('direction', 'Outbound')
-    .not('parse_status', 'in', '("orphan","non_coach")')
-    .order('sent_at', { ascending: true })
+): Promise<DeclaredFactsResult> {
+  try {
+    const { data, error } = await admin
+      .from('contact_log')
+      .select('date, sent_at, direction, summary, raw_source, schools(name)')
+      .eq('direction', 'Outbound')
+      .not('parse_status', 'in', '("orphan","non_coach")')
+      .order('sent_at', { ascending: true })
+    if (error) return { status: 'failed', facts: [], reason: `outbound query failed: ${error.message}`, candidateCount: 0, inputTokens: 0 }
 
-  const rows = (data ?? []) as Array<{ date: string; sent_at: string; summary: string | null; raw_source: string | null; schools: { name: string } | { name: string }[] | null }>
-  const candidates = rows.filter(r => DECLARATION_RE.test(r.summary ?? '') || DECLARATION_RE.test(r.raw_source ?? ''))
-  if (candidates.length === 0) return { facts: [], candidateCount: 0, inputTokens: 0 }
+    const rows = (data ?? []) as Array<{ date: string; sent_at: string; summary: string | null; raw_source: string | null; schools: { name: string } | { name: string }[] | null }>
+    const candidates = rows.filter(r => DECLARATION_RE.test(r.summary ?? '') || DECLARATION_RE.test(r.raw_source ?? ''))
+    if (candidates.length === 0) return { status: 'empty', facts: [], candidateCount: 0, inputTokens: 0 }
 
-  const body = candidates.map(r => {
-    const school = Array.isArray(r.schools) ? r.schools[0]?.name : r.schools?.name
-    return `[SCHOOL: ${school ?? '?'} | ${localDate(r.sent_at, homeTz, r.date)}]\n${cleanRawSource(r.raw_source || r.summary || '')}`
-  }).join('\n\n---\n\n')
+    const body = candidates.map(r => {
+      const school = Array.isArray(r.schools) ? r.schools[0]?.name : r.schools?.name
+      return `[SCHOOL: ${school ?? '?'} | ${localDate(r.sent_at, homeTz, r.date)}]\n${cleanRawSource(r.raw_source || r.summary || '')}`
+    }).join('\n\n---\n\n')
 
-  const sys = `You extract FAMILY-DECLARED FACTS from a college-soccer recruit's own OUTBOUND emails across many schools — facts that CONSTRAIN what can be said to OTHER schools.
+    const sys = `You extract FAMILY-DECLARED FACTS from a college-soccer recruit's own OUTBOUND emails across many schools — facts that CONSTRAIN what can be said to OTHER schools.
 
 CRITICAL — distinguish a real declaration from routine outreach enthusiasm. In first-contact / intro emails a recruit tells MANY schools they are "a top choice" or "very interested" or "high on my list", usually with reasons ("X is a top choice because of its engineering..."). That is INTEREST, not a ranking, and you MUST EXCLUDE it — a recruit who calls five schools "a top choice" in intros has ranked none of them. Extract a preference/ranking ONLY when it is a CURRENT, SINGULAR declaration stated as fact — "X is my top choice", "you're my #1", "I've committed to Y", "I've decided on Z" — typically later in a relationship, not generic enthusiasm in an intro. When in doubt, EXCLUDE.
 
@@ -127,14 +139,20 @@ Also extract: firm commitments or decisions communicated to a program; pre-reads
 
 For each qualifying fact give the school, the date shown, a short "kind", and a VERBATIM "quote" from the text. Return ONLY JSON: { "facts": [ { "school": "...", "date": "...", "kind": "preference|commitment|pre_read|offer|other", "quote": "verbatim" } ] }. If nothing qualifies return { "facts": [] }.`
 
-  const msg = await anthropic.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 4000, system: sys, messages: [{ role: 'user', content: body }] })
-  if (msg.stop_reason === 'max_tokens') console.warn('[extractDeclaredFacts] extraction hit max_tokens — digest may be truncated')
-  const raw = msg.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')
-  let facts: DeclaredFact[] = []
-  try { facts = (extractJsonObject(raw) as { facts?: DeclaredFact[] }).facts ?? [] } catch (err) {
-    console.error('[extractDeclaredFacts] digest parse failed:', err instanceof Error ? err.message : err)
+    const msg = await anthropic.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 4000, system: sys, messages: [{ role: 'user', content: body }] })
+    if (msg.stop_reason === 'max_tokens') {
+      return { status: 'failed', facts: [], reason: 'extraction truncated (hit max_tokens)', candidateCount: candidates.length, inputTokens: msg.usage.input_tokens }
+    }
+    const raw = msg.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')
+    let parsed: { facts?: DeclaredFact[] }
+    try { parsed = extractJsonObject(raw) as { facts?: DeclaredFact[] } } catch (err) {
+      return { status: 'failed', facts: [], reason: `digest parse failed: ${err instanceof Error ? err.message : err}`, candidateCount: candidates.length, inputTokens: msg.usage.input_tokens }
+    }
+    const facts = parsed.facts ?? []
+    return { status: facts.length > 0 ? 'ok' : 'empty', facts, candidateCount: candidates.length, inputTokens: msg.usage.input_tokens }
+  } catch (err) {
+    return { status: 'failed', facts: [], reason: err instanceof Error ? err.message : 'unknown error', candidateCount: 0, inputTokens: 0 }
   }
-  return { facts, candidateCount: candidates.length, inputTokens: msg.usage.input_tokens }
 }
 
 // ─── Prompt builders ───────────────────────────────────────────────────────────
@@ -168,7 +186,11 @@ SECTIONS
 
 2. THE MISSION:
    - RUBRIC HUNT: scan the thread for any moment a coach said what they want to see. If found, quote it verbatim (set rubric_found true, put it in rubric_quote) and make it the mission. If not found, set rubric_found false and say so explicitly, then derive a mission from position, stage, and the camp format.
-   - CALIBRATION: use BOTH the whole-list metadata (tiers/stages/offers) AND the FAMILY-DECLARED FACTS digest (declarations the family made across ALL schools, not just this one). State how to talk about this school relative to the others — what language is and isn't on the table, and any second-order effect (peer programs talk to each other). CROSS-THREAD RULE: if the family declared a preference/top-choice/commitment to ANOTHER school, calibration for THIS school must RESPECT it — warm and true, but no language that contradicts or supersedes that declaration (e.g. do not coach the player to call this school #1 if they've told another program it's their top choice). CITE the declaration (school, date, quote) so the family sees why. If the digest says NONE FOUND, state plainly that no preference is on record anywhere and instruct against manufacturing a ranking. Never invent a ranking the family didn't state.
+   - CALIBRATION: use BOTH the whole-list metadata (tiers/stages/offers) AND the FAMILY-DECLARED FACTS digest. State how to talk about this school relative to the others — what language is and isn't on the table, and any second-order effect (peer programs talk to each other). Follow the digest's status EXACTLY:
+     * If it lists declarations (status ok): if the family declared a preference/top-choice/commitment to ANOTHER school, RESPECT it — warm and true, but no language that contradicts or supersedes it (do not coach the player to call THIS school #1 if they've told another program it's their top choice). CITE the declaration (school, date, quote). If the declaration is about THIS school, being consistent with it (including #1 language) is honest.
+     * If it says NONE FOUND (status empty — the lookup ran and found nothing): state plainly that no preference is on record anywhere and instruct against manufacturing a ranking.
+     * If it says LOOKUP FAILED (status failed): you have NOT verified what's been declared. Do NOT assert absence and do NOT state or imply a ranking either way — give guidance that doesn't depend on the cross-school picture. NEVER turn a failed lookup into "nothing has been declared."
+     Never invent a ranking the family didn't state.
 
 GENERAL PRINCIPLE (§1 and §2): every comparative or asymmetry claim is evidence-anchored — tied to a specific message, offer, or stage — or it is not made. Do not produce a confident summary judgment when the specific evidence is available and unexamined.
 
@@ -234,7 +256,7 @@ export function buildCampDocUserPrompt(ctx: {
   researchStatus: string | null
   schoolName: string
   schoolList: DocSchoolListItem[]
-  declaredFacts: DeclaredFact[]
+  declaredFacts: DeclaredFactsResult
 }): string {
   const L: string[] = []
   const P = ctx.player
@@ -291,10 +313,13 @@ export function buildCampDocUserPrompt(ctx: {
   for (const s of ctx.schoolList) L.push(`- ${s.name}: tier ${s.tier}, stage ${s.stage}, ${s.status}${s.has_offer ? ', HAS OFFER' : ''}`)
   L.push('')
   L.push('=== FAMILY-DECLARED FACTS ACROSS ALL SCHOOLS (for CALIBRATION only — the family said these to a program; they constrain what you can say here) ===')
-  if (ctx.declaredFacts.length === 0) {
-    L.push('NONE FOUND. Checked every school\'s outbound messages — the family has NOT declared a top choice, commitment, or ranking anywhere. Do NOT manufacture one; say plainly that no preference is on record.')
+  const df = ctx.declaredFacts
+  if (df.status === 'failed') {
+    L.push(`LOOKUP FAILED (${df.reason ?? 'unknown'}). The cross-school declaration check did NOT run successfully. You MUST NOT assert that nothing has been declared and MUST NOT state or imply a ranking either way. Degrade: give calibration guidance that does not depend on knowing the family's declared preferences, and note that the cross-school picture could not be verified this run if it is relevant.`)
+  } else if (df.status === 'empty') {
+    L.push('NONE FOUND. The lookup ran successfully across every school\'s outbound messages and found NO declared top choice, commitment, or ranking. You may state plainly that no preference is on record anywhere; do NOT manufacture one.')
   } else {
-    for (const f of ctx.declaredFacts) L.push(`- [${f.school} | ${f.date}] (${f.kind}) "${f.quote}"`)
+    for (const f of df.facts) L.push(`- [${f.school} | ${f.date}] (${f.kind}) "${f.quote}"`)
   }
   L.push('')
   L.push('Now produce the JSON document. Second person, honest, every quote verbatim, every hard constraint placed at its moment, deduped. Return ONLY the JSON.')

@@ -10,10 +10,10 @@ import Anthropic from '@anthropic-ai/sdk'
 import { fetchSchoolContext } from '../src/lib/school-context'
 import { getCurrentResearch } from '../src/lib/school-research'
 import { extractJsonObject } from '../src/lib/agentic-research'
-import { CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, extractDeclaredFacts, type DocPlayerProfile, type DocSchoolListItem, type DeclaredFact } from '../src/lib/camp-doc'
+import { CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, extractDeclaredFacts, type DocPlayerProfile, type DocSchoolListItem, type DeclaredFactsResult } from '../src/lib/camp-doc'
 import type { CampExtraction } from '../src/lib/camp-prep'
 
-async function runOne(db: any, anthropic: Anthropic, schoolQuery: string, player: DocPlayerProfile, schoolList: DocSchoolListItem[], declaredFacts: DeclaredFact[]) {
+async function runOne(db: any, anthropic: Anthropic, schoolQuery: string, player: DocPlayerProfile, schoolList: DocSchoolListItem[], declaredFacts: DeclaredFactsResult) {
   const { data: school } = await db.from('schools').select('id, name').ilike('name', `%${schoolQuery}%`).limit(1).single()
   const sctx = await fetchSchoolContext(db, school.id)
   const research = await getCurrentResearch(db, school.id)
@@ -48,10 +48,10 @@ async function main() {
   const schoolList: DocSchoolListItem[] = (allSchools ?? []).map((s: any) => ({ name: s.name, tier: s.category, stage: s.recruiting_stage, status: s.status, has_offer: offerSet.has(s.id) }))
 
   const digest = await extractDeclaredFacts(db, anthropic, player.home_timezone)
-  console.log(`\n=== CROSS-THREAD DIGEST: ${digest.facts.length} facts from ${digest.candidateCount} candidates (~${digest.inputTokens} extraction input tokens) ===`)
+  console.log(`\n=== CROSS-THREAD DIGEST: status=${digest.status} · ${digest.facts.length} facts from ${digest.candidateCount} candidates (~${digest.inputTokens} extraction input tokens)${digest.reason ? ` · reason=${digest.reason}` : ''} ===`)
   for (const f of digest.facts) console.log(`  [${f.school} | ${f.date}] (${f.kind}) "${f.quote}"`)
 
-  await runOne(db, anthropic, 'middlebury', player, schoolList, digest.facts)
-  await runOne(db, anthropic, 'colby', player, schoolList, digest.facts)
+  await runOne(db, anthropic, 'middlebury', player, schoolList, digest)
+  await runOne(db, anthropic, 'colby', player, schoolList, digest)
 }
 main().catch(e => { console.error('FATAL', e); process.exit(1) })
