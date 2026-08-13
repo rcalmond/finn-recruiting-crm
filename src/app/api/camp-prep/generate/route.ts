@@ -22,6 +22,7 @@ import {
   CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt,
   type CampDoc, type DocPlayerProfile, type DocSchoolListItem, type PreferencesRead,
 } from '@/lib/camp-doc'
+import { validateCampDoc } from '@/lib/camp-doc-validate'
 import type { CampExtraction, CampPrepInputs } from '@/lib/camp-prep'
 
 export const runtime = 'nodejs'
@@ -138,14 +139,37 @@ export async function POST(req: NextRequest) {
           preferences,
         })
 
-        const message = await anthropic.messages.create({
-          model: CAMP_DOC_MODEL,
-          max_tokens: 16000,
-          system: buildCampDocSystemPrompt(),
-          messages: [{ role: 'user', content: userPrompt }],
-        })
-        const raw = message.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')
-        const doc = extractJsonObject(raw) as CampDoc
+        // Generate, then VALIDATE SHAPE before persisting. A malformed document (e.g.
+        // a run that hoists where_you_stand's fields to the top level) must look like a
+        // failure, not a silently-dropped section. One automatic retry; a second failure
+        // is a reported error and the previous content is left intact (no write).
+        const sys = buildCampDocSystemPrompt()
+        const genOnce = async () => {
+          const msg = await anthropic.messages.create({
+            model: CAMP_DOC_MODEL, max_tokens: 16000, system: sys,
+            messages: [{ role: 'user', content: userPrompt }],
+          })
+          const raw = msg.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')
+          let parsed: unknown = null
+          let parseErr: string | null = null
+          try { parsed = extractJsonObject(raw) } catch (err) { parseErr = err instanceof Error ? err.message : String(err) }
+          const errors = parseErr ? [`json parse: ${parseErr}`] : validateCampDoc(parsed)
+          return { msg, doc: parsed as CampDoc, errors }
+        }
+
+        let attempt = await genOnce()
+        if (attempt.errors.length) {
+          console.warn(`[camp-prep/generate] shape validation failed (attempt 1): ${attempt.errors.join('; ')} — retrying once`)
+          send('progress', { stage: 'generate', message: 'Document came back malformed — regenerating once…' })
+          attempt = await genOnce()
+        }
+        if (attempt.errors.length) {
+          console.error(`[camp-prep/generate] shape validation failed (attempt 2): ${attempt.errors.join('; ')} — refusing to persist`)
+          send('error', { message: `The generated document failed shape validation and was NOT saved (previous content left intact). Problems: ${attempt.errors.slice(0, 6).join('; ')}${attempt.errors.length > 6 ? ` …(+${attempt.errors.length - 6} more)` : ''}` })
+          controller.close(); return
+        }
+        const message = attempt.msg
+        const doc = attempt.doc
 
         // ── Persist ──
         send('progress', { stage: 'save', message: 'Saving document…' })

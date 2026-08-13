@@ -1,0 +1,64 @@
+/**
+ * GET /api/camp-prep/pdf/[id]
+ *
+ * Phase 6 — camp prep PDF. Builds the PDF from prep_docs.content via the camp-doc
+ * renderer (NOT the call-prep renderer), uploads it to the assets bucket, sets
+ * prep_docs.storage_path, and streams it back as an attachment. Building on demand
+ * keeps the PDF in lockstep with the current content; the upload satisfies the
+ * "write to the bucket + set storage_path" requirement.
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { generateCampDocPdf } from '@/lib/camp-doc-pdf'
+import { validateCampDoc } from '@/lib/camp-doc-validate'
+import type { CampDoc } from '@/lib/camp-doc'
+
+export const runtime = 'nodejs'
+export const maxDuration = 120
+
+function serviceClient() {
+  return createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+}
+function safe(s: string) { return (s || '').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '') || 'camp' }
+
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const admin = serviceClient()
+  const { data: doc, error } = await admin
+    .from('prep_docs')
+    .select('content, school_id, camp_name_snapshot, camp_dates_snapshot, doc_type')
+    .eq('id', id)
+    .single()
+
+  if (error || !doc) return NextResponse.json({ error: 'Doc not found' }, { status: 404 })
+  if (doc.doc_type !== 'camp') return NextResponse.json({ error: 'Not a camp document' }, { status: 400 })
+  if (!doc.content) return NextResponse.json({ error: 'No document has been generated yet' }, { status: 400 })
+
+  // Defensive: only render a shape-valid document (the endpoint won't persist an
+  // invalid one, but a hand-written or legacy row could still be malformed).
+  const errs = validateCampDoc(doc.content)
+  if (errs.length) return NextResponse.json({ error: `Document is malformed and cannot be rendered: ${errs.slice(0, 4).join('; ')}` }, { status: 422 })
+
+  let pdf: Buffer
+  try { pdf = await generateCampDocPdf(doc.content as CampDoc) }
+  catch (err) { return NextResponse.json({ error: `PDF build failed: ${err instanceof Error ? err.message : 'unknown'}` }, { status: 500 }) }
+
+  const storagePath = `camp-prep/${doc.school_id}/${id}.pdf`
+  const { error: upErr } = await admin.storage.from('assets').upload(storagePath, pdf, { contentType: 'application/pdf', upsert: true })
+  if (upErr) return NextResponse.json({ error: `Storage upload failed: ${upErr.message}` }, { status: 500 })
+  await admin.from('prep_docs').update({ storage_path: storagePath }).eq('id', id)
+
+  const fileName = `Camp_Prep_${safe(doc.camp_name_snapshot ?? 'camp')}_${safe(doc.camp_dates_snapshot ?? '')}.pdf`.replace(/_\.pdf$/, '.pdf')
+  return new NextResponse(new Uint8Array(pdf), {
+    headers: {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${fileName}"`,
+    },
+  })
+}

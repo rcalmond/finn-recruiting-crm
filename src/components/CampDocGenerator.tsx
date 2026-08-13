@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import CampDocView from '@/components/CampDocView'
 
-// Throughball chrome. Content viewer is deliberately raw JSON — Phase 5 judges
-// content, not looks.
+// Throughball chrome. Controls only; the document itself renders via CampDocView.
 //
 // Phase 5.5: the document no longer reads school_research, so the staleness gate and
 // the refresh-before-generate confirmation are gone. Generate is now one click.
+// Phase 6: the raw JSON viewer was replaced by the rendered document + PDF/print.
 const G = {
   warmWhite:'#FFFDF9', cream:'#FBF6EC', ink:'#1A1A1A', inkMid:'#4A4A4A', muted:'#6B655A',
   faint:'#8A8478', line:'#E2DBC9', line2:'#D3CAB3', pitch:'#1F6B48', danger:'#9A0B23',
@@ -47,7 +48,6 @@ export default function CampDocGenerator({
   const [state, setState] = useState<State>('idle')
   const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
-  const [showJson, setShowJson] = useState(false)
 
   async function runGenerate() {
     setState('generating'); setProgress('Starting…'); setError('')
@@ -67,12 +67,15 @@ export default function CampDocGenerator({
 
   return (
     <div style={{ marginTop: 12, borderTop: `1px solid ${G.line}`, paddingTop: 12 }}>
-      {/* Controls */}
+      {/* Controls (hidden in print) */}
       {state === 'idle' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div className="tb-noprint" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <button onClick={runGenerate} style={pitchBtn}>{content ? 'Regenerate document' : 'Generate document'}</button>
           {content != null && (
-            <button onClick={() => setShowJson(s => !s)} style={ghost}>{showJson ? 'Hide' : 'View'} document JSON</button>
+            <>
+              <a href={`/api/camp-prep/pdf/${docId}`} style={{ ...ghost, textDecoration: 'none', display: 'inline-block' }}>Download PDF</a>
+              <button onClick={() => window.print()} style={ghost}>Print</button>
+            </>
           )}
         </div>
       )}
@@ -86,18 +89,14 @@ export default function CampDocGenerator({
       )}
 
       {state === 'error' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="tb-noprint" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 13, color: G.danger, background: '#FCE4E8', border: `1px solid ${G.line}`, borderRadius: 8, padding: '9px 12px', lineHeight: 1.45 }}>{error}</div>
           <button onClick={() => setState('idle')} style={ghost}>Back</button>
         </div>
       )}
 
-      {/* Raw JSON viewer */}
-      {content != null && showJson && state === 'idle' && (
-        <pre style={{ marginTop: 12, maxHeight: 460, overflow: 'auto', background: '#1A1A1A', color: '#E7E2D6', fontSize: 11.5, lineHeight: 1.5, padding: 14, borderRadius: 8, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-          {JSON.stringify(content, null, 2)}
-        </pre>
-      )}
+      {/* Rendered document (read-only). Tolerates null content. */}
+      {content != null && state === 'idle' && <CampDocView content={content} />}
     </div>
   )
 }
