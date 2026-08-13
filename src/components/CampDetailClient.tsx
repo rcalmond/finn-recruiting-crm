@@ -699,7 +699,6 @@ const PP = {
 function CampPrepSection({ camp }: { camp: CampWithRelations }) {
   const { doc, loading, refetch } = useCampPrepDoc(camp.camp.id)
   const [modalOpen, setModalOpen] = useState(false)
-  const [confirmDiscard, setConfirmDiscard] = useState(false)
   const supabase = useMemo(() => createClient(), [])
 
   const ext = doc?.extracted_schedule ?? null
@@ -712,10 +711,9 @@ function CampPrepSection({ camp }: { camp: CampWithRelations }) {
   const touchpointCount = generatedDoc?.where_you_stand?.coach_touchpoints?.length ?? 0
   const generatedDate = doc?.generated_at ? new Date(doc.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
 
-  async function discard() {
+  async function deleteDraft() {
     if (!doc) return
     await supabase.from('prep_docs').delete().eq('id', doc.id)
-    setConfirmDiscard(false)
     refetch()
   }
 
@@ -729,33 +727,30 @@ function CampPrepSection({ camp }: { camp: CampWithRelations }) {
           <div style={{ marginTop: 3, fontSize: 12, color: PP.muted, lineHeight: 1.5 }}>
             {loading ? 'Loading…'
               : generatedDoc ? `Document generated${generatedDate ? ` ${generatedDate}` : ''} · ${planDayCount}-day plan · ${touchpointCount} coach touchpoint${touchpointCount === 1 ? '' : 's'}.`
-              : doc ? `Draft saved${doc.camp_dates_snapshot ? ` · ${doc.camp_dates_snapshot}` : ''} — ${dayCount} day${dayCount === 1 ? '' : 's'}, ${constraintCount} hard constraint${constraintCount === 1 ? '' : 's'}. Generate document below.`
+              : ext ? `Draft saved${doc?.camp_dates_snapshot ? ` · ${doc.camp_dates_snapshot}` : ''} — ${dayCount} day${dayCount === 1 ? '' : 's'}, ${constraintCount} hard constraint${constraintCount === 1 ? '' : 's'}. Generate document below.`
+              : doc ? 'Draft in progress — finish the inputs to confirm the extraction.'
               : 'Turn the camp email and your travel notes into a confirmed prep sheet — schedule, check-in, surface, and the operational constraints.'}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          {doc && !confirmDiscard && (
-            <button onClick={() => setConfirmDiscard(true)} style={ghostBtn(PP.danger)}>Discard</button>
-          )}
-          {confirmDiscard && (
-            <>
-              <button onClick={discard} style={{ ...ghostBtn(PP.danger), background: PP.danger, color: PP.cream, border: 'none' }}>Confirm discard</button>
-              <button onClick={() => setConfirmDiscard(false)} style={ghostBtn(PP.muted)}>Cancel</button>
-            </>
-          )}
-          {!confirmDiscard && (
+        {/* Only the single entry point lives in the header; every draft/document
+            control (including delete, in the overflow) lives in the generator row. */}
+        {!doc && !loading && (
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             <button onClick={() => setModalOpen(true)} style={{ padding: '7px 15px', borderRadius: 999, border: 'none', background: PP.pitch, color: PP.cream, fontSize: 12.5, fontWeight: 650, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-              {doc ? 'Resume' : 'Generate prep doc'}
+              Generate prep doc
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {doc?.extracted_schedule && (
+      {doc && (
         <CampDocGenerator
           docId={doc.id}
           content={doc.content}
+          canGenerate={!!doc.extracted_schedule}
           onGenerated={refetch}
+          onEditInputs={() => setModalOpen(true)}
+          onDeleteDraft={deleteDraft}
         />
       )}
 
@@ -770,10 +765,6 @@ function CampPrepSection({ camp }: { camp: CampWithRelations }) {
       )}
     </div>
   )
-}
-
-function ghostBtn(color: string): React.CSSProperties {
-  return { padding: '7px 13px', borderRadius: 999, border: `1.3px solid ${color}40`, background: 'transparent', color, fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }
 }
 
 // ─── Delete ──────────────────────────────────────────────────────────────────
