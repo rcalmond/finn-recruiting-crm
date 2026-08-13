@@ -56,7 +56,14 @@ async function record(schoolQuery: string, fixturePath: string) {
     .select('camp_name_snapshot, camp_dates_snapshot, inputs, extracted_schedule')
     .eq('school_id', school.id).eq('doc_type', 'camp').not('extracted_schedule', 'is', null)
     .order('created_at', { ascending: false }).limit(1).maybeSingle()
-  if (!draft?.extracted_schedule) throw new Error('No confirmed camp draft/extraction for that school')
+
+  // Thread-only fallback: a school with no camp draft still needs to run through the
+  // harness for the §1/§2 verdict gate (classification + calibration depend only on
+  // the thread). A minimal stub extraction makes the plan empty but §1/§2 intact.
+  const homeTz = (await db.from('player_profile').select('home_timezone').limit(1).maybeSingle()).data?.home_timezone as string | undefined
+  const STUB: CampExtraction = { venue: null, surface: null, days: [], hard_constraints: [], travel: { segments: [], lodging: null, lodging_breakfast_window: null, meal_windows: [], competing_commitments: [], who_traveling: null }, timezone: { home_tz: homeTz?.trim() || 'America/Denver', venue_tz: null, delta: null } }
+  const usingStub = !draft?.extracted_schedule
+  if (usingStub) console.warn(`  ⚠ no camp draft for ${school.name} — recording a THREAD-ONLY stub fixture (plan empty; §1/§2 verdict gate only)`)
 
   const { data: pp } = await db.from('player_profile').select('current_stats, upcoming_schedule, highlights, academic_summary, position, grad_year, home_timezone, preparation_notes').limit(1).maybeSingle()
   // recruiting_preferences is isolated in its own select so a pre-Migration-7 DB can
@@ -83,8 +90,9 @@ async function record(schoolQuery: string, fixturePath: string) {
 
   const fixture: CampDocFixture = {
     today: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: player.home_timezone }),
-    player, camp: { name: draft.camp_name_snapshot ?? school.name, dates: draft.camp_dates_snapshot ?? '' },
-    extraction: draft.extracted_schedule as CampExtraction, inputs: (draft.inputs as CampPrepInputs) ?? { camp_email_raw: '', travel_prose: '', extra_notes: '' },
+    player, camp: { name: draft?.camp_name_snapshot ?? `${school.name} ID camp`, dates: draft?.camp_dates_snapshot ?? 'TBD' },
+    extraction: usingStub ? STUB : (draft!.extracted_schedule as CampExtraction),
+    inputs: (draft?.inputs as CampPrepInputs) ?? { camp_email_raw: '(thread-only stub — plan not under test)', travel_prose: '', extra_notes: '' },
     contactLog: sctx.contactLog, coaches: sctx.coaches, offers: sctx.offers,
     schoolName: sctx.school!.name, schoolList, preferences,
   }

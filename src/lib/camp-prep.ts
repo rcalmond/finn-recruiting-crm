@@ -45,6 +45,9 @@ export interface CampTravelSegment {
 export interface CampCommitment {
   text: string              // a competing commitment
   time: string | null
+  date: string | null       // YYYY-MM-DD if the prose dates it (explicit, or a relative
+                            // day-word resolved against the reference date); null if undated.
+                            // An undated commitment MUST NOT be placed on a specific plan day.
 }
 
 export interface CampExtraction {
@@ -88,7 +91,9 @@ From the TRAVEL / LOGISTICS notes:
 - Travel segments (flights, drives) with their times as given.
 - Lodging, and the lodging's breakfast availability window if stated.
 - Meal availability windows.
-- Competing commitments (other events that weekend) with their times.
+- Competing commitments (other events that weekend) with their times AND their date.
+  * DATE each commitment when — and ONLY when — the prose actually dates it: an explicit date, OR a relative day-word ("yesterday", "today", "tomorrow", "this morning") resolved against the REFERENCE DATE provided below (yesterday = reference minus 1 day, tomorrow = reference plus 1 day). Output the resolved calendar date as YYYY-MM-DD.
+  * If the prose gives NO date for a commitment, set date to null. Do NOT infer a date from a tee time, from ordering, or from proximity to other events. An undated commitment stays undated.
 - Who is travelling.
 
 TIME-ZONE DELTA:
@@ -108,7 +113,7 @@ Return ONLY this JSON, no markdown fences, no commentary:
     "lodging": "... or null",
     "lodging_breakfast_window": "... or null",
     "meal_windows": ["..."],
-    "competing_commitments": [ { "text": "...", "time": "... or null" } ],
+    "competing_commitments": [ { "text": "...", "time": "... or null", "date": "YYYY-MM-DD or null" } ],
     "who_traveling": "... or null"
   },
   "timezone": { "home_tz": "<echo the provided home tz>", "venue_tz": "... or null", "delta": "... or null" }
@@ -121,9 +126,10 @@ export function buildCampExtractionUserPrompt(params: {
   campLocation: string | null
   hostSchoolLocation: string | null
   homeTimezone: string
+  referenceDate: string    // YYYY-MM-DD in the home tz — anchor for resolving "today"/"yesterday"/"tomorrow"
   inputs: CampPrepInputs
 }): string {
-  const { campName, campDates, campLocation, hostSchoolLocation, homeTimezone, inputs } = params
+  const { campName, campDates, campLocation, hostSchoolLocation, homeTimezone, referenceDate, inputs } = params
   const lines: string[] = []
   lines.push('=== CAMP (from our records — context only; the email is authoritative) ===')
   lines.push(`Name: ${campName}`)
@@ -133,6 +139,9 @@ export function buildCampExtractionUserPrompt(params: {
   lines.push('')
   lines.push(`=== HOME TIMEZONE (use this exact value for the delta) ===`)
   lines.push(homeTimezone)
+  lines.push('')
+  lines.push(`=== REFERENCE DATE (today, home tz — resolve "today"/"yesterday"/"tomorrow" in the prose against THIS date; do not date anything the prose leaves undated) ===`)
+  lines.push(referenceDate)
   lines.push('')
   lines.push('=== CAMP EMAIL (verbatim — extract the schedule, check-in, surface, and hard constraints from here) ===')
   lines.push(inputs.camp_email_raw || '(none provided)')

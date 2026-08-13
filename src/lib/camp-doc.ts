@@ -53,7 +53,7 @@ export interface CampDocDayBlock { time: string | null; activity: string; guidan
 export interface CampDocDay { label: string; is_travel_day?: boolean; blocks: CampDocDayBlock[]; sleep: string; recovery?: string | null }
 // Phase 5.5: credentials removed (research-derived). Angle + relationship come from
 // the CRM thread and have been correct every run.
-export interface CampDocStaff { name: string; role: string; your_angle: string; primary_relationship?: boolean }
+export interface CampDocStaff { name: string; role: string; your_angle?: string; primary_relationship?: boolean }
 
 export interface CampDoc {
   masthead: { player: string; school: string; camp: string; dates: string; venue: string | null; surface: string | null; framing: string }
@@ -123,7 +123,7 @@ SECTIONS
 0. MASTHEAD — player, school, camp, dates, venue, surface, and a one-line framing of what this weekend is.
 
 1. WHERE YOU STAND (read this first) — sourced ONLY from the thread. This section must DISCRIMINATE; a plausible summary judgment is a failure.
-   - CLASSIFY EACH INBOUND (coach) message into coach_touchpoints: is it UNPROMPTED (the coach raises something the family did NOT ask about — an invitation, a proactive scheduling offer, an unrequested update) or RESPONSIVE (it answers a question the family raised)? The test is the IMMEDIATELY PRECEDING outbound message: did it raise this topic? For each, give the date, the classification, and — if you can quote the coach's own words from that message's VERBATIM SOURCE — the quote (else quote: null), plus a short "what".
+   - CLASSIFY EACH INBOUND (coach) message into coach_touchpoints. The classification is MECHANICAL and turns on ONE question only: did the IMMEDIATELY PRECEDING outbound (family) message raise this topic? If yes → RESPONSIVE. If no (the coach raises something the family did not ask about — an invitation, a proactive offer, an unrequested update) → UNPROMPTED. That is the whole test. TONE, WARMTH, ENTHUSIASM, and DIRECTIVE / next-step LANGUAGE DO NOT change the label — a warm, pushy "Come to the August one, mate!" that answers a family question about which camps to attend is RESPONSIVE, not unprompted. When unsure whether the preceding outbound raised it, default to RESPONSIVE. (You MAY still characterize a responsive message as an active pull in the prose — advancement/read — where that nuance belongs; it just never flips the label.) For each, give the date, the classification, and — if you can quote the coach's own words from that message's VERBATIM SOURCE — the quote (else quote: null), plus a short "what".
    - SEPARATE TWO AXES:
      * relationship_opened_by — who sent the first email. This is almost always the player and carries little information; state it in one clause and move on.
      * advancement — who has driven the RELATIONSHIP FORWARD: invitations, camp asks, next-step offers. This is the interesting finding. Anchor it to specific messages by date + quote.
@@ -132,7 +132,7 @@ SECTIONS
    - VERDICT: evaluating vs recruiting, and what this camp converts — consistent with the classification above.
 
 2. THE MISSION:
-   - RUBRIC HUNT: scan the thread for any moment a coach said what they want to see. If found, quote it verbatim (set rubric_found true, put it in rubric_quote) and make it the mission. If not found, set rubric_found false and say so explicitly, then derive a mission from position, stage, and the camp format.
+   - RUBRIC HUNT: scan the thread for any moment a coach said what they want to see. If found, quote it verbatim (set rubric_found true, put it in rubric_quote with who = the coach and when = the DATE of the source message, YYYY-MM-DD) and make it the mission. If not found, set rubric_found false and say so explicitly, then derive a mission from position, stage, and the camp format.
    - CALIBRATION: use BOTH the whole-list metadata (tiers/stages/offers — structured CRM data the app holds) AND the FAMILY'S OWN RECRUITING PREFERENCES field. State how to talk about this school relative to the others — what language is and isn't on the table, and any second-order effect (peer programs talk to each other). Follow the preferences field's status EXACTLY:
      * status ok (the family WROTE a preference): ECHO it and RESPECT the constraint it states. If the family named ANOTHER school as their top choice, do NOT coach the player to call THIS school #1 or use language that contradicts or supersedes that declaration — warm and true is fine. If the preference is about THIS school, being consistent with it (including #1 language) is honest. Do not go beyond what the field says.
      * status empty (the field is blank — the family has written no preference): state plainly that no preference is on record and instruct against manufacturing a ranking. This is a true statement about an empty field, NOT a claim about every thread.
@@ -141,7 +141,7 @@ SECTIONS
 
 GENERAL PRINCIPLE (§1 and §2): every comparative or asymmetry claim is evidence-anchored — tied to a specific message, offer, stage, or a field the family wrote — or it is not made. Do not produce a confident summary judgment when the specific evidence is available and unexamined, and never manufacture one from evidence you were not given.
 
-3. THE STAFF — the coaches the family actually corresponds with, drawn from the CRM (coaches on file + thread). Per coach: name, role, and a "YOUR ANGLE" line tied to something REAL AND SPECIFIC IN THE THREAD (a message, a topic they raised, a shared reference). Identify the PRIMARY RELATIONSHIP from the thread (who actually emails the family) and set primary_relationship true on that coach. A coach with NO thread relationship gets name and role only — leave your_angle empty and do NOT manufacture an angle for someone the family has never corresponded with. Do NOT state credentials, alma maters, tenure, or hire dates — you have no research feed and must not invent them. If there are no coaches on file, set the_staff to null.
+3. THE STAFF — the coaches the family actually corresponds with, drawn from the CRM (coaches on file + thread). Per coach: name, role, and a "YOUR ANGLE" line tied to something REAL AND SPECIFIC IN THE THREAD (a message, a topic they raised, a shared reference). Identify the PRIMARY RELATIONSHIP from the thread (who actually emails the family) and set primary_relationship true on that coach. A coach with NO thread relationship gets name and role only — OMIT the your_angle field entirely (do NOT emit an empty string) and do NOT manufacture an angle for someone the family has never corresponded with. Do NOT state credentials, alma maters, tenure, or hire dates — you have no research feed and must not invent them. If there are no coaches on file, set the_staff to null.
 
 4. THE PLAN — day by day, from the confirmed extraction, from the first affected day (usually the travel day) through the return travel day. SEE THE CONTENT DOMAIN BELOW — every day carries it. Each block has a time (or null), the activity, and "guidance": the sleep/nutrition/load/constraint instruction that belongs at THAT moment.
    - TRAVEL TIMES ARE ECHOES, NEVER INVENTIONS: a travel segment's time comes ONLY from the confirmed extraction. If a segment has a time in the extraction, you may state it. If a segment has NO time in the extraction, you MUST NOT state or invent one — write it open-ended, e.g. "afternoon flight home, time per your booking". Never manufacture a departure or arrival time, and never carry a time from one segment onto another.
@@ -165,6 +165,7 @@ REQUIRED CONTENT DOMAIN: NUTRITION, SLEEP, LOAD (not optional — every day bloc
 - PRE-ACTIVATION: when the body clock is early, a timed activation block BEFORE check-in is non-negotiable — name it and time it.
 - HEAT: if a temperature/forecast appears in the inputs, escalate hydration from breakfast and name the hour where fields fade. If none, do not invent weather.
 - LOAD: account for competing physical commitments in the days before, and place ONE short touch session where it wakes the legs without taxing them.
+  * COMMITMENT DATES ARE AUTHORITATIVE, and only a DATE places a commitment on a day. A competing commitment may be assigned to a specific plan day ONLY if it carries a date (extraction "date" field) that matches that day. A commitment with a null/absent date is UNDATED — mention it in the pre-travel framing as load to respect ("a golf round the week before"), but do NOT place it on any specific dated block, and NEVER infer its day from a tee time, from the order commitments are listed, or from proximity to travel. If in doubt about the day, treat it as undated.
 - preparation_notes: ECHO the family's own stated routine into the right moment. Do NOT infer, extend, diagnose, or originate any medical, rehab, or dietary protocol. If empty, guidance stays general. Reference whether an athletic trainer is on site (from the hard constraints) as a FACT, never as advice.
 
 ═══════════════════════════════════════════════════════════════════
@@ -173,12 +174,13 @@ HARD CONSTRAINTS -> THE PLAN (and DEDUPE)
 - EVERY hard constraint from the extraction must appear in the plan AT THE MOMENT IT MATTERS. A paper-form-only requirement belongs in the pack-the-night-before block, not a footnote. An unsupervised break belongs in that break's block. A "schedule runs late" caveat belongs where it changes behavior.
 - DEDUPE: the extraction intentionally carries some facts in more than one place — a constraint may also be a schedule block (an optional family Q&A, a campus tour), and the breakfast window is duplicated into meal_windows. Each fact appears ONCE in the finished document, at the moment it matters. A constraint that maps to a scheduled block is expressed IN that block, not also listed separately.
 
-Return ONLY the JSON document (no markdown fences, no commentary), matching:
+Return ONLY the JSON document (no markdown fences, no commentary), matching the schema EXACTLY. Preserve the nesting: "where_you_stand" is ONE object that CONTAINS read, coach_touchpoints, relationship_opened_by, advancement, not_yet, and verdict — do NOT hoist those fields to the top level. Same for every nested object below.
+Schema:
 {
   "masthead": { "player": "...", "school": "...", "camp": "...", "dates": "...", "venue": "... or null", "surface": "... or null", "framing": "one line" },
   "where_you_stand": { "read": "the lead, 1-3 short paragraphs", "coach_touchpoints": [ { "date": "YYYY-MM-DD", "classification": "unprompted|responsive", "quote": "verbatim from VERBATIM SOURCE or null", "what": "what it was / why it classifies that way" } ], "relationship_opened_by": "one clause", "advancement": "who has driven it forward, citing specific dates + quotes", "not_yet": "...", "verdict": "..." },
-  "the_mission": { "rubric_found": true/false, "rubric_quote": { "quote": "...", "who": "...", "when": null } or null, "mission": "...", "calibration": "..." },
-  "the_staff": [ { "name": "...", "role": "...", "your_angle": "... or empty if no thread relationship", "primary_relationship": true/false } ] or null,
+  "the_mission": { "rubric_found": true/false, "rubric_quote": { "quote": "...", "who": "...", "when": "YYYY-MM-DD of the source message" } or null, "mission": "...", "calibration": "..." },
+  "the_staff": [ { "name": "...", "role": "...", "your_angle": "... (OMIT this field entirely for a coach with no thread relationship)", "primary_relationship": true/false } ] or null,
   "the_plan": [ { "label": "e.g. Friday — travel", "is_travel_day": true/false, "blocks": [ { "time": "... or null", "activity": "...", "guidance": "the nutrition/sleep/load/constraint instruction for this moment" } ], "sleep": "lights-out + wake + body-clock equivalent for this night", "recovery": "... or null" } ],
   "before_leaving": { "coach_to_find": "...", "opening_line": "...", "next_step_question": "in the player's own first-person voice", "follow_up": { "who": "...", "reference": "...", "send_date": "..." } },
   "footer": "one closing charge line"

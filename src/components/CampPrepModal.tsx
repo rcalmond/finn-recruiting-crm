@@ -235,10 +235,14 @@ function ConfirmForm({ ext, mut }: {
         {ext.travel.competing_commitments.map((c, i) => (
           <Row key={i} onRemove={() => mut(d => { d.travel.competing_commitments.splice(i, 1) })}>
             <input value={c.text} onChange={e => mut(d => { d.travel.competing_commitments[i].text = e.target.value })} style={inp} placeholder="commitment" />
-            <input value={c.time ?? ''} onChange={e => mut(d => { d.travel.competing_commitments[i].time = e.target.value || null })} style={{ ...inp, width: 120, flexShrink: 0 }} placeholder="time" />
+            <input type="date" value={c.date ?? ''} onChange={e => mut(d => { d.travel.competing_commitments[i].date = e.target.value || null })} style={{ ...inp, width: 140, flexShrink: 0, color: c.date ? C.ink : C.danger }} title={c.date ? undefined : 'Undated — will not be placed on a specific day'} />
+            <input value={c.time ?? ''} onChange={e => mut(d => { d.travel.competing_commitments[i].time = e.target.value || null })} style={{ ...inp, width: 100, flexShrink: 0 }} placeholder="time" />
           </Row>
         ))}
-        <AddButton onClick={() => mut(d => { d.travel.competing_commitments.push({ text: '', time: null }) })}>+ Add commitment</AddButton>
+        {ext.travel.competing_commitments.some(c => !c.date) && (
+          <div style={{ fontSize: 10.5, color: C.danger, margin: '2px 0 4px' }}>Undated commitments (red date) won&apos;t be placed on a specific day — add a date to pin one.</div>
+        )}
+        <AddButton onClick={() => mut(d => { d.travel.competing_commitments.push({ text: '', time: null, date: null }) })}>+ Add commitment</AddButton>
 
         <div style={{ fontSize: 10.5, fontWeight: 700, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '8px 0 4px' }}>Meal windows</div>
         {ext.travel.meal_windows.map((m, i) => (

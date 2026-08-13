@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
           campLocation: camp.location,
           hostSchoolLocation: (school?.location as string | null) ?? null,
           homeTimezone,
+          referenceDate: new Date().toLocaleDateString('en-CA', { timeZone: homeTimezone }),
           inputs: {
             camp_email_raw: inputs.camp_email_raw ?? '',
             travel_prose: inputs.travel_prose ?? '',
