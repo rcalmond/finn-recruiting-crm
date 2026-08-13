@@ -18,7 +18,7 @@ import { fetchSchoolContext } from '@/lib/school-context'
 import { getCurrentResearch } from '@/lib/school-research'
 import { extractJsonObject } from '@/lib/agentic-research'
 import {
-  CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt,
+  CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, extractDeclaredFacts,
   type CampDoc, type DocPlayerProfile, type DocSchoolListItem,
 } from '@/lib/camp-doc'
 import type { CampExtraction, CampPrepInputs } from '@/lib/camp-prep'
@@ -96,6 +96,10 @@ export async function POST(req: NextRequest) {
           name: s.name, tier: s.category, stage: s.recruiting_stage, status: s.status, has_offer: offerSet.has(s.id),
         }))
 
+        // ── Cross-thread declared-facts digest (calibration only) ──
+        send('progress', { stage: 'calibration', message: 'Scanning all threads for declared preferences…' })
+        const digest = await extractDeclaredFacts(db, anthropic, player.home_timezone)
+
         // ── Generate ──
         send('progress', { stage: 'generate', message: 'Regista is writing the document (Opus)…' })
 
@@ -112,6 +116,7 @@ export async function POST(req: NextRequest) {
           researchStatus: research?.status ?? null,
           schoolName: sctx.school.name,
           schoolList,
+          declaredFacts: digest.facts,
         })
 
         const message = await anthropic.messages.create({
@@ -134,6 +139,7 @@ export async function POST(req: NextRequest) {
         send('complete', {
           docId,
           usedResearch: !!research,
+          declaredFacts: { count: digest.facts.length, candidatesScanned: digest.candidateCount, extractionInputTokens: digest.inputTokens },
           usage: { inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens },
           counts: {
             touchpoints: doc.where_you_stand?.coach_touchpoints?.length ?? 0,

@@ -10,6 +10,9 @@
  * traces to contact_log or school_research — no facts added on top.
  */
 
+import Anthropic from '@anthropic-ai/sdk'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { extractJsonObject } from './agentic-research'
 import type { CampExtraction, CampPrepInputs } from './camp-prep'
 import type { ContactLogRow, CoachRow, OfferRow } from './school-context'
 import type { ResearchSnapshot } from './school-research'
@@ -22,6 +25,14 @@ export const CAMP_DOC_MODEL = 'claude-opus-4-8'
 const RAW_SOURCE_CAP = 2500
 function cleanRawSource(raw: string): string {
   return raw.replace(/\s+/g, ' ').trim().slice(0, RAW_SOURCE_CAP)
+}
+
+/** The family-facing local date of a message: sent_at converted to the home
+ *  timezone (falls back to the stored date column). A 9:20pm-MT message stored as
+ *  a 3:20am-UTC sent_at must show as the local calendar day, not the UTC one. */
+export function localDate(sentAt: string | null, homeTz: string, fallback?: string | null): string {
+  if (sentAt) { try { return new Date(sentAt).toLocaleDateString('en-CA', { timeZone: homeTz }) } catch { /* fall through */ } }
+  return fallback ?? sentAt ?? ''
 }
 
 // ─── Output schema ─────────────────────────────────────────────────────────────
@@ -72,6 +83,60 @@ export interface DocPlayerProfile {
 
 export interface DocSchoolListItem { name: string; tier: string; stage: number; status: string; has_offer: boolean }
 
+// ─── Cross-thread declared-facts digest (calibration only) ──────────────────────
+
+export interface DeclaredFact { school: string; date: string; kind: string; quote: string }
+
+// Coarse pre-filter to bound the corpus before the Sonnet extraction. Declarations
+// are keyword-rich; Sonnet does the precision + verbatim quoting.
+const DECLARATION_RE = /top choice|first choice|number one|#1|top of my list|high(?:est)? on my list|committed|\bcommit\b|decid|\bchose\b|choosing|going with|pre.?read|\boffer|dream school|my (?:top|number|favou?rite)|priority/i
+
+/**
+ * Scans EVERY school's outbound (family) messages, keyword-filters to declaration
+ * candidates, and Sonnet-extracts a small digest of family-declared facts with
+ * verbatim quotes from raw_source. This is the ONLY cross-thread context — no full
+ * threads are dumped. Returns the digest + the bound (candidate count, input tokens).
+ */
+export async function extractDeclaredFacts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: SupabaseClient<any, any, any>,
+  anthropic: Anthropic,
+  homeTz: string,
+): Promise<{ facts: DeclaredFact[]; candidateCount: number; inputTokens: number }> {
+  const { data } = await admin
+    .from('contact_log')
+    .select('date, sent_at, direction, summary, raw_source, schools(name)')
+    .eq('direction', 'Outbound')
+    .not('parse_status', 'in', '("orphan","non_coach")')
+    .order('sent_at', { ascending: true })
+
+  const rows = (data ?? []) as Array<{ date: string; sent_at: string; summary: string | null; raw_source: string | null; schools: { name: string } | { name: string }[] | null }>
+  const candidates = rows.filter(r => DECLARATION_RE.test(r.summary ?? '') || DECLARATION_RE.test(r.raw_source ?? ''))
+  if (candidates.length === 0) return { facts: [], candidateCount: 0, inputTokens: 0 }
+
+  const body = candidates.map(r => {
+    const school = Array.isArray(r.schools) ? r.schools[0]?.name : r.schools?.name
+    return `[SCHOOL: ${school ?? '?'} | ${localDate(r.sent_at, homeTz, r.date)}]\n${cleanRawSource(r.raw_source || r.summary || '')}`
+  }).join('\n\n---\n\n')
+
+  const sys = `You extract FAMILY-DECLARED FACTS from a college-soccer recruit's own OUTBOUND emails across many schools — facts that CONSTRAIN what can be said to OTHER schools.
+
+CRITICAL — distinguish a real declaration from routine outreach enthusiasm. In first-contact / intro emails a recruit tells MANY schools they are "a top choice" or "very interested" or "high on my list", usually with reasons ("X is a top choice because of its engineering..."). That is INTEREST, not a ranking, and you MUST EXCLUDE it — a recruit who calls five schools "a top choice" in intros has ranked none of them. Extract a preference/ranking ONLY when it is a CURRENT, SINGULAR declaration stated as fact — "X is my top choice", "you're my #1", "I've committed to Y", "I've decided on Z" — typically later in a relationship, not generic enthusiasm in an intro. When in doubt, EXCLUDE.
+
+Also extract: firm commitments or decisions communicated to a program; pre-reads requested or received; offers acknowledged. IGNORE routine logistics (camp sign-ups, scheduling, reels, generic interest).
+
+For each qualifying fact give the school, the date shown, a short "kind", and a VERBATIM "quote" from the text. Return ONLY JSON: { "facts": [ { "school": "...", "date": "...", "kind": "preference|commitment|pre_read|offer|other", "quote": "verbatim" } ] }. If nothing qualifies return { "facts": [] }.`
+
+  const msg = await anthropic.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 4000, system: sys, messages: [{ role: 'user', content: body }] })
+  if (msg.stop_reason === 'max_tokens') console.warn('[extractDeclaredFacts] extraction hit max_tokens — digest may be truncated')
+  const raw = msg.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')
+  let facts: DeclaredFact[] = []
+  try { facts = (extractJsonObject(raw) as { facts?: DeclaredFact[] }).facts ?? [] } catch (err) {
+    console.error('[extractDeclaredFacts] digest parse failed:', err instanceof Error ? err.message : err)
+  }
+  return { facts, candidateCount: candidates.length, inputTokens: msg.usage.input_tokens }
+}
+
 // ─── Prompt builders ───────────────────────────────────────────────────────────
 
 export function buildCampDocSystemPrompt(): string {
@@ -103,7 +168,7 @@ SECTIONS
 
 2. THE MISSION:
    - RUBRIC HUNT: scan the thread for any moment a coach said what they want to see. If found, quote it verbatim (set rubric_found true, put it in rubric_quote) and make it the mission. If not found, set rubric_found false and say so explicitly, then derive a mission from position, stage, and the camp format.
-   - CALIBRATION: using the WHOLE list, state how to talk about this school relative to the others — who holds the top-choice card (only if the player's own record/offers show it; do NOT invent a ranking the family never stated), what language is and isn't on the table, and any second-order effect (peer programs talk to each other). If the family hasn't declared a top choice, say that and advise accordingly — do not manufacture one.
+   - CALIBRATION: use BOTH the whole-list metadata (tiers/stages/offers) AND the FAMILY-DECLARED FACTS digest (declarations the family made across ALL schools, not just this one). State how to talk about this school relative to the others — what language is and isn't on the table, and any second-order effect (peer programs talk to each other). CROSS-THREAD RULE: if the family declared a preference/top-choice/commitment to ANOTHER school, calibration for THIS school must RESPECT it — warm and true, but no language that contradicts or supersedes that declaration (e.g. do not coach the player to call this school #1 if they've told another program it's their top choice). CITE the declaration (school, date, quote) so the family sees why. If the digest says NONE FOUND, state plainly that no preference is on record anywhere and instruct against manufacturing a ranking. Never invent a ranking the family didn't state.
 
 GENERAL PRINCIPLE (§1 and §2): every comparative or asymmetry claim is evidence-anchored — tied to a specific message, offer, or stage — or it is not made. Do not produce a confident summary judgment when the specific evidence is available and unexamined.
 
@@ -169,6 +234,7 @@ export function buildCampDocUserPrompt(ctx: {
   researchStatus: string | null
   schoolName: string
   schoolList: DocSchoolListItem[]
+  declaredFacts: DeclaredFact[]
 }): string {
   const L: string[] = []
   const P = ctx.player
@@ -195,9 +261,10 @@ export function buildCampDocUserPrompt(ctx: {
   L.push('')
   L.push(`=== FULL COACH THREAD (${ctx.contactLog.length} entries, oldest first — the ONLY source for Where You Stand and the rubric hunt) ===`)
   L.push('For each inbound (coach) message you may see a VERBATIM SOURCE — that is the coach\'s own raw words and is the ONLY thing you may put in quotation marks as a coach quote. SUMMARY is our paraphrase, for understanding only — never quote from a SUMMARY. If a message has no VERBATIM SOURCE, you may paraphrase it but must NOT quote it.')
+  const homeTz = ctx.player.home_timezone
   if (ctx.contactLog.length === 0) L.push('No contact logged — this is a cold relationship.')
   for (const e of ctx.contactLog) {
-    L.push(`[${e.date}] ${e.direction} via ${e.channel}${e.coach_name ? ` — ${e.coach_name}` : ''}${e.authored_by ? ` (authored_by=${e.authored_by})` : ''}${e.intent ? ` (intent=${e.intent})` : ''}`)
+    L.push(`[${localDate(e.sent_at, homeTz, e.date)}] ${e.direction} via ${e.channel}${e.coach_name ? ` — ${e.coach_name}` : ''}${e.authored_by ? ` (authored_by=${e.authored_by})` : ''}${e.intent ? ` (intent=${e.intent})` : ''}`)
     L.push(`SUMMARY: ${e.summary ?? '(no body)'}`)
     if (e.direction === 'Inbound' && e.raw_source && e.raw_source.trim()) {
       L.push(`VERBATIM SOURCE (quote coach words only from here): ${cleanRawSource(e.raw_source)}`)
@@ -222,6 +289,13 @@ export function buildCampDocUserPrompt(ctx: {
   L.push('')
   L.push('=== THE WHOLE LIST (for calibration — tiers/stages/offers across all active schools) ===')
   for (const s of ctx.schoolList) L.push(`- ${s.name}: tier ${s.tier}, stage ${s.stage}, ${s.status}${s.has_offer ? ', HAS OFFER' : ''}`)
+  L.push('')
+  L.push('=== FAMILY-DECLARED FACTS ACROSS ALL SCHOOLS (for CALIBRATION only — the family said these to a program; they constrain what you can say here) ===')
+  if (ctx.declaredFacts.length === 0) {
+    L.push('NONE FOUND. Checked every school\'s outbound messages — the family has NOT declared a top choice, commitment, or ranking anywhere. Do NOT manufacture one; say plainly that no preference is on record.')
+  } else {
+    for (const f of ctx.declaredFacts) L.push(`- [${f.school} | ${f.date}] (${f.kind}) "${f.quote}"`)
+  }
   L.push('')
   L.push('Now produce the JSON document. Second person, honest, every quote verbatim, every hard constraint placed at its moment, deduped. Return ONLY the JSON.')
   return L.join('\n')

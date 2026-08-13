@@ -10,7 +10,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { fetchSchoolContext } from '../src/lib/school-context'
 import { getCurrentResearch, runSchoolResearch, validateResearch, type ResearchSeed } from '../src/lib/school-research'
 import { extractJsonObject } from '../src/lib/agentic-research'
-import { CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, type DocPlayerProfile, type DocSchoolListItem } from '../src/lib/camp-doc'
+import { CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, extractDeclaredFacts, type DocPlayerProfile, type DocSchoolListItem } from '../src/lib/camp-doc'
 import type { CampExtraction, CampPrepInputs } from '../src/lib/camp-prep'
 
 async function main() {
@@ -56,6 +56,8 @@ async function main() {
     highlights: (profileRow?.highlights as string) ?? null, academic_summary: (profileRow?.academic_summary as string) ?? null,
   }
 
+  const digest = await extractDeclaredFacts(db, anthropic, player.home_timezone)
+  console.error(`declared-facts digest: ${digest.facts.length} facts / ${digest.candidateCount} candidates / ~${digest.inputTokens} tokens`)
   console.error('generating doc (Opus)…')
   const userPrompt = buildCampDocUserPrompt({
     today: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: player.home_timezone }),
@@ -63,7 +65,7 @@ async function main() {
     extraction: draft!.extracted_schedule as CampExtraction, inputs: (draft!.inputs as CampPrepInputs),
     contactLog: sctx.contactLog, coaches: sctx.coaches, offers: sctx.offers,
     research: research?.snapshot ?? null, researchStatus: research?.status ?? null,
-    schoolName: sctx.school!.name, schoolList,
+    schoolName: sctx.school!.name, schoolList, declaredFacts: digest.facts,
   })
   const message = await anthropic.messages.create({ model: CAMP_DOC_MODEL, max_tokens: 16000, system: buildCampDocSystemPrompt(), messages: [{ role: 'user', content: userPrompt }] })
   const rawText = message.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')
