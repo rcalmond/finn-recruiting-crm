@@ -62,14 +62,14 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: doc, error: dbError } = await admin
-    .from('call_prep_docs')
+    .from('prep_docs')
     .insert({
       id: docId,
       school_id: schoolId,
       coach_id: coachId,
       coach_name_snapshot: coachName,
       framing_notes: notes,
-      docx_storage_path: storagePath,
+      storage_path: storagePath,
       tool_call_count: null,
       source: 'uploaded',
       generated_at: new Date(date + 'T12:00:00-07:00').toISOString(),

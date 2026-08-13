@@ -31,31 +31,31 @@ export async function GET(
   const admin = serviceClient()
 
   const { data: doc, error } = await admin
-    .from('call_prep_docs')
-    .select('docx_storage_path, coach_name_snapshot, generated_at')
+    .from('prep_docs')
+    .select('storage_path, coach_name_snapshot, generated_at')
     .eq('id', id)
     .single()
 
-  if (error || !doc?.docx_storage_path) {
+  if (error || !doc?.storage_path) {
     return NextResponse.json({ error: 'Doc not found' }, { status: 404 })
   }
 
   const { data: fileData, error: downloadError } = await admin.storage
     .from('assets')
-    .download(doc.docx_storage_path)
+    .download(doc.storage_path)
 
   if (downloadError || !fileData) {
     return NextResponse.json({ error: 'Download failed' }, { status: 500 })
   }
 
   const dateStr = doc.generated_at.split('T')[0]
-  const ext = extFromPath(doc.docx_storage_path)
+  const ext = extFromPath(doc.storage_path)
   const fileName = `Call_Prep_${doc.coach_name_snapshot.replace(/\s+/g, '_')}_${dateStr}${ext}`
 
   const buffer = Buffer.from(await fileData.arrayBuffer())
   return new NextResponse(buffer, {
     headers: {
-      'Content-Type': mimeFromPath(doc.docx_storage_path),
+      'Content-Type': mimeFromPath(doc.storage_path),
       'Content-Disposition': `attachment; filename="${fileName}"`,
     },
   })

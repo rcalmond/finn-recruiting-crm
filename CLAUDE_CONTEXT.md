@@ -2189,7 +2189,7 @@ The app was rebranded from finnsoccer.com to **Throughball, powered by Regista**
 
 ## 11. Live Pipeline — Generated August 12, 2026
 
-**Active schools: 7** | Overdue actions: 21
+**Active schools: 7** | Overdue actions: 22
 (Category Nope and status Inactive excluded)
 
 ### Tier A — Highest Priority (5 schools)
@@ -2453,6 +2453,7 @@ SCHOOL: University of Rochester
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-12 | Migration 0 code sweep (production unblock): the DB rename table call_prep_docs to prep_docs and column docx_storage_path to storage_path had been applied to the live database but not the code, 500ing the entire call-prep surface. Swept the 5 runtime files — generate route, download route, upload route, the useCallPrepDocs hook, and the CallPrepDoc type. The API route path /api/call-prep-docs and the CallPrepSection component are intentionally unchanged (URL/UI names stay). Immutable migration files (049/050) and dated-history prose keep the old name as historical record. Part of the camp-prep-docs build (Phase 1 schema landed via Migrations 0-4). | Bug fix |
 | 2026-08-12 | Context doc: added the Throughball Rebrand + Productization narrative to Section 9 (brand identity + the two-name architecture, the brand sweep + the data-color firewall, route renames, /pipeline removal, housekeeping + the 404 system, production auth/email via Resend, and four reinforced patterns) and refreshed the current-state sections — product identity (Throughball powered by Regista), design vocabulary (one-accent Pitch Green, jewel ladder retired), page inventory (current routes, nav account menu, branded login + Offside 404, /pipeline and orphans removed), and schema notes (not_found_log; status enum vestigial). Dual-edited the live file + the generator fallback constants. | Docs |
 | 2026-08-12 | Magic-link redirect_to fix: the sent email carried redirect_to as the bare root (https://finnsoccer.com) instead of /auth/callback, so magic links landed on marketing and the code-exchange never ran. The in-repo string was already /auth/callback — the bare-origin value came from window.location.origin resolving to an unexpected context — so emailRedirectTo is now pinned to an explicit canonical URL (process.env.NEXT_PUBLIC_SITE_URL or https://finnsoccer.com) + /auth/callback, removing window.location.origin as a variable. Set NEXT_PUBLIC_SITE_URL to override for preview/local and the future Throughball domain. Password login (no redirect_to) was never affected. | Bug fix |
 | 2026-08-12 | Marketing CTA restructure: the three journeys given distinct labels/links — nav "Sign in" (signed-out) → /auth/login, hero + closing primaries "See it in action →" → /demo, hero secondary "How it works" → smooth-scroll to the Roadmap section (anchor was already wired). Removed the ambiguous shared "Try it now" label (0 remaining). The /demo route already exists, so those links resolve. | UX |

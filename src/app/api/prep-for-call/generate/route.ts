@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
 
         const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString()
         const { data: existingDocs } = await admin
-          .from('call_prep_docs')
+          .from('prep_docs')
           .select('id, coach_name_snapshot, generated_at')
           .eq('school_id', schoolId)
           .gte('generated_at', fourteenDaysAgo)
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
 
         const pdfBuffer = await generateCallPrepPdf(prepData)
 
-        // ── Step 5: Upload PDF + insert call_prep_docs row ──────────────
+        // ── Step 5: Upload PDF + insert prep_docs row ──────────────
 
         send('progress', { stage: 'upload', message: 'Saving prep document...' })
 
@@ -158,14 +158,14 @@ export async function POST(req: NextRequest) {
         }
 
         const { data: doc, error: dbError } = await admin
-          .from('call_prep_docs')
+          .from('prep_docs')
           .insert({
             id: docId,
             school_id: schoolId,
             coach_id: coachId,
             coach_name_snapshot: targetCoach.name,
             framing_notes: framingNotes?.trim() || null,
-            docx_storage_path: storagePath,
+            storage_path: storagePath,
             tool_call_count: toolCallCount,
           })
           .select()

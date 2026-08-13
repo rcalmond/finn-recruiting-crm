@@ -471,7 +471,7 @@ export interface CallPrepDoc {
   coach_id: string | null
   coach_name_snapshot: string
   framing_notes: string | null
-  docx_storage_path: string
+  storage_path: string
   tool_call_count: number | null
   source: CallPrepSource
   generated_at: string

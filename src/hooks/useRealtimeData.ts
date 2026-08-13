@@ -770,7 +770,7 @@ export function useCallPrepDocs(schoolId?: string) {
       return
     }
     const { data, error } = await supabase
-      .from('call_prep_docs')
+      .from('prep_docs')
       .select('*')
       .eq('school_id', schoolId)
       .order('generated_at', { ascending: false })
