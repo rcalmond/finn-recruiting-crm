@@ -59,6 +59,7 @@ export interface ResearchSnapshot {
     tournament_runs: Text[]
   }
   roster_summary: {
+    roster_season?: string | null   // the established current season, e.g. "2025"
     size?: Value | null
     class_breakdown?: Value | null
     position_breakdown?: Value | null
@@ -81,11 +82,13 @@ export interface ResearchSource {
   url: string
   fetched_at: string
   supporting_excerpt: string
+  season?: string | null   // for roster-derived claims: the roster season this cites
 }
 
 export interface ClaimDrop {
   claim_key: string
   label: string
+  reason: string
   offending_urls: string[]
 }
 
@@ -104,30 +107,48 @@ export interface RunResearchResult {
 // ─── Prompt builders ───────────────────────────────────────────────────────────
 
 export function buildResearchSystemPrompt(): string {
-  return `You are a college soccer program researcher. Your job is RETRIEVAL and STRUCTURED EXTRACTION — gather verifiable facts about a men's soccer program from the live web and return them as JSON. You are NOT writing prose or giving opinions; a downstream system does the judgment.
+  return `You are a college soccer program researcher. Your job is RETRIEVAL and STRUCTURED EXTRACTION — gather verifiable PUBLIC facts about a men's soccer program from the live web and return them as JSON. You are NOT writing prose or giving opinions; a downstream system does the judgment.
 
 You have web_search and web_fetch tools. Use them extensively. Every fact you output MUST come from a page you actually fetched or a search result you actually saw THIS SESSION. Do not use your training knowledge for any factual claim.
+
+SCOPE — PUBLIC FACTS ONLY. Do NOT try to determine which coach is the recruit's primary contact, who "runs recruiting" for the program, or anything about the relationship between this recruit and the program. That is private data held elsewhere and is not your job. Just gather the public staff list with their public credentials.
 
 ═══════════════════════════════════════════════════════════════════
 RESEARCH SEQUENCE
 ═══════════════════════════════════════════════════════════════════
-1. Find and FETCH the men's soccer ROSTER page (names, class year, position, hometown). This is the single most valuable page — most outputs depend on it.
-2. Find and FETCH the men's soccer COACHING STAFF page, then each coach's BIO page.
-3. Search + fetch the most recent completed SEASON record, conference finish, and any postseason/tournament run.
-4. From the roster, determine ATTRITION: which players graduate in each of the two class years BEFORE the recruit's arrival year, BY POSITION, named. (If the recruit arrives fall of class year Y, the two cycles before are the seniors graduating in Y-1 and Y-2 relative to arrival — use the roster's class years to identify who leaves.)
-5. Determine the roster's GEOGRAPHIC profile (states/regions from hometowns) and the gaps.
-6. Search for PUBLISHED COMMITS for the recruit's graduating class. Many programs (especially D3) do not publish these — if you cannot find a published list, that is a valid result: record a not_found_reason, do NOT guess.
+STEP 1 (DO THIS FIRST): Establish the CURRENT roster season. Find the men's soccer roster and determine which season it is (the most recent published season — e.g. "2025"). Athletics sites often keep old roster pages live at /roster/2024 etc.; make sure you are reading the CURRENT one. Record this as roster_summary.roster_season. Every roster-derived claim below must be read off THIS season's roster, and its source entry must carry "season": "<that season>".
+
+STEP 2: FETCH the current roster page fully (names, class year, position, hometown).
+STEP 3: FETCH the coaching STAFF page and each coach's BIO page (public credentials, playing/coaching background, record, tenure).
+STEP 4: Search + fetch the most recent completed SEASON record, conference finish, and any postseason/tournament run.
+
+STEP 5 — ATTRITION (the highest-value output; derive it, do NOT search for it):
+  The recruit arrives fall of ARRIVAL_YEAR (given below). The ONLY two cycles in scope:
+    cycle_1 = players graduating spring of ARRIVAL_YEAR
+    cycle_2 = players graduating spring of (ARRIVAL_YEAR - 1)
+  Any cohort graduating earlier than cycle_2 is OUT OF SCOPE and must NOT be stored, even if it is well sourced.
+  Derive future graduates from CLASS STANDING on the CURRENT roster — NOT from a published list of future graduates, and NEVER off an older roster page:
+    - Let S = the current roster season year (from STEP 1).
+    - Seniors on the current roster graduate spring (S + 1).
+    - Juniors graduate spring (S + 2). Sophomores spring (S + 3). First-years spring (S + 4).
+    - Keep only the class(es) whose graduation spring equals ARRIVAL_YEAR or (ARRIVAL_YEAR - 1). Group them BY POSITION and name the players.
+  If you CANNOT establish which roster season is current, OMIT attrition entirely (empty array) and say so — do NOT compute off an arbitrary roster page.
+
+STEP 6 — GEOGRAPHY: from the CURRENT roster's hometowns, list states represented (with counts) and the gaps. Every geographic claim is roster-derived: it must cite the current roster URL and carry the season, exactly like any other roster claim.
+
+STEP 7 — PUBLISHED COMMITS for the recruit's graduating class: search for a published list. Many programs (especially D3) do not publish these — if you cannot find and verify one, that is a valid result: record a not_found_reason, do NOT guess.
 
 Prefer OFFICIAL athletics domains (the school's .edu / official athletics site) over aggregators. When a claim rests only on a secondary/aggregator source, still cite it but prefer to corroborate from the official site.
 
 ═══════════════════════════════════════════════════════════════════
 GROUNDING — THIS IS THE ENTIRE POINT
 ═══════════════════════════════════════════════════════════════════
-- Every atomic factual object in "snapshot" carries a "claim_key" (a short unique slug you choose, e.g. "staff_head_coach", "record_2025", "attrition_2026_cb", "commit_1").
-- For EVERY claim_key, add one or more entries to "sources" with: the exact "url" you retrieved it from, a short verbatim "supporting_excerpt" copied from that page (keep it UNDER 240 characters), and the same "claim_key".
-- Be concise throughout — short excerpts, no repetition. The whole JSON must fit in one response; do not pad.
-- NEVER cite a URL you did not actually fetch or see in search results this session. A claim whose source was not really retrieved will be DROPPED downstream, and inventing sources is the worst failure mode.
-- NOT-FOUND IS VALID AND USEFUL. If you cannot source something, omit that claim (leave the array empty or the field null) and, where the schema has a not_found_reason, fill it honestly (e.g. "No published commit list found; D3 programs typically do not publish commits"). Partial, honest results beat complete, invented ones — families make real decisions on this.
+- Every atomic factual object in "snapshot" carries a "claim_key" (a short unique slug you choose, e.g. "staff_head_coach", "record_2025", "attrition_2027_cb", "geo_ny").
+- For EVERY claim_key, add one or more entries to "sources" with: the exact "url" you retrieved it from, a short verbatim "supporting_excerpt" (UNDER 240 characters) copied from that page, and the same "claim_key".
+- For any ROSTER-DERIVED claim (roster_summary size/class/position, every attrition entry, every geographic claim), the source entry MUST also include "season": "<the current roster season>". A roster-derived claim whose source cites a different season, or omits the season, will be DROPPED downstream.
+- Be concise — short excerpts, no repetition. The whole JSON must fit in one response; do not pad.
+- NEVER cite a URL you did not actually fetch or see in search results this session. Inventing sources is the worst failure mode; such claims are dropped.
+- NOT-FOUND IS VALID AND USEFUL. If you cannot source something, omit that claim and fill a not_found_reason honestly where the schema has one. Partial, honest results beat complete, invented ones — families make real decisions on this.
 
 ═══════════════════════════════════════════════════════════════════
 OUTPUT — return ONLY this JSON, no markdown fences, no commentary:
@@ -141,11 +162,12 @@ OUTPUT — return ONLY this JSON, no markdown fences, no commentary:
       "tournament_runs": [ { "text": "...", "claim_key": "..." } ]
     },
     "roster_summary": {
+      "roster_season": "e.g. 2025",
       "size": { "value": "e.g. 28 players", "claim_key": "..." },
       "class_breakdown": { "value": "e.g. 8 Sr / 7 Jr / 6 So / 7 Fr", "claim_key": "..." },
       "position_breakdown": { "value": "e.g. 4 GK / 9 D / 8 M / 7 F", "claim_key": "..." }
     },
-    "attrition_next_two_cycles": [ { "cycle": "graduating 2026", "position": "Center Back", "players": ["..."], "claim_key": "..." } ],
+    "attrition_next_two_cycles": [ { "cycle": "graduating spring 2027", "position": "Center Back", "players": ["..."], "claim_key": "..." } ],
     "geographic_profile": {
       "states_represented": [ { "text": "e.g. NY (6 players)", "claim_key": "..." } ],
       "regions": ["Northeast", "..."],
@@ -157,7 +179,7 @@ OUTPUT — return ONLY this JSON, no markdown fences, no commentary:
       "not_found_reason": "... or null"
     }
   },
-  "sources": [ { "claim_key": "...", "url": "https://...", "fetched_at": "unused - server stamps this", "supporting_excerpt": "verbatim quote from the page" } ]
+  "sources": [ { "claim_key": "...", "url": "https://...", "fetched_at": "unused - server stamps this", "supporting_excerpt": "verbatim quote", "season": "<current roster season, for roster-derived claims; omit otherwise>" } ]
 }
 
 Return ONLY the JSON object.`
@@ -176,9 +198,11 @@ export function buildResearchUserPrompt(seed: ResearchSeed): string {
   lines.push('')
   lines.push('=== RECRUIT ===')
   if (seed.gradYear) {
-    lines.push(`Graduating class: ${seed.gradYear} (arrives on campus fall ${seed.gradYear}). Look up published commits for the ${seed.gradYear} class, and compute attrition for the two cycles before fall ${seed.gradYear}.`)
+    lines.push(`Graduating class / ARRIVAL_YEAR: ${seed.gradYear} — the recruit arrives on campus fall ${seed.gradYear}.`)
+    lines.push(`In-scope attrition cycles — store ONLY these two: players graduating spring ${seed.gradYear} (cycle_1) and spring ${seed.gradYear - 1} (cycle_2). Derive them from CLASS STANDING on the CURRENT roster per the sequence; do NOT store any cohort graduating earlier than spring ${seed.gradYear - 1}.`)
+    lines.push(`Also search for published commits for the ${seed.gradYear} class.`)
   } else {
-    lines.push('Graduating class: unknown — skip the commits lookup and set published_commits_for_class.not_found_reason accordingly.')
+    lines.push('Graduating class: unknown — skip the commits lookup and the attrition computation, and set the relevant not_found_reason / empty attrition accordingly.')
   }
   return lines.join('\n')
 }
@@ -226,6 +250,7 @@ function normalizeSnapshotShape(s?: Partial<ResearchSnapshot>): ResearchSnapshot
       tournament_runs: s?.program_results?.tournament_runs ?? [],
     },
     roster_summary: {
+      roster_season: s?.roster_summary?.roster_season ?? null,
       size: s?.roster_summary?.size ?? null,
       class_breakdown: s?.roster_summary?.class_breakdown ?? null,
       position_breakdown: s?.roster_summary?.position_breakdown ?? null,
@@ -265,14 +290,26 @@ export function validateResearch(
   fetchedUrls: string[],
 ): ValidationResult {
   const ledger = new Set(fetchedUrls.map(normalizeUrl))
+  const currentSeason = (rawSnapshot.roster_summary.roster_season ?? '').trim()
 
-  // claim_key -> the source URLs cited for it, split into grounded vs not.
+  // Per claim_key: is it grounded (a source URL in the ledger)? and separately, is
+  // it grounded BY A SOURCE THAT CITES THE CURRENT ROSTER SEASON? (roster-derived).
   const groundedKeys = new Set<string>()
-  const offendersByKey = new Map<string, string[]>()
+  const rosterGroundedKeys = new Set<string>()
+  const offendersByKey = new Map<string, string[]>()      // cited urls NOT in ledger
+  const seasonMissByKey = new Map<string, string[]>()      // in-ledger but wrong/absent season
   for (const src of rawSources) {
     if (!src || typeof src.claim_key !== 'string' || typeof src.url !== 'string') continue
     if (ledger.has(normalizeUrl(src.url))) {
       groundedKeys.add(src.claim_key)
+      const srcSeason = String(src.season ?? '').trim()
+      if (currentSeason && srcSeason === currentSeason) {
+        rosterGroundedKeys.add(src.claim_key)
+      } else {
+        const arr = seasonMissByKey.get(src.claim_key) ?? []
+        arr.push(`${src.url}${srcSeason ? ` (season ${srcSeason})` : ' (no season)'}`)
+        seasonMissByKey.set(src.claim_key, arr)
+      }
     } else {
       const arr = offendersByKey.get(src.claim_key) ?? []
       arr.push(src.url)
@@ -281,38 +318,49 @@ export function validateResearch(
   }
 
   const drops: ClaimDrop[] = []
-  const keep = (obj: { claim_key?: string } | null | undefined, label: string): boolean => {
-    if (!obj || typeof obj.claim_key !== 'string') return false // claim with no key can't be grounded
+  // Basic grounding: any source URL in the ledger. For staff, program results, commits.
+  const keepBasic = (obj: { claim_key?: string } | null | undefined, label: string): boolean => {
+    if (!obj || typeof obj.claim_key !== 'string') { if (obj) drops.push({ claim_key: '(none)', label, reason: 'no claim_key', offending_urls: [] }); return false }
     if (groundedKeys.has(obj.claim_key)) return true
-    drops.push({
-      claim_key: obj.claim_key,
-      label,
-      offending_urls: offendersByKey.get(obj.claim_key) ?? [],
-    })
+    drops.push({ claim_key: obj.claim_key, label, reason: 'unsourced (no cited URL was fetched)', offending_urls: offendersByKey.get(obj.claim_key) ?? [] })
+    return false
+  }
+  // Roster grounding: grounded AND the source cites the CURRENT roster season.
+  // For roster_summary, attrition, geography.
+  const keepRoster = (obj: { claim_key?: string } | null | undefined, label: string): boolean => {
+    if (!obj || typeof obj.claim_key !== 'string') { if (obj) drops.push({ claim_key: '(none)', label, reason: 'no claim_key', offending_urls: [] }); return false }
+    if (rosterGroundedKeys.has(obj.claim_key)) return true
+    const reason = !currentSeason
+      ? 'no current roster season established — roster-derived claim omitted'
+      : groundedKeys.has(obj.claim_key)
+        ? `roster-derived claim not tied to the current season (${currentSeason})`
+        : 'unsourced (no cited URL was fetched)'
+    drops.push({ claim_key: obj.claim_key, label, reason, offending_urls: seasonMissByKey.get(obj.claim_key) ?? offendersByKey.get(obj.claim_key) ?? [] })
     return false
   }
 
   const snapshot: ResearchSnapshot = {
-    staff: rawSnapshot.staff.filter(s => keep(s, `staff: ${s.name ?? '?'}`)),
+    staff: rawSnapshot.staff.filter(s => keepBasic(s, `staff: ${s.name ?? '?'}`)),
     program_results: {
-      recent_records: rawSnapshot.program_results.recent_records.filter(r => keep(r, `record: ${r.text ?? '?'}`)),
-      conference_finishes: rawSnapshot.program_results.conference_finishes.filter(r => keep(r, `conference: ${r.text ?? '?'}`)),
-      tournament_runs: rawSnapshot.program_results.tournament_runs.filter(r => keep(r, `tournament: ${r.text ?? '?'}`)),
+      recent_records: rawSnapshot.program_results.recent_records.filter(r => keepBasic(r, `record: ${r.text ?? '?'}`)),
+      conference_finishes: rawSnapshot.program_results.conference_finishes.filter(r => keepBasic(r, `conference: ${r.text ?? '?'}`)),
+      tournament_runs: rawSnapshot.program_results.tournament_runs.filter(r => keepBasic(r, `tournament: ${r.text ?? '?'}`)),
     },
     roster_summary: {
-      size: rawSnapshot.roster_summary.size && keep(rawSnapshot.roster_summary.size, 'roster size') ? rawSnapshot.roster_summary.size : null,
-      class_breakdown: rawSnapshot.roster_summary.class_breakdown && keep(rawSnapshot.roster_summary.class_breakdown, 'class breakdown') ? rawSnapshot.roster_summary.class_breakdown : null,
-      position_breakdown: rawSnapshot.roster_summary.position_breakdown && keep(rawSnapshot.roster_summary.position_breakdown, 'position breakdown') ? rawSnapshot.roster_summary.position_breakdown : null,
+      roster_season: rawSnapshot.roster_summary.roster_season ?? null,
+      size: rawSnapshot.roster_summary.size && keepRoster(rawSnapshot.roster_summary.size, 'roster size') ? rawSnapshot.roster_summary.size : null,
+      class_breakdown: rawSnapshot.roster_summary.class_breakdown && keepRoster(rawSnapshot.roster_summary.class_breakdown, 'class breakdown') ? rawSnapshot.roster_summary.class_breakdown : null,
+      position_breakdown: rawSnapshot.roster_summary.position_breakdown && keepRoster(rawSnapshot.roster_summary.position_breakdown, 'position breakdown') ? rawSnapshot.roster_summary.position_breakdown : null,
     },
-    attrition_next_two_cycles: rawSnapshot.attrition_next_two_cycles.filter(a => keep(a, `attrition: ${a.position ?? '?'} ${a.cycle ?? ''}`)),
+    attrition_next_two_cycles: rawSnapshot.attrition_next_two_cycles.filter(a => keepRoster(a, `attrition: ${a.position ?? '?'} ${a.cycle ?? ''}`)),
     geographic_profile: {
-      states_represented: rawSnapshot.geographic_profile.states_represented.filter(g => keep(g, `geo: ${g.text ?? '?'}`)),
+      states_represented: rawSnapshot.geographic_profile.states_represented.filter(g => keepRoster(g, `geo: ${g.text ?? '?'}`)),
       regions: rawSnapshot.geographic_profile.regions,  // interpretive synthesis of the sourced states
       gaps: rawSnapshot.geographic_profile.gaps,        // interpretive
     },
     published_commits_for_class: {
       class_year: rawSnapshot.published_commits_for_class.class_year,
-      commits: rawSnapshot.published_commits_for_class.commits.filter(c => keep(c, `commit: ${c.name ?? '?'}`)),
+      commits: rawSnapshot.published_commits_for_class.commits.filter(c => keepBasic(c, `commit: ${c.name ?? '?'}`)),
       not_found_reason: rawSnapshot.published_commits_for_class.not_found_reason ?? null,
     },
   }

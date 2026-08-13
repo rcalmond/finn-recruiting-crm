@@ -191,7 +191,7 @@ function SnapshotBody({ snapshot }: { snapshot: ResearchSnapshot }) {
       )}
 
       {(s.roster_summary.size || s.roster_summary.class_breakdown || s.roster_summary.position_breakdown) && (
-        <Block title="Roster">
+        <Block title={`Roster${s.roster_summary.roster_season ? ` (${s.roster_summary.roster_season} season)` : ''}`}>
           {s.roster_summary.size && <div>Size: {s.roster_summary.size.value}</div>}
           {s.roster_summary.class_breakdown && <div>Classes: {s.roster_summary.class_breakdown.value}</div>}
           {s.roster_summary.position_breakdown && <div>Positions: {s.roster_summary.position_breakdown.value}</div>}

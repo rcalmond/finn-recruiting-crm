@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
           validateResearch(raw.rawSnapshot, raw.rawSources, raw.fetchedUrls)
 
         for (const d of drops) {
-          console.warn(`[school-research] DROPPED claim "${d.claim_key}" (${d.label}) — source(s) not in fetch ledger: ${d.offending_urls.join(', ') || '(no source cited)'}`)
+          console.warn(`[school-research] DROPPED "${d.claim_key}" (${d.label}) — ${d.reason}${d.offending_urls.length ? ': ' + d.offending_urls.join(', ') : ''}`)
         }
 
         // ── Persist result on our row ───────────────────────────────────
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
             fetchedUrls: raw.fetchedUrls.length,
             dropped: drops.length,
           },
-          drops: drops.map(d => ({ claim_key: d.claim_key, label: d.label })),
+          drops: drops.map(d => ({ claim_key: d.claim_key, label: d.label, reason: d.reason })),
           usage: { inputTokens: raw.totalInputTokens, outputTokens: raw.totalOutputTokens, toolCalls: raw.toolCallCount },
         })
         controller.close()
