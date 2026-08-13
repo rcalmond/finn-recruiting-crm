@@ -2,12 +2,14 @@
  * POST /api/camp-prep/generate
  *
  * Phase 5 — the judgment stage. Consumes a confirmed camp extraction (a prep_docs
- * draft) plus the full CRM thread, current school_research, the player profile, and
- * the whole-list calibration context, and writes the structured CampDoc to
- * prep_docs.content via Opus. Sets research_id; leaves storage_path null.
+ * draft) plus the full CRM thread, the player profile, and the whole-list calibration
+ * context, and writes the structured CampDoc to prep_docs.content via Opus. Leaves
+ * storage_path null.
  *
- * The research staleness GATE is the client's job (confirm before spending). This
- * endpoint uses whatever getCurrentResearch returns and never nests a research run.
+ * Phase 5.5 — SCOPE CUT: this endpoint no longer reads school_research at all (no
+ * staleness gate, no research_id). Every section now draws only from the CRM, the
+ * confirmed extraction, or a family-authored field. The research pipeline still
+ * exists and stays useful — it is simply off this document's critical path.
  */
 
 import { NextRequest } from 'next/server'
@@ -15,11 +17,10 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { fetchSchoolContext } from '@/lib/school-context'
-import { getCurrentResearch } from '@/lib/school-research'
 import { extractJsonObject } from '@/lib/agentic-research'
 import {
-  CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, extractDeclaredFacts,
-  type CampDoc, type DocPlayerProfile, type DocSchoolListItem,
+  CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt,
+  type CampDoc, type DocPlayerProfile, type DocSchoolListItem, type PreferencesRead,
 } from '@/lib/camp-doc'
 import type { CampExtraction, CampPrepInputs } from '@/lib/camp-prep'
 
@@ -76,15 +77,21 @@ export async function POST(req: NextRequest) {
           controller.close(); return
         }
 
-        // ── Current research ──
-        const research = await getCurrentResearch(db, draft.school_id)
-
-        // ── Player profile ──
-        const { data: pp } = await db
+        // ── Player profile (includes the family-authored recruiting_preferences) ──
+        const { data: pp, error: ppErr } = await db
           .from('player_profile')
-          .select('current_stats, upcoming_schedule, highlights, academic_summary, position, grad_year, home_timezone, preparation_notes')
+          .select('current_stats, upcoming_schedule, highlights, academic_summary, position, grad_year, home_timezone, preparation_notes, recruiting_preferences')
           .limit(1)
           .maybeSingle()
+        // Fail-closed: an EMPTY preferences field (family wrote nothing) is not the
+        // same as a FAILED read (profile query errored). Calibration may state absence
+        // on 'empty'; on 'failed' it must NOT. Same principle the removed digest held.
+        const prefsRaw = (pp?.recruiting_preferences as string | null)?.trim() || ''
+        const preferences: PreferencesRead = ppErr
+          ? { status: 'failed', value: null, reason: ppErr.message }
+          : prefsRaw
+            ? { status: 'ok', value: prefsRaw }
+            : { status: 'empty', value: null }
         const player: DocPlayerProfile = {
           name: 'Finn Almond',
           position: (pp?.position as string | null) ?? null,
@@ -109,11 +116,10 @@ export async function POST(req: NextRequest) {
           name: s.name, tier: s.category, stage: s.recruiting_stage, status: s.status, has_offer: offerSet.has(s.id),
         }))
 
-        // ── Cross-thread declared-facts digest (calibration only) ──
-        send('progress', { stage: 'calibration', message: 'Scanning all threads for declared preferences…' })
-        const digest = await extractDeclaredFacts(db, anthropic, player.home_timezone)
-        console.log(`[camp-prep/generate] declared-facts digest: status=${digest.status} facts=${digest.facts.length} candidates=${digest.candidateCount}${digest.reason ? ` reason=${digest.reason}` : ''}`)
-        if (digest.status === 'failed') console.warn(`[camp-prep/generate] digest FAILED — calibration will degrade (no absence assertion): ${digest.reason}`)
+        // ── Calibration input: the family-authored preferences field (per-generation
+        //    status logged so a silent read failure can't masquerade as "no preference") ──
+        console.log(`[camp-prep/generate] recruiting-preferences read: status=${preferences.status}${preferences.reason ? ` reason=${preferences.reason}` : ''}`)
+        if (preferences.status === 'failed') console.warn(`[camp-prep/generate] preferences READ FAILED — calibration will degrade (no absence assertion): ${preferences.reason}`)
 
         // ── Generate ──
         send('progress', { stage: 'generate', message: 'Regista is writing the document (Opus)…' })
@@ -127,11 +133,9 @@ export async function POST(req: NextRequest) {
           contactLog: sctx.contactLog,
           coaches: sctx.coaches,
           offers: sctx.offers,
-          research: research?.snapshot ?? null,
-          researchStatus: research?.status ?? null,
           schoolName: sctx.school.name,
           schoolList,
-          declaredFacts: digest,
+          preferences,
         })
 
         const message = await anthropic.messages.create({
@@ -145,22 +149,21 @@ export async function POST(req: NextRequest) {
 
         // ── Persist ──
         send('progress', { stage: 'save', message: 'Saving document…' })
+        // Phase 5.5: research_id is no longer set (column left in place, now always null).
         const { error: updErr } = await db
           .from('prep_docs')
-          .update({ content: doc, research_id: research?.id ?? null, generated_at: new Date().toISOString() })
+          .update({ content: doc, generated_at: new Date().toISOString() })
           .eq('id', docId)
         if (updErr) throw new Error(`Persist failed: ${updErr.message}`)
 
         send('complete', {
           docId,
-          usedResearch: !!research,
-          declaredFacts: { status: digest.status, count: digest.facts.length, reason: digest.reason ?? null, candidatesScanned: digest.candidateCount, extractionInputTokens: digest.inputTokens },
+          recruitingPreferences: { status: preferences.status, reason: preferences.reason ?? null },
           usage: { inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens },
           counts: {
             touchpoints: doc.where_you_stand?.coach_touchpoints?.length ?? 0,
             planDays: doc.the_plan?.length ?? 0,
             staff: doc.the_staff?.length ?? 0,
-            hasFit: !!doc.the_fit,
           },
         })
         controller.close()

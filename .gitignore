@@ -39,3 +39,6 @@ supabase/.branches
 supabase/.temp
 supabase/scratch/
 .claude/
+
+# Camp-doc harness fixtures/outputs — contain real coach-email bodies; seed locally via `scripts/camp-doc-harness.ts --record`
+scripts/fixtures/camp-doc.*.json

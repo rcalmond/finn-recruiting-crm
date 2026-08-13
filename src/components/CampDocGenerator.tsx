@@ -1,17 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { useSchoolResearch } from '@/hooks/useRealtimeData'
-import { daysSince, STALE_DAYS } from '@/lib/school-research'
 
 // Throughball chrome. Content viewer is deliberately raw JSON — Phase 5 judges
 // content, not looks.
+//
+// Phase 5.5: the document no longer reads school_research, so the staleness gate and
+// the refresh-before-generate confirmation are gone. Generate is now one click.
 const G = {
   warmWhite:'#FFFDF9', cream:'#FBF6EC', ink:'#1A1A1A', inkMid:'#4A4A4A', muted:'#6B655A',
   faint:'#8A8478', line:'#E2DBC9', line2:'#D3CAB3', pitch:'#1F6B48', danger:'#9A0B23',
 }
 
-type State = 'idle' | 'gate' | 'researching' | 'generating' | 'error'
+type State = 'idle' | 'generating' | 'error'
 
 async function consumeSSE(url: string, body: unknown, onEvent: (event: string, data: Record<string, unknown>) => void) {
   const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -37,27 +38,16 @@ async function consumeSSE(url: string, body: unknown, onEvent: (event: string, d
 }
 
 export default function CampDocGenerator({
-  docId, schoolId, schoolName, content, onGenerated,
+  docId, content, onGenerated,
 }: {
   docId: string
-  schoolId: string
-  schoolName: string
   content: unknown | null
   onGenerated: () => void
 }) {
-  const { research, refetch: refetchResearch } = useSchoolResearch(schoolId)
   const [state, setState] = useState<State>('idle')
   const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
   const [showJson, setShowJson] = useState(false)
-
-  const researchAge = research ? daysSince(research.generated_at) : null
-  const researchStale = research == null || (researchAge !== null && researchAge > STALE_DAYS)
-
-  function start() {
-    if (researchStale) { setState('gate'); return }
-    runGenerate()
-  }
 
   async function runGenerate() {
     setState('generating'); setProgress('Starting…'); setError('')
@@ -73,54 +63,24 @@ export default function CampDocGenerator({
     } catch { setState('error') }
   }
 
-  async function refreshThenGenerate() {
-    setState('researching'); setProgress('Researching the program…'); setError('')
-    try {
-      await consumeSSE('/api/school-research/generate', { schoolId }, (ev, data) => {
-        if (ev === 'progress') setProgress(String(data.message ?? ''))
-        else if (ev === 'busy' || ev === 'error') { setError(String(data.message ?? 'Research failed')); throw new Error('res') }
-      })
-      await refetchResearch()
-      await runGenerate()
-    } catch { setState('error') }
-  }
-
-  const busy = state === 'researching' || state === 'generating'
+  const busy = state === 'generating'
 
   return (
     <div style={{ marginTop: 12, borderTop: `1px solid ${G.line}`, paddingTop: 12 }}>
       {/* Controls */}
       {state === 'idle' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <button onClick={start} style={pitchBtn}>{content ? 'Regenerate document' : 'Generate document'}</button>
+          <button onClick={runGenerate} style={pitchBtn}>{content ? 'Regenerate document' : 'Generate document'}</button>
           {content != null && (
             <button onClick={() => setShowJson(s => !s)} style={ghost}>{showJson ? 'Hide' : 'View'} document JSON</button>
           )}
-          <span style={{ fontSize: 11.5, color: G.faint }}>
-            {research ? `research ${researchAge === 0 ? 'today' : `${researchAge}d old`}${researchStale ? ' · stale' : ''}` : 'no research yet'}
-          </span>
-        </div>
-      )}
-
-      {state === 'gate' && (
-        <div style={{ background: G.cream, border: `1px solid ${G.line2}`, borderRadius: 8, padding: 12 }}>
-          <div style={{ fontSize: 12.5, color: G.ink, marginBottom: 8, lineHeight: 1.5 }}>
-            {research
-              ? `Research for ${schoolName} is ${researchAge} days old (past the ${STALE_DAYS}-day window). Refresh it first, or generate with what's on file?`
-              : `No research on file for ${schoolName}. Refresh first, or generate without the staff/roster sections?`}
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={refreshThenGenerate} style={pitchBtn}>Refresh &amp; generate</button>
-            <button onClick={runGenerate} style={ghost}>{research ? `Use existing (${researchAge}d)` : 'Generate without it'}</button>
-            <button onClick={() => setState('idle')} style={ghost}>Cancel</button>
-          </div>
         </div>
       )}
 
       {busy && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: G.inkMid }}>
           <span style={{ width: 12, height: 12, borderRadius: '50%', border: `2px solid ${G.line2}`, borderTopColor: G.pitch, animation: 'tb-spin 0.8s linear infinite' }} />
-          <span>{progress || (state === 'researching' ? 'Researching…' : 'Generating…')}</span>
+          <span>{progress || 'Generating…'}</span>
           <style>{`@keyframes tb-spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}

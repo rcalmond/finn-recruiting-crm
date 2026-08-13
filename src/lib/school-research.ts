@@ -51,6 +51,14 @@ export interface AttritionEntry extends Claim {
   players: string[]   // named where published
 }
 
+// ─── HARD RULE FOR ALL CONSUMERS OF THIS SNAPSHOT (added 5.5) ────────────────────
+// A prose field that EXPLAINS AN ABSENCE — not_found_reason, and anything like it —
+// is an explanation, NOT a data source. No generator may parse it for entities
+// (names, records, dates). "No published commit list found; the program is D3 and
+// rarely publishes one" explains why `commits` is empty; it does not mean a program
+// named "D3" exists. Read entities ONLY from the STRUCTURED fields (commits[].name,
+// staff[].name, attrition[].players). This is the failure mode that got THE FIT cut
+// from the camp doc in 5.5; the rule protects the pipeline wherever it's consumed next.
 export interface ResearchSnapshot {
   staff: ResearchStaff[]
   program_results: {

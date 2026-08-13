@@ -746,8 +746,6 @@ function CampPrepSection({ camp }: { camp: CampWithRelations }) {
       {doc?.extracted_schedule && (
         <CampDocGenerator
           docId={doc.id}
-          schoolId={camp.hostSchool.id}
-          schoolName={camp.hostSchool.short_name || camp.hostSchool.name}
           content={doc.content}
           onGenerated={refetch}
         />

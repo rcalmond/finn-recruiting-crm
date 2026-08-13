@@ -2,20 +2,25 @@
  * camp-doc.ts
  *
  * Phase 5 — document generation. The judgment stage (Opus). Consumes a confirmed
- * camp extraction plus the full CRM thread, current school_research, the player
- * profile, and the whole-list calibration context, and produces the structured
- * CampDoc written TO the player.
+ * camp extraction plus the full CRM thread, the player profile, and the whole-list
+ * calibration context, and produces the structured CampDoc written TO the player.
  *
- * Regista owns sections 1-2 (Where You Stand, The Mission). Everything factual
- * traces to contact_log or school_research — no facts added on top.
+ * Phase 5.5 — SCOPE CUT. The document no longer reads school_research at all. Every
+ * section now draws only from the CRM (thread, coaches, offers, list metadata), the
+ * confirmed extraction, or a family-authored field (preparation_notes,
+ * recruiting_preferences). Every defect in this build landed in a section that
+ * ASSERTED facts about the outside world; the echo sections never failed. So the
+ * derived sections were cut and the echo sections kept.
+ *
+ * DEFERRED TO v2 (not abandoned): THE FIT — attrition, profile gap, honest context.
+ * When it returns it MUST derive its entities from structured research fields, and
+ * MUST NEVER read entities out of research PROSE fields (see the absence-prose rule
+ * documented in school-research.ts). That failure mode — parsing a summary/gap/
+ * not_found_reason string for names — is exactly what got it cut.
  */
 
-import Anthropic from '@anthropic-ai/sdk'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { extractJsonObject } from './agentic-research'
 import type { CampExtraction, CampPrepInputs } from './camp-prep'
 import type { ContactLogRow, CoachRow, OfferRow } from './school-context'
-import type { ResearchSnapshot } from './school-research'
 
 export const CAMP_DOC_MODEL = 'claude-opus-4-8'
 
@@ -46,8 +51,9 @@ export interface CampDocTouchpoint {
 }
 export interface CampDocDayBlock { time: string | null; activity: string; guidance: string }
 export interface CampDocDay { label: string; is_travel_day?: boolean; blocks: CampDocDayBlock[]; sleep: string; recovery?: string | null }
-export interface CampDocStaff { name: string; role: string; credentials: string; your_angle: string; primary_relationship?: boolean }
-export interface CampDocAttrition { cycle: string; position: string; players: string[] }
+// Phase 5.5: credentials removed (research-derived). Angle + relationship come from
+// the CRM thread and have been correct every run.
+export interface CampDocStaff { name: string; role: string; your_angle: string; primary_relationship?: boolean }
 
 export interface CampDoc {
   masthead: { player: string; school: string; camp: string; dates: string; venue: string | null; surface: string | null; framing: string }
@@ -61,11 +67,17 @@ export interface CampDoc {
   }
   the_mission: { rubric_found: boolean; rubric_quote: CampDocQuote | null; mission: string; calibration: string }
   the_staff: CampDocStaff[] | null
-  the_fit: { attrition: CampDocAttrition[]; profile_gap: string; honest_context: string; unsourced: string | null } | null
+  // the_fit removed in 5.5 — deferred to v2 (see header). Do NOT re-add without a
+  // structured-fields-only source.
   the_plan: CampDocDay[]
   before_leaving: { coach_to_find: string; opening_line: string; next_step_question: string; follow_up: { who: string; reference: string; send_date: string } }
   footer: string
 }
+
+// Fail-closed read of the family-authored recruiting_preferences field. An EMPTY
+// field (family wrote nothing) is NOT the same as a FAILED read (profile query
+// errored). Calibration may state absence on 'empty'; on 'failed' it must not.
+export interface PreferencesRead { status: 'ok' | 'empty' | 'failed'; value: string | null; reason?: string }
 
 // ─── Player profile shape passed in ─────────────────────────────────────────────
 
@@ -83,91 +95,26 @@ export interface DocPlayerProfile {
 
 export interface DocSchoolListItem { name: string; tier: string; stage: number; status: string; has_offer: boolean }
 
-// ─── Cross-thread declared-facts digest (calibration only) ──────────────────────
-
-export interface DeclaredFact { school: string; date: string; kind: string; quote: string }
-
-// A discriminated result so 'nothing was declared' (empty) can never be confused
-// with 'the lookup failed' (failed). Downstream must NOT assert absence on 'failed'.
-export interface DeclaredFactsResult {
-  status: 'ok' | 'empty' | 'failed'
-  facts: DeclaredFact[]
-  reason?: string
-  candidateCount: number
-  inputTokens: number
-}
-
-// Coarse pre-filter to bound the corpus before the Sonnet extraction. Declarations
-// are keyword-rich; Sonnet does the precision + verbatim quoting.
-const DECLARATION_RE = /top choice|first choice|number one|#1|top of my list|high(?:est)? on my list|committed|\bcommit\b|decid|\bchose\b|choosing|going with|pre.?read|\boffer|dream school|my (?:top|number|favou?rite)|priority/i
-
-/**
- * Scans EVERY school's outbound (family) messages, keyword-filters to declaration
- * candidates, and Sonnet-extracts a small digest of family-declared facts with
- * verbatim quotes from raw_source. This is the ONLY cross-thread context — no full
- * threads are dumped. Returns the digest + the bound (candidate count, input tokens).
- */
-export async function extractDeclaredFacts(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  admin: SupabaseClient<any, any, any>,
-  anthropic: Anthropic,
-  homeTz: string,
-): Promise<DeclaredFactsResult> {
-  try {
-    const { data, error } = await admin
-      .from('contact_log')
-      .select('date, sent_at, direction, summary, raw_source, schools(name)')
-      .eq('direction', 'Outbound')
-      .not('parse_status', 'in', '("orphan","non_coach")')
-      .order('sent_at', { ascending: true })
-    if (error) return { status: 'failed', facts: [], reason: `outbound query failed: ${error.message}`, candidateCount: 0, inputTokens: 0 }
-
-    const rows = (data ?? []) as Array<{ date: string; sent_at: string; summary: string | null; raw_source: string | null; schools: { name: string } | { name: string }[] | null }>
-    const candidates = rows.filter(r => DECLARATION_RE.test(r.summary ?? '') || DECLARATION_RE.test(r.raw_source ?? ''))
-    if (candidates.length === 0) return { status: 'empty', facts: [], candidateCount: 0, inputTokens: 0 }
-
-    const body = candidates.map(r => {
-      const school = Array.isArray(r.schools) ? r.schools[0]?.name : r.schools?.name
-      return `[SCHOOL: ${school ?? '?'} | ${localDate(r.sent_at, homeTz, r.date)}]\n${cleanRawSource(r.raw_source || r.summary || '')}`
-    }).join('\n\n---\n\n')
-
-    const sys = `You extract FAMILY-DECLARED FACTS from a college-soccer recruit's own OUTBOUND emails across many schools — facts that CONSTRAIN what can be said to OTHER schools.
-
-CRITICAL — distinguish a real declaration from routine outreach enthusiasm. In first-contact / intro emails a recruit tells MANY schools they are "a top choice" or "very interested" or "high on my list", usually with reasons ("X is a top choice because of its engineering..."). That is INTEREST, not a ranking, and you MUST EXCLUDE it — a recruit who calls five schools "a top choice" in intros has ranked none of them. Extract a preference/ranking ONLY when it is a CURRENT, SINGULAR declaration stated as fact — "X is my top choice", "you're my #1", "I've committed to Y", "I've decided on Z" — typically later in a relationship, not generic enthusiasm in an intro. When in doubt, EXCLUDE.
-
-Also extract: firm commitments or decisions communicated to a program; pre-reads requested or received; offers acknowledged. IGNORE routine logistics (camp sign-ups, scheduling, reels, generic interest).
-
-For each qualifying fact give the school, the date shown, a short "kind", and a VERBATIM "quote" from the text. Return ONLY JSON: { "facts": [ { "school": "...", "date": "...", "kind": "preference|commitment|pre_read|offer|other", "quote": "verbatim" } ] }. If nothing qualifies return { "facts": [] }.`
-
-    const msg = await anthropic.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 4000, system: sys, messages: [{ role: 'user', content: body }] })
-    if (msg.stop_reason === 'max_tokens') {
-      return { status: 'failed', facts: [], reason: 'extraction truncated (hit max_tokens)', candidateCount: candidates.length, inputTokens: msg.usage.input_tokens }
-    }
-    const raw = msg.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')
-    let parsed: { facts?: DeclaredFact[] }
-    try { parsed = extractJsonObject(raw) as { facts?: DeclaredFact[] } } catch (err) {
-      return { status: 'failed', facts: [], reason: `digest parse failed: ${err instanceof Error ? err.message : err}`, candidateCount: candidates.length, inputTokens: msg.usage.input_tokens }
-    }
-    const facts = parsed.facts ?? []
-    return { status: facts.length > 0 ? 'ok' : 'empty', facts, candidateCount: candidates.length, inputTokens: msg.usage.input_tokens }
-  } catch (err) {
-    return { status: 'failed', facts: [], reason: err instanceof Error ? err.message : 'unknown error', candidateCount: 0, inputTokens: 0 }
-  }
-}
+// Phase 5.5: the ~39k-token cross-thread declared-facts digest (extractDeclaredFacts)
+// was removed from the generation path. A truncated parse had once returned an empty
+// array that calibration turned into a confident "no top choice declared anywhere" —
+// a derived claim about the outside world. Calibration now ECHOES the family-authored
+// recruiting_preferences field instead (see PreferencesRead + the calibration rules
+// in the system prompt), the one pattern in this build that has never broken.
 
 // ─── Prompt builders ───────────────────────────────────────────────────────────
 
 export function buildCampDocSystemPrompt(): string {
   return `You are Regista, the judgment engine of Throughball. You are writing a CAMP PREP DOCUMENT to a college-soccer recruit, in the second person ("you"), direct and honest. This is the judgment stage: you weigh, you decide, you tell the player the truth. You are NOT a hype machine.
 
-You are given: the confirmed camp schedule + hard constraints + travel (already extracted and human-verified), the FULL coach thread from the CRM, the program's researched public facts, the player's profile, and the state of the whole school list. Produce ONE JSON document matching the schema at the end.
+You are given: the confirmed camp schedule + hard constraints + travel (already extracted and human-verified), the FULL coach thread from the CRM, the coaches on file, the player's profile, the family's own recruiting preferences, and the state of the whole school list. There is NO external program research in your inputs — do not reference, imply, or invent any. Produce ONE JSON document matching the schema at the end.
 
 ═══════════════════════════════════════════════════════════════════
 ABSOLUTE FACT RULES
 ═══════════════════════════════════════════════════════════════════
 - NO fabricated quotes, ever. Every coach quote must be VERBATIM from the provided thread. If you cannot quote it exactly, do not present it as a quote.
-- Do not assert any coach, roster, record, or commit fact that is not in the provided research or thread. Research already validated its own sourcing — do not add facts on top of it.
-- Where research is thin or absent, the document SAYS SO plainly rather than filling the gap.
+- Do not assert any coach, roster, record, alma-mater, tenure, or commit fact that is not in the provided thread. You have NO research feed — if a fact isn't in the thread, the extraction, or the family's own fields, you do not know it and must not state it.
+- Do not fill gaps. Where the thread is thin, the document SAYS SO plainly rather than manufacturing.
 - Written TO the player, second person. Honest over hyped.
 
 ═══════════════════════════════════════════════════════════════════
@@ -186,29 +133,25 @@ SECTIONS
 
 2. THE MISSION:
    - RUBRIC HUNT: scan the thread for any moment a coach said what they want to see. If found, quote it verbatim (set rubric_found true, put it in rubric_quote) and make it the mission. If not found, set rubric_found false and say so explicitly, then derive a mission from position, stage, and the camp format.
-   - CALIBRATION: use BOTH the whole-list metadata (tiers/stages/offers) AND the FAMILY-DECLARED FACTS digest. State how to talk about this school relative to the others — what language is and isn't on the table, and any second-order effect (peer programs talk to each other). Follow the digest's status EXACTLY:
-     * If it lists declarations (status ok): if the family declared a preference/top-choice/commitment to ANOTHER school, RESPECT it — warm and true, but no language that contradicts or supersedes it (do not coach the player to call THIS school #1 if they've told another program it's their top choice). CITE the declaration (school, date, quote). If the declaration is about THIS school, being consistent with it (including #1 language) is honest.
-     * If it says NONE FOUND (status empty — the lookup ran and found nothing): state plainly that no preference is on record anywhere and instruct against manufacturing a ranking.
-     * If it says LOOKUP FAILED (status failed): you have NOT verified what's been declared. Do NOT assert absence and do NOT state or imply a ranking either way — give guidance that doesn't depend on the cross-school picture. NEVER turn a failed lookup into "nothing has been declared."
-     Never invent a ranking the family didn't state.
+   - CALIBRATION: use BOTH the whole-list metadata (tiers/stages/offers — structured CRM data the app holds) AND the FAMILY'S OWN RECRUITING PREFERENCES field. State how to talk about this school relative to the others — what language is and isn't on the table, and any second-order effect (peer programs talk to each other). Follow the preferences field's status EXACTLY:
+     * status ok (the family WROTE a preference): ECHO it and RESPECT the constraint it states. If the family named ANOTHER school as their top choice, do NOT coach the player to call THIS school #1 or use language that contradicts or supersedes that declaration — warm and true is fine. If the preference is about THIS school, being consistent with it (including #1 language) is honest. Do not go beyond what the field says.
+     * status empty (the field is blank — the family has written no preference): state plainly that no preference is on record and instruct against manufacturing a ranking. This is a true statement about an empty field, NOT a claim about every thread.
+     * status failed (the profile could not be read this run): you have NOT verified what the family declared. Do NOT assert absence and do NOT state or imply a ranking either way — give guidance that does not depend on the family's preferences, and note the preference could not be read this run if relevant. NEVER turn a failed read into "nothing has been declared."
+     You may ALWAYS reference the whole-list metadata (tier/stage/offers) — that is structured CRM data, not inference. NEVER infer a ranking from thread content, and never invent a preference the family did not write.
 
-GENERAL PRINCIPLE (§1 and §2): every comparative or asymmetry claim is evidence-anchored — tied to a specific message, offer, or stage — or it is not made. Do not produce a confident summary judgment when the specific evidence is available and unexamined.
+GENERAL PRINCIPLE (§1 and §2): every comparative or asymmetry claim is evidence-anchored — tied to a specific message, offer, stage, or a field the family wrote — or it is not made. Do not produce a confident summary judgment when the specific evidence is available and unexamined, and never manufacture one from evidence you were not given.
 
-3. THE STAFF — ONLY if research returned staff (else set the_staff to null). Per coach: their credentials/record FROM RESEARCH, then a "YOUR ANGLE" line tied to something real in the thread or research. Identify the PRIMARY RELATIONSHIP from the CRM thread (who actually corresponds with the family) — set primary_relationship true on that coach — NOT from research (research is public facts only and does not know who emails you).
+3. THE STAFF — the coaches the family actually corresponds with, drawn from the CRM (coaches on file + thread). Per coach: name, role, and a "YOUR ANGLE" line tied to something REAL AND SPECIFIC IN THE THREAD (a message, a topic they raised, a shared reference). Identify the PRIMARY RELATIONSHIP from the thread (who actually emails the family) and set primary_relationship true on that coach. A coach with NO thread relationship gets name and role only — leave your_angle empty and do NOT manufacture an angle for someone the family has never corresponded with. Do NOT state credentials, alma maters, tenure, or hire dates — you have no research feed and must not invent them. If there are no coaches on file, set the_staff to null.
 
-4. THE FIT — ONLY if research returned roster data (else set the_fit to null):
-   - Attrition by position for the two cycles before arrival, named (from research).
-   - Profile gap: what you add that the roster doesn't have.
-   - HONEST CONTEXT (mandatory when this section renders): a paragraph that refuses to oversell. The opening is real, it is not reserved. Include what research could NOT source.
+4. THE PLAN — day by day, from the confirmed extraction, from the first affected day (usually the travel day) through the return travel day. SEE THE CONTENT DOMAIN BELOW — every day carries it. Each block has a time (or null), the activity, and "guidance": the sleep/nutrition/load/constraint instruction that belongs at THAT moment.
+   - TRAVEL TIMES ARE ECHOES, NEVER INVENTIONS: a travel segment's time comes ONLY from the confirmed extraction. If a segment has a time in the extraction, you may state it. If a segment has NO time in the extraction, you MUST NOT state or invent one — write it open-ended, e.g. "afternoon flight home, time per your booking". Never manufacture a departure or arrival time, and never carry a time from one segment onto another.
 
-5. THE PLAN — day by day, from the confirmed extraction, from the first affected day (usually the travel day) through the return travel day. SEE THE CONTENT DOMAIN BELOW — every day carries it. Each block has a time (or null), the activity, and "guidance": the sleep/nutrition/load/constraint instruction that belongs at THAT moment.
-
-6. BEFORE LEAVING / conversion mechanic:
+5. BEFORE LEAVING / conversion mechanic:
    - The specific coach to find first and what to say (opening_line).
    - The direct next-step question to ask, phrased in the player's OWN voice (first person, natural, askable out loud).
    - Follow-up plan: who to email, what specific moment from the weekend to reference, and a concrete send date.
 
-7. FOOTER — one closing charge line.
+6. FOOTER — one closing charge line.
 
 ═══════════════════════════════════════════════════════════════════
 REQUIRED CONTENT DOMAIN: NUTRITION, SLEEP, LOAD (not optional — every day block in THE PLAN carries it)
@@ -235,8 +178,7 @@ Return ONLY the JSON document (no markdown fences, no commentary), matching:
   "masthead": { "player": "...", "school": "...", "camp": "...", "dates": "...", "venue": "... or null", "surface": "... or null", "framing": "one line" },
   "where_you_stand": { "read": "the lead, 1-3 short paragraphs", "coach_touchpoints": [ { "date": "YYYY-MM-DD", "classification": "unprompted|responsive", "quote": "verbatim from VERBATIM SOURCE or null", "what": "what it was / why it classifies that way" } ], "relationship_opened_by": "one clause", "advancement": "who has driven it forward, citing specific dates + quotes", "not_yet": "...", "verdict": "..." },
   "the_mission": { "rubric_found": true/false, "rubric_quote": { "quote": "...", "who": "...", "when": null } or null, "mission": "...", "calibration": "..." },
-  "the_staff": [ { "name": "...", "role": "...", "credentials": "...", "your_angle": "...", "primary_relationship": true/false } ] or null,
-  "the_fit": { "attrition": [ { "cycle": "...", "position": "...", "players": ["..."] } ], "profile_gap": "...", "honest_context": "the mandatory anti-hype paragraph", "unsourced": "what research could not source, or null" } or null,
+  "the_staff": [ { "name": "...", "role": "...", "your_angle": "... or empty if no thread relationship", "primary_relationship": true/false } ] or null,
   "the_plan": [ { "label": "e.g. Friday — travel", "is_travel_day": true/false, "blocks": [ { "time": "... or null", "activity": "...", "guidance": "the nutrition/sleep/load/constraint instruction for this moment" } ], "sleep": "lights-out + wake + body-clock equivalent for this night", "recovery": "... or null" } ],
   "before_leaving": { "coach_to_find": "...", "opening_line": "...", "next_step_question": "in the player's own first-person voice", "follow_up": { "who": "...", "reference": "...", "send_date": "..." } },
   "footer": "one closing charge line"
@@ -252,11 +194,9 @@ export function buildCampDocUserPrompt(ctx: {
   contactLog: ContactLogRow[]
   coaches: CoachRow[]
   offers: OfferRow[]
-  research: ResearchSnapshot | null
-  researchStatus: string | null
   schoolName: string
   schoolList: DocSchoolListItem[]
-  declaredFacts: DeclaredFactsResult
+  preferences: PreferencesRead
 }): string {
   const L: string[] = []
   const P = ctx.player
@@ -301,25 +241,18 @@ export function buildCampDocUserPrompt(ctx: {
     for (const o of ctx.offers) L.push(`- ${o.offer_type}: ${o.headline}${o.money_note ? ` (${o.money_note})` : ''} [${o.status}]`)
     L.push('')
   }
-  L.push('=== RESEARCH (public facts; already source-validated — do not add on top) ===')
-  if (ctx.research) {
-    L.push(`status: ${ctx.researchStatus}`)
-    L.push(JSON.stringify(ctx.research, null, 2))
-  } else {
-    L.push('NO CURRENT RESEARCH. Set the_staff and the_fit to null and say plainly in the document that program research was not available.')
-  }
-  L.push('')
-  L.push('=== THE WHOLE LIST (for calibration — tiers/stages/offers across all active schools) ===')
+  L.push('=== THE WHOLE LIST (for calibration — tiers/stages/offers across all active schools; structured CRM data) ===')
   for (const s of ctx.schoolList) L.push(`- ${s.name}: tier ${s.tier}, stage ${s.stage}, ${s.status}${s.has_offer ? ', HAS OFFER' : ''}`)
   L.push('')
-  L.push('=== FAMILY-DECLARED FACTS ACROSS ALL SCHOOLS (for CALIBRATION only — the family said these to a program; they constrain what you can say here) ===')
-  const df = ctx.declaredFacts
-  if (df.status === 'failed') {
-    L.push(`LOOKUP FAILED (${df.reason ?? 'unknown'}). The cross-school declaration check did NOT run successfully. You MUST NOT assert that nothing has been declared and MUST NOT state or imply a ranking either way. Degrade: give calibration guidance that does not depend on knowing the family's declared preferences, and note that the cross-school picture could not be verified this run if it is relevant.`)
-  } else if (df.status === 'empty') {
-    L.push('NONE FOUND. The lookup ran successfully across every school\'s outbound messages and found NO declared top choice, commitment, or ranking. You may state plainly that no preference is on record anywhere; do NOT manufacture one.')
+  L.push('=== FAMILY RECRUITING PREFERENCES (authored BY THE FAMILY — the ONLY source of declared preference for calibration; ECHO it, never infer beyond it) ===')
+  const pref = ctx.preferences
+  if (pref.status === 'failed') {
+    L.push(`READ FAILED (${pref.reason ?? 'unknown'}). The family's recruiting-preferences field could NOT be read this run. You MUST NOT assert that nothing has been declared and MUST NOT state or imply a ranking either way. Degrade: give calibration guidance that does not depend on the family's declared preferences, and note the preference could not be read this run if relevant. NEVER turn a failed read into "nothing has been declared."`)
+  } else if (pref.status === 'empty') {
+    L.push('EMPTY. The field is blank — the family has written no preference. You may state plainly that no preference is on record and instruct against manufacturing a ranking. This is a statement about an empty field, not a claim about every thread.')
   } else {
-    for (const f of df.facts) L.push(`- [${f.school} | ${f.date}] (${f.kind}) "${f.quote}"`)
+    L.push(pref.value ?? '')
+    L.push('\nECHO the above and respect the constraint it states. Do not go beyond what it says; do not manufacture a ranking it does not state.')
   }
   L.push('')
   L.push('Now produce the JSON document. Second person, honest, every quote verbatim, every hard constraint placed at its moment, deduped. Return ONLY the JSON.')
