@@ -124,7 +124,7 @@ export default function CampDocView({ content }: { content: unknown | null }) {
           <div key={i} className="tb-day" style={{ marginBottom: 20 }}>
             <div className="tb-day-header" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
               <span aria-hidden style={{ fontSize: 40, fontWeight: 800, fontStyle: 'italic', lineHeight: 0.8, color: G.pitchGhost, minWidth: 34 }}>{i + 1}</span>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 750, color: G.ink }}>{day.label}</h3>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 750, color: G.ink }}>{day.label || `${day.date} — ${day.descriptor}`}</h3>
             </div>
             <div style={{ paddingLeft: 46 }}>
               {(day.blocks || []).map((b, j) => (

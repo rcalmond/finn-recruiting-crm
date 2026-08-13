@@ -18,7 +18,17 @@ type Obj = Record<string, unknown>
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 const isStr = (v: unknown): v is string => typeof v === 'string'
 
-export function validateCampDoc(doc: unknown): string[] {
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+function parseableIso(s: unknown): boolean {
+  return isStr(s) && ISO_DATE.test(s) && !isNaN(new Date(`${s}T12:00:00Z`).getTime())
+}
+
+/**
+ * @param opts.planDateSpan when provided (endpoint/harness), every plan day's `date`
+ *   must fall within [min, max] inclusive (first dated commitment / today → return
+ *   travel). Omitted for the render-time defensive check (no anchor context there).
+ */
+export function validateCampDoc(doc: unknown, opts?: { planDateSpan?: { min: string; max: string } }): string[] {
   const e: string[] = []
   if (!isObj(doc)) return ['root: not an object']
 
@@ -74,7 +84,13 @@ export function validateCampDoc(doc: unknown): string[] {
   if (!Array.isArray(pl)) e.push('the_plan: expected array')
   else pl.forEach((d, i) => {
     if (!isObj(d)) { e.push(`the_plan[${i}]: not an object`); return }
-    if (!isStr(d.label)) e.push(`the_plan[${i}].label: expected string`)
+    // Phase 6.1: the model emits date + descriptor; the human label is code-computed.
+    if (!parseableIso(d.date)) e.push(`the_plan[${i}].date: expected an ISO YYYY-MM-DD date (got ${JSON.stringify(d.date)})`)
+    else if (opts?.planDateSpan && (String(d.date) < opts.planDateSpan.min || String(d.date) > opts.planDateSpan.max)) {
+      e.push(`the_plan[${i}].date: ${d.date} is outside the plan span ${opts.planDateSpan.min}…${opts.planDateSpan.max}`)
+    }
+    if (!isStr(d.descriptor) || !d.descriptor.trim()) e.push(`the_plan[${i}].descriptor: expected a non-empty short category`)
+    else if (d.descriptor.length > 60) e.push(`the_plan[${i}].descriptor: too long (${d.descriptor.length} chars) — should be a short category, not prose`)
     if (!isStr(d.sleep)) e.push(`the_plan[${i}].sleep: expected string`)
     if (!Array.isArray(d.blocks)) e.push(`the_plan[${i}].blocks: expected array`)
     else d.blocks.forEach((b, j) => {

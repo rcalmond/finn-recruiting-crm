@@ -40,6 +40,42 @@ export function localDate(sentAt: string | null, homeTz: string, fallback?: stri
   return fallback ?? sentAt ?? ''
 }
 
+// ─── Plan-day dates → human labels (computed in code; the model never formats one) ──
+
+/** Shift an ISO YYYY-MM-DD date by n days, staying on the calendar (UTC anchor, no tz drift). */
+export function isoAddDays(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+/** The human day-header: weekday + month + day (from the ISO calendar date, in the
+ *  home timezone) followed by the short descriptor. e.g. "Saturday, Aug 15 — Camp Day 1".
+ *  Noon-UTC anchor keeps a plain calendar date on its own day for every US timezone. */
+export function formatPlanLabel(isoDate: string, descriptor: string, homeTz: string): string {
+  let head = isoDate
+  try {
+    const d = new Date(`${isoDate}T12:00:00Z`)
+    if (!isNaN(d.getTime())) {
+      const wd = d.toLocaleDateString('en-US', { timeZone: homeTz, weekday: 'long' })
+      const md = d.toLocaleDateString('en-US', { timeZone: homeTz, month: 'short', day: 'numeric' })
+      head = `${wd}, ${md}`
+    }
+  } catch { /* fall back to the raw ISO date */ }
+  const desc = (descriptor || '').trim()
+  return desc ? `${head} — ${desc}` : head
+}
+
+/** Post-generation: write the code-computed `label` onto every plan day from its
+ *  `date` + `descriptor`. Called by the endpoint and the harness AFTER validation and
+ *  BEFORE persist, so a user-facing day header is never a model-formatted string. */
+export function finalizeCampDoc(doc: CampDoc, homeTz: string): CampDoc {
+  for (const day of doc.the_plan ?? []) {
+    day.label = formatPlanLabel(day.date, day.descriptor, homeTz)
+  }
+  return doc
+}
+
 // ─── Output schema ─────────────────────────────────────────────────────────────
 
 export interface CampDocQuote { quote: string; who: string; when?: string | null }
@@ -50,7 +86,11 @@ export interface CampDocTouchpoint {
   what: string                                  // what the message was / why it classifies that way
 }
 export interface CampDocDayBlock { time: string | null; activity: string; guidance: string }
-export interface CampDocDay { label: string; is_travel_day?: boolean; blocks: CampDocDayBlock[]; sleep: string; recovery?: string | null }
+// Phase 6.1: the model emits a DATE (ISO YYYY-MM-DD) + a short DESCRIPTOR only. It
+// never writes a weekday or formats a date — the human `label` is computed in code
+// from `date` in the player's home timezone (finalizeCampDoc), which is why weekday/
+// date errors and leaked reasoning can no longer reach a user-facing string.
+export interface CampDocDay { date: string; descriptor: string; label?: string; is_travel_day?: boolean; blocks: CampDocDayBlock[]; sleep: string; recovery?: string | null }
 // Phase 5.5: credentials removed (research-derived). Angle + relationship come from
 // the CRM thread and have been correct every run.
 export interface CampDocStaff { name: string; role: string; your_angle?: string; primary_relationship?: boolean }
@@ -143,7 +183,9 @@ GENERAL PRINCIPLE (§1 and §2): every comparative or asymmetry claim is evidenc
 
 3. THE STAFF — the coaches the family actually corresponds with, drawn from the CRM (coaches on file + thread). Per coach: name, role, and a "YOUR ANGLE" line tied to something REAL AND SPECIFIC IN THE THREAD (a message, a topic they raised, a shared reference). Identify the PRIMARY RELATIONSHIP from the thread (who actually emails the family) and set primary_relationship true on that coach. A coach with NO thread relationship gets name and role only — OMIT the your_angle field entirely (do NOT emit an empty string) and do NOT manufacture an angle for someone the family has never corresponded with. Do NOT state credentials, alma maters, tenure, or hire dates — you have no research feed and must not invent them. If there are no coaches on file, set the_staff to null.
 
-4. THE PLAN — day by day, from the confirmed extraction, from the first affected day (usually the travel day) through the return travel day. SEE THE CONTENT DOMAIN BELOW — every day carries it. Each block has a time (or null), the activity, and "guidance": the sleep/nutrition/load/constraint instruction that belongs at THAT moment.
+4. THE PLAN — day by day, from the confirmed extraction, from the first affected day through the return travel day. SEE THE CONTENT DOMAIN BELOW — every day carries it. Each block has a time (or null), the activity, and "guidance": the sleep/nutrition/load/constraint instruction that belongs at THAT moment.
+   - DAY IDENTITY — emit a DATE and a DESCRIPTOR, NOTHING ELSE. For each plan day set "date" to the exact ISO calendar date (YYYY-MM-DD) and "descriptor" to a SHORT category ONLY: "pre-travel", "travel day", "Camp Day 1", "Camp Day 2", "return travel", etc. DO NOT write a weekday, DO NOT format or spell out a date, and DO NOT put any reasoning, deliberation, or parenthetical in the descriptor — the app computes the human label (weekday, month, day) from the date. The descriptor is a label, not a sentence.
+   - DATE ANCHORING (use the ANCHOR DATES block in the input; do not do calendar arithmetic in your head): the plan runs from TODAY through the RETURN TRAVEL day. Camp Day N is the Nth listed camp date. The travel-to-venue day is the day immediately before the first camp date. The return-travel day is the day immediately after the last camp date. Any prep/load day falls between today and the travel-to day. Assign each plan day the anchor date it corresponds to — never a guessed or off-by-one date.
    - TRAVEL TIMES ARE ECHOES, NEVER INVENTIONS: a travel segment's time comes ONLY from the confirmed extraction. If a segment has a time in the extraction, you may state it. If a segment has NO time in the extraction, you MUST NOT state or invent one — write it open-ended, e.g. "afternoon flight home, time per your booking". Never manufacture a departure or arrival time, and never carry a time from one segment onto another.
 
 5. BEFORE LEAVING / conversion mechanic:
@@ -181,7 +223,7 @@ Schema:
   "where_you_stand": { "read": "the lead, 1-3 short paragraphs", "coach_touchpoints": [ { "date": "YYYY-MM-DD", "classification": "unprompted|responsive", "quote": "verbatim from VERBATIM SOURCE or null", "what": "what it was / why it classifies that way" } ], "relationship_opened_by": "one clause", "advancement": "who has driven it forward, citing specific dates + quotes", "not_yet": "...", "verdict": "..." },
   "the_mission": { "rubric_found": true/false, "rubric_quote": { "quote": "...", "who": "...", "when": "YYYY-MM-DD of the source message" } or null, "mission": "...", "calibration": "..." },
   "the_staff": [ { "name": "...", "role": "...", "your_angle": "... (OMIT this field entirely for a coach with no thread relationship)", "primary_relationship": true/false } ] or null,
-  "the_plan": [ { "label": "e.g. Friday — travel", "is_travel_day": true/false, "blocks": [ { "time": "... or null", "activity": "...", "guidance": "the nutrition/sleep/load/constraint instruction for this moment" } ], "sleep": "lights-out + wake + body-clock equivalent for this night", "recovery": "... or null" } ],
+  "the_plan": [ { "date": "YYYY-MM-DD (exact anchor date; no weekday, no prose)", "descriptor": "short category only, e.g. 'travel day' or 'Camp Day 1' — never a sentence or a date", "is_travel_day": true/false, "blocks": [ { "time": "... or null", "activity": "...", "guidance": "the nutrition/sleep/load/constraint instruction for this moment" } ], "sleep": "lights-out + wake + body-clock equivalent for this night", "recovery": "... or null" } ],
   "before_leaving": { "coach_to_find": "...", "opening_line": "...", "next_step_question": "in the player's own first-person voice", "follow_up": { "who": "...", "reference": "...", "send_date": "..." } },
   "footer": "one closing charge line"
 }`
@@ -189,6 +231,8 @@ Schema:
 
 export function buildCampDocUserPrompt(ctx: {
   today: string
+  referenceDate: string                 // today, ISO YYYY-MM-DD, home tz — plan start anchor
+  campDates: string[]                    // the camp's calendar dates, ISO, in order (Camp Day N = campDates[N-1])
   player: DocPlayerProfile
   camp: { name: string; dates: string }
   extraction: CampExtraction
@@ -214,6 +258,15 @@ export function buildCampDocUserPrompt(ctx: {
   L.push('')
   L.push('=== THIS CAMP ===')
   L.push(`${ctx.camp.name} — ${ctx.camp.dates} — at ${ctx.schoolName}`)
+  L.push('')
+  L.push('=== ANCHOR DATES (use these EXACT ISO dates for every plan day — do NOT compute your own) ===')
+  L.push(`TODAY (earliest the plan can start): ${ctx.referenceDate}`)
+  ctx.campDates.forEach((d, i) => L.push(`Camp Day ${i + 1}: ${d}`))
+  if (ctx.campDates.length) {
+    L.push(`Travel-to-venue day (day before Camp Day 1): ${isoAddDays(ctx.campDates[0], -1)}`)
+    L.push(`Return-travel day (day after the last camp date): ${isoAddDays(ctx.campDates[ctx.campDates.length - 1], 1)}`)
+  }
+  L.push('Any prep/load day falls on or after TODAY and before the travel-to-venue day. Assign each plan day one of these dates in "date"; put only a short category in "descriptor".')
   L.push('')
   L.push('=== CONFIRMED EXTRACTION (human-verified; this is authoritative for the plan, constraints, travel, and timezone delta) ===')
   L.push(JSON.stringify(ctx.extraction, null, 2))

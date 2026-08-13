@@ -19,7 +19,7 @@ import { createClient } from '@/lib/supabase/server'
 import { fetchSchoolContext } from '@/lib/school-context'
 import { extractJsonObject } from '@/lib/agentic-research'
 import {
-  CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt,
+  CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, finalizeCampDoc, isoAddDays,
   type CampDoc, type DocPlayerProfile, type DocSchoolListItem, type PreferencesRead,
 } from '@/lib/camp-doc'
 import { validateCampDoc } from '@/lib/camp-doc-validate'
@@ -59,6 +59,16 @@ export async function POST(req: NextRequest) {
           .single()
         if (!draft || draft.doc_type !== 'camp' || !draft.extracted_schedule) {
           send('error', { message: 'Camp draft not found or has no confirmed extraction.' }); controller.close(); return
+        }
+
+        // ── Camp calendar dates (ISO) — the anchor for plan-day dates (Phase 6.1) ──
+        const { data: campRow } = await db.from('camps').select('start_date, end_date').eq('id', draft.camp_id).maybeSingle()
+        const campDates: string[] = []
+        if (campRow?.start_date && campRow?.end_date) {
+          for (let dt = campRow.start_date as string; dt <= (campRow.end_date as string); dt = isoAddDays(dt, 1)) campDates.push(dt)
+        }
+        if (campDates.length === 0) {
+          send('error', { message: 'Camp has no start/end dates on file — cannot anchor the plan dates.' }); controller.close(); return
         }
 
         // ── School context (full thread, coaches, offers) ──
@@ -126,8 +136,18 @@ export async function POST(req: NextRequest) {
         send('progress', { stage: 'generate', message: 'Regista is writing the document (Opus)…' })
 
         const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: player.home_timezone })
+        const referenceDate = new Date().toLocaleDateString('en-CA', { timeZone: player.home_timezone })
+        // Plan-date span (Phase 6.1): earliest of {today, any dated competing commitment}
+        // through the return-travel day (day after the last camp date). A plan day dated
+        // outside this fails validation.
+        const commitmentDates = ((draft.extracted_schedule as CampExtraction).travel?.competing_commitments ?? [])
+          .map(c => c.date).filter((d): d is string => !!d)
+        const planDateSpan = {
+          min: [referenceDate, ...commitmentDates].sort()[0],
+          max: isoAddDays(campDates[campDates.length - 1], 1),
+        }
         const userPrompt = buildCampDocUserPrompt({
-          today, player,
+          today, referenceDate, campDates, player,
           camp: { name: draft.camp_name_snapshot ?? sctx.school.name, dates: draft.camp_dates_snapshot ?? '' },
           extraction: draft.extracted_schedule as CampExtraction,
           inputs: (draft.inputs as CampPrepInputs) ?? { camp_email_raw: '', travel_prose: '', extra_notes: '' },
@@ -153,7 +173,7 @@ export async function POST(req: NextRequest) {
           let parsed: unknown = null
           let parseErr: string | null = null
           try { parsed = extractJsonObject(raw) } catch (err) { parseErr = err instanceof Error ? err.message : String(err) }
-          const errors = parseErr ? [`json parse: ${parseErr}`] : validateCampDoc(parsed)
+          const errors = parseErr ? [`json parse: ${parseErr}`] : validateCampDoc(parsed, { planDateSpan })
           return { msg, doc: parsed as CampDoc, errors }
         }
 
@@ -169,7 +189,9 @@ export async function POST(req: NextRequest) {
           controller.close(); return
         }
         const message = attempt.msg
-        const doc = attempt.doc
+        // Compute each plan day's human label in code from its date (home tz). The model
+        // emitted only date + descriptor; the weekday/date string is never model-written.
+        const doc = finalizeCampDoc(attempt.doc, player.home_timezone)
 
         // ── Persist ──
         send('progress', { stage: 'save', message: 'Saving document…' })

@@ -22,7 +22,8 @@ import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { fetchSchoolContext } from '../src/lib/school-context'
 import { extractJsonObject } from '../src/lib/agentic-research'
-import { CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, type DocPlayerProfile, type DocSchoolListItem, type PreferencesRead } from '../src/lib/camp-doc'
+import { CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, finalizeCampDoc, isoAddDays, type CampDoc, type DocPlayerProfile, type DocSchoolListItem, type PreferencesRead } from '../src/lib/camp-doc'
+import { validateCampDoc } from '../src/lib/camp-doc-validate'
 import type { CampExtraction, CampPrepInputs } from '../src/lib/camp-prep'
 import type { ContactLogRow, CoachRow, OfferRow } from '../src/lib/school-context'
 
@@ -32,6 +33,8 @@ const FIX_DIR = path.join(__dirname, 'fixtures')
 // time so a replay is deterministic w.r.t. the prompt (only the model varies).
 interface CampDocFixture {
   today: string
+  referenceDate: string
+  campDates: string[]
   player: DocPlayerProfile
   camp: { name: string; dates: string }
   extraction: CampExtraction
@@ -53,9 +56,18 @@ async function record(schoolQuery: string, fixturePath: string) {
   // Find the confirmed camp draft directly (a school can have several camps; only the
   // one with an extraction is generatable). Newest confirmed draft wins.
   const { data: draft } = await db.from('prep_docs')
-    .select('camp_name_snapshot, camp_dates_snapshot, inputs, extracted_schedule')
+    .select('camp_id, camp_name_snapshot, camp_dates_snapshot, inputs, extracted_schedule')
     .eq('school_id', school.id).eq('doc_type', 'camp').not('extracted_schedule', 'is', null)
     .order('created_at', { ascending: false }).limit(1).maybeSingle()
+
+  // Camp calendar dates (ISO) — the plan-date anchor (Phase 6.1).
+  const campDates: string[] = []
+  if (draft?.camp_id) {
+    const { data: campRow } = await db.from('camps').select('start_date, end_date').eq('id', draft.camp_id).maybeSingle()
+    if (campRow?.start_date && campRow?.end_date) {
+      for (let dt = campRow.start_date as string; dt <= (campRow.end_date as string); dt = isoAddDays(dt, 1)) campDates.push(dt)
+    }
+  }
 
   // Thread-only fallback: a school with no camp draft still needs to run through the
   // harness for the §1/§2 verdict gate (classification + calibration depend only on
@@ -90,6 +102,8 @@ async function record(schoolQuery: string, fixturePath: string) {
 
   const fixture: CampDocFixture = {
     today: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: player.home_timezone }),
+    referenceDate: new Date().toLocaleDateString('en-CA', { timeZone: player.home_timezone }),
+    campDates,
     player, camp: { name: draft?.camp_name_snapshot ?? `${school.name} ID camp`, dates: draft?.camp_dates_snapshot ?? 'TBD' },
     extraction: usingStub ? STUB : (draft!.extracted_schedule as CampExtraction),
     inputs: (draft?.inputs as CampPrepInputs) ?? { camp_email_raw: '(thread-only stub — plan not under test)', travel_prose: '', extra_notes: '' },
@@ -99,7 +113,7 @@ async function record(schoolQuery: string, fixturePath: string) {
   fs.mkdirSync(FIX_DIR, { recursive: true })
   fs.writeFileSync(fixturePath, JSON.stringify(fixture, null, 2))
   console.log(`recorded fixture → ${fixturePath}`)
-  console.log(`  thread=${fixture.contactLog.length} coaches=${fixture.coaches.length} offers=${fixture.offers.length} list=${fixture.schoolList.length} prefs=${preferences.status}`)
+  console.log(`  thread=${fixture.contactLog.length} coaches=${fixture.coaches.length} offers=${fixture.offers.length} list=${fixture.schoolList.length} prefs=${preferences.status} campDates=[${campDates.join(', ') || 'none'}] ref=${fixture.referenceDate}`)
 }
 
 // Section-by-section diff: for each top-level section, report CHANGED/same, and for
@@ -126,7 +140,7 @@ function diffDocs(prev: Record<string, unknown>, cur: Record<string, unknown>) {
 async function generate(schoolQuery: string, fixturePath: string) {
   if (!fs.existsSync(fixturePath)) throw new Error(`No fixture at ${fixturePath} — run with --record ${schoolQuery} first`)
   const fx = JSON.parse(fs.readFileSync(fixturePath, 'utf8')) as CampDocFixture
-  console.log(`fixture: ${fx.schoolName} · thread=${fx.contactLog.length} · prefs=${fx.preferences.status}`)
+  console.log(`fixture: ${fx.schoolName} · thread=${fx.contactLog.length} · prefs=${fx.preferences.status} · campDates=[${(fx.campDates ?? []).join(', ') || 'none'}]`)
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   const t0 = Date.now()
@@ -136,7 +150,16 @@ async function generate(schoolQuery: string, fixturePath: string) {
     messages: [{ role: 'user', content: buildCampDocUserPrompt(fx) }],
   })
   const secs = ((Date.now() - t0) / 1000).toFixed(1)
-  const doc = extractJsonObject(message.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')) as Record<string, unknown>
+  const parsed = extractJsonObject(message.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')) as CampDoc
+
+  // Same guards as the endpoint: validate shape+span, then compute plan-day labels.
+  const commitmentDates = (fx.extraction.travel?.competing_commitments ?? []).map(c => c.date).filter((d): d is string => !!d)
+  const planDateSpan = (fx.campDates ?? []).length
+    ? { min: [fx.referenceDate, ...commitmentDates].sort()[0], max: isoAddDays(fx.campDates[fx.campDates.length - 1], 1) }
+    : undefined
+  const errors = validateCampDoc(parsed, planDateSpan ? { planDateSpan } : undefined)
+  if (errors.length) console.warn(`  ⚠ shape validation: ${errors.join('; ')}`)
+  const doc = finalizeCampDoc(parsed, fx.player.home_timezone) as unknown as Record<string, unknown>
 
   const outPath = fixturePath.replace(/\.json$/, '.out.json')
   const prevPath = fixturePath.replace(/\.json$/, '.prev.json')

@@ -131,7 +131,7 @@ function buildDocDefinition(d: CampDoc): TDocumentDefinitions {
     const header: Content = {
       columns: [
         { text: String(i + 1), fontSize: 30, bold: true, color: PITCH_GHOST, width: 34 },
-        { text: day.label, fontSize: 13.5, bold: true, color: INK, margin: [0, 9, 0, 0], width: '*' },
+        { text: day.label || `${day.date} — ${day.descriptor}`, fontSize: 13.5, bold: true, color: INK, margin: [0, 9, 0, 0], width: '*' },
       ],
       margin: [0, 10, 0, 4],
     }
