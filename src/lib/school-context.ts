@@ -54,7 +54,7 @@ export interface CampRow {
   end_date: string
   location: string | null
   registration_deadline: string | null
-  status: string  // from camp_finn_status join
+  status: string  // from camp_family_status join
 }
 
 export interface ActionItemRow {
@@ -144,12 +144,12 @@ export async function fetchSchoolContext(
       .order('sent_at', { ascending: true }),
     // 3. Upcoming camps with Finn's status
     admin.from('camps')
-      .select('name, start_date, end_date, location, registration_deadline, camp_finn_status(status)')
+      .select('name, start_date, end_date, location, registration_deadline, camp_family_status(status)')
       .eq('host_school_id', schoolId)
       .gte('start_date', today),
     // 4. Strategic notes (from school_message_plan)
     admin.from('school_message_plan')
-      .select('finn_notes')
+      .select('family_notes')
       .eq('school_id', schoolId)
       .maybeSingle(),
     // 5. Current assets (canonical source for reel URL, game film, etc.)
@@ -203,8 +203,8 @@ export async function fetchSchoolContext(
   const rawCoaches = (results[1].data ?? []) as Array<Record<string, unknown>>
   const rawContactLog = (results[2].data ?? []) as ContactLogRow[]
   const rawCamps = (results[3].data ?? []) as Array<Record<string, unknown>>
-  const planRow = results[4].data as { finn_notes: string | null } | null
-  const strategicNotes = planRow?.finn_notes?.trim() || null
+  const planRow = results[4].data as { family_notes: string | null } | null
+  const strategicNotes = planRow?.family_notes?.trim() || null
   const rawAssets = (results[5].data ?? []) as Array<{ type: string; name: string | null; url: string | null; file_name: string | null }>
   const rawActions = options.includeActionItems
     ? (results[6].data ?? []) as ActionItemRow[]
@@ -231,7 +231,7 @@ export async function fetchSchoolContext(
 
   // Process camps (flatten join)
   const upcomingCamps: CampRow[] = rawCamps.map(c => {
-    const fs = c.camp_finn_status as Array<{ status: string }> | null
+    const fs = c.camp_family_status as Array<{ status: string }> | null
     return {
       name: c.name as string,
       start_date: c.start_date as string,

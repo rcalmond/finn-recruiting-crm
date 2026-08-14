@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 
 function oauthClient() {
   return new google.auth.OAuth2(
     process.env.GOOGLE_OAUTH_CLIENT_ID!,
     process.env.GOOGLE_OAUTH_CLIENT_SECRET!,
     process.env.GOOGLE_OAUTH_REDIRECT_URI!
-  )
-}
-
-function serviceClient() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 }
 
@@ -40,11 +34,13 @@ export async function GET(req: NextRequest) {
   const settingsUrl = `${origin}/settings/gmail`
 
   // 1. Auth guard
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  // Auth + family (T1) — user-initiated OAuth flow; tokens scope to the session family
+  const fam = await getFamilyContext()
+  if (!fam.ok) {
     return NextResponse.redirect(`${settingsUrl}?error=unauthorized`)
   }
+  const user = fam.ok ? fam.ctx.user : null
+  const familyId = fam.ok ? fam.ctx.familyId : ''
 
   // 2. CSRF check — verify state param matches the cookie
   const stateParam  = searchParams.get('state')
@@ -135,7 +131,7 @@ export async function GET(req: NextRequest) {
     ? new Date(tokens.expiry_date).toISOString()
     : new Date(Date.now() + 3600 * 1000).toISOString() // fallback: 1 hour from now
 
-  const admin = serviceClient()
+  const admin = familyAdmin(familyId) // T1: gmail_tokens stays service-role-only; scoped to the session family
   const { error: upsertError } = await admin
     .from('gmail_tokens')
     .upsert(

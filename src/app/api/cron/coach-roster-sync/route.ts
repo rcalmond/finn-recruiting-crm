@@ -19,18 +19,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { catalogAdmin } from '@/lib/tenant-db'
 import { scrapeSchool } from '@/lib/coach-scraper'
 import { startRun, completeRun } from '@/lib/cron-runs'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Supabase = ReturnType<typeof createServiceClient<any>>
+type Supabase = ReturnType<typeof catalogAdmin>
 
 function serviceClient(): Supabase {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  // T1: catalog cron — schools/coaches/camps/proposals are the shared catalog.
+  // TODO(T2): the scan set derives from family relationships once tiers split.
+  return catalogAdmin()
 }
 
 function sleep(ms: number): Promise<void> {

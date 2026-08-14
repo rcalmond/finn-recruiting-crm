@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-
-function serviceClient() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 
 // POST /api/auth/gmail/disconnect
 //
@@ -27,13 +21,15 @@ export async function POST(req: NextRequest) {
   const settingsUrl = `${origin}/settings/gmail`
 
   // 1. Auth guard
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  // Auth + family (T1) — user-initiated OAuth flow; tokens scope to the session family
+  const fam = await getFamilyContext()
+  if (!fam.ok) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const user = fam.ok ? fam.ctx.user : null
+  const familyId = fam.ok ? fam.ctx.familyId : ''
 
-  const admin = serviceClient()
+  const admin = familyAdmin(familyId) // T1: gmail_tokens stays service-role-only; scoped to the session family
 
   // 2. Fetch the token row (need the access_token to revoke)
   const { data: tokenRow, error: fetchError } = await admin

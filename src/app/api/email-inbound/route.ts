@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { familyAdmin, ALMOND_FAMILY_ID } from '@/lib/tenant-db'
 
 // Zapier pings with GET before sending POST — return 200
 export async function GET() {
@@ -82,10 +82,8 @@ export async function POST(request: NextRequest) {
     ? new Date(dateStr).toISOString().split('T')[0]
     : new Date().toISOString().split('T')[0]
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  // TODO(email-boundary): single-recipient interim — inserts pinned to family #1.
+  const supabase = familyAdmin(ALMOND_FAMILY_ID)
 
   const school = await findSchool(supabase, schoolName)
   if (!school) {

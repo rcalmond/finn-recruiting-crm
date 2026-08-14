@@ -74,7 +74,7 @@ export default function CampProposalsClient({ proposals: initialProposals, schoo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action,
-          mark_finn_interested: true,
+          mark_family_interested: true,
           edited_data: editedData,
         }),
       })

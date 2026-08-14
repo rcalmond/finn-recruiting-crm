@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { createClient } from '@/lib/supabase/server'
+import { rawService } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024 // 25 MB
 const ALLOWED_MIME_TYPES = [
@@ -8,17 +8,11 @@ const ALLOWED_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]
 
-function serviceClient() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
-
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Auth + family (T1)
+  const fam = await getFamilyContext()
+  if (!fam.ok) return NextResponse.json({ error: fam.status === 401 ? 'Unauthorized' : 'No family' }, { status: fam.status })
+  const { familyId, supabase } = fam.ctx
 
   const formData = await req.formData()
   const file = formData.get('file') as File | null
@@ -43,14 +37,14 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const admin = serviceClient()
+  const admin = supabase // T1: user client for rows — RLS enforces; storage via rawService
 
   const docId = crypto.randomUUID()
   const ext = file.name.endsWith('.pdf') ? '.pdf' : '.docx'
-  const storagePath = `call-prep/${schoolId}/${docId}${ext}`
+  const storagePath = `${familyId}/call-prep/${schoolId}/${docId}${ext}`
 
   const arrayBuffer = await file.arrayBuffer()
-  const { error: storageError } = await admin.storage
+  const { error: storageError } = await rawService().storage /* T1: writes stay service-role; path is family-prefixed */
     .from('assets')
     .upload(storagePath, Buffer.from(arrayBuffer), {
       contentType: file.type,
@@ -78,7 +72,7 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (dbError) {
-    await admin.storage.from('assets').remove([storagePath])
+    await rawService().storage.from('assets').remove([storagePath])
     return NextResponse.json({ error: dbError.message }, { status: 500 })
   }
 

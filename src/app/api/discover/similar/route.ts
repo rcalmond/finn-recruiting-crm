@@ -1,14 +1,8 @@
 import { NextResponse } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-
-function makeAdmin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 /**
  * POST /api/discover/similar
@@ -49,9 +43,9 @@ function seedHash(seeds: Seed[]): string {
 export async function POST(request: Request) {
   try {
     // Standard auth gate — reads player_profile + burns model spend.
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const fam = await getFamilyContext()
+    if (!fam.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const familyId = fam.ctx.familyId
 
     const { seeds, exclude, force } = (await request.json()) as { seeds?: Seed[]; exclude?: string[]; force?: boolean }
     if (!Array.isArray(seeds) || seeds.length < 3) {
@@ -68,12 +62,13 @@ export async function POST(request: Request) {
       }
     }
 
-    const admin = makeAdmin()
+    const admin = familyAdmin(familyId) // T1: service role, family-scoped (SSE/LLM path)
 
     // Athlete academic framing — from the canonical profile source (not hardcoded).
     const { data: profile } = await admin
-      .from('player_profile')
+      .from('players') // T1: players by family (wrapper-scoped)
       .select('academic_summary, player_scores')
+      .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle()
     const framing = profile?.academic_summary

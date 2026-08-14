@@ -76,10 +76,12 @@ export function AppSidebar({
   pendingCoachChanges = 0,
   pendingCampProposals = 0,
   userEmail = '',
+  displayName = '',
 }: {
   pendingCoachChanges?: number
   pendingCampProposals?: number
   userEmail?: string
+  displayName?: string
 }) {
   const pathname = usePathname()
   const PHASE_ITEMS = buildPhaseNavItems()
@@ -246,7 +248,7 @@ export function AppSidebar({
       <div style={{ flex: 1 }} />
 
       {/* Account menu — sign out + change password (rehomed from /pipeline) */}
-      <AccountMenu email={userEmail} variant="sidebar" />
+      <AccountMenu email={userEmail} displayName={displayName} variant="sidebar" />
     </aside>
   )
 }
@@ -256,10 +258,12 @@ export function AppBottomNav({
   pendingCoachChanges = 0,
   pendingCampProposals = 0,
   userEmail = '',
+  displayName = '',
 }: {
   pendingCoachChanges?: number
   pendingCampProposals?: number
   userEmail?: string
+  displayName?: string
 }) {
   const pathname = usePathname()
 
@@ -323,7 +327,7 @@ export function AppBottomNav({
         )
       })}
       {/* Account menu — sign out + change password (rehomed from /pipeline) */}
-      <AccountMenu email={userEmail} variant="mobile" />
+      <AccountMenu email={userEmail} displayName={displayName} variant="mobile" />
     </nav>
   )
 }

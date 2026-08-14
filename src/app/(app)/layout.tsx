@@ -1,17 +1,15 @@
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { AppSidebar, AppBottomNav } from '@/components/AppNav'
 
-function makeAdmin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+// T1: RSC pages read on the user client — RLS enforces; catalog tables carry
+// authenticated SELECT policies.
+async function makeAdmin() {
+  return createClient()
 }
 
 async function getPendingCoachChanges(): Promise<number> {
   try {
-    const { count } = await makeAdmin()
+    const { count } = await (await makeAdmin())
       .from('coach_changes')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'manual')
@@ -23,7 +21,7 @@ async function getPendingCoachChanges(): Promise<number> {
 
 async function getPendingCampProposals(): Promise<number> {
   try {
-    const { count } = await makeAdmin()
+    const { count } = await (await makeAdmin())
       .from('camp_proposals')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending')
@@ -41,6 +39,11 @@ export default async function AppShellLayout({ children }: { children: React.Rea
     getPendingCampProposals(),
   ])
   const userEmail = user?.email ?? ''
+  // T1: display name from the users row (RLS: family members read family users)
+  const { data: userRow } = user
+    ? await supabase.from('users').select('display_name').eq('id', user.id).maybeSingle()
+    : { data: null }
+  const displayName = (userRow?.display_name as string | null) ?? ''
 
   return (
     <>
@@ -50,6 +53,7 @@ export default async function AppShellLayout({ children }: { children: React.Rea
           pendingCoachChanges={pendingCoachChanges}
           pendingCampProposals={pendingCampProposals}
           userEmail={userEmail}
+          displayName={displayName}
         />
       </div>
 
@@ -64,6 +68,7 @@ export default async function AppShellLayout({ children }: { children: React.Rea
           pendingCoachChanges={pendingCoachChanges}
           pendingCampProposals={pendingCampProposals}
           userEmail={userEmail}
+          displayName={displayName}
         />
       </div>
     </>

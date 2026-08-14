@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { rawService } from '@/lib/tenant-db'
 import { createClient } from '@/lib/supabase/server'
-
-function serviceClient() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 function mimeFromPath(path: string): string {
   if (path.endsWith('.pdf')) return 'application/pdf'
@@ -28,7 +21,7 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const admin = serviceClient()
+  const admin = supabase // T1: user client — RLS enforces the family boundary
 
   const { data: doc, error } = await admin
     .from('prep_docs')
@@ -40,7 +33,7 @@ export async function GET(
     return NextResponse.json({ error: 'Doc not found' }, { status: 404 })
   }
 
-  const { data: fileData, error: downloadError } = await admin.storage
+  const { data: fileData, error: downloadError } = await rawService().storage /* T1: storage streaming stays service-role */
     .from('assets')
     .download(doc.storage_path)
 

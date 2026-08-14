@@ -1,14 +1,12 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import NewCampaignClient from '@/components/campaigns/NewCampaignClient'
 import type { School, Coach } from '@/lib/types'
 
-function makeAdmin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+// T1: RSC pages read on the user client — RLS enforces; catalog tables carry
+// authenticated SELECT policies.
+async function makeAdmin() {
+  return createClient()
 }
 
 export default async function NewCampaignPage() {
@@ -16,7 +14,7 @@ export default async function NewCampaignPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const admin = makeAdmin()
+  const admin = await makeAdmin()
 
   // Fetch all schools (excluding Nope tier) for scope selection
   const { data: schools } = await admin

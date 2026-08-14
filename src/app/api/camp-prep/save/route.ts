@@ -8,15 +8,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import type { CampExtraction, CampPrepInputs } from '@/lib/camp-prep'
 
 export const runtime = 'nodejs'
-
-function admin() {
-  return createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
 
 function formatCampDates(start: string, end: string): string {
   try {
@@ -49,7 +44,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing campId, inputs, or extractedSchedule' }, { status: 400 })
   }
 
-  const db = admin()
+  const db = supabase // T1: user client — RLS enforces the family boundary
 
   const { data: camp } = await db
     .from('camps')

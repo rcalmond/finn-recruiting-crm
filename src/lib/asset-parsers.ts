@@ -8,7 +8,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin, rawService } from '@/lib/tenant-db'
 
 const PARSE_SYSTEM_PROMPT = `You are extracting structured recruiting profile data from a player's soccer resume. Return a JSON object with these fields:
 
@@ -30,19 +30,12 @@ export type ParserResult = {
   academic_summary: string | null
 }
 
-function admin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
-
 /**
  * Parse a resume from Supabase Storage and return structured profile fields.
  * Idempotent — re-running on same input produces same output.
  */
 export async function parseResume(storagePath: string): Promise<ParserResult> {
-  const db = admin()
+  const db = rawService() // T1: storage download only — no table access here
 
   // Download file from Supabase Storage
   const { data: fileData, error: dlError } = await db.storage
@@ -107,47 +100,43 @@ export async function parseResume(storagePath: string): Promise<ParserResult> {
  */
 export async function parseAndUpsertResume(
   assetId: string,
-  storagePath: string
+  storagePath: string,
+  familyId: string,
 ): Promise<void> {
   try {
     const result = await parseResume(storagePath)
-    const db = admin()
+    // T1: the caller supplies the tenant (upload/reparse routes know it) and the
+    // familyAdmin wrapper scopes every query below to that family.
+    const db = familyAdmin(familyId)
 
-    // Check if a row exists
+    // One player at alpha — parse results land on the family's oldest player.
     const { data: existing } = await db
-      .from('player_profile')
+      .from('players')
       .select('id')
+      .order('created_at', { ascending: true })
       .limit(1)
-      .single()
+      .maybeSingle()
 
-    if (existing) {
-      // Update existing singleton
-      await db
-        .from('player_profile')
-        .update({
-          current_stats: result.current_stats,
-          upcoming_schedule: result.upcoming_schedule,
-          highlights: result.highlights,
-          academic_summary: result.academic_summary,
-          source_asset_id: assetId,
-          last_parsed_at: new Date().toISOString(),
-        })
-        .eq('id', existing.id)
-    } else {
-      // Insert first row
-      await db
-        .from('player_profile')
-        .insert({
-          current_stats: result.current_stats,
-          upcoming_schedule: result.upcoming_schedule,
-          highlights: result.highlights,
-          academic_summary: result.academic_summary,
-          source_asset_id: assetId,
-          last_parsed_at: new Date().toISOString(),
-        })
+    if (!existing) {
+      // No player row yet (brand-new family): do NOT invent one — a players row
+      // needs a name, and the resume parser must not originate identity.
+      console.warn(`[asset-parser] Resume ${assetId} parsed but family ${familyId} has no player row — skipping upsert`)
+      return
     }
 
-    console.log(`[asset-parser] Successfully parsed resume ${assetId} into player_profile`)
+    await db
+      .from('players')
+      .update({
+        current_stats: result.current_stats,
+        upcoming_schedule: result.upcoming_schedule,
+        highlights: result.highlights,
+        academic_summary: result.academic_summary,
+        source_asset_id: assetId,
+        last_parsed_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id)
+
+    console.log(`[asset-parser] Successfully parsed resume ${assetId} into players (family ${familyId})`)
   } catch (err) {
     console.error(`[asset-parser] Failed to parse resume ${assetId}:`, err instanceof Error ? err.message : err)
   }

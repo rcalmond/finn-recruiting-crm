@@ -19,19 +19,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 import { reparsePartialsForSchool } from '@/lib/gmail-resolve'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Supabase = ReturnType<typeof createServiceClient<any>>
-
-function serviceClient(): Supabase {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 const VALID_ROLES = [
   'Head Coach',
@@ -47,9 +37,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const fam = await getFamilyContext()
+  if (!fam.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const familyId = fam.ctx.familyId
 
   const { id } = await params
   const body = await req.json().catch(() => null)
@@ -58,7 +48,7 @@ export async function POST(
     return NextResponse.json({ error: 'Missing action' }, { status: 400 })
   }
 
-  const admin = serviceClient()
+  const admin = familyAdmin(familyId) // T1: service role, family-scoped
 
   // Fetch the partial row
   const { data: row, error: fetchErr } = await admin

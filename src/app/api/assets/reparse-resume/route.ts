@@ -6,23 +6,16 @@
  */
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { getFamilyContext } from '@/lib/require-family'
 import { parseAndUpsertResume } from '@/lib/asset-parsers'
 
-function admin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
-
 export async function POST() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Auth + family (T1)
+  const fam = await getFamilyContext()
+  if (!fam.ok) return NextResponse.json({ error: fam.status === 401 ? 'Unauthorized' : 'No family' }, { status: fam.status })
+  const { familyId, supabase } = fam.ctx
 
-  const db = admin()
+  const db = supabase // T1: user client — RLS enforces the family boundary
 
   // Find the current resume asset
   const { data: resume, error } = await db
@@ -41,7 +34,7 @@ export async function POST() {
     return NextResponse.json({ error: 'Resume has no storage path' }, { status: 400 })
   }
 
-  await parseAndUpsertResume(resume.id, resume.storage_path)
+  await parseAndUpsertResume(resume.id, resume.storage_path, familyId)
 
   return NextResponse.json({ ok: true, assetId: resume.id })
 }

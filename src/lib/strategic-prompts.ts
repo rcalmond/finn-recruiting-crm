@@ -180,9 +180,9 @@ export function computeCampDecisions(
     if (!host) return false
     if (host.category === 'Nope' || host.status === 'Inactive') return false
 
-    // Status must be 'interested' or no finn_status row at all
-    if (!c.finnStatus) return true
-    return c.finnStatus.status === 'interested'
+    // Status must be 'interested' or no family_status row at all
+    if (!c.familyStatus) return true
+    return c.familyStatus.status === 'interested'
   })
 
   const schoolIds = Array.from(new Set(pending.map(c => c.camp.host_school_id)))

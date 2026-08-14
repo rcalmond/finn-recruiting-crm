@@ -36,7 +36,7 @@ interface DraftModalProps {
 
 interface PlanData {
   suggestions: { items: SchoolMessagePlanSuggestion[] } | null
-  finn_notes: string | null
+  family_notes: string | null
   manual_order: string[] | null
 }
 
@@ -122,8 +122,8 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
         const recIds = new Set(recommendedAction.source_message_ids ?? [])
         setCheckedIds(recIds)
       } else {
-        // Default plan-driven behavior: pre-fill from finn_notes, pre-check send_now items
-        if (plan?.finn_notes) setCoverageNotes(plan.finn_notes)
+        // Default plan-driven behavior: pre-fill from family_notes, pre-check send_now items
+        if (plan?.family_notes) setCoverageNotes(plan.family_notes)
         const items = plan?.suggestions?.items ?? []
         const primarySuggestions = items.filter(s => s.tier !== 'extra')
         const preChecked = new Set(

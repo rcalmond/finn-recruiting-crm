@@ -14,8 +14,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 
 const AUTHORED_BY_VALUES = ['coach_personal', 'coach_via_platform', 'team_automated', 'staff_non_coach', 'unknown']
 const INTENT_VALUES       = ['requires_reply', 'requires_action', 'informational', 'acknowledgement', 'decline', 'unknown']
@@ -24,17 +24,14 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const fam = await getFamilyContext()
+  if (!fam.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const familyId = fam.ctx.familyId
 
   const { id } = await params
   const body = await req.json() as Record<string, unknown>
 
-  const admin = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const admin = familyAdmin(familyId) // T1: service role, family-scoped
 
   // Fetch the row to verify it exists and is low-confidence
   const { data: row, error: fetchErr } = await admin

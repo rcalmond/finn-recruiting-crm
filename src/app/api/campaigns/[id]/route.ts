@@ -7,14 +7,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-
-function admin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   draft:     ['active'],
@@ -34,7 +26,7 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const db = admin()
+  const db = supabase // T1: user client — RLS enforces the family boundary
 
   const { data: campaign, error: campErr } = await db
     .from('campaigns')
@@ -75,7 +67,7 @@ export async function PATCH(
 
   const { action } = await req.json() as { action: string }
 
-  const db = admin()
+  const db = supabase // T1: user client — RLS enforces the family boundary
 
   // ── Archive / Unarchive ──────────────────────────────────────────────────
   if (action === 'archive') {
@@ -135,7 +127,7 @@ export async function DELETE(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const db = admin()
+  const db = supabase // T1: user client — RLS enforces the family boundary
   const { error } = await db.from('campaigns').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

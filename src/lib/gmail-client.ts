@@ -11,7 +11,7 @@
  */
 
 import { google, gmail_v1 } from 'googleapis'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin, ALMOND_FAMILY_ID } from '@/lib/tenant-db'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,10 +48,10 @@ export class GmailAuthError extends Error {
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 function serviceClient() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  // TODO(email-boundary): single-mailbox interim — every query pinned to family #1
+  // until per-family inbound routing exists. familyAdmin scopes family tables;
+  // catalog tables (schools, cron_runs) pass through.
+  return familyAdmin(ALMOND_FAMILY_ID) as unknown as ReturnType<typeof familyAdmin>
 }
 
 function oauthClient() {

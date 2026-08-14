@@ -8,14 +8,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-
-function admin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 export async function POST(
   req: NextRequest,
@@ -29,7 +21,7 @@ export async function POST(
   const { schoolId } = await req.json() as { schoolId: string }
   if (!schoolId) return NextResponse.json({ error: 'schoolId is required' }, { status: 400 })
 
-  const db = admin()
+  const db = supabase // T1: user client — RLS enforces the family boundary
 
   // Verify campaign exists
   const { data: campaign } = await db

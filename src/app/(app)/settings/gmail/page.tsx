@@ -1,19 +1,17 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 import GmailSettingsClient from './GmailSettingsClient'
 
 const GMAIL_USER = process.env.GOOGLE_EXPECTED_EMAIL ?? 'finnalmond08@gmail.com'
 
 export default async function GmailSettingsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
-
-  const admin = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  // T1: gmail_tokens is deliberately service-role-only (OAuth tokens) — this
+  // page is the intentional service remainder, scoped via familyAdmin.
+  const fam = await getFamilyContext()
+  if (!fam.ok) redirect('/auth/login')
+  const admin = familyAdmin(fam.ctx.familyId)
 
   const { data: tokenRow } = await admin
     .from('gmail_tokens')

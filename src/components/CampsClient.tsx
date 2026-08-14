@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
-import type { CampWithRelations, CampFinnStatusValue, Category, CalendarEvent, CalendarEventKind } from '@/lib/types'
+import type { CampWithRelations, CampFamilyStatusValue, Category, CalendarEvent, CalendarEventKind } from '@/lib/types'
 import { CALENDAR_EVENT_KIND_META, CALENDAR_EVENT_STATUS_META } from '@/lib/types'
 import { useCamps, useSchools, useCalendarEvents } from '@/hooks/useRealtimeData'
 import { sortCampsChronological, classifyCampTimeframe } from '@/lib/camps'
@@ -35,7 +35,7 @@ const TIER_STYLE: Record<Category, { bg: string; color: string }> = {
   C: { bg: '#FEF3C7', color: '#92400E' },
   Nope: { bg: '#E5E7EB', color: '#6B7280' },
 }
-const STATUS_STYLE: Record<CampFinnStatusValue, { bg: string; color: string }> = {
+const STATUS_STYLE: Record<CampFamilyStatusValue, { bg: string; color: string }> = {
   interested: { bg: '#DBEAFE', color: '#1E40AF' },
   targeted:   { bg: '#FEF3C7', color: '#92400E' },
   registered: { bg: '#D7F0ED', color: '#006A65' },
@@ -74,11 +74,11 @@ export default function CampsClient({ user }: { user: User }) {
   // ── Timeline input (10-week window, same rule as Get Seen) ──────────────────
   const timelineCamps: UpcomingCampItem[] = useMemo(() =>
     activeCamps
-      .filter(c => c.camp.start_date >= today && c.camp.start_date <= tenWeeks && ['interested', 'targeted', 'registered'].includes(c.finnStatus?.status ?? ''))
+      .filter(c => c.camp.start_date >= today && c.camp.start_date <= tenWeeks && ['interested', 'targeted', 'registered'].includes(c.familyStatus?.status ?? ''))
       .map(c => ({
         id: c.camp.id, name: c.camp.name, start_date: c.camp.start_date, end_date: c.camp.end_date,
         host_school_short_name: c.hostSchool.short_name, host_school_name: c.hostSchool.name,
-        finn_status: c.finnStatus?.status ?? null,
+        family_status: c.familyStatus?.status ?? null,
       })),
   [activeCamps, today, tenWeeks])
 
@@ -95,7 +95,7 @@ export default function CampsClient({ user }: { user: User }) {
 
     for (const c of sortCampsChronological(activeCamps)) {
       const tf = classifyCampTimeframe(c.camp, today)
-      const status = c.finnStatus?.status
+      const status = c.familyStatus?.status
       const isUpcoming = (tf === 'upcoming' || tf === 'ongoing') && status !== 'declined' && status !== 'attended'
       ;(isUpcoming ? up : done).push({ kind: 'camp', date: c.camp.start_date, camp: c })
     }
@@ -255,7 +255,7 @@ function UnifiedRow({ item, today, onClick, dim }: { item: ListItem; today: stri
   // status pill
   let pill: React.ReactNode = null
   if (item.kind === 'camp') {
-    const status = item.camp.finnStatus?.status ?? 'interested'
+    const status = item.camp.familyStatus?.status ?? 'interested'
     const st = STATUS_STYLE[status]
     pill = <span style={{ ...pillStyle, background: st.bg, color: st.color, textTransform: 'capitalize' }}>{status}</span>
   } else {

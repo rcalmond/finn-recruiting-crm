@@ -372,7 +372,7 @@ export async function generateAndStoreConversationSummary(
         model_used: 'claude-opus-4-7',
         input_tokens: result.input_tokens,
         output_tokens: result.output_tokens,
-      }, { onConflict: 'school_id' })
+      }, { onConflict: 'school_id,family_id' })
 
   } catch (err) {
     console.error(`[conv-summary] generateAndStore failed for school ${schoolId}:`, err)

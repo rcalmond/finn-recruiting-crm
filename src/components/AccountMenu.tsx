@@ -24,9 +24,11 @@ const A = {
  */
 export default function AccountMenu({
   email,
+  displayName,
   variant,
 }: {
   email: string
+  displayName?: string
   variant: 'sidebar' | 'mobile'
 }) {
   const router = useRouter()
@@ -115,7 +117,7 @@ export default function AccountMenu({
             fontSize: 12, fontWeight: 700, flexShrink: 0,
           }}>FA</div>
           <div style={{ lineHeight: 1.25, minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 650, color: A.ink }}>Finn Almond</div>
+            <div style={{ fontSize: 13, fontWeight: 650, color: A.ink }}>{displayName || 'Account'}</div>
             <div style={{ fontSize: 11, color: A.muted }}>Class of &apos;27 · LWB</div>
           </div>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{

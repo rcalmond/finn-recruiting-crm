@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFinnStatus, CampFinnStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message, CallPrepDoc, SchoolStatusUpdate, ShareWithCoach, SchoolMilestone, MilestoneType, CalendarEvent } from '@/lib/types'
-import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp as updateCampMutation, updateFinnStatus as updateFinnStatusMutation, deleteCamp as deleteCampMutation, addSchoolAttendee as addSchoolAttendeeMutation, removeSchoolAttendee as removeSchoolAttendeeMutation } from '@/lib/camps'
+import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFamilyStatus, CampFamilyStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message, CallPrepDoc, SchoolStatusUpdate, ShareWithCoach, SchoolMilestone, MilestoneType, CalendarEvent } from '@/lib/types'
+import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp as updateCampMutation, updateFamilyStatus as updateFamilyStatusMutation, deleteCamp as deleteCampMutation, addSchoolAttendee as addSchoolAttendeeMutation, removeSchoolAttendee as removeSchoolAttendeeMutation } from '@/lib/camps'
 import type { CurrentResearchRow } from '@/lib/school-research'
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ export function useSchools() {
           .eq('host_school_id', id)
         if (campIds && campIds.length > 0) {
           await supabase
-            .from('camp_finn_status')
+            .from('camp_family_status')
             .update({
               status: 'declined',
               declined_at: new Date().toISOString(),
@@ -576,7 +576,7 @@ export function useCamps(schools: School[]) {
   const fetchCamps = useCallback(async () => {
     const [campsRes, statusRes, attendeesRes, coachesRes] = await Promise.all([
       supabase.from('camps').select('*').order('start_date', { ascending: true }),
-      supabase.from('camp_finn_status').select('*'),
+      supabase.from('camp_family_status').select('*'),
       supabase.from('camp_school_attendees').select('*, school:schools(id, name, short_name, category)'),
       supabase.from('camp_coach_attendees').select('*'),
     ])
@@ -586,7 +586,7 @@ export function useCamps(schools: School[]) {
     const composed = composeCampsWithRelations(
       campsRes.data as Camp[],
       schoolsRef.current,
-      (statusRes.data ?? []) as CampFinnStatus[],
+      (statusRes.data ?? []) as CampFamilyStatus[],
       (attendeesRes.data ?? []) as Array<CampSchoolAttendee & { school: Pick<School, 'id' | 'name' | 'short_name' | 'category'> }>,
       (coachesRes.data ?? []) as CampCoachAttendee[],
     )
@@ -601,7 +601,7 @@ export function useCamps(schools: School[]) {
     const channel = supabase
       .channel(`camps-all-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'camps' }, fetchCamps)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'camp_finn_status' }, fetchCamps)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'camp_family_status' }, fetchCamps)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'camp_school_attendees' }, fetchCamps)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'camp_coach_attendees' }, fetchCamps)
       .subscribe()
@@ -629,8 +629,8 @@ export function useCamps(schools: School[]) {
     return error
   }, [supabase, fetchCamps])
 
-  const updateFinnStatus = useCallback(async (campId: string, status: CampFinnStatusValue, opts?: { declined_reason?: string; notes?: string }) => {
-    const error = await updateFinnStatusMutation(supabase, campId, status, opts)
+  const updateFamilyStatus = useCallback(async (campId: string, status: CampFamilyStatusValue, opts?: { declined_reason?: string; notes?: string }) => {
+    const error = await updateFamilyStatusMutation(supabase, campId, status, opts)
     if (!error) await fetchCamps()
     return error
   }, [supabase, fetchCamps])
@@ -653,7 +653,7 @@ export function useCamps(schools: School[]) {
     return error
   }, [supabase, fetchCamps])
 
-  return { camps, loading, createCamp, updateCamp, updateFinnStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee }
+  return { camps, loading, createCamp, updateCamp, updateFamilyStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee }
 }
 
 // ─── Messages ───────────────────────────────────────────────────────────────

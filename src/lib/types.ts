@@ -161,7 +161,7 @@ export interface SchoolMessagePlanSuggestion {
 export interface SchoolMessagePlan {
   id: string
   school_id: string
-  finn_notes: string | null
+  family_notes: string | null
   suggestions: { items: SchoolMessagePlanSuggestion[] } | null
   suggestions_generated_at: string | null
   suggestions_model_used: string | null
@@ -200,7 +200,7 @@ export interface SchoolConversationSummary {
 
 // ─── ID Camps ────────────────────────────────────────────────────────────────
 
-export type CampFinnStatusValue = 'interested' | 'targeted' | 'registered' | 'attended' | 'declined'
+export type CampFamilyStatusValue = 'interested' | 'targeted' | 'registered' | 'attended' | 'declined'
 
 // ─── Calendar Events (migration 061) ──────────────────────────────────────────
 // Lightweight parallel event species merged with camps on the Get Seen timeline:
@@ -272,10 +272,10 @@ export interface CampCoachAttendee {
   created_at: string
 }
 
-export interface CampFinnStatus {
+export interface CampFamilyStatus {
   id: string
   camp_id: string
-  status: CampFinnStatusValue
+  status: CampFamilyStatusValue
   targeted_at: string | null
   registered_at: string | null
   attended_at: string | null
@@ -290,7 +290,7 @@ export interface CampFinnStatus {
 export interface CampWithRelations {
   camp: Camp
   hostSchool: Pick<School, 'id' | 'name' | 'short_name' | 'category'>
-  finnStatus: CampFinnStatus | null
+  familyStatus: CampFamilyStatus | null
   schoolAttendees: Array<CampSchoolAttendee & {
     school: Pick<School, 'id' | 'name' | 'short_name' | 'category'>
   }>

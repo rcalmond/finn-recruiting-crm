@@ -9,28 +9,22 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 import { fetchSchoolContext } from '@/lib/school-context'
 import { answerSchoolStrategyQuestion } from '@/lib/school-plan-qa-generator'
 import type { Message } from '@/lib/types'
-
-function admin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: schoolId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const fam = await getFamilyContext()
+  if (!fam.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const familyId = fam.ctx.familyId
 
-  const db = admin()
+  const db = familyAdmin(familyId) // T1: service role, family-scoped (generator context)
   const { data: questions } = await db
     .from('school_plan_questions')
     .select('*')
@@ -46,14 +40,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: schoolId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const fam = await getFamilyContext()
+  if (!fam.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const familyId = fam.ctx.familyId
 
   const { question } = await req.json() as { question: string }
   if (!question?.trim()) return NextResponse.json({ error: 'question is required' }, { status: 400 })
 
-  const db = admin()
+  const db = familyAdmin(familyId) // T1: service role, family-scoped (generator context)
 
   // Fetch full context (same pattern as plan generator)
   const [

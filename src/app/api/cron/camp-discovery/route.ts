@@ -9,16 +9,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { catalogAdmin } from '@/lib/tenant-db'
 import { searchTavily } from '@/lib/tavily'
 import { extractCampsFromText, shouldSkipProposal, classifyCampUpdate } from '@/lib/camp-extractor'
 import { startRun, completeRun } from '@/lib/cron-runs'
 
 function serviceClient() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  // T1: catalog cron — schools/coaches/camps/proposals are the shared catalog.
+  // TODO(T2): the scan set derives from family relationships once tiers split.
+  return catalogAdmin()
 }
 
 function sleep(ms: number): Promise<void> {

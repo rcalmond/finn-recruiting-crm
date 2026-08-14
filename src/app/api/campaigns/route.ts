@@ -6,14 +6,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-
-function admin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 // ── GET /api/campaigns ────────────────────────────────────────────────────────
 
@@ -22,7 +14,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const db = admin()
+  const db = supabase // T1: user client — RLS enforces the family boundary
   const { data: campaigns, error } = await db
     .from('campaigns')
     .select('*, template:campaign_templates(id, name, body, created_at, updated_at)')
@@ -82,7 +74,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'name and at least one school are required' }, { status: 400 })
   }
 
-  const db = admin()
+  const db = supabase // T1: user client — RLS enforces the family boundary
 
   // 1. Insert template (placeholder for legacy compatibility — new campaigns may have empty body)
   const { data: tmpl, error: tmplErr } = await db
