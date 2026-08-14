@@ -2306,7 +2306,7 @@ SCHOOL: Clark
       
                             ...
     [2026-08-03] Outbound via Phone:
-      Hi Coach, thank you so much for the call, I’ve just filled out the recruiting questionnaire. And I’m going to be staying in Worcester on Thursday night so I can be at Clark whatever time works best on Friday!
+      Hi Coach, I’m all set for our call, let me know when your set in your end
 
 SCHOOL: Colby
   Status: Ongoing Conversation
@@ -2363,6 +2363,8 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
   Next Action: Complete Financial pre-read docs (Randy) — due 2026-08-07
   Also: Get back to Coach re: scheduling a visit (Finn) — due 2026-08-12
   Contact Log (3 shown):
+    [2026-08-10] Inbound via Phone:
+      Ok no problem! Really - the visit is up to you. I like to have weekdays because if gives you a chance to see what a weekday looks like. If you wanted to make a “weekend” out of it, typically that could be a Friday and then watching a game on Saturday. Which you could look at our schedule for what...
     [2026-08-10] Outbound via Email — Dylan Milkent:
       Hey Coach,
       
@@ -2372,14 +2374,8 @@ SCHOOL: Illinois Institute of Technology (Illinois Tech)
       waiting on my high school soccer and golf schedules to get locked in, but
       those should be finalized by the end of next week. Once I have those in
       hand I'll...
-    [2026-08-10] Inbound via Phone:
-      Ok no problem! Really - the visit is up to you. I like to have weekdays because if gives you a chance to see what a weekday looks like. If you wanted to make a “weekend” out of it, typically that could be a Friday and then watching a game on Saturday. Which you could look at our schedule for what...
-    [2026-07-27] Inbound via Email — Dylan Milkent:
-      Finn,
-      
-      Congrats on your acceptance! This is a big step and you should feel GREAT. I have attached information regarding financial aid pre-read. Note that there is a deadline for July 27th. That is a short timeline so I understand if the August one makes more sense. Just keep me posted!
-      
-      Go Hawks!...
+    [2026-07-27] Outbound via Text:
+      Hi Coach, the financial pre-read sounds great. Send that over and I can get that started. Unfortunately the 20th doesn’t work for me because I start school that day.  In terms of getting out to Illinois, there is still a lot with High school soccer and golf scheduling that’s still up in the air t...
 
 SCHOOL: Middlebury
   Status: Ongoing Conversation
@@ -2395,13 +2391,8 @@ SCHOOL: Middlebury
   RQ Status: Completed
   Videos Sent: Yes
   Next Action: decide about the camp on 8/15 - 8/16 (Finn) — due 2026-07-12
+  Also: Follow up email after camp (Finn) — due 2026-08-18
   Contact Log (3 shown):
-    [2026-07-08] Outbound via Sports Recruits — Tim Peng:
-      Coach Peng,
-      
-      Quick update. I'm registered for the August 15-16 clinic in Middlebury and looking forward to getting on campus and training with your staff.
-      
-      AP scores also came back: 5 in Calc AB, 3 in Chem, 4 in APUSH. Next year I've got Calc BC, AP Physics, and AP Stats lined up, still pointed a...
     [2026-07-08] Inbound via Sports Recruits — Tim Peng:
       Thanks Finn!
       
@@ -2411,6 +2402,12 @@ SCHOOL: Middlebury
       Assistant Men’s Soccer Coach
       
       Middlebury College
+    [2026-07-08] Outbound via Sports Recruits — Tim Peng:
+      Coach Peng,
+      
+      Quick update. I'm registered for the August 15-16 clinic in Middlebury and looking forward to getting on campus and training with your staff.
+      
+      AP scores also came back: 5 in Calc AB, 3 in Chem, 4 in APUSH. Next year I've got Calc BC, AP Physics, and AP Stats lined up, still pointed a...
     [2026-06-10] Inbound via Sports Recruits — Tim Peng:
       Excellent boss
       
@@ -2503,6 +2500,7 @@ SCHOOL: University of Rochester
   Last Contact: 2026-07-08
   RQ Status: Completed
   Videos Sent: Yes
+  Next Action: TEST (Randy) — due 2026-08-20
   Contact Log (3 shown):
     [2026-07-08] Outbound via Sports Recruits — Sean Streb:
       Coach Streb,
@@ -2533,6 +2531,7 @@ SCHOOL: University of Rochester
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-14 | T1 TENANCY DEPLOY (ships at the C6 sitting; this code targets the POST-rename database — camp_family_status, family_notes, get_voice_references(family_id) — and must never deploy before the sitting's rename block re-applies). New tenant boundary in code: src/lib/tenant-db.ts is the ONLY legal source of a service-role client (familyAdmin auto-scopes every family-table query to one family and injects family_id on writes; catalogAdmin passes through catalog tables and refuses family tables; rawService is storage/auth plumbing only; player_profile and strategic_skips are BLOCKED — frozen until the C7 drops), enforced two ways: a runtime refusal in the wrapper and a prebuild fence (scripts/check-tenancy-fence.mjs) that fails the build if src/ constructs a raw service client outside the allowlist (the eslint no-restricted-imports rule exists but the repo eslint toolchain is non-functional, so the prebuild script is the enforced layer). src/lib/require-family.ts resolves the session user's family once per request. User-facing CRUD routes and RSC pages moved OFF the service client onto the user client so RLS enforces (campaigns cluster, camp-prep extract/save/pdf, assets and call-prep-docs rows, offers/extract, schools/[id] plan rows, settings and campaigns pages, layout); SSE/LLM generators, triage routes, bulk-import, and gmail flows keep service role via familyAdmin(familyId); webhooks and the gmail/summary crons are pinned to family #1 with TODO(email-boundary) markers; roster-sync and camp-discovery run on catalogAdmin. All nine player_profile singleton reads became players-by-family reads (prompt builders read the players row and the hardcoded player name literal left the camp generate route and harness with them); the resume parser takes familyId and updates the family's player, skipping (with a warning) if a family has no player row. get_voice_references is called with p_family_id via the wrapper's introspectable scope. New storage writes go to family-prefixed paths ({family_id}/call-prep|camp-prep|resumes|...); legacy objects stay grandfathered at their old paths. Camp-status and school-summary/message-plan upserts target the composite (school_id,family_id)/(camp_id,family_id) keys. AccountMenu shows users.display_name instead of a hardcoded name. The bulk-import bearer path resolves the caller's family before writing. | Feature |
 | 2026-08-13 | EMERGENCY AUTH PATCH — closed the unauthenticated surface found by tenancy recon, before any tenancy work. (1) /api/offers/extract had NO auth check and returned any school's full inbound conversation to the unauthenticated internet — standard auth gate added. (2) /api/discover/similar same — gate added. (3) /design-preview/* removed from the proxy allowlist — its mockups carry identity data; now auth-gated like the rest of the app. (4) /api/gmail/manual-sync no longer lets any authenticated user trigger the global Gmail sync — it is gated on CRON_SECRET only (the Settings sync button now gets 401; proper admin tooling later). (5) ALL FOUR cron routes now REFUSE (503) when CRON_SECRET is unset instead of falling open — recon flagged gmail-sync and coach-roster-sync (open in dev when unset); camp-discovery and summary-refresh were worse, falling open even in production when unset. (6) The call-prep 14-day reuse query now filters doc_type='call' so a camp doc no longer satisfies the call-prep reuse check. No tenancy changes, no refactors. | Bug fix |
 | 2026-08-13 | CAMP PREP STRETCH — CONSOLIDATED (commits 99b1815 through 00a31af; the fourteen dated rows below record the increments and stand as history). Feature complete: prep_docs generalized from call_prep_docs (doc_type, camp_id + name/dates snapshots, storage_path nullable), the school_research pipeline (consumed by school detail only), player_profile camp fields including the family-authored preparation_notes and recruiting_preferences echo fields; the camp prep pipeline runs input -> Sonnet extraction -> editable confirm -> Opus generation -> validate-before-persist (one retry, visible failure, prior content kept) -> in-app render -> print stylesheet -> PDF with generation date. Mid-stretch SCOPE CUT (5.5): every derived-fact section was removed (THE FIT deferred to v2, staff credentials dropped, research and the cross-thread digest taken off the document's critical path) — the document now echoes only family-authored fields, CRM data, and the confirmed extraction. Day labels and touchpoint classifications are computed in code from model-emitted evidence. Current-state documentation added this pass: Section 4 tables (prep_docs, school_research, player_profile camp fields), and Section 9's Camp Prep Docs — Current State, Camp Prep Design Rules, and Productization Running List. | Feature |
 | 2026-08-13 | Camp-prep UI tighten — the Prep doc card's controls restructured by state (presentation only, no logic changes). Previously two rows (Discard/Resume in the header plus Regenerate/Download PDF/Print in the generator row) put five buttons on a card whose job is showing the document. Now one control row owned by CampDocGenerator: DOCUMENT EXISTS — primary Download PDF, secondaries Print and a quieter borderless Regenerate, with Edit inputs and Delete draft & document tucked into a small overflow menu (the delete confirm names that it removes the confirmed draft AND the generated document); DRAFT WITH CONFIRMED EXTRACTION — primary Generate document, secondary Edit inputs, overflow Discard draft; MID-FLOW DRAFT (no confirmed extraction) — primary Edit inputs, overflow Discard draft; NO DRAFT — unchanged single Generate prep doc entry in the header. Rules enforced: one primary per state, max two visible secondaries, destructive actions live only in the overflow (never adjacent to the primary) and confirm by naming what gets deleted. Resume relabeled Edit inputs everywhere in camp prep (post-generation it reopens the confirmed extraction, not an unfinished process); the mid-flow draft subheader now reads draft-in-progress instead of pointing at a Generate button that is not there. Data-color firewall unchanged — buttons are chrome. | Feature |

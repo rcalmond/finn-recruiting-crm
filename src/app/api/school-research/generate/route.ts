@@ -11,7 +11,8 @@
  */
 
 import { NextRequest } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 import { createClient } from '@/lib/supabase/server'
 import {
   runSchoolResearch, validateResearch, PENDING_TIMEOUT_MS,
@@ -21,17 +22,10 @@ import {
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
-function serviceClient() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
-
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  const fam = await getFamilyContext()
+  if (!fam.ok) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  const familyId = fam.ctx.familyId
 
   const { schoolId } = (await req.json()) as { schoolId?: string }
   if (!schoolId) return new Response(JSON.stringify({ error: 'Missing schoolId' }), { status: 400 })
@@ -42,7 +36,7 @@ export async function POST(req: NextRequest) {
       const send = (event: string, data: unknown) =>
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
 
-      const admin = serviceClient()
+      const admin = familyAdmin(familyId) // T1: service role, family-scoped (SSE/LLM path)
       let ourId: string | null = null
 
       try {
@@ -57,8 +51,9 @@ export async function POST(req: NextRequest) {
         if (!school) { send('error', { message: 'School not found' }); controller.close(); return }
 
         const { data: profile } = await admin
-          .from('player_profile')
+          .from('players') // T1: players by family (wrapper-scoped); T2 decides whose grad year anchors shared research
           .select('grad_year')
+          .order('created_at', { ascending: true })
           .limit(1)
           .maybeSingle()
 

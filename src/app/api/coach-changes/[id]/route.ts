@@ -22,18 +22,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { catalogAdmin } from '@/lib/tenant-db'
 import { reparsePartialsForSchool } from '@/lib/gmail-resolve'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Supabase = ReturnType<typeof createServiceClient<any>>
-
-function serviceClient(): Supabase {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 export async function PUT(
   req: NextRequest,
@@ -54,7 +44,7 @@ export async function PUT(
   const action: 'apply' | 'reject' = body.action
   const note: string | null = typeof body.note === 'string' && body.note.trim() ? body.note.trim() : null
 
-  const admin = serviceClient()
+  const admin = catalogAdmin() // T1: catalog-only route (coaches + coach_changes stay shared until T2)
 
   // Fetch the change row
   const { data: change, error: fetchErr } = await admin

@@ -14,14 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-
-function admin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
+import { catalogAdmin } from '@/lib/tenant-db'
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,7 +43,7 @@ export async function POST(req: NextRequest) {
     // store whatever the client sent (may be empty for a typed URL).
     const ref = typeof referrer === 'string' && referrer.length > 0 ? referrer : null
 
-    await admin().from('not_found_log').insert({
+    await catalogAdmin().from('not_found_log').insert({
       path: path.slice(0, 2048),
       referrer: ref?.slice(0, 2048) ?? null,
       user_id: userId,

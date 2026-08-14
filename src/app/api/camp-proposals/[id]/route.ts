@@ -8,24 +8,18 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 import type { CampProposalProposedData } from '@/lib/types'
-
-function serviceClient() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   // Auth
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const fam = await getFamilyContext()
+  if (!fam.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const familyId = fam.ctx.familyId
 
   const { id } = await params
   const body = await req.json().catch(() => null)
@@ -34,7 +28,7 @@ export async function POST(
     return NextResponse.json({ error: 'Expected { action: "apply"|"reject" }' }, { status: 400 })
   }
 
-  const admin = serviceClient()
+  const admin = familyAdmin(familyId) // T1: service role, family-scoped
 
   // Fetch proposal
   const { data: proposal, error: fetchErr } = await admin
@@ -64,7 +58,7 @@ export async function POST(
   // ── Apply ───────────────────────────────────────────────────────────────────
 
   const proposed = (body.edited_data ?? proposal.proposed_data) as CampProposalProposedData
-  const markInterested = body.mark_finn_interested !== false // default true
+  const markInterested = body.mark_family_interested !== false // default true
   let campId = proposal.matched_camp_id
 
   if (!campId) {
@@ -118,14 +112,14 @@ export async function POST(
   // Mark Finn interested
   if (markInterested) {
     const { data: existing } = await admin
-      .from('camp_finn_status')
+      .from('camp_family_status')
       .select('id')
       .eq('camp_id', campId)
       .limit(1)
 
     if (!existing || existing.length === 0) {
       await admin
-        .from('camp_finn_status')
+        .from('camp_family_status')
         .insert({ camp_id: campId, status: 'interested' })
     }
   }

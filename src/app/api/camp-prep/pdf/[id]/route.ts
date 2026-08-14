@@ -9,8 +9,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { createClient } from '@/lib/supabase/server'
+import { rawService } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 import { generateCampDocPdf } from '@/lib/camp-doc-pdf'
 import { validateCampDoc } from '@/lib/camp-doc-validate'
 import type { CampDoc } from '@/lib/camp-doc'
@@ -18,18 +18,16 @@ import type { CampDoc } from '@/lib/camp-doc'
 export const runtime = 'nodejs'
 export const maxDuration = 120
 
-function serviceClient() {
-  return createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
 function safe(s: string) { return (s || '').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '') || 'camp' }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Auth + family (T1)
+  const fam = await getFamilyContext()
+  if (!fam.ok) return NextResponse.json({ error: fam.status === 401 ? 'Unauthorized' : 'No family' }, { status: fam.status })
+  const { familyId, supabase } = fam.ctx
 
-  const admin = serviceClient()
+  const admin = supabase // T1: user client for rows — RLS enforces; storage via rawService
   const { data: doc, error } = await admin
     .from('prep_docs')
     .select('content, school_id, camp_name_snapshot, camp_dates_snapshot, doc_type, generated_at')
@@ -52,8 +50,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try { pdf = await generateCampDocPdf(doc.content as CampDoc, { generatedDate }) }
   catch (err) { return NextResponse.json({ error: `PDF build failed: ${err instanceof Error ? err.message : 'unknown'}` }, { status: 500 }) }
 
-  const storagePath = `camp-prep/${doc.school_id}/${id}.pdf`
-  const { error: upErr } = await admin.storage.from('assets').upload(storagePath, pdf, { contentType: 'application/pdf', upsert: true })
+  const storagePath = `${familyId}/camp-prep/${doc.school_id}/${id}.pdf`
+  const { error: upErr } = await rawService().storage /* T1: service-role upsert; family-prefixed path */.from('assets').upload(storagePath, pdf, { contentType: 'application/pdf', upsert: true })
   if (upErr) return NextResponse.json({ error: `Storage upload failed: ${upErr.message}` }, { status: 500 })
   await admin.from('prep_docs').update({ storage_path: storagePath }).eq('id', id)
 

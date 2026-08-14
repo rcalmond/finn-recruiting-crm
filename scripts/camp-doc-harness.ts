@@ -26,6 +26,7 @@ import { CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, build
 import { validateCampDoc } from '../src/lib/camp-doc-validate'
 import type { CampExtraction, CampPrepInputs } from '../src/lib/camp-prep'
 import type { ContactLogRow, CoachRow, OfferRow } from '../src/lib/school-context'
+import { ALMOND_FAMILY_ID } from '../src/lib/tenant-db'
 
 const FIX_DIR = path.join(__dirname, 'fixtures')
 
@@ -72,22 +73,22 @@ async function record(schoolQuery: string, fixturePath: string) {
   // Thread-only fallback: a school with no camp draft still needs to run through the
   // harness for the §1/§2 verdict gate (classification + calibration depend only on
   // the thread). A minimal stub extraction makes the plan empty but §1/§2 intact.
-  const homeTz = (await db.from('player_profile').select('home_timezone').limit(1).maybeSingle()).data?.home_timezone as string | undefined
+  const homeTz = (await db.from('players').select('home_timezone').eq('family_id', ALMOND_FAMILY_ID).order('created_at', { ascending: true }).limit(1).maybeSingle()).data?.home_timezone as string | undefined
   const STUB: CampExtraction = { venue: null, surface: null, days: [], hard_constraints: [], travel: { segments: [], lodging: null, lodging_breakfast_window: null, meal_windows: [], competing_commitments: [], who_traveling: null }, timezone: { home_tz: homeTz?.trim() || 'America/Denver', venue_tz: null, delta: null } }
   const usingStub = !draft?.extracted_schedule
   if (usingStub) console.warn(`  ⚠ no camp draft for ${school.name} — recording a THREAD-ONLY stub fixture (plan empty; §1/§2 verdict gate only)`)
 
-  const { data: pp } = await db.from('player_profile').select('current_stats, upcoming_schedule, highlights, academic_summary, position, grad_year, home_timezone, preparation_notes').limit(1).maybeSingle()
+  const { data: pp } = await db.from('players').select('current_stats, upcoming_schedule, highlights, academic_summary, position, grad_year, home_timezone, preparation_notes, name').eq('family_id', ALMOND_FAMILY_ID).order('created_at', { ascending: true }).limit(1).maybeSingle()
   // recruiting_preferences is isolated in its own select so a pre-Migration-7 DB can
   // still record a usable fixture (the endpoint reads the column directly; this is a
   // dev-tool concession). A genuinely missing column records as empty with a warning.
-  const { data: prefRow, error: prefErr } = await db.from('player_profile').select('recruiting_preferences').limit(1).maybeSingle()
+  const { data: prefRow, error: prefErr } = await db.from('players').select('recruiting_preferences').eq('family_id', ALMOND_FAMILY_ID).order('created_at', { ascending: true }).limit(1).maybeSingle()
   if (prefErr) console.warn(`  ⚠ recruiting_preferences unreadable (${prefErr.message}) — recording prefs=empty; re-record after Migration 7`)
   const prefsRaw = (prefRow?.recruiting_preferences as string | null)?.trim() || ''
   const preferences: PreferencesRead = prefsRaw ? { status: 'ok', value: prefsRaw } : { status: 'empty', value: null }
 
   const player: DocPlayerProfile = {
-    name: 'Finn Almond',
+    name: (pp?.name as string) ?? 'the player',
     position: (pp?.position as string) ?? null, grad_year: (pp?.grad_year as number) ?? null,
     home_timezone: (pp?.home_timezone as string)?.trim() || 'America/Denver',
     preparation_notes: (pp?.preparation_notes as string) ?? null,

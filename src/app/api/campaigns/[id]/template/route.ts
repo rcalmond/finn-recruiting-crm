@@ -6,14 +6,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-
-function admin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 export async function PATCH(
   req: NextRequest,
@@ -27,7 +19,7 @@ export async function PATCH(
   const { name, body } = await req.json() as { name?: string; body?: string }
   if (!body?.trim()) return NextResponse.json({ error: 'body is required' }, { status: 400 })
 
-  const db = admin()
+  const db = supabase // T1: user client — RLS enforces the family boundary
 
   // Look up template_id via campaign
   const { data: campaign } = await db

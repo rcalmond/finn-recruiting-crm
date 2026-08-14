@@ -11,7 +11,7 @@ export interface UpcomingCampItem {
   end_date: string | null
   host_school_short_name: string | null
   host_school_name: string
-  finn_status: string | null  // 'registered' | 'targeted' | 'interested' | null
+  family_status: string | null  // 'registered' | 'targeted' | 'interested' | null
 }
 
 export interface TimelineEventItem {
@@ -62,7 +62,7 @@ export type MergedItem = {
   start_date: string
   end_date: string | null
   d: number
-  finn_status?: string | null
+  family_status?: string | null
   location?: string | null
   href?: string
 }
@@ -74,7 +74,7 @@ export function buildMerged(camps: UpcomingCampItem[], events: TimelineEventItem
     start_date: c.start_date,
     end_date: c.end_date && c.end_date !== c.start_date ? c.end_date : null,
     d: daysUntil(c.start_date),
-    finn_status: c.finn_status, href: '/calendar',
+    family_status: c.family_status, href: '/calendar',
   }))
   const fromEvents: MergedItem[] = events.map(e => ({
     id: e.id, source: 'event', kind: e.kind,
@@ -101,7 +101,7 @@ function SendMarker() {
 }
 function RailMarker({ it }: { it: MergedItem }) {
   if (it.kind === 'outreach_moment') return <SendMarker />
-  if (it.source === 'camp') return <AttendMarker color={GREEN.accent} filled={it.finn_status === 'registered'} />
+  if (it.source === 'camp') return <AttendMarker color={GREEN.accent} filled={it.family_status === 'registered'} />
   return <AttendMarker color={SD.event} filled />
 }
 
@@ -180,7 +180,7 @@ function DesktopTimeline({ items, onItemClick }: { items: MergedItem[]; onItemCl
                   position: 'absolute', top: RAIL_Y - 4, left: `${pct}%`, width: `${barW}%`, height: 8,
                   borderRadius: 4, cursor: 'pointer', zIndex: 2,
                   background: it.source === 'camp' ? GREEN.accent : isOutreach ? SD.rust : SD.event,
-                  opacity: it.source === 'camp' && it.finn_status !== 'registered' ? 0.6 : 0.9,
+                  opacity: it.source === 'camp' && it.family_status !== 'registered' ? 0.6 : 0.9,
                   boxShadow: '0 0 0 2px #fff',
                 }} />
               ) : (

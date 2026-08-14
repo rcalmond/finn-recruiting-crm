@@ -1,13 +1,11 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import ToolsLandingClient from './ToolsLandingClient'
 
-function makeAdmin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+// T1: RSC pages read on the user client — RLS enforces; catalog tables carry
+// authenticated SELECT policies.
+async function makeAdmin() {
+  return createClient()
 }
 
 export default async function ToolsPage() {
@@ -15,7 +13,7 @@ export default async function ToolsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const admin = makeAdmin()
+  const admin = await makeAdmin()
 
   const [coachChanges, campProposals] = await Promise.all([
     admin

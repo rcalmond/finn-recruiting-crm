@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 import { generateConversationSummary } from '@/lib/school-conversation-summary-generator'
-
-function admin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 // POST — force regeneration (ignores idempotency check)
 export async function POST(
@@ -16,11 +10,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: schoolId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const fam = await getFamilyContext()
+  if (!fam.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const familyId = fam.ctx.familyId
 
-  const db = admin()
+  const db = familyAdmin(familyId) // T1: service role, family-scoped (generator context)
 
   try {
     const result = await generateConversationSummary(db, schoolId)
@@ -49,7 +43,7 @@ export async function POST(
         model_used: 'claude-opus-4-7',
         input_tokens: result.input_tokens,
         output_tokens: result.output_tokens,
-      }, { onConflict: 'school_id' })
+      }, { onConflict: 'school_id,family_id' })
       .select()
       .single()
 

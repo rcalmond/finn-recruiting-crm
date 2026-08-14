@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { familyAdmin, rawService } from '@/lib/tenant-db'
 import {
   parseSRPaste,
   normalizeSubject,
@@ -74,15 +74,6 @@ interface Stats {
   schoolCount: number
 }
 
-// ─── Supabase service client ──────────────────────────────────────────────────
-
-function serviceClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
-
 // ─── School matching (mirrors webhook + reparse-partials logic) ───────────────
 
 function matchSchool(
@@ -143,17 +134,20 @@ function matchCoach(
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  // ── Auth ──
-  const admin = serviceClient()
+  // ── Auth (bearer) + family (T1) ──
   const authHeader = req.headers.get('authorization') ?? ''
   const token = authHeader.replace(/^Bearer\s+/i, '')
   if (!token) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  const { data: { user }, error: authError } = await admin.auth.getUser(token)
+  const raw = rawService()
+  const { data: { user }, error: authError } = await raw.auth.getUser(token)
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const { data: userRow } = await raw.from('users').select('family_id').eq('id', user.id).maybeSingle()
+  if (!userRow?.family_id) return NextResponse.json({ error: 'No family' }, { status: 403 })
+  const admin = familyAdmin(userRow.family_id) // T1: service role, family-scoped (bearer path)
 
   // ── Parse body ──
   let text: string

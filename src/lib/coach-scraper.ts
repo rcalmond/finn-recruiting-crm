@@ -18,12 +18,12 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type Supabase = ReturnType<typeof createServiceClient<any>>
+export type Supabase = SupabaseClient<any, any, any>
 
 export type CoachRole =
   | 'Head Coach'

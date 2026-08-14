@@ -1,5 +1,6 @@
 import type { Question } from '@/lib/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { scopeOf } from '@/lib/tenant-db'
 import { fetchSchoolContext, type CurrentAssets, type StatusUpdateRow } from '@/lib/school-context'
 import { RECRUITING_JUDGMENT } from '@/lib/recruiting-judgment'
 
@@ -212,14 +213,15 @@ export async function buildEmailDraftPrompt(
     { data: replyToRow },
   ] = await Promise.all([
     fetchSchoolContext(admin, input.schoolId, { includeActionItems: true }),
-    admin.from('player_profile').select('*').limit(1).single(),
+    // T1: players by family (the familyAdmin wrapper scopes the read; one player at alpha)
+    admin.from('players').select('*').order('created_at', { ascending: true }).limit(1).single(),
     input.coachId
       ? admin.from('coaches')
           .select('name, role, email, needs_review')
           .eq('id', input.coachId)
           .single()
       : Promise.resolve({ data: null }),
-    admin.rpc('get_voice_references').then(r => r) as unknown as Promise<{ data: VoiceRef[] | null }>,
+    admin.rpc('get_voice_references', { p_family_id: scopeOf(admin) }).then(r => r) as unknown as Promise<{ data: VoiceRef[] | null }>,
     input.replyToContactLogId
       ? admin.from('contact_log')
           .select('date, sent_at, channel, coach_name, summary')
@@ -591,7 +593,8 @@ export async function buildTopicSuggestPrompt(
     { data: coverageRows },
   ] = await Promise.all([
     fetchSchoolContext(admin, schoolId, { includeActionItems: true }),
-    admin.from('player_profile').select('current_stats, upcoming_schedule, highlights').limit(1).single(),
+    // T1: players by family (scoped by the familyAdmin wrapper)
+    admin.from('players').select('current_stats, upcoming_schedule, highlights').order('created_at', { ascending: true }).limit(1).single(),
     coachId
       ? admin.from('coaches').select('name, role, needs_review').eq('id', coachId).single()
       : Promise.resolve({ data: null }),

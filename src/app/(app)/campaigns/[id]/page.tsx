@@ -1,14 +1,12 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import CampaignDetailClient from '@/components/campaigns/CampaignDetailClient'
 import type { Campaign, CampaignSchool } from '@/lib/types'
 
-function makeAdmin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+// T1: RSC pages read on the user client — RLS enforces; catalog tables carry
+// authenticated SELECT policies.
+async function makeAdmin() {
+  return createClient()
 }
 
 interface Props {
@@ -21,7 +19,7 @@ export default async function CampaignDetailPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const db = makeAdmin()
+  const db = await makeAdmin()
 
   const { data: campaign } = await db
     .from('campaigns')

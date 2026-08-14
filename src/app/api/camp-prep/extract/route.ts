@@ -8,7 +8,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { extractJsonObject } from '@/lib/agentic-research'
 import {
@@ -21,10 +20,6 @@ export const maxDuration = 120
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-function admin() {
-  return createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
-
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -35,7 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing campId or camp email' }, { status: 400 })
   }
 
-  const db = admin()
+  const db = supabase // T1: user client — RLS enforces the family boundary
 
   const { data: camp } = await db
     .from('camps')
@@ -50,9 +45,11 @@ export async function POST(req: NextRequest) {
     .eq('id', camp.host_school_id)
     .maybeSingle()
 
+  // T1: players by family (RLS scopes; one player at alpha)
   const { data: profile } = await db
-    .from('player_profile')
+    .from('players')
     .select('home_timezone')
+    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
   const homeTimezone = (profile?.home_timezone as string | null)?.trim() || 'America/Denver'

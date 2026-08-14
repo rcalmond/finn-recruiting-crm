@@ -13,7 +13,8 @@
  */
 
 import { NextRequest } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { fetchSchoolContext } from '@/lib/school-context'
@@ -29,14 +30,10 @@ export const runtime = 'nodejs'
 export const maxDuration = 300
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-function admin() {
-  return createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
-
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  const fam = await getFamilyContext()
+  if (!fam.ok) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  const familyId = fam.ctx.familyId
 
   const { docId } = (await req.json()) as { docId?: string }
   if (!docId) return new Response(JSON.stringify({ error: 'Missing docId' }), { status: 400 })
@@ -46,7 +43,7 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const send = (event: string, data: unknown) =>
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
-      const db = admin()
+      const db = familyAdmin(familyId) // T1: service role, family-scoped (SSE/LLM path)
 
       try {
         send('progress', { stage: 'context', message: 'Assembling context…' })
@@ -88,10 +85,12 @@ export async function POST(req: NextRequest) {
           controller.close(); return
         }
 
-        // ── Player profile (includes the family-authored recruiting_preferences) ──
+        // ── Player (T1: players by family — the familyAdmin wrapper scopes the read;
+        //    one player at alpha, oldest first) ──
         const { data: pp, error: ppErr } = await db
-          .from('player_profile')
-          .select('current_stats, upcoming_schedule, highlights, academic_summary, position, grad_year, home_timezone, preparation_notes, recruiting_preferences')
+          .from('players')
+          .select('name, current_stats, upcoming_schedule, highlights, academic_summary, position, grad_year, home_timezone, preparation_notes, recruiting_preferences')
+          .order('created_at', { ascending: true })
           .limit(1)
           .maybeSingle()
         // Fail-closed: an EMPTY preferences field (family wrote nothing) is not the
@@ -104,7 +103,7 @@ export async function POST(req: NextRequest) {
             ? { status: 'ok', value: prefsRaw }
             : { status: 'empty', value: null }
         const player: DocPlayerProfile = {
-          name: 'Finn Almond',
+          name: (pp?.name as string | null) ?? 'the player',
           position: (pp?.position as string | null) ?? null,
           grad_year: (pp?.grad_year as number | null) ?? null,
           home_timezone: (pp?.home_timezone as string | null)?.trim() || 'America/Denver',

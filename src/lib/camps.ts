@@ -8,8 +8,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   Camp,
-  CampFinnStatus,
-  CampFinnStatusValue,
+  CampFamilyStatus,
+  CampFamilyStatusValue,
   CampSchoolAttendee,
   CampCoachAttendee,
   CampWithRelations,
@@ -25,12 +25,12 @@ import type {
 export function composeCampsWithRelations(
   camps: Camp[],
   schools: School[],
-  finnStatuses: CampFinnStatus[],
+  familyStatuses: CampFamilyStatus[],
   schoolAttendees: Array<CampSchoolAttendee & { school: Pick<School, 'id' | 'name' | 'short_name' | 'category'> }>,
   coachAttendees: CampCoachAttendee[],
 ): CampWithRelations[] {
   const schoolMap = new Map(schools.map(s => [s.id, s]))
-  const statusByCamp = new Map(finnStatuses.map(fs => [fs.camp_id, fs]))
+  const statusByCamp = new Map(familyStatuses.map(fs => [fs.camp_id, fs]))
   const attendeesByCamp = new Map<string, typeof schoolAttendees>()
   for (const a of schoolAttendees) {
     if (!attendeesByCamp.has(a.camp_id)) attendeesByCamp.set(a.camp_id, [])
@@ -49,7 +49,7 @@ export function composeCampsWithRelations(
       hostSchool: host
         ? { id: host.id, name: host.name, short_name: host.short_name, category: host.category }
         : { id: camp.host_school_id, name: 'Unknown', short_name: null, category: 'C' as School['category'] },
-      finnStatus: statusByCamp.get(camp.id) ?? null,
+      familyStatus: statusByCamp.get(camp.id) ?? null,
       schoolAttendees: attendeesByCamp.get(camp.id) ?? [],
       coachAttendees: coachesByCamp.get(camp.id) ?? [],
     }
@@ -62,7 +62,7 @@ export function composeCampsWithRelations(
  * Maintains the invariant: status='targeted' AND registration_deadline IS NOT NULL
  * ↔ active action_item exists. (Model B: 'targeted' gates action items, not 'interested'.)
  *
- * Called by createCamp, updateCamp, updateFinnStatus, and deleteCamp.
+ * Called by createCamp, updateCamp, updateFamilyStatus, and deleteCamp.
  */
 async function syncActionItemForCamp(
   supabase: SupabaseClient,
@@ -70,7 +70,7 @@ async function syncActionItemForCamp(
     campId: string
     campName: string
     hostSchoolId: string
-    status: CampFinnStatusValue
+    status: CampFamilyStatusValue
     registrationDeadline: string | null
     actionItemId: string | null
   }
@@ -108,7 +108,7 @@ async function syncActionItemForCamp(
 
     // Store the reference
     await supabase
-      .from('camp_finn_status')
+      .from('camp_family_status')
       .update({ action_item_id: item.id })
       .eq('camp_id', campId)
 
@@ -139,7 +139,7 @@ async function syncActionItemForCamp(
       // DELETE: declined, or status returned to interested (no longer targeted)
       await supabase.from('action_items').delete().eq('id', actionItemId)
       await supabase
-        .from('camp_finn_status')
+        .from('camp_family_status')
         .update({ action_item_id: null })
         .eq('camp_id', campId)
       return null
@@ -153,7 +153,7 @@ async function syncActionItemForCamp(
 // ─── Mutations ───────────────────────────────────────────────────────────────
 
 /**
- * Create a camp and its default camp_finn_status row (status='interested').
+ * Create a camp and its default camp_family_status row (status='interested').
  * Action item creation deferred until status transitions to 'targeted' (Model B).
  */
 export async function createCamp(
@@ -168,13 +168,13 @@ export async function createCamp(
 
   if (error || !camp) return { camp: null, error: error?.message ?? 'Insert failed' }
 
-  // Create default finn_status
+  // Create default family_status
   const { error: statusError } = await supabase
-    .from('camp_finn_status')
+    .from('camp_family_status')
     .insert({ camp_id: camp.id, status: 'interested' })
 
   if (statusError) {
-    console.error('Camp created but finn_status insert failed:', statusError, 'campId:', camp.id)
+    console.error('Camp created but family_status insert failed:', statusError, 'campId:', camp.id)
   }
 
   // Sync action_item if deadline exists
@@ -206,13 +206,13 @@ export async function updateCamp(
 
   // If deadline or name changed, sync action_item
   if ('registration_deadline' in data || 'name' in data || 'host_school_id' in data) {
-    // Fetch current camp + finn_status to get full context
+    // Fetch current camp + family_status to get full context
     const { data: camp } = await supabase.from('camps').select('*').eq('id', id).single()
-    const { data: fs } = await supabase.from('camp_finn_status').select('*').eq('camp_id', id).single()
+    const { data: fs } = await supabase.from('camp_family_status').select('*').eq('camp_id', id).single()
 
     if (camp && fs) {
       const typedCamp = camp as Camp
-      const typedFs = fs as CampFinnStatus
+      const typedFs = fs as CampFamilyStatus
       await syncActionItemForCamp(supabase, {
         campId: id,
         campName: typedCamp.name,
@@ -231,10 +231,10 @@ export async function updateCamp(
  * Update Finn's status for a camp. Sets the appropriate timestamp
  * without clearing historical ones. Syncs action_item per status transition.
  */
-export async function updateFinnStatus(
+export async function updateFamilyStatus(
   supabase: SupabaseClient,
   campId: string,
-  status: CampFinnStatusValue,
+  status: CampFamilyStatusValue,
   opts?: { declined_reason?: string; notes?: string }
 ): Promise<string | null> {
   const updates: Record<string, unknown> = { status }
@@ -251,7 +251,7 @@ export async function updateFinnStatus(
   if (opts?.notes !== undefined) updates.notes = opts.notes
 
   const { error } = await supabase
-    .from('camp_finn_status')
+    .from('camp_family_status')
     .update(updates)
     .eq('camp_id', campId)
 
@@ -259,11 +259,11 @@ export async function updateFinnStatus(
 
   // Sync action_item for the new status
   const { data: camp } = await supabase.from('camps').select('*').eq('id', campId).single()
-  const { data: fs } = await supabase.from('camp_finn_status').select('*').eq('camp_id', campId).single()
+  const { data: fs } = await supabase.from('camp_family_status').select('*').eq('camp_id', campId).single()
 
   if (camp && fs) {
     const typedCamp = camp as Camp
-    const typedFs = fs as CampFinnStatus
+    const typedFs = fs as CampFamilyStatus
     await syncActionItemForCamp(supabase, {
       campId,
       campName: typedCamp.name,
@@ -279,7 +279,7 @@ export async function updateFinnStatus(
 
 /**
  * Delete a camp. Deletes associated action_item if it exists,
- * then cascade FKs handle attendees + finn_status.
+ * then cascade FKs handle attendees + family_status.
  */
 export async function deleteCamp(
   supabase: SupabaseClient,
@@ -287,13 +287,13 @@ export async function deleteCamp(
 ): Promise<string | null> {
   // Delete associated action_item if it exists (not cascaded by FK)
   const { data: fs } = await supabase
-    .from('camp_finn_status')
+    .from('camp_family_status')
     .select('action_item_id')
     .eq('camp_id', id)
     .single()
 
-  if (fs && (fs as CampFinnStatus).action_item_id) {
-    await supabase.from('action_items').delete().eq('id', (fs as CampFinnStatus).action_item_id!)
+  if (fs && (fs as CampFamilyStatus).action_item_id) {
+    await supabase.from('action_items').delete().eq('id', (fs as CampFamilyStatus).action_item_id!)
   }
 
   const { error } = await supabase.from('camps').delete().eq('id', id)

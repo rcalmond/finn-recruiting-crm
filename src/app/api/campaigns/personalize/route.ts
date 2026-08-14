@@ -11,26 +11,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 import {
   CAMPAIGN_PERSONALIZE_SYSTEM_PROMPT,
   buildCampaignPersonalizePrompt,
 } from '@/lib/prompts'
 
-function admin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
-
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const fam = await getFamilyContext()
+    if (!fam.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const familyId = fam.ctx.familyId
 
     const { schoolId, coachId, renderedBody } = await req.json() as {
       schoolId: string
@@ -42,7 +36,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'schoolId and renderedBody are required' }, { status: 400 })
     }
 
-    const db = admin()
+    const db = familyAdmin(familyId) // T1: service role, family-scoped (SSE/LLM path)
 
     // Fetch school context
     const { data: school } = await db

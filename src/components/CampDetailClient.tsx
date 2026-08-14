@@ -7,7 +7,7 @@ import { useCamps, useSchools, useCampPrepDoc } from '@/hooks/useRealtimeData'
 import { createClient } from '@/lib/supabase/client'
 import CampPrepModal from '@/components/CampPrepModal'
 import CampDocGenerator from '@/components/CampDocGenerator'
-import type { CampWithRelations, CampFinnStatusValue, Category, School } from '@/lib/types'
+import type { CampWithRelations, CampFamilyStatusValue, Category, School } from '@/lib/types'
 import type { CampDoc } from '@/lib/camp-doc'
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
@@ -32,7 +32,7 @@ const TIER_STYLE: Record<Category, { bg: string; color: string }> = {
   Nope: { bg: '#E5E7EB', color: '#6B7280' },
 }
 
-const STATUS_COLORS: Record<CampFinnStatusValue, { bg: string; color: string }> = {
+const STATUS_COLORS: Record<CampFamilyStatusValue, { bg: string; color: string }> = {
   interested: { bg: '#DBEAFE', color: '#1E40AF' },
   targeted:   { bg: '#FEF3C7', color: '#92400E' },
   registered: { bg: '#D7F0ED', color: '#006A65' },
@@ -45,7 +45,7 @@ const STATUS_COLORS: Record<CampFinnStatusValue, { bg: string; color: string }> 
 export default function CampDetailClient({ campId }: { campId: string }) {
   const router = useRouter()
   const { schools } = useSchools()
-  const { camps, loading, updateCamp, updateFinnStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee } = useCamps(schools)
+  const { camps, loading, updateCamp, updateFamilyStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee } = useCamps(schools)
 
   const campData = useMemo(() => camps.find(c => c.camp.id === campId), [camps, campId])
 
@@ -89,7 +89,7 @@ export default function CampDetailClient({ campId }: { campId: string }) {
       <HeaderSection camp={campData} onUpdate={updateCamp} />
 
       {/* Finn's status */}
-      <StatusSection camp={campData} onUpdateStatus={updateFinnStatus} />
+      <StatusSection camp={campData} onUpdateStatus={updateFamilyStatus} />
 
       {/* Details */}
       <DetailsSection camp={campData} schools={schools} onUpdate={updateCamp} />
@@ -182,15 +182,15 @@ function HeaderSection({ camp, onUpdate }: {
 
 function StatusSection({ camp, onUpdateStatus }: {
   camp: CampWithRelations
-  onUpdateStatus: (campId: string, status: CampFinnStatusValue, opts?: { declined_reason?: string; notes?: string }) => Promise<string | null>
+  onUpdateStatus: (campId: string, status: CampFamilyStatusValue, opts?: { declined_reason?: string; notes?: string }) => Promise<string | null>
 }) {
-  const currentStatus = camp.finnStatus?.status ?? 'interested'
-  const [declineReason, setDeclineReason] = useState(camp.finnStatus?.declined_reason ?? '')
+  const currentStatus = camp.familyStatus?.status ?? 'interested'
+  const [declineReason, setDeclineReason] = useState(camp.familyStatus?.declined_reason ?? '')
   const [showDeclineInput, setShowDeclineInput] = useState(false)
 
-  const statuses: CampFinnStatusValue[] = ['interested', 'targeted', 'registered', 'attended', 'declined']
+  const statuses: CampFamilyStatusValue[] = ['interested', 'targeted', 'registered', 'attended', 'declined']
 
-  async function handleStatusChange(status: CampFinnStatusValue) {
+  async function handleStatusChange(status: CampFamilyStatusValue) {
     if (status === currentStatus) return
     if (status === 'declined') {
       setShowDeclineInput(true)
@@ -202,7 +202,7 @@ function StatusSection({ camp, onUpdateStatus }: {
   }
 
   async function saveDeclineReason() {
-    if (declineReason !== (camp.finnStatus?.declined_reason ?? '')) {
+    if (declineReason !== (camp.familyStatus?.declined_reason ?? '')) {
       await onUpdateStatus(camp.camp.id, 'declined', { declined_reason: declineReason || undefined })
     }
     setShowDeclineInput(false)
@@ -210,14 +210,14 @@ function StatusSection({ camp, onUpdateStatus }: {
 
   // Timestamp for current status
   let timestamp: string | null = null
-  if (currentStatus === 'targeted' && camp.finnStatus?.targeted_at) {
-    timestamp = `Targeted ${fmtDate(camp.finnStatus.targeted_at)}`
-  } else if (currentStatus === 'registered' && camp.finnStatus?.registered_at) {
-    timestamp = `Registered ${fmtDate(camp.finnStatus.registered_at)}`
-  } else if (currentStatus === 'attended' && camp.finnStatus?.attended_at) {
-    timestamp = `Attended ${fmtDate(camp.finnStatus.attended_at)}`
-  } else if (currentStatus === 'declined' && camp.finnStatus?.declined_at) {
-    timestamp = `Declined ${fmtDate(camp.finnStatus.declined_at)}`
+  if (currentStatus === 'targeted' && camp.familyStatus?.targeted_at) {
+    timestamp = `Targeted ${fmtDate(camp.familyStatus.targeted_at)}`
+  } else if (currentStatus === 'registered' && camp.familyStatus?.registered_at) {
+    timestamp = `Registered ${fmtDate(camp.familyStatus.registered_at)}`
+  } else if (currentStatus === 'attended' && camp.familyStatus?.attended_at) {
+    timestamp = `Attended ${fmtDate(camp.familyStatus.attended_at)}`
+  } else if (currentStatus === 'declined' && camp.familyStatus?.declined_at) {
+    timestamp = `Declined ${fmtDate(camp.familyStatus.declined_at)}`
   }
 
   return (
@@ -259,7 +259,7 @@ function StatusSection({ camp, onUpdateStatus }: {
           {timestamp}
         </div>
       )}
-      {currentStatus === 'declined' && (showDeclineInput || camp.finnStatus?.declined_reason) && (
+      {currentStatus === 'declined' && (showDeclineInput || camp.familyStatus?.declined_reason) && (
         <div style={{ marginTop: 8 }}>
           <input
             type="text"

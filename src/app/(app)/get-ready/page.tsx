@@ -46,7 +46,7 @@ export default async function GetReadyPage() {
       .select('name, created_at').eq('type', 'transcript').eq('is_current', true)
       .order('created_at', { ascending: false }).limit(1).maybeSingle(),
     // Structured scores — canonical source is player_profile (migration 060). NOT hardcoded.
-    supabase.from('player_profile').select('player_scores').limit(1).maybeSingle(),
+    supabase.from('players').select('player_scores').order('created_at', { ascending: true }).limit(1).maybeSingle() /* T1: players via RLS */,
     supabase.from('assets')
       .select('*', { count: 'exact', head: true }).eq('type', 'test_scores').eq('is_current', true),
     // Full active-message rows — drive the Talking Points staleness signal.

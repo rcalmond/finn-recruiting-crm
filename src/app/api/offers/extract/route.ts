@@ -1,14 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-
-function makeAdmin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 /**
  * POST /api/offers/extract
@@ -28,7 +20,7 @@ export async function POST(request: Request) {
     const { schoolId } = await request.json()
     if (!schoolId) return NextResponse.json({ error: 'schoolId required' }, { status: 400 })
 
-    const admin = makeAdmin()
+    const admin = supabase // T1: user client — RLS enforces the family boundary
 
     // Fetch the school name and recent inbound contact_log rows
     const [{ data: school }, { data: inbounds }] = await Promise.all([

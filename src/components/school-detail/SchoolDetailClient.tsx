@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampFinnStatusValue, CampWithRelations, SchoolMilestone, MilestoneType, RecruitingStage, SchoolOffer, OfferStatus } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampFamilyStatusValue, CampWithRelations, SchoolMilestone, MilestoneType, RecruitingStage, SchoolOffer, OfferStatus } from '@/lib/types'
 import { STAGE_META, MILESTONE_META, OFFER_TYPE_LABELS } from '@/lib/types'
 import { useSchools, useContactLog, useActionItems, useCoaches, useCamps, useCallPrepDocs, useStatusUpdates, useMilestones } from '@/hooks/useRealtimeData'
 import { stageLabel, STAGE_LABELS } from '@/lib/stages'
@@ -1961,7 +1961,7 @@ function LogisticsStrip({
 
 // ─── Sidebar camps section ───────────────────────────────────────────────────
 
-const CAMP_STATUS_STYLE: Record<CampFinnStatusValue, { bg: string; color: string }> = {
+const CAMP_STATUS_STYLE: Record<CampFamilyStatusValue, { bg: string; color: string }> = {
   interested: { bg: '#DBEAFE', color: '#1E40AF' },
   targeted:   { bg: '#FEF3C7', color: '#92400E' },
   registered: { bg: '#D7F0ED', color: '#006A65' },
@@ -2058,7 +2058,7 @@ function SidebarCampRow({ camp, showHost, onClick }: {
   showHost?: boolean
   onClick: () => void
 }) {
-  const status = camp.finnStatus?.status ?? 'interested'
+  const status = camp.familyStatus?.status ?? 'interested'
   const statusStyle = CAMP_STATUS_STYLE[status]
   const hostTier = CAMP_TIER_STYLE[camp.hostSchool.category] ?? CAMP_TIER_STYLE.C
 

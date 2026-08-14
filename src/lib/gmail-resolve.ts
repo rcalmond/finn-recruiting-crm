@@ -17,11 +17,11 @@
  *            and coach. Fuzzy / display-name fallbacks produce 'partial'.
  */
 
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ParsedGmailEntry } from './gmail-parser'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type Supabase = ReturnType<typeof createServiceClient<any>>
+export type Supabase = SupabaseClient<any, any, any>
 
 export type SchoolRow = {
   id:         string

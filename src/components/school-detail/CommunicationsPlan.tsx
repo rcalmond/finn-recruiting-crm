@@ -43,7 +43,7 @@ interface CoverageRow {
 interface PlanData {
   id: string
   school_id: string
-  finn_notes: string | null
+  family_notes: string | null
   suggestions: { items: SchoolMessagePlanSuggestion[] } | null
   suggestions_generated_at: string | null
   manual_order: string[] | null
@@ -87,7 +87,7 @@ export default function CommunicationsPlan({ schoolId }: Props) {
     const data = await res.json()
     setPlan(data.plan)
     setCoverage(data.coverage ?? [])
-    if (data.plan?.finn_notes) setNotes(data.plan.finn_notes)
+    if (data.plan?.family_notes) setNotes(data.plan.family_notes)
     setLoading(false)
   }, [schoolId])
 
@@ -131,7 +131,7 @@ export default function CommunicationsPlan({ schoolId }: Props) {
       await fetch(`/api/schools/${schoolId}/message-plan`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ finn_notes: value }),
+        body: JSON.stringify({ family_notes: value }),
       })
     }, 1000)
   }

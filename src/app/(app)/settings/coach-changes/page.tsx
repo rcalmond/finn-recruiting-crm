@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import CoachChangesClient from './CoachChangesClient'
 
 export default async function CoachChangesPage() {
@@ -8,10 +7,7 @@ export default async function CoachChangesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const admin = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const admin = await createClient() // T1: user client — RLS enforces
 
   // Pending changes — all with status='manual', joined to school name
   const { data: rows } = await admin

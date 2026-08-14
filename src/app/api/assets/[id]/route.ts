@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { rawService } from '@/lib/tenant-db'
 import { createClient } from '@/lib/supabase/server'
-
-function serviceClient() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 export async function GET(
   _req: NextRequest,
@@ -18,7 +11,7 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const admin = serviceClient()
+  const admin = supabase // T1: user client — RLS enforces the family boundary
 
   const { data: asset, error: fetchError } = await admin
     .from('assets')
@@ -30,7 +23,7 @@ export async function GET(
     return NextResponse.json({ error: 'Asset not found' }, { status: 404 })
   }
 
-  const { data: fileData, error: downloadError } = await admin.storage
+  const { data: fileData, error: downloadError } = await rawService().storage /* T1: storage streaming stays service-role */
     .from('assets')
     .download(asset.storage_path)
 
@@ -57,7 +50,7 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const updates = await req.json()
-  const admin = serviceClient()
+  const admin = supabase // T1: user client — RLS enforces the family boundary
   const { error } = await admin.from('assets').update(updates).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
@@ -74,7 +67,7 @@ export async function DELETE(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const admin = serviceClient()
+  const admin = supabase // T1: user client — RLS enforces the family boundary
 
   // Fetch asset to get storage path
   const { data: asset, error: fetchError } = await admin
@@ -99,7 +92,7 @@ export async function DELETE(
 
   // Remove file from storage (files only)
   if (asset.category === 'file' && asset.storage_path) {
-    await admin.storage.from('assets').remove([asset.storage_path])
+    await rawService().storage /* T1: storage streaming stays service-role */.from('assets').remove([asset.storage_path])
   }
 
   return NextResponse.json({ ok: true })

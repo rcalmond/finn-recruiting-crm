@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 import { createClient } from '@/lib/supabase/server'
 import { fetchSchoolContext } from '@/lib/school-context'
 import { runAgenticResearch } from '@/lib/call-prep-research'
@@ -9,20 +10,13 @@ import { generateCallPrepPdf } from '@/lib/call-prep-pdf'
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
-function serviceClient() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
-
 export async function POST(req: NextRequest) {
-  // Auth
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  // Auth + family (T1)
+  const fam = await getFamilyContext()
+  if (!fam.ok) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   }
+  const familyId = fam.ctx.familyId
 
   const body = await req.json()
   const { schoolId, coachId, framingNotes } = body as {
@@ -44,7 +38,7 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const admin = serviceClient()
+        const admin = familyAdmin(familyId) // T1: service role, family-scoped (SSE/LLM path)
 
         // ── Step 1: Fetch school context ──────────────────────────────────
 
@@ -143,7 +137,8 @@ export async function POST(req: NextRequest) {
         send('progress', { stage: 'upload', message: 'Saving prep document...' })
 
         const docId = crypto.randomUUID()
-        const storagePath = `call-prep/${schoolId}/${docId}.pdf`
+        // T1: new writes are family-prefixed (legacy objects stay at their old paths)
+        const storagePath = `${familyId}/call-prep/${schoolId}/${docId}.pdf`
 
         const { error: storageError } = await admin.storage
           .from('assets')

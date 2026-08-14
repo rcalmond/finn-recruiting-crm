@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { createClient } from '@/lib/supabase/server'
+import { rawService } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
 const ALLOWED_MIME_TYPES = [
@@ -9,18 +9,11 @@ const ALLOWED_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]
 
-function serviceClient() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
-
 export async function POST(req: NextRequest) {
-  // Auth check
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Auth + family (T1)
+  const fam = await getFamilyContext()
+  if (!fam.ok) return NextResponse.json({ error: fam.status === 401 ? 'Unauthorized' : 'No family' }, { status: fam.status })
+  const { user, familyId, supabase } = fam.ctx
 
   const formData = await req.formData()
   const file = formData.get('file') as File | null
@@ -38,7 +31,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'File type not allowed. Use PDF or Word documents.' }, { status: 400 })
   }
 
-  const admin = serviceClient()
+  const admin = supabase // T1: user client for rows — RLS enforces; storage via rawService below
 
   // Determine storage folder
   const folder = type === 'resume' ? 'resumes'
@@ -46,11 +39,11 @@ export async function POST(req: NextRequest) {
                : type === 'test_scores' ? 'test_scores'
                : 'other'
 
-  const storagePath = `${folder}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+  const storagePath = `${familyId}/${folder}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
 
   // Upload to storage
   const arrayBuffer = await file.arrayBuffer()
-  const { error: storageError } = await admin.storage
+  const { error: storageError } = await rawService().storage /* T1: writes stay service-role; path is family-prefixed */
     .from('assets')
     .upload(storagePath, Buffer.from(arrayBuffer), {
       contentType: file.type,
@@ -82,14 +75,14 @@ export async function POST(req: NextRequest) {
 
   if (dbError) {
     // Clean up orphaned file
-    await admin.storage.from('assets').remove([storagePath])
+    await rawService().storage.from('assets').remove([storagePath])
     return NextResponse.json({ error: dbError.message }, { status: 500 })
   }
 
   // Fire-and-forget: parse resume into player_profile if this is a resume upload
   if (type === 'resume' && asset) {
     import('@/lib/asset-parsers')
-      .then(m => m.parseAndUpsertResume(asset.id, storagePath))
+      .then(m => m.parseAndUpsertResume(asset.id, storagePath, familyId))
       .catch(err => console.error('[upload] Resume parse fire-and-forget failed:', err))
   }
 

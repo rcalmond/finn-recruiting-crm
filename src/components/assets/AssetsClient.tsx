@@ -63,7 +63,7 @@ export default function AssetsClient({ user }: { user: User }) {
 
   useEffect(() => {
     let cancelled = false
-    supabase.from('player_profile').select('player_scores').limit(1).maybeSingle().then(({ data }) => {
+    supabase.from('players').select('player_scores').order('created_at', { ascending: true }).limit(1).maybeSingle() /* T1: players via RLS */.then(({ data }) => {
       if (!cancelled) setPlayerScores((data as { player_scores: PlayerScores | null } | null)?.player_scores ?? null)
     })
     return () => { cancelled = true }

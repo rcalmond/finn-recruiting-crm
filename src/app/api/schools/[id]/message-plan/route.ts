@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { familyAdmin } from '@/lib/tenant-db'
+import { getFamilyContext } from '@/lib/require-family'
 import { generateSchoolMessagePlan } from '@/lib/school-message-plan-generator'
 import { fetchSchoolContext } from '@/lib/school-context'
 import type { Message } from '@/lib/types'
-
-function admin() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 // GET — return existing plan + coverage
 export async function GET(
@@ -18,11 +12,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: schoolId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const fam = await getFamilyContext()
+  if (!fam.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const familyId = fam.ctx.familyId
 
-  const db = admin()
+  const db = familyAdmin(familyId) // T1: service role, family-scoped (generator context)
 
   const [{ data: plan }, { data: coverage }] = await Promise.all([
     db.from('school_message_plan').select('*').eq('school_id', schoolId).maybeSingle(),
@@ -41,11 +35,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: schoolId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const fam = await getFamilyContext()
+  if (!fam.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const familyId = fam.ctx.familyId
 
-  const db = admin()
+  const db = familyAdmin(familyId) // T1: service role, family-scoped (generator context)
 
   // Shared context + route-specific fetches
   const [
@@ -88,7 +82,7 @@ export async function POST(
       coveredMessages: covered,
       upcomingCamps: camps,
       declineHistory: declineRows,
-      finnNotes: (existingPlan as Record<string, unknown> | null)?.finn_notes as string | null ?? null,
+      finnNotes: (existingPlan as Record<string, unknown> | null)?.family_notes as string | null ?? null,
       statusUpdates,
     })
 
@@ -108,12 +102,12 @@ export async function POST(
       .from('school_message_plan')
       .upsert({
         school_id: schoolId,
-        finn_notes: (existingPlan as Record<string, unknown> | null)?.finn_notes ?? null,
+        family_notes: (existingPlan as Record<string, unknown> | null)?.family_notes ?? null,
         suggestions,
         suggestions_generated_at: new Date().toISOString(),
         suggestions_model_used: 'claude-opus-4-7',
         manual_order: mergedOrder,
-      }, { onConflict: 'school_id' })
+      }, { onConflict: 'school_id,family_id' })
       .select('*')
       .single()
 
@@ -130,27 +124,27 @@ export async function POST(
   }
 }
 
-// PATCH — update finn_notes
+// PATCH — update family_notes
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: schoolId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const fam = await getFamilyContext()
+  if (!fam.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const familyId = fam.ctx.familyId
 
-  const body = await req.json() as { finn_notes?: string; manual_order?: string[] }
+  const body = await req.json() as { family_notes?: string; manual_order?: string[] }
 
-  const db = admin()
+  const db = familyAdmin(familyId) // T1: service role, family-scoped (generator context)
 
   const updates: Record<string, unknown> = { school_id: schoolId }
-  if ('finn_notes' in body) updates.finn_notes = body.finn_notes?.trim() || null
+  if ('family_notes' in body) updates.family_notes = body.family_notes?.trim() || null
   if ('manual_order' in body) updates.manual_order = body.manual_order ?? null
 
   const { data: plan, error } = await db
     .from('school_message_plan')
-    .upsert(updates, { onConflict: 'school_id' })
+    .upsert(updates, { onConflict: 'school_id,family_id' })
     .select('*')
     .single()
 

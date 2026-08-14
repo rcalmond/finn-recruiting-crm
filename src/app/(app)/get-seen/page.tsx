@@ -30,7 +30,7 @@ export default async function GetSeenPage() {
     { count: coachReview },
   ] = await Promise.all([
     supabase.from('camps')
-      .select('id, name, start_date, end_date, host_school_id, schools!camps_host_school_id_fkey(name, short_name), camp_finn_status(status)')
+      .select('id, name, start_date, end_date, host_school_id, schools!camps_host_school_id_fkey(name, short_name), camp_family_status(status)')
       .gte('start_date', today)
       .lte('start_date', tenWeeksOut)
       .order('start_date', { ascending: true })
@@ -72,8 +72,8 @@ export default async function GetSeenPage() {
       const school = c.schools as { name: string; short_name: string | null } | null
       // PostgREST returns this embed as a one-to-one OBJECT ({status}), not an
       // array — the old [0] read always yielded null. Handle both shapes.
-      const cfs = c.camp_finn_status as { status?: string } | Array<{ status: string }> | null
-      const finn_status = Array.isArray(cfs) ? (cfs[0]?.status ?? null) : (cfs?.status ?? null)
+      const cfs = c.camp_family_status as { status?: string } | Array<{ status: string }> | null
+      const family_status = Array.isArray(cfs) ? (cfs[0]?.status ?? null) : (cfs?.status ?? null)
       return {
         id: c.id as string,
         name: c.name as string,
@@ -81,10 +81,10 @@ export default async function GetSeenPage() {
         end_date: (c.end_date as string) ?? null,
         host_school_short_name: school?.short_name ?? null,
         host_school_name: school?.name ?? 'Unknown',
-        finn_status,
+        family_status,
       }
     })
-    .filter(c => TIMELINE_CAMP_STATUSES.includes(c.finn_status ?? ''))
+    .filter(c => TIMELINE_CAMP_STATUSES.includes(c.family_status ?? ''))
 
   return (
     <GetSeenClient
