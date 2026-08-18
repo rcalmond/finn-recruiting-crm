@@ -15,10 +15,11 @@ import { familyAdmin } from '@/lib/tenant-db'
 import { getFamilyContext } from '@/lib/require-family'
 import { generateCampaignEmailBody, type GenerateInput } from '@/lib/campaign-email-generator'
 import { fetchSchoolContext } from '@/lib/school-context'
+import { buildOutreachSubject } from '@/lib/player-identity'
 
-function buildSubject(schoolName: string): string {
-  return `Finn Almond | Left Wingback | Class of 2027 | ${schoolName}`
-}
+// Subject derives from the players row — never a name literal. The identity
+// gate in DraftModal prevents reaching this with no player; the API still
+// fails closed rather than emit an unnamed outreach subject.
 
 export async function POST(req: NextRequest) {
   const fam = await getFamilyContext()
@@ -137,7 +138,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await generateCampaignEmailBody(generatorInput)
-    const subject = buildSubject(school.name)
+
+    // TODO(multi-player): first player by created_at
+    const { data: playerRow } = await db.from('players')
+      .select('name, position, grad_year')
+      .order('created_at', { ascending: true }).limit(1).maybeSingle()
+    if (!(playerRow?.name as string | undefined)?.trim()) {
+      return NextResponse.json(
+        { error: 'No player profile yet — add your player before drafting outreach.' },
+        { status: 400 },
+      )
+    }
+    const subject = buildOutreachSubject(playerRow, school.name)
 
     // Upsert to cache
     if (regenerate) {

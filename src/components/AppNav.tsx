@@ -28,6 +28,7 @@ const PHASE_CONTENT_PATHS: Record<string, string[]> = {
 
 // Settings sub-items (settings routes)
 const SETTINGS_PATHS = [
+  '/settings/player',
   '/settings/coach-changes',
   '/settings/camp-proposals',
   '/settings/gmail',
@@ -48,6 +49,7 @@ function buildSettingsSubItems(
   pendingCampProposals: number,
 ): SettingsSubItem[] {
   return [
+    { label: 'Player Profile', href: '/settings/player' },
     { label: 'Coach Changes',  href: '/settings/coach-changes',
       count: pendingCoachChanges > 0 ? pendingCoachChanges : undefined },
     { label: 'Camp Proposals', href: '/settings/camp-proposals',
@@ -77,11 +79,15 @@ export function AppSidebar({
   pendingCampProposals = 0,
   userEmail = '',
   displayName = '',
+  playerInitials = '',
+  playerSubtitle = null,
 }: {
   pendingCoachChanges?: number
   pendingCampProposals?: number
   userEmail?: string
   displayName?: string
+  playerInitials?: string
+  playerSubtitle?: string | null
 }) {
   const pathname = usePathname()
   const PHASE_ITEMS = buildPhaseNavItems()
@@ -248,7 +254,7 @@ export function AppSidebar({
       <div style={{ flex: 1 }} />
 
       {/* Account menu — sign out + change password (rehomed from /pipeline) */}
-      <AccountMenu email={userEmail} displayName={displayName} variant="sidebar" />
+      <AccountMenu email={userEmail} displayName={displayName} initials={playerInitials} subtitle={playerSubtitle} variant="sidebar" />
     </aside>
   )
 }
@@ -259,11 +265,15 @@ export function AppBottomNav({
   pendingCampProposals = 0,
   userEmail = '',
   displayName = '',
+  playerInitials = '',
+  playerSubtitle = null,
 }: {
   pendingCoachChanges?: number
   pendingCampProposals?: number
   userEmail?: string
   displayName?: string
+  playerInitials?: string
+  playerSubtitle?: string | null
 }) {
   const pathname = usePathname()
 
@@ -327,7 +337,7 @@ export function AppBottomNav({
         )
       })}
       {/* Account menu — sign out + change password (rehomed from /pipeline) */}
-      <AccountMenu email={userEmail} displayName={displayName} variant="mobile" />
+      <AccountMenu email={userEmail} displayName={displayName} initials={playerInitials} subtitle={playerSubtitle} variant="mobile" />
     </nav>
   )
 }

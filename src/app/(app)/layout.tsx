@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getPlayerIdentity } from '@/lib/player-identity'
 import { AppSidebar, AppBottomNav } from '@/components/AppNav'
 
 // T1: RSC pages read on the user client — RLS enforces; catalog tables carry
@@ -45,6 +46,15 @@ export default async function AppShellLayout({ children }: { children: React.Rea
     : { data: null }
   const displayName = (userRow?.display_name as string | null) ?? ''
 
+  // Player identity for the account footer — derived, never hardcoded.
+  // TODO(multi-player): first player by created_at. RLS scopes the read; a
+  // family with no player row falls back to display-name initials, no subtitle.
+  const { data: playerRow } = user
+    ? await supabase.from('players').select('name, position, grad_year')
+        .order('created_at', { ascending: true }).limit(1).maybeSingle()
+    : { data: null }
+  const identity = getPlayerIdentity(playerRow ?? null, displayName)
+
   return (
     <>
       {/* Desktop sidebar — hidden on mobile via inline media */}
@@ -54,6 +64,8 @@ export default async function AppShellLayout({ children }: { children: React.Rea
           pendingCampProposals={pendingCampProposals}
           userEmail={userEmail}
           displayName={displayName}
+          playerInitials={identity.initials}
+          playerSubtitle={identity.subtitle}
         />
       </div>
 
@@ -69,6 +81,8 @@ export default async function AppShellLayout({ children }: { children: React.Rea
           pendingCampProposals={pendingCampProposals}
           userEmail={userEmail}
           displayName={displayName}
+          playerInitials={identity.initials}
+          playerSubtitle={identity.subtitle}
         />
       </div>
     </>

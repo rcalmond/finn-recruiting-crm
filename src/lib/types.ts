@@ -592,6 +592,31 @@ export interface CampaignSchool {
   coach?: Pick<Coach, 'id' | 'name' | 'role' | 'email'> | null
 }
 
+// ─── Player (per-family, T1) ─────────────────────────────────────────────────
+
+// One row per player per family. Schema supports multiple players; alpha UI is
+// single-player — reads take the family's first player by created_at.
+// TODO(multi-player): player selection once a family can hold more than one.
+export interface Player {
+  id: string
+  /** NOT NULL in DB; set by RLS helper default / familyAdmin injection. */
+  family_id?: string
+  name: string
+  position: string | null
+  grad_year: number | null
+  home_timezone: string | null
+  /** FAMILY-AUTHORED ECHO FIELD — generators echo it, never infer from it. */
+  preparation_notes: string | null
+  /** FAMILY-AUTHORED ECHO FIELD — generators echo it, never infer from it. */
+  recruiting_preferences: string | null
+  current_stats: string | null
+  upcoming_schedule: string | null
+  highlights: string | null
+  academic_summary: string | null
+  player_scores: PlayerScores | null
+  created_at: string
+}
+
 // ─── Player profile (singleton) ──────────────────────────────────────────────
 
 // Structured test-score block (migration 060). Scores are DATA, not documents —

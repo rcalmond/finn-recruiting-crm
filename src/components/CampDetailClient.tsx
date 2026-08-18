@@ -228,7 +228,7 @@ function StatusSection({ camp, onUpdateStatus }: {
       <div style={{
         fontSize: 10, fontWeight: 800, letterSpacing: '0.14em',
         textTransform: 'uppercase', color: LV.inkMute, marginBottom: 10,
-      }}>Finn&apos;s status</div>
+      }}>Your status</div>
 
       {/* Status pills */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

@@ -25,10 +25,16 @@ const A = {
 export default function AccountMenu({
   email,
   displayName,
+  initials = '',
+  subtitle = null,
   variant,
 }: {
   email: string
   displayName?: string
+  /** Derived by getPlayerIdentity — player initials, else display-name initials. */
+  initials?: string
+  /** Derived by getPlayerIdentity — null when the family has no player row. */
+  subtitle?: string | null
   variant: 'sidebar' | 'mobile'
 }) {
   const router = useRouter()
@@ -115,10 +121,12 @@ export default function AccountMenu({
             background: A.pitch, color: A.cream,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 12, fontWeight: 700, flexShrink: 0,
-          }}>FA</div>
+          }}>{initials}</div>
           <div style={{ lineHeight: 1.25, minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 650, color: A.ink }}>{displayName || 'Account'}</div>
-            <div style={{ fontSize: 11, color: A.muted }}>Class of &apos;27 · LWB</div>
+            {subtitle && (
+              <div style={{ fontSize: 11, color: A.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{subtitle}</div>
+            )}
           </div>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{
             transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0,
@@ -140,7 +148,7 @@ export default function AccountMenu({
             background: open ? A.pitch : A.ink, color: A.cream,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 10, fontWeight: 700,
-          }}>FA</div>
+          }}>{initials}</div>
           <span style={{ fontSize: 11, fontWeight: open ? 700 : 500, color: open ? A.ink : A.muted }}>
             Account
           </span>

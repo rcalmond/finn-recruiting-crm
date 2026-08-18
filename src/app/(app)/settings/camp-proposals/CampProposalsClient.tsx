@@ -99,7 +99,7 @@ export default function CampProposalsClient({ proposals: initialProposals, schoo
       {/* Masthead */}
       <SettingsMasthead
         title="Camp proposals."
-        subtitle="Camps pulled from your email and web discovery. Confirm the ones worth tracking — applying one adds it to the school and marks Finn interested."
+        subtitle="Camps pulled from your email and web discovery. Confirm the ones worth tracking — applying one adds it to the school and marks your player interested."
         pending={pending.length > 0
           ? `${pending.length} proposal${pending.length !== 1 ? 's' : ''} waiting on you`
           : null}

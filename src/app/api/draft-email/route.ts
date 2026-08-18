@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     if (body.taskContext?.type === 'send_reel') {
       const reelTitle = body.taskContext.metadata?.reelTitle ?? 'highlight reel'
       const reelUrl = body.taskContext.metadata?.reelUrl ?? ''
-      system += `\n\nTASK CONTEXT:\nThis email's primary purpose is sharing Finn's updated highlight reel: ${reelTitle}${reelUrl ? ` (${reelUrl})` : ''}. Lead with the reel as the reason for reaching out. Connect it to the school-specific context (prior conversations, position fit, program interest). Keep the reel link prominent.`
+      system += `\n\nTASK CONTEXT:\nThis email's primary purpose is sharing the player's updated highlight reel: ${reelTitle}${reelUrl ? ` (${reelUrl})` : ''}. Lead with the reel as the reason for reaching out. Connect it to the school-specific context (prior conversations, position fit, program interest). Keep the reel link prominent.`
     }
 
     const message = await anthropic.messages.create({

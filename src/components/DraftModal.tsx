@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { Message, MessageType, SchoolMessagePlanSuggestion, RecommendedAction } from '@/lib/types'
+import Link from 'next/link'
+import { usePlayer } from '@/hooks/usePlayer'
+import { buildOutreachSubject } from '@/lib/player-identity'
 
 // ─── Mode types ──────────────────────────────────────────────────────────────
 
@@ -63,6 +66,9 @@ type Stage =
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function DraftModal({ mode, userId, onClose, onSent, onDismissed, taskContext, recommendedAction }: DraftModalProps) {
+  // Identity gate: outreach carries the player's real name — derived from the
+  // players row, never a literal. No player row → drafting is gated below.
+  const { player, loading: playerLoading } = usePlayer()
   const isCampaign = mode.kind === 'campaign'
   const isReply = mode.kind === 'reply'
   const isFresh = mode.kind === 'fresh'
@@ -409,8 +415,10 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
 
   // ── Campaign subject (templated) ──────────────────────────────────────────
 
+  // Derived from the players row (segments with no data are omitted) — the
+  // no-player case never reaches here: the gate renders instead.
   const campaignSubject = isCampaign
-    ? `Finn Almond | Left Wingback | Class of 2027 | ${mode.schoolName}`
+    ? buildOutreachSubject(player, mode.schoolName)
     : ''
 
   // ── Can generate? ─────────────────────────────────────────────────────────
@@ -429,6 +437,47 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
+
+  // ── Identity gate ──────────────────────────────────────────────────────────
+  // An outreach email without the player's real name must be unsendable. With
+  // no players row (a brand-new family), every draft mode gates to the profile
+  // page instead of producing an oddly-named email.
+  if (!playerLoading && !player) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+        zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }}>
+        <div style={{
+          background: '#FFFDF9', borderRadius: 14, width: '100%', maxWidth: 440,
+          border: '1px solid #E2DBC9', boxShadow: '0 25px 50px rgba(0,0,0,0.2)',
+          padding: '28px 28px 24px',
+        }}>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 750, fontStyle: 'italic', color: '#1A1A1A' }}>
+            Add your player first<span style={{ color: '#1F6B48' }}>.</span>
+          </h3>
+          <p style={{ margin: '10px 0 18px', fontSize: 13.5, color: '#4A4A4A', lineHeight: 1.55 }}>
+            Every outreach email carries your player&apos;s name, position, and class
+            year in the subject line. Set up their profile once and drafting opens up.
+          </p>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <Link href="/settings/player" onClick={onClose} style={{
+              padding: '8px 18px', borderRadius: 999, background: '#1A1A1A', color: '#fff',
+              fontSize: 12.5, fontWeight: 650, textDecoration: 'none',
+            }}>
+              Set up the player profile
+            </Link>
+            <button onClick={onClose} style={{
+              padding: '8px 16px', borderRadius: 999, background: 'transparent',
+              border: '1px solid #D3CAB3', color: '#6B655A', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+            }}>
+              Not now
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div

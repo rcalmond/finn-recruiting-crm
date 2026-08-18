@@ -1,4 +1,5 @@
 import type { Question } from '@/lib/types'
+import { buildOutreachSubject } from './player-identity'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scopeOf } from '@/lib/tenant-db'
 import { fetchSchoolContext, type CurrentAssets, type StatusUpdateRow } from '@/lib/school-context'
@@ -374,7 +375,7 @@ Apply the same voice rules to closing questions: a 17-year-old's voice, no em-da
   if (input.context === 'individual' && !isReply) {
     sys.push(`OUTPUT FORMAT:
 Respond ONLY with valid JSON. No preamble, no markdown fences.
-{ "subject": "Finn Almond | Left Wingback | Class of 2027 | [School Name]", "body": "...", "closingQuestion": "the question woven into the closing paragraph", "closingAlternatives": ["alt question 1", "alt question 2"] }
+{ "subject": "${buildOutreachSubject(profile, '[School Name]')}", "body": "...", "closingQuestion": "the question woven into the closing paragraph", "closingAlternatives": ["alt question 1", "alt question 2"] }
 Body uses plain line breaks between paragraphs, no HTML.`)
   } else if (input.context === 'individual' && isReply) {
     sys.push(`OUTPUT FORMAT:

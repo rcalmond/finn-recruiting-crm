@@ -15,7 +15,7 @@ const TRAVEL_PLACEHOLDER =
   'Flights: DEN→BTV Fri 4:10p, arrive 11:55p (connect ORD). Drive Burlington→Middlebury ~45 min.\n' +
   'Lodging: Courtyard Middlebury, breakfast 6:30–9:30a.\n' +
   'Competing: Sunday 9:10a tee time in Burlington (Dad).\n' +
-  'Travelling: Finn + Dad.'
+  'Travelling: player + parent.'
 
 export default function CampPrepModal({
   campId, campName, existingDoc, onClose, onSaved,

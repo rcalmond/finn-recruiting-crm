@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Throughball',
-  description: 'Class of 2027 | Left Wingback | Albion SC MLS NEXT Academy',
+  description: 'The assist for your kid\'s recruiting — Throughball, powered by Regista.',
 }
 
 export default function RootLayout({
