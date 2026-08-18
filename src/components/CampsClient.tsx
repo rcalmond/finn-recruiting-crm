@@ -59,8 +59,8 @@ const WINDOW_DAYS = 70
 
 export default function CampsClient({ user }: { user: User }) {
   const router = useRouter()
-  const { schools } = useSchools()
-  const { camps, loading } = useCamps(schools)
+  const { schools, loading: schoolsLoading } = useSchools()
+  const { camps, loading } = useCamps(schools, schoolsLoading)
   const { events, insertEvent, updateEvent, deleteEvent } = useCalendarEvents()
   const today = todayStr()
   const tenWeeks = new Date(new Date(today + 'T00:00:00').getTime() + WINDOW_DAYS * 86400000).toISOString().split('T')[0]

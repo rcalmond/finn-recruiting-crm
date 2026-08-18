@@ -2140,7 +2140,7 @@ export default function SchoolDetailClient({
   const { entries: contactLog, loading: logLoading, insertContact, updateEntry, deleteEntry, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
   const { items: actionItems, completedItems, loading: actionsLoading, completeItem, insertItem, updateItem } = useActionItems(initialSchool.id)
   const { coaches, setPrimary } = useCoaches(initialSchool.id)
-  const { camps } = useCamps(schools)
+  const { camps } = useCamps(schools, schoolsLoading)
   const { docs: callPrepDocs, refetch: refetchPrepDocs } = useCallPrepDocs(initialSchool.id)
   const { updates: statusUpdates, insertUpdate, updateUpdate, deleteUpdate } = useStatusUpdates(initialSchool.id)
   const { milestones, upsertMilestone, removeMilestone } = useMilestones(initialSchool.id)

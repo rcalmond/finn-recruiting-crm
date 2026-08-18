@@ -19,17 +19,19 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { catalogAdmin } from '@/lib/tenant-db'
+import { familyAdmin, ALMOND_FAMILY_ID } from '@/lib/tenant-db'
 import { scrapeSchool } from '@/lib/coach-scraper'
 import { startRun, completeRun } from '@/lib/cron-runs'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Supabase = ReturnType<typeof catalogAdmin>
+type Supabase = ReturnType<typeof familyAdmin>
 
 function serviceClient(): Supabase {
   // T1: catalog cron — schools/coaches/camps/proposals are the shared catalog.
   // TODO(T2): the scan set derives from family relationships once tiers split.
-  return catalogAdmin()
+  // TODO(catalog-economics): scraping runs against Almond's roster until the
+  // discovery_schools re-key makes coach rosters shared again.
+  return familyAdmin(ALMOND_FAMILY_ID) as unknown as ReturnType<typeof familyAdmin>
 }
 
 function sleep(ms: number): Promise<void> {

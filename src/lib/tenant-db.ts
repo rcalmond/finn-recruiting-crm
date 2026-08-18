@@ -29,7 +29,10 @@ import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/
  *  until per-family routing exists. Every use site carries this marker. */
 export const ALMOND_FAMILY_ID = '00000000-0000-0000-0000-000000000001'
 
-/** Tables that carry family_id — auto-scoped by familyAdmin, refused elsewhere. */
+/** Tables that carry family_id — auto-scoped by familyAdmin, refused elsewhere.
+ *  T2 Shape B: schools/coaches/camps/attendees joined this set — the 65-row
+ *  schools table was the family's engaged list all along (discovery_schools is
+ *  the true catalog). */
 const FAMILY_TABLES = new Set([
   'contact_log', 'school_offers', 'school_milestones', 'school_status_updates',
   'school_message_plan', 'school_message_log', 'school_plan_questions',
@@ -38,11 +41,11 @@ const FAMILY_TABLES = new Set([
   'campaigns', 'campaign_schools', 'campaign_templates', 'campaign_email_drafts',
   'messages', 'prep_docs', 'assets', 'action_items', 'batch_reel_sends',
   'questions', 'gmail_tokens', 'players',
+  'schools', 'coaches', 'camps', 'camp_school_attendees', 'camp_coach_attendees',
 ])
 
-/** Shared catalog + tenancy/infra tables — passthrough (T2 splits schools/coaches). */
+/** Shared catalog + tenancy/infra tables — passthrough. */
 const CATALOG_TABLES = new Set([
-  'schools', 'coaches', 'camps', 'camp_school_attendees', 'camp_coach_attendees',
   'discovery_schools', 'school_research', 'camp_proposals', 'coach_changes',
   'cron_runs', 'not_found_log', 'families', 'users',
 ])

@@ -154,7 +154,7 @@ export default function GetRecruitedClient({
   const { schools, loading: schoolsLoading } = useSchools()
   const { entries: contactLog, loading: logLoading } = useContactLog()
   const { items: actionItems, loading: actionsLoading } = useActionItems()
-  const { camps, loading: campsLoading } = useCamps(schools)
+  const { camps, loading: campsLoading } = useCamps(schools, schoolsLoading)
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
   const gridRef = useRef<HTMLDivElement>(null)

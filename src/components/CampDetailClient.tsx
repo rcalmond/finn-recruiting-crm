@@ -44,8 +44,8 @@ const STATUS_COLORS: Record<CampFamilyStatusValue, { bg: string; color: string }
 
 export default function CampDetailClient({ campId }: { campId: string }) {
   const router = useRouter()
-  const { schools } = useSchools()
-  const { camps, loading, updateCamp, updateFamilyStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee } = useCamps(schools)
+  const { schools, loading: schoolsLoading } = useSchools()
+  const { camps, loading, updateCamp, updateFamilyStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee } = useCamps(schools, schoolsLoading)
 
   const campData = useMemo(() => camps.find(c => c.camp.id === campId), [camps, campId])
 

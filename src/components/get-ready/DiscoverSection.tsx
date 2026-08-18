@@ -48,7 +48,7 @@ type Proposal = {
 // Build the schools-table insert payload from a discovery row. DB `division`
 // column is text, so NAIA/JUCO store honestly despite the D1|D2|D3 TS type.
 function toSchoolInsert(d: {
-  name: string; short_name: string | null; division: string; conference: string | null
+  id?: string | null; name: string; short_name: string | null; division: string; conference: string | null
   region: string | null; academic_band: AcademicBand | null; has_engineering: boolean
   city: string | null; state?: string | null
 }): Omit<School, 'id' | 'created_at' | 'updated_at' | 'sort_order'> {
@@ -64,6 +64,9 @@ function toSchoolInsert(d: {
     last_video_url: null, last_video_title: null, last_video_sent_at: null,
     rq_link: null, generic_team_email: null, aliases: [],
     latitude: null, longitude: null, recruiting_stage: 1,
+    // T2: keep the catalog linkage — a discovery add records which
+    // discovery_schools row it came from (null for off-universe adds).
+    discovery_school_id: d.id ?? null,
   }
 }
 
