@@ -8,6 +8,9 @@ import type {
   EnrollmentBand, AcademicBand, DiscoveryProgram, Division, School,
 } from '@/lib/types'
 import { ENROLLMENT_LABELS, ACADEMIC_LABELS, DISCOVERY_PROGRAMS, PROGRAM_LABELS } from '@/lib/types'
+import { toSchoolInsert } from '@/lib/discovery-add'
+import { usePlayer } from '@/hooks/usePlayer'
+import { sportNoun } from '@/lib/positions'
 
 // Brand chrome (Throughball, Brand Sweep Pass 2). GREEN is repointed at the
 // shared --tb-pitch token; every use here is page chrome (facets, buttons,
@@ -45,30 +48,8 @@ type Proposal = {
   reasoning: string; inUniverse: boolean; discoveryId: string | null; verify: boolean
 }
 
-// Build the schools-table insert payload from a discovery row. DB `division`
-// column is text, so NAIA/JUCO store honestly despite the D1|D2|D3 TS type.
-function toSchoolInsert(d: {
-  id?: string | null; name: string; short_name: string | null; division: string; conference: string | null
-  region: string | null; academic_band: AcademicBand | null; has_engineering: boolean
-  city: string | null; state?: string | null
-}): Omit<School, 'id' | 'created_at' | 'updated_at' | 'sort_order'> {
-  // Note: schools.notes was retired (migration 064). Discovery adds no longer
-  // fold facet metadata into a notes string — the facets remain browsable in
-  // the discovery universe.
-  const location = [d.city, d.state].filter(Boolean).join(', ') || null
-  return {
-    name: d.name, short_name: d.short_name, category: 'C', status: 'Not Contacted',
-    division: d.division as unknown as Division, conference: d.conference, location,
-    last_contact: null, head_coach: null, coach_email: null, admit_likelihood: null,
-    rq_status: null, rq_updated_at: null, videos_sent: false,
-    last_video_url: null, last_video_title: null, last_video_sent_at: null,
-    rq_link: null, generic_team_email: null, aliases: [],
-    latitude: null, longitude: null, recruiting_stage: 1,
-    // T2: keep the catalog linkage — a discovery add records which
-    // discovery_schools row it came from (null for off-universe adds).
-    discovery_school_id: d.id ?? null,
-  }
-}
+// toSchoolInsert moved to src/lib/discovery-add.ts — shared with the
+// create-flow starting list so every catalog add takes the same path.
 
 // ─── Facet control primitives ─────────────────────────────────────────────────
 
@@ -155,6 +136,9 @@ function MultiFacet<T extends string>({
 export default function DiscoverSection() {
   const supabase = useMemo(() => createClient(), [])
   const { schools, insertSchool } = useSchools()
+  // Sport-honest copy (the player's sport; null reads as men's — the only catalog)
+  const { player } = usePlayer()
+  const browseNoun = sportNoun(player?.sport)
 
   // Facets
   const [division, setDivision] = useState<DiscoveryDivision[]>([])
@@ -181,6 +165,8 @@ export default function DiscoverSection() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    // TODO(womens-catalog): sport would select the catalog here — discovery_schools
+    // is the men's universe and the ONLY catalog today; players.sport routes nothing yet.
     let q = supabase.from('discovery_schools').select('*', { count: 'exact' })
     // Values OR within a facet (.in); facets AND together.
     if (division.length) q = q.in('division', division)
@@ -315,7 +301,7 @@ export default function DiscoverSection() {
         </h3>
       </div>
       <p style={{ margin: '0 0 16px', fontSize: 13, color: SD.inkLo, lineHeight: 1.5 }}>
-        Browse men&apos;s soccer programs by the facets that matter, or let Regista find more like the ones you already like.
+        Browse {browseNoun} programs by the facets that matter, or let Regista find more like the ones you already like.
       </p>
 
       {/* Facets */}

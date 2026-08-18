@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import JitProfilePrompt from '@/components/JitProfilePrompt'
+import { usePlayer } from '@/hooks/usePlayer'
 import type { School, Coach } from '@/lib/types'
 
 type ModalState = 'setup' | 'confirm_existing' | 'generating' | 'complete' | 'error'
@@ -40,6 +42,8 @@ export default function PrepForCallModal({ school, coaches, onClose, onGenerated
     ?? activeCoaches.find(c => c.role === 'Head Coach')
     ?? activeCoaches[0]
 
+  // JIT nudge (b): empty recruiting_preferences before call-prep generation.
+  const { player } = usePlayer()
   const [state, setState] = useState<ModalState>('setup')
   const [selectedCoachId, setSelectedCoachId] = useState(defaultCoach?.id ?? '')
   const [framingNotes, setFramingNotes] = useState('')
@@ -181,6 +185,15 @@ export default function PrepForCallModal({ school, coaches, onClose, onGenerated
           {/* ── Setup state ── */}
           {state === 'setup' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {player && !(player.recruiting_preferences ?? '').trim() && (
+                <JitProfilePrompt
+                  surfaceKey="prefs-call-prep"
+                  message="Any declared preferences the prep should respect? Without them it proceeds with no preference on record."
+                  linkLabel="State them on the profile"
+                  anchor="recruiting-preferences"
+                  dismissLabel="Proceed as is"
+                />
+              )}
               <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
                 Generate a research-backed call prep document. Includes school background, coach profile, roster analysis, and tailored questions.
               </div>
@@ -188,7 +201,7 @@ export default function PrepForCallModal({ school, coaches, onClose, onGenerated
               {/* Coach selector */}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>
-                  Who is Finn calling?
+                  Who is {player?.name?.split(' ')[0] ?? 'the player'} calling?
                 </label>
                 <select
                   value={selectedCoachId}

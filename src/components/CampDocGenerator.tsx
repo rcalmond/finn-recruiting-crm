@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import JitProfilePrompt from '@/components/JitProfilePrompt'
+import { usePlayer } from '@/hooks/usePlayer'
 import CampDocView from '@/components/CampDocView'
 
 // Throughball chrome. Controls only; the document itself renders via CampDocView.
@@ -82,6 +84,11 @@ export default function CampDocGenerator({
     await onDeleteDraft()
   }
 
+  // JIT nudge (b): empty recruiting_preferences before generation. Never
+  // blocks — 'no preference on record' is the designed fallback.
+  const { player } = usePlayer()
+  const showPrefsNudge = !!player && !(player.recruiting_preferences ?? '').trim()
+
   const busy = state === 'generating'
 
   return (
@@ -99,6 +106,17 @@ export default function CampDocGenerator({
           ) : canGenerate ? (
             <>
               {/* DRAFT WITH CONFIRMED EXTRACTION, NO DOCUMENT — primary: Generate */}
+              {showPrefsNudge && (
+                <div style={{ flexBasis: '100%' }}>
+                  <JitProfilePrompt
+                    surfaceKey="prefs-camp-doc"
+                    message="Any declared preferences the document should respect? Without them it states no preference is on record."
+                    linkLabel="State them on the profile"
+                    anchor="recruiting-preferences"
+                    dismissLabel="Proceed as is"
+                  />
+                </div>
+              )}
               <button onClick={runGenerate} style={pitchBtn}>Generate document</button>
               <button onClick={onEditInputs} style={ghost}>Edit inputs</button>
             </>

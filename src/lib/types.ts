@@ -602,9 +602,18 @@ export interface Player {
   /** NOT NULL in DB; set by RLS helper default / familyAdmin injection. */
   family_id?: string
   name: string
+  /** Controlled label from SPORTS (positions.ts); null on pre-v2 rows = men's. */
+  sport: string | null
+  /** PRIMARY position — controlled label from POSITION_GROUPS (positions.ts).
+   *  Identity derivation (subtitle, subject) shows primary only. */
   position: string | null
+  /** Optional secondary — same controlled vocabulary; never in identity. */
+  secondary_position: string | null
   grad_year: number | null
   home_timezone: string | null
+  /** NON-CANONICAL free text from the create-flow aspiration intake. Feeds the
+   *  one-shot starting-list suggestion ONLY. NO generator may ever read it. */
+  intake_notes: string | null
   /** FAMILY-AUTHORED ECHO FIELD — generators echo it, never infer from it. */
   preparation_notes: string | null
   /** FAMILY-AUTHORED ECHO FIELD — generators echo it, never infer from it. */

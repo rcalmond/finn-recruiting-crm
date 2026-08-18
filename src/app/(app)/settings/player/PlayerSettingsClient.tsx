@@ -1,13 +1,15 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { SettingsMasthead, SP, pill } from '@/components/settings/SettingsChrome'
+import IntakeSuggest, { type IntakeSuggestion } from '@/components/IntakeSuggest'
+import { toSchoolInsert } from '@/lib/discovery-add'
+import { POSITION_GROUPS, SPORTS, DEFAULT_SPORT } from '@/lib/positions'
 import type { Player } from '@/lib/types'
 
 // ─── Timezone choices (IANA) ─────────────────────────────────────────────────
-// A curated US-first list — free-typing an IANA string is a footgun; the select
-// stays honest because every value is a real zone.
 const TIMEZONES: { value: string; label: string }[] = [
   { value: 'America/New_York',    label: 'Eastern — America/New_York' },
   { value: 'America/Chicago',     label: 'Central — America/Chicago' },
@@ -19,8 +21,8 @@ const TIMEZONES: { value: string; label: string }[] = [
 ]
 const DEFAULT_TZ = 'America/Denver'
 
-// Echo-field contracts, in plain words (the spirit of the binding column
-// comments, not a paste of them).
+// Echo-field contracts in plain words — surfaced where the fields live (the
+// staged optional section), matching the spirit of the binding column comments.
 const PREP_HELP =
   'Written by you. Describe the routine your player already has — equipment, ' +
   'timing, food preferences, recovery habits. Documents echo this at the right ' +
@@ -32,23 +34,31 @@ const PREFS_HELP =
   'off the table. Documents echo this exactly; they never infer or invent a ' +
   'ranking. Left empty, documents say no preference is on record.'
 
+type Step = 'form' | 'suggesting' | 'suggest' | 'done'
+
 interface FormState {
   name: string
+  sport: string
   position: string
+  secondary_position: string
   grad_year: string
   home_timezone: string
   preparation_notes: string
   recruiting_preferences: string
+  intake: string
 }
 
 function toForm(p: Player | null): FormState {
   return {
     name: p?.name ?? '',
+    sport: p?.sport ?? DEFAULT_SPORT,
     position: p?.position ?? '',
+    secondary_position: p?.secondary_position ?? '',
     grad_year: p?.grad_year ? String(p.grad_year) : '',
     home_timezone: p?.home_timezone?.trim() || DEFAULT_TZ,
     preparation_notes: p?.preparation_notes ?? '',
     recruiting_preferences: p?.recruiting_preferences ?? '',
+    intake: '',
   }
 }
 
@@ -56,7 +66,11 @@ export default function PlayerSettingsClient({ initialPlayer }: { initialPlayer:
   const supabase = useMemo(() => createClient(), [])
   const [player, setPlayer] = useState<Player | null>(initialPlayer)
   const [form, setForm] = useState<FormState>(() => toForm(initialPlayer))
+  const [step, setStep] = useState<Step>('form')
+  const [suggestions, setSuggestions] = useState<IntakeSuggestion[]>([])
+  const [addedCount, setAddedCount] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  const [adding, setAdding] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -69,100 +83,289 @@ export default function PlayerSettingsClient({ initialPlayer }: { initialPlayer:
     gradYearNum !== null &&
     !saving
 
-  async function handleSave() {
+  const firstName = form.name.trim().split(/\s+/)[0] || 'your player'
+
+  // ── Create: birth the row, then (with intake) build the starting list ──────
+  async function handleCreate() {
     if (!canSave) return
-    setSaving(true)
-    setError(null)
-    const payload = {
+    setSaving(true); setError(null)
+    const intakeText = form.intake.trim()
+    // No family_id — the RLS helper default stamps it.
+    // intake_notes is NON-CANONICAL: stored for the record, read by no generator.
+    const { data, error: err } = await supabase.from('players').insert({
       name: form.name.trim(),
-      position: form.position.trim(),
+      sport: form.sport,
+      position: form.position,
+      secondary_position: form.secondary_position || null,
+      grad_year: gradYearNum,
+      home_timezone: form.home_timezone,
+      intake_notes: intakeText || null,
+    }).select().single()
+    setSaving(false)
+    if (err) { setError(err.message); return }
+    setPlayer(data as Player)
+    setForm(f => ({ ...toForm(data as Player), intake: f.intake }))
+
+    if (!intakeText) { setStep('done'); return }
+
+    // Fail-soft suggestion fetch: any error or empty result lands on the
+    // normal flow with a browse pointer — signup never blocks on a model call.
+    setStep('suggesting')
+    try {
+      const res = await fetch('/api/discover/intake-suggest', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intake: intakeText }),
+      })
+      const json = res.ok ? await res.json() : { suggestions: [] }
+      const sugg = (json.suggestions ?? []) as IntakeSuggestion[]
+      if (sugg.length > 0) { setSuggestions(sugg); setStep('suggest') }
+      else setStep('done')
+    } catch { setStep('done') }
+  }
+
+  // ── Adopt the checked suggestions via the shared add-from-catalog path ─────
+  // TODO(demo-funnel): this adoption write is the authenticated side of the
+  // IntakeSuggest seam — the demo renders the same component without it.
+  async function handleAddChecked(rows: IntakeSuggestion[]) {
+    setAdding(true)
+    let added = 0
+    for (const r of rows) {
+      const { error: err } = await supabase.from('schools').insert({
+        ...toSchoolInsert({
+          id: r.id, name: r.name, short_name: r.short_name, division: r.division,
+          conference: r.conference, region: r.region,
+          academic_band: (r.academic_band ?? null) as import('@/lib/types').AcademicBand | null, has_engineering: false,
+          city: r.city, state: r.state,
+        }),
+        sort_order: added + 1,
+      })
+      if (!err) added++
+    }
+    setAdding(false)
+    setAddedCount(added)
+    setStep('done')
+  }
+
+  // ── Edit: the full record, one save ────────────────────────────────────────
+  async function handleSaveEdit() {
+    if (!canSave || !player) return
+    setSaving(true); setError(null)
+    const { data, error: err } = await supabase.from('players').update({
+      name: form.name.trim(),
+      sport: form.sport,
+      position: form.position,
+      secondary_position: form.secondary_position || null,
       grad_year: gradYearNum,
       home_timezone: form.home_timezone,
       preparation_notes: form.preparation_notes.trim() || null,
       recruiting_preferences: form.recruiting_preferences.trim() || null,
-    }
-    if (isCreate) {
-      // No family_id in the payload — the RLS helper default stamps it.
-      const { data, error: err } = await supabase.from('players').insert(payload).select().single()
-      if (err) setError(err.message)
-      else { setPlayer(data as Player); setSavedAt(Date.now()) }
-    } else {
-      const { data, error: err } = await supabase.from('players').update(payload).eq('id', player.id).select().single()
-      if (err) setError(err.message)
-      else { setPlayer(data as Player); setSavedAt(Date.now()) }
-    }
+    }).eq('id', player.id).select().single()
     setSaving(false)
+    if (err) setError(err.message)
+    else { setPlayer(data as Player); setSavedAt(Date.now()) }
   }
 
+  // ── Shared field blocks ────────────────────────────────────────────────────
+  const basicsFields = (
+    <>
+      <Field label="Player name" required>
+        <input style={inputStyle} value={form.name} onChange={e => set('name')(e.target.value)}
+          placeholder="First and last name" />
+      </Field>
+
+      <Field label="Sport" required>
+        <div style={{ display: 'flex', gap: 18 }}>
+          {SPORTS.map(sp => (
+            <label key={sp} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, color: SP.ink, cursor: 'pointer' }}>
+              <input type="radio" name="sport" checked={form.sport === sp}
+                onChange={() => set('sport')(sp)} style={{ accentColor: SP.tealDeep }} />
+              {sp}
+            </label>
+          ))}
+        </div>
+      </Field>
+
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 200px' }}>
+          <Field label="Position" required>
+            <PositionSelect value={form.position} onChange={set('position')} placeholder="Select position…" />
+          </Field>
+        </div>
+        {!isCreate && (
+          <div style={{ flex: '1 1 200px' }}>
+            <Field label="Secondary position">
+              <PositionSelect value={form.secondary_position} onChange={set('secondary_position')} placeholder="None" allowNone />
+            </Field>
+          </div>
+        )}
+        <div style={{ flex: '0 1 140px' }}>
+          <Field label="Grad year" required>
+            <input style={inputStyle} value={form.grad_year} inputMode="numeric"
+              onChange={e => set('grad_year')(e.target.value)} placeholder="e.g. 2027" />
+          </Field>
+        </div>
+      </div>
+
+      <Field label="Home timezone">
+        <select style={{ ...inputStyle, appearance: 'auto' as const }} value={form.home_timezone}
+          onChange={e => set('home_timezone')(e.target.value)}>
+          {TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+        </select>
+      </Field>
+    </>
+  )
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: SP.paper, fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '32px 20px 80px' }}>
         <SettingsMasthead
           title="Player Profile"
           subtitle={isCreate
-            ? 'Add your player. Their name, position, and class year carry through every email subject, document, and screen.'
+            ? 'A 30-second first step — the profile grows with your journey.'
             : 'Your player, as every email subject, document, and screen will name them.'}
         />
 
-        {isCreate && (
+        {/* CREATE — the slim first step */}
+        {isCreate && step === 'form' && (
+          <>
+            <div style={{
+              background: SP.white, border: `1px solid ${SP.line}`, borderRadius: 14,
+              padding: '12px 16px', marginBottom: 16, fontSize: 13, color: SP.inkMid, lineHeight: 1.5,
+            }}>
+              <span style={{ fontWeight: 650, fontStyle: 'italic', color: SP.ink }}>Add your player.</span>{' '}
+              Drafting stays paused until this exists.
+            </div>
+
+            <div style={{ background: SP.white, border: `1px solid ${SP.line}`, borderRadius: 14, padding: '22px 22px 18px' }}>
+              {basicsFields}
+
+              <Field
+                label={`What kind of schools is ${firstName} aiming for?`}
+                help="Optional — level, region, academics, program, in your own words. We'll turn it into a starting list you can edit."
+              >
+                <textarea style={{ ...inputStyle, minHeight: 72, resize: 'vertical' as const }}
+                  value={form.intake} onChange={e => set('intake')(e.target.value)}
+                  placeholder={'e.g. "small engineering schools in the northeast, strong academics, D3"'} />
+              </Field>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
+                <button style={pill('primary', !canSave)} disabled={!canSave} onClick={handleCreate}>
+                  {saving ? 'Adding…' : 'Add player'}
+                </button>
+                {error && <span style={{ fontSize: 12, color: SP.red }}>{error}</span>}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* CREATE — building the starting list */}
+        {step === 'suggesting' && (
           <div style={{
             background: SP.white, border: `1px solid ${SP.line}`, borderRadius: 14,
-            padding: '14px 18px', marginBottom: 18, fontSize: 13, color: SP.inkMid, lineHeight: 1.55,
+            padding: '44px 28px', textAlign: 'center', fontSize: 14, color: SP.inkMid,
           }}>
-            <span style={{ fontWeight: 650, fontStyle: 'italic', color: SP.ink }}>Add your player.</span>{' '}
-            Nothing here is guessed — until this exists, drafting is paused and
-            screens show your account name instead.
+            Building {firstName}&apos;s starting list…
           </div>
         )}
 
-        <div style={{ background: SP.white, border: `1px solid ${SP.line}`, borderRadius: 14, padding: '22px 22px 18px' }}>
-          <Field label="Player name" required>
-            <input style={inputStyle} value={form.name} onChange={e => set('name')(e.target.value)}
-              placeholder="First and last name" />
-          </Field>
+        {/* CREATE — the starting list */}
+        {step === 'suggest' && (
+          <IntakeSuggest
+            suggestions={suggestions}
+            adding={adding}
+            onAdd={handleAddChecked}
+            onSkip={() => setStep('done')}
+          />
+        )}
 
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 220px' }}>
-              <Field label="Position" required>
-                <input style={inputStyle} value={form.position} onChange={e => set('position')(e.target.value)}
-                  placeholder="e.g. Left Wingback" />
-              </Field>
+        {/* Post-create confirmation + the full record (edit mode) */}
+        {!isCreate && (step === 'done' || step === 'form') && (
+          <>
+            {step === 'done' && (
+              <div style={{
+                background: SP.tealSoft, border: '1px solid #CFE0D5', borderRadius: 12,
+                padding: '12px 16px', marginBottom: 16, fontSize: 13, color: SP.ink, lineHeight: 1.5,
+              }}>
+                {addedCount != null && addedCount > 0 ? (
+                  <><b>{form.name.trim()}</b> is set up and {addedCount} school{addedCount === 1 ? '' : 's'} landed on{' '}
+                  <Link href="/schools" style={{ color: SP.tealDeep, fontWeight: 650 }}>your list</Link>.</>
+                ) : (
+                  <><b>{form.name.trim()}</b> is set up. Build the list whenever you&apos;re ready —{' '}
+                  <Link href="/get-ready" style={{ color: SP.tealDeep, fontWeight: 650 }}>browse schools in Find Schools</Link>.</>
+                )}
+              </div>
+            )}
+
+            {/* Basics */}
+            <SectionCard title="The basics">
+              {basicsFields}
+            </SectionCard>
+
+            {/* The written record — staged, clearly optional */}
+            <SectionCard
+              title="The written record"
+              eyebrowNote="Optional — used when documents are generated. Add anytime."
+            >
+              <div id="preparation-notes">
+                <Field label="Preparation notes" help={PREP_HELP}>
+                  <textarea style={{ ...inputStyle, minHeight: 96, resize: 'vertical' as const }}
+                    value={form.preparation_notes} onChange={e => set('preparation_notes')(e.target.value)} />
+                </Field>
+              </div>
+              <div id="recruiting-preferences">
+                <Field label="Recruiting preferences" help={PREFS_HELP}>
+                  <textarea style={{ ...inputStyle, minHeight: 96, resize: 'vertical' as const }}
+                    value={form.recruiting_preferences} onChange={e => set('recruiting_preferences')(e.target.value)} />
+                </Field>
+              </div>
+            </SectionCard>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button style={pill('primary', !canSave)} disabled={!canSave} onClick={handleSaveEdit}>
+                {saving ? 'Saving…' : 'Save changes'}
+              </button>
+              {savedAt && <span style={{ fontSize: 12, color: SP.tealDeep, fontWeight: 600 }}>Saved.</span>}
+              {error && <span style={{ fontSize: 12, color: SP.red }}>{error}</span>}
             </div>
-            <div style={{ flex: '0 1 160px' }}>
-              <Field label="Grad year" required>
-                <input style={inputStyle} value={form.grad_year} inputMode="numeric"
-                  onChange={e => set('grad_year')(e.target.value)} placeholder="e.g. 2027" />
-              </Field>
-            </div>
-          </div>
-
-          <Field label="Home timezone">
-            <select style={{ ...inputStyle, appearance: 'auto' as const }} value={form.home_timezone}
-              onChange={e => set('home_timezone')(e.target.value)}>
-              {TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
-            </select>
-          </Field>
-
-          <Field label="Preparation notes" help={PREP_HELP}>
-            <textarea style={{ ...inputStyle, minHeight: 96, resize: 'vertical' as const }}
-              value={form.preparation_notes} onChange={e => set('preparation_notes')(e.target.value)} />
-          </Field>
-
-          <Field label="Recruiting preferences" help={PREFS_HELP}>
-            <textarea style={{ ...inputStyle, minHeight: 96, resize: 'vertical' as const }}
-              value={form.recruiting_preferences} onChange={e => set('recruiting_preferences')(e.target.value)} />
-          </Field>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
-            <button style={pill('primary', !canSave)} disabled={!canSave} onClick={handleSave}>
-              {saving ? 'Saving…' : isCreate ? 'Add player' : 'Save changes'}
-            </button>
-            {savedAt && <span style={{ fontSize: 12, color: SP.tealDeep, fontWeight: 600 }}>Saved.</span>}
-            {error && <span style={{ fontSize: 12, color: SP.red }}>{error}</span>}
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
+  )
+}
+
+// ─── Small pieces ────────────────────────────────────────────────────────────
+
+function SectionCard({ title, eyebrowNote, children }: {
+  title: string; eyebrowNote?: string; children: React.ReactNode
+}) {
+  return (
+    <div style={{ background: SP.white, border: `1px solid ${SP.line}`, borderRadius: 14, padding: '20px 22px 14px', marginBottom: 16 }}>
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, fontStyle: 'italic', color: SP.ink }}>
+          {title}<span style={{ color: SP.teal }}>.</span>
+        </div>
+        {eyebrowNote && <div style={{ fontSize: 12, color: SP.inkLo, marginTop: 3 }}>{eyebrowNote}</div>}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function PositionSelect({ value, onChange, placeholder, allowNone }: {
+  value: string; onChange: (v: string) => void; placeholder: string; allowNone?: boolean
+}) {
+  return (
+    <select style={{ ...inputStyle, appearance: 'auto' as const }} value={value}
+      onChange={e => onChange(e.target.value)}>
+      <option value="">{allowNone ? 'None' : placeholder}</option>
+      {POSITION_GROUPS.map(g => (
+        <optgroup key={g.group} label={g.group}>
+          {g.positions.map(p => <option key={p} value={p}>{p}</option>)}
+        </optgroup>
+      ))}
+    </select>
   )
 }
 

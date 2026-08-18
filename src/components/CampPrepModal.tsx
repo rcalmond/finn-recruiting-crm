@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import JitProfilePrompt from '@/components/JitProfilePrompt'
+import { usePlayer } from '@/hooks/usePlayer'
 import type { CampExtraction, CampPrepInputs } from '@/lib/camp-prep'
 
 // Throughball chrome — capture + organization, no judgment, no Regista.
@@ -27,6 +29,8 @@ export default function CampPrepModal({
   onSaved: () => void
 }) {
   const resuming = !!existingDoc?.extracted_schedule
+  // JIT nudge (a): empty preparation_notes at the camp-prep input moment.
+  const { player } = usePlayer()
   const [stage, setStage] = useState<Stage>(resuming ? 'confirm' : 'input')
   const [inputs, setInputs] = useState<CampPrepInputs>(existingDoc?.inputs ?? { camp_email_raw: '', travel_prose: '', extra_notes: '' })
   const [ext, setExt] = useState<CampExtraction | null>(existingDoc?.extracted_schedule ?? null)
@@ -83,6 +87,15 @@ export default function CampPrepModal({
       <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
         {stage === 'input' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            {player && !(player.preparation_notes ?? '').trim() && (
+              <JitProfilePrompt
+                surfaceKey="prep-notes-camp-input"
+                message={`Does ${player.name.split(' ')[0]} have a routine — meals, warm-up, recovery? Documents can echo it at the right moments.`}
+                linkLabel="Add it to the profile"
+                anchor="preparation-notes"
+                dismissLabel="Generate general guidance"
+              />
+            )}
             <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>
               Paste the camp email and your travel notes. Regista extracts the schedule, check-in, surface, and the operational constraints for you to confirm — nothing is generated yet.
             </div>
