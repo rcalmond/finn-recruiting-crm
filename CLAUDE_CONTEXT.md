@@ -10,7 +10,7 @@
 
 ## 1. What This App Is
 
-**Throughball** (powered by **Regista**) — a college soccer recruiting CRM, now being productized for sale to other recruiting families (see the Throughball Rebrand + Productization section in 9). Regista is the named judgment engine: it reads coach replies, ranks the next move, and drafts responses. Currently a single-user personal instance for **Randy Almond** (parent/manager) and **Finn Almond** (player), served on the finnsoccer.com domain.
+**Throughball** (powered by **Regista**) — a college soccer recruiting CRM, now being productized for sale to other recruiting families (see the Throughball Rebrand + Productization section in 9). Regista is the named judgment engine: it reads coach replies, ranks the next move, and drafts responses. Multi-family tenancy (T1) is LIVE as of 2026-08-14: family #1 = Almond (**Randy Almond**, owner/parent-manager; **Finn Almond**, member/player) is the only real family, served on the finnsoccer.com domain; family #2 = Testerson is a sealed TEST family used for acceptance probes (born empty except 15 non-custom questions cloned by the create-family runbook). See the Tenancy Architecture section in 9.
 Data lives in Supabase. Frontend is Next.js + React + TypeScript deployed on Vercel.
 The app tracks 10 active target schools (A: 4, B: 2, C: 4), consolidated from a summer peak of ~27
 after post-camp triage — across division, coaching contacts, outreach status,
@@ -88,7 +88,8 @@ updated_at          timestamptz
 -- notes (free text) DROPPED in migration 064 — content reviewed and discarded, retired from
 --   every generation prompt and UI site first, then the column. 063 intentionally skipped
 --   (a drafted RQ migration obviated by the audit-first Questionnaires build). Strategic notes
---   are a SEPARATE column and live untouched in school_message_plan.finn_notes.
+--   are a SEPARATE column and live untouched in school_message_plan.family_notes
+--   (renamed from finn_notes at the T1 C6 sitting).
 ```
 
 ### Table: `school_milestones` (migration 057)
@@ -280,7 +281,7 @@ created_at       timestamptz
 ```
 Static reference universe (1,066 rows) powering School Discovery on Get Ready — facet browse + add-to-list (C-tier) + LLM find-more-like-these. Region is derived from state (NY in Northeast). Colliding names are disambiguated in the seed AND guarded in the matcher (exactly-one-universe-match-or-refuse; ambiguous names return a verify-program flag rather than the wrong school). Program facets (migration 062) power the Programs multi-select filter and enrich the find-more prompt; has_engineering is retained for provenance but deprecated in favor of programs.
 
-**player_profile.player_scores (migration 060):** a structured jsonb block — `{ sat: {total, math, ebrw}, ap: [{subject, score}], note? }` — added to the player_profile singleton. Canonical source for the Get Ready Test Scores card; the free-text academic_summary stays for prose. Seeded from the real numbers (SAT 1380; four AP scores incl. Human Geography 4).
+**players.player_scores (migration 060):** a structured jsonb block — `{ sat: {total, math, ebrw}, ap: [{subject, score}], note? }` — born on the player_profile singleton, carried to the per-family players table by T1. Canonical source for the Get Ready Test Scores card; the free-text academic_summary stays for prose. Seeded from the real numbers (SAT 1380; four AP scores incl. Human Geography 4).
 
 ### Table: `calendar_events` (migration 061)
 ```
@@ -295,7 +296,7 @@ status       text not null default 'planned'  -- 'planned' | 'confirmed' | 'done
 created_at   timestamptz
 updated_at   timestamptz     -- set_updated_at trigger (present — per the 058 lesson)
 ```
-Lightweight parallel event species (showcases, tournaments, outreach send-moments). Merged with camps at DISPLAY time on the Get Seen timeline; camps machinery (proposals, finn_status, coach attendance) is untouched. Realtime publication enabled.
+Lightweight parallel event species (showcases, tournaments, outreach send-moments). Merged with camps at DISPLAY time on the Get Seen timeline; camps machinery (proposals, camp_family_status — renamed from camp_finn_status at the T1 C6 sitting — coach attendance) is untouched. Realtime publication enabled.
 
 ### Table: `calendar_event_schools` (migration 061)
 ```
@@ -324,16 +325,29 @@ One row per prep document, call OR camp. Created as call_prep_docs (migration 04
 
 Per-school grounded research snapshots. Columns: id, school_id, generated_at, status (enum), model, tool_call_count, error, is_current, snapshot (jsonb), sources (jsonb), fetched_urls (jsonb URL ledger). is_current is flipped atomically by the set_current_research(p_school_id, p_id) SQL function — a FAILED run never becomes current; superseded rows are retained for history. 30-day staleness convention (STALE_DAYS in src/lib/school-research.ts). Currently consumed ONLY by the school-detail Research section — the camp doc deliberately does not read it (see Camp Prep Design Rules in Section 9).
 
-### Table: player_profile — camp-prep fields (camp-prep migrations 4 + 7)
+### Table: players (T1 tenancy — per-family; carries the former player_profile fields)
 
-The existing singleton extended with: home_timezone (IANA), position, grad_year, preparation_notes, recruiting_preferences. The last two are FAMILY-AUTHORED ECHO FIELDS whose column comments are binding on every generator; quoted verbatim:
+One row per player per family (one player at alpha; reads take oldest-first). Created at the T1 C6 sitting (2026-08-14). All nine former player_profile singleton reads are now players-by-family reads; the resume parser updates the family's player row and SKIPS (with a warning) a family with no player row — it never invents one. Columns: id, family_id FK → families, name, plus the fields carried over from player_profile: current_stats, upcoming_schedule, highlights, academic_summary, player_scores (jsonb — see above), and the camp-prep fields home_timezone (IANA), position, grad_year, preparation_notes, recruiting_preferences.
+
+player_profile itself (and strategic_skips) still EXISTS in the DB but is FROZEN — blocked in the tenant-db wrapper since the C6 sitting, dropped at C7 (NOT yet run). Nothing reads player_profile post-deploy; do not propose reads of it.
+
+preparation_notes and recruiting_preferences are FAMILY-AUTHORED ECHO FIELDS whose column comments are binding on every generator; quoted verbatim:
 
 - preparation_notes: "Free text, authored BY THE FAMILY, describing the player's own established preparation and recovery routine (equipment, timing, food preferences, anything they already do). Generators ECHO this into the relevant moment of a schedule. Generators MUST NOT infer, extend, diagnose, or originate any medical, rehabilitation, or dietary protocol from it, and MUST NOT store structured medical data here. If empty, generated guidance stays general."
 - recruiting_preferences: "Free text, authored BY THE FAMILY, stating declared preferences and any constraint on what may be said to schools (e.g. which program holds the top-choice card, what language is off the table). Generators ECHO this into calibration. Generators MUST NOT infer, rank, or manufacture a preference the family has not written here. If empty, calibration states that no preference is on record and instructs against manufacturing a ranking."
 
-### RLS
-All tables have RLS enabled. Any authenticated user gets full access.
-Use the **service role key** in scripts/server-side code to bypass RLS.
+### Tables: families / users (T1 tenancy — SQL run at the C6 sitting, 2026-08-14; architect-chat SQL, not in supabase/migrations/)
+
+families — one row per tenant family. Family #1 = Almond (00000000-0000-0000-0000-000000000001). Family #2 = Testerson — a TEST family for acceptance probes: born empty except 15 non-custom questions cloned by the create-family runbook (Amendment D).
+
+users — app users bound to a family: id (= auth.users.id), family_id FK → families, display_name, role (Randy = owner, Finn = member). Column-level UPDATE grant: authenticated users may update display_name ONLY (no self-promotion of role or family). AccountMenu renders users.display_name — no hardcoded name.
+
+**T1 family scoping:** all 24 pre-existing family tables carry family_id NOT NULL + FK → families + index, protected by family RLS (see below); the new players table is family-scoped from birth. Renames live since the C6 sitting: camp_finn_status → camp_family_status (composite unique camp_id + family_id), school_message_plan.finn_notes → family_notes, get_voice_references() → get_voice_references(p_family_id uuid). Summary/message-plan upserts target the composite (school_id, family_id) keys; camp-status upserts target (camp_id, family_id). Catalog tables (schools, coaches, camps, camp_school_attendees, camp_coach_attendees, discovery_schools, school_research, camp_proposals, coach_changes, cron_runs, not_found_log) stay shared — the T2 catalog split moves per-family relationship columns off schools/coaches (see Tenancy Architecture in Section 9).
+
+### RLS (rewritten by T1 — the pre-T1 any-authenticated-user-full-access model is DEAD)
+All tables have RLS enabled. Family tables enforce FAMILY RLS: USING + WITH CHECK on (select app.current_family_id()). The helper is SECURITY DEFINER with a pinned search_path and is NOT executable by service_role — so every family_id column DEFAULT (the helper expression) fails LOUD on any service-role insert that forgot explicit scoping. That is a designed tripwire, not a bug.
+Server-side service-role access goes ONLY through src/lib/tenant-db.ts (familyAdmin / catalogAdmin / rawService — see the Tenancy Architecture section in 9); constructing a raw service client anywhere else in src/ fails the prebuild fence (scripts/check-tenancy-fence.mjs).
+User-facing routes and pages run on the cookie-backed USER client so RLS enforces — src/lib/require-family.ts (getFamilyContext) resolves the session user's family once per request.
 Use the **anon key** in the frontend (Next.js client components).
 
 **not_found_log** (migration 065) — 404 logging (log-only, no notification). Columns: id, path, referrer, user_id (nullable — authed user_id distinguishes internal-bug 404s from anonymous noise), user_agent, created_at. RLS on with NO policies: writes come only from the server via the service role (the /api/not-found-log fire-and-forget beacon); anon/authed clients get no access. The daily internal-404 email digest is DEFERRED admin tooling — do not build it into the customer product.
@@ -378,7 +392,7 @@ and are legacy — note this in contact log if surfaced.
 - **Styling**: Tailwind CSS + inline styles (Throughball parchment + Pitch Green vocabulary)
 - **Deployment**: Vercel (auto-deploy from main; no Vercel CLI — see CLAUDE.md)
 - **Design vocabulary** (Throughball one-accent system — the discipline is the identity; the earlier jewel / four-phase-color ladder was retired by the brand sweep): Parchment base (#F6F1E8), ink (#1A1A1A) = primary text, with muted/faint neutrals. Pitch Green (#1F6B48) is the SINGLE brand accent — it points, it never floods; bold-italic mastheads carry a green trailing period. The weighted-pass-arrow mark + wordmark are the identity. Phases render as numbered acts (01-04) with a ghost-numeral ramp, NOT four hues. Cream (#FBF6EC) renders solid on fills (opacity-blended cream fails AA on lighter fills). DATA-SEMANTIC colors are EXEMPT and unchanged: recency/temperature dots, tier chips, category stripes, freshness bands, and the timeline outreach-send glyph encode data, never brand chrome — Pitch Green stays a SEPARATE token from the tier-A green even though the family is shared. The ink/charcoal weight register (Get In offer cards, Regista pronouncement cards, settled states) is not chrome and stays ink. Brand color, data color, and weight color are distinct roles that must not collide.
-- **Public / auth split**: The root route `/` is now a PUBLIC, auth-free marketing page (see the Marketing Front Door section in 9). `/demo` is a public stub. Everything else is auth-gated. Auth is enforced by allowlist in `src/proxy.ts` (Next middleware): only `/`, `/demo`, `/auth/*`, `/api/*`, and `/design-preview/*` skip the login redirect — when adding a new public route, add it to that allowlist.
+- **Public / auth split**: The root route `/` is now a PUBLIC, auth-free marketing page (see the Marketing Front Door section in 9). `/demo` is a public stub. Everything else is auth-gated. Auth is enforced by allowlist in `src/proxy.ts` (Next middleware): only `/`, `/demo`, `/auth/*`, and `/api/*` skip the login redirect — when adding a new public route, add it to that allowlist. (`/design-preview/*` was REMOVED from the allowlist by the 2026-08-13 emergency auth patch — its mockups carry identity data; it is auth-gated like the rest of the app.)
 - **Navigation**: Four journey phases + Schools + Settings, plus a nav ACCOUNT MENU (AppNav sidebar footer + a mobile Account item) that holds the app's only sign-out + change-password. Every phase page follows the cascade grammar (masthead = name + green trailing period; pitch chrome; second-person). Brand chrome is Pitch Green across all four — the jewel per-phase colors were retired by the brand sweep.
   - /get-ready — Two zones: The kit (2x2 asset grid + Your Talking Points) and The list (Targets segmented rows + School Discovery, migrations 059 + 062)
   - /get-seen — The calendar (the merged 10-week timeline via the shared MergedTimeline component) + an Every-way-in toolkit (questionnaires, film, outreach, coaches)
@@ -394,6 +408,9 @@ and are legacy — note this in contact log if surfaced.
   - `src/lib/types.ts` — TypeScript types (School, ContactLogEntry, ActionItem, SchoolOffer, etc.)
   - `src/lib/supabase.ts` — Supabase client initialization
   - `src/lib/school-context.ts` — shared fetchSchoolContext for all LLM-calling routes
+  - `src/lib/tenant-db.ts` — T1: the ONLY legal source of a service-role client (familyAdmin / catalogAdmin / rawService)
+  - `src/lib/require-family.ts` — getFamilyContext: resolves the session user's family once per request
+  - `scripts/check-tenancy-fence.mjs` — prebuild fence: fails the build on raw service-client construction outside the allowlist
   - `supabase/migrations/` — schema migrations (numbered, applied via Supabase dashboard)
   - `supabase/scripts/` — data migrations and one-shot scripts (committed)
   - `scripts/generate-claude-context.ts` — this script
@@ -2234,20 +2251,47 @@ These rules are the stretch's real output; they bind future work on any generate
 - ABSENCE-PROSE RULE. No generator reads entities out of a research prose field that EXPLAINS an absence (not_found_reason and its class) — an explanation is not a data source. Documented on ResearchSnapshot in src/lib/school-research.ts.
 - HARNESS GATE. Any change touching the camp-doc prompt runs BOTH fixtures through scripts/camp-doc-harness.ts before ship and must hold the classification gate: Middlebury 1 unprompted of 8 (the 2026-04-08 May-camp invite), Colby 0 of 7.
 
+### Tenancy Architecture — T1 (August 2026, current state)
+
+T1 (deployed 2026-08-14, code at 8a07a04, DB migrated at the C6 architect sitting) turned the single-family app into a family-scoped multi-tenant system. Acceptance PASSED with both families: every family table sealed, three direct-id doc probes returned Doc not found for Testerson, and the Almond regression was exact.
+
+THE LAYERS:
+
+1. DATA — families / users / players plus family_id NOT NULL + FK + index on all 24 pre-existing family tables, with family RLS (Section 4). users carries a column-level UPDATE grant on display_name only.
+2. THE HELPER + TRIPWIRE — app.current_family_id() is SECURITY DEFINER, pinned search_path, NOT executable by service_role. Every family_id column DEFAULT is the helper expression, so a service-role insert that forgets explicit family scoping fails LOUD instead of writing an orphan row. Designed tripwire, not a bug.
+3. THE WRAPPER — src/lib/tenant-db.ts is the ONLY legal source of a service-role client: familyAdmin(familyId) auto-scopes every family-table verb (family_id filter on reads/updates/deletes, family_id injected on inserts/upserts, a mismatched explicit family_id throws); catalogAdmin() passes catalog tables through and refuses family tables; rawService() is storage/auth/rpc plumbing only (family-table access still refuses). Unclassified tables refuse until added to an allowlist. player_profile and strategic_skips are BLOCKED (frozen since C6, dropped at C7 — nothing new may read them). Enforced twice: runtime refusal in the wrapper + the prebuild fence scripts/check-tenancy-fence.mjs, which fails the build if src/ constructs a raw service client outside the allowlist (the eslint no-restricted-imports rule exists but the repo eslint toolchain is non-functional — the prebuild script is the enforced layer).
+4. THE ROUTES — ~25 user-facing routes/pages run on the RLS-enforcing user client via getFamilyContext (src/lib/require-family.ts). SSE/LLM generators, triage routes, bulk-import, and gmail flows keep service role via familyAdmin(familyId). Webhooks and the gmail/summary crons are Almond-hardcoded (ALMOND_FAMILY_ID) with TODO(email-boundary) markers; roster-sync and camp-discovery run on catalogAdmin. get_voice_references is called with p_family_id via the wrapper's introspectable scope (scopeOf).
+5. STORAGE — GRANDFATHERED, no objects moved: 26 legacy objects under five prefixes (resumes, call-prep, other, transcripts, camp-prep) covered by a legacy policy scoped to family #1 via the helper; all NEW writes go to family-prefixed paths ({family_id}/call-prep, {family_id}/camp-prep, {family_id}/resumes, ...).
+
+STILL PENDING:
+
+- C7 has NOT run — player_profile and strategic_skips still exist in the DB, frozen and wrapper-blocked. Nothing reads player_profile post-deploy; do not propose reads of it.
+- T2 — THE NEXT STRETCH AND THE HARD PRIVACY BLOCKER before any real alpha family. The T1 acceptance test's one finding: with every family table sealed, Testerson's UI still showed the Almond relationship posture — tier, stage/board placement, status, last_contact, admit likelihood, videos_sent + reel title, RQ status, primary-coach flag, active-vs-bench — because those live as COLUMNS ON the shared schools/coaches catalog tables. T2 splits them into per-family relationship rows.
+- Per-family email routing (the TODO(email-boundary) sites).
+
+### Tenancy Process Rules (August 2026 — permanent, binding)
+
+Forged during T1; they bind every future DB-touching stretch:
+
+- ONE SOURCE OF SQL TRUTH. The architect chat emits what Randy runs. Claude Code runs NO SQL against the database, ever. Anything emitted that was not confirmed run is superseded state that must not be assumed.
+- PRECONDITIONS ARE PROVEN BY COMMAND OUTPUT before any sitting begins — a T1 sitting aborted because a deploy commit existed only as a description.
+- DROPS AND RENAMES TARGET EXACT NAMES discovered from the live catalog — never if-exists, never design-time inference. A ghost policy survived a table rename under its pre-rename name and drop-if-exists silently skipped it.
+- SQL AND PROSE SHIP AS CLEANLY SEPARATED BLOCKS; every block parse-verified end-to-end (two truncated emissions last stretch).
+- TRUST A REAL ROW-SELECT over PostgREST/schema-cache readings.
+
 ### Productization Running List (August 2026)
 
 The single consolidated list (supersedes scattered mentions in earlier dated sections; the Rebrand section's open-prerequisites paragraph stands as history).
 
 CUSTOMER-BLOCKING before any signup:
-- Prep-doc routes have NO ownership check — any authenticated user can fetch any doc (GET /api/call-prep-docs/[id] and /api/camp-prep/pdf/[id] check auth only).
-- The assets storage bucket has no path-prefix RLS.
-- player_profile is a global singleton with no edit UI — the camp-prep fields (home_timezone, position, grad_year, preparation_notes) plus recruiting_preferences are currently set only via SQL.
-- Single-player-named columns: camp_finn_status, school_message_plan.finn_notes.
+- T2 CATALOG SPLIT — the hard privacy blocker (next stretch): per-family relationship columns live ON the shared schools/coaches catalog tables and leak posture cross-family (the T1 acceptance finding — see Tenancy Architecture above).
+- players has no edit UI — name and the camp-prep fields (home_timezone, position, grad_year, preparation_notes, recruiting_preferences) are set only via SQL or the resume parser.
+- Per-family email routing: webhooks + the gmail/summary crons are Almond-hardcoded with TODO(email-boundary) markers.
+- CLEARED BY T1 (2026-08-14): prep-doc ownership (user client + family RLS — direct-id probes return Doc not found cross-family); storage scoping (family-prefixed new writes + a legacy policy pinning the 26 grandfathered objects to family #1); the single-player-named columns (renamed camp_family_status / family_notes); the hardcoded player-name literal (replaced by players-by-family reads).
 
 NON-BLOCKING:
 - Storage cleanup on delete: deleting a prep_docs row leaves its PDF in the assets bucket.
-- Hardcoded player-name literal ('Finn Almond' in the call-prep and camp-prep generation paths) to be replaced by player_profile reads.
-- The call-prep 14-day reuse query does not filter doc_type — a camp doc generated for the same school within 14 days satisfies the call-prep reuse check (found during this consolidation; call-prep-only in intent, not yet in code).
+- CLEARED (2026-08-13 emergency auth patch): the call-prep 14-day reuse query now filters doc_type='call' — a camp doc no longer satisfies the call-prep reuse check.
 - Call-prep PDF still uses per-school accent colors (pre-brand; deliberately untouched by the camp renderer).
 - The prep-doc upload route has no UI entry point (removal was deliberate; restoration is one line).
 - The camp extractor resolves relative day-words ("today"/"tomorrow") against the PASTE date, not the date the notes were written — a family pasting old notes gets shifted commitment dates (the confirm screen's editable date field is the current guard).
@@ -2267,7 +2311,7 @@ NON-BLOCKING:
 
 ---
 
-## 11. Live Pipeline — Generated August 13, 2026
+## 11. Live Pipeline — Generated August 18, 2026
 
 **Active schools: 7** | Overdue actions: 22
 (Category Nope and status Inactive excluded)
@@ -2392,6 +2436,7 @@ SCHOOL: Middlebury
   Videos Sent: Yes
   Next Action: decide about the camp on 8/15 - 8/16 (Finn) — due 2026-07-12
   Also: Follow up email after camp (Finn) — due 2026-08-18
+  Also: Test item (Randy) — due 2026-08-21
   Contact Log (3 shown):
     [2026-07-08] Inbound via Sports Recruits — Tim Peng:
       Thanks Finn!
@@ -2531,6 +2576,7 @@ SCHOOL: University of Rochester
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-18 | T1 TENANCY — COMPLETE, DEPLOYED, ACCEPTED (consolidated; the 2026-08-14 row records the code deploy and stands as history; DB SQL ran at the C6 architect sitting, code at 8a07a04). DB SIDE: families / users / players exist — family #1 Almond (00000000-0000-0000-0000-000000000001; Randy owner, Finn member, one players row), family #2 Testerson (TEST family, born empty except 15 non-custom questions cloned by the create-family runbook, Amendment D). All 24 pre-existing family tables carry family_id NOT NULL + FK + index with family RLS (USING + WITH CHECK on select app.current_family_id()); the helper is SECURITY DEFINER, pinned search_path, NOT executable by service_role — so every family_id column default fails LOUD on an unscoped service-role insert (designed tripwire, not a bug). users has a column-level UPDATE grant on display_name only (no self-promotion). Renames live: camp_finn_status to camp_family_status (composite unique camp_id + family_id), school_message_plan.finn_notes to family_notes, get_voice_references() to get_voice_references(p_family_id uuid). Storage GRANDFATHERED, no objects moved: 26 legacy objects under five prefixes (resumes, call-prep, other, transcripts, camp-prep) covered by a legacy policy scoped to family #1; new writes go to family-prefixed paths. ACCEPTANCE PASSED with both families: every family table sealed, three direct-id doc probes returned Doc not found for Testerson, Almond regression exact — with ONE FINDING: relationship posture still leaks via columns ON the shared schools/coaches catalog tables (tier, stage/board placement, status, last_contact, admit likelihood, videos_sent + reel title, RQ status, primary-coach flag, active-vs-bench). T2 splits those into per-family relationship rows and is the hard privacy blocker before any real alpha family. STILL PENDING: C7 has NOT run — player_profile and strategic_skips still exist, frozen and wrapper-blocked; nothing reads player_profile post-deploy and nothing may propose reads of it. CONSOLIDATED THIS PASS into the context doc: Section 4 (families/users/players, family scoping + renames, the RLS rewrite), Section 9 Tenancy Architecture + the permanent binding Tenancy Process Rules (one source of SQL truth — the architect chat emits, Randy runs, Claude Code runs no SQL ever; preconditions proven by command output; drops/renames target exact live-catalog names, never if-exists; SQL and prose as separated parse-verified blocks; trust a row-select over schema-cache readings), and the Productization Running List refresh. | Feature + Docs |
 | 2026-08-14 | T1 TENANCY DEPLOY (ships at the C6 sitting; this code targets the POST-rename database — camp_family_status, family_notes, get_voice_references(family_id) — and must never deploy before the sitting's rename block re-applies). New tenant boundary in code: src/lib/tenant-db.ts is the ONLY legal source of a service-role client (familyAdmin auto-scopes every family-table query to one family and injects family_id on writes; catalogAdmin passes through catalog tables and refuses family tables; rawService is storage/auth plumbing only; player_profile and strategic_skips are BLOCKED — frozen until the C7 drops), enforced two ways: a runtime refusal in the wrapper and a prebuild fence (scripts/check-tenancy-fence.mjs) that fails the build if src/ constructs a raw service client outside the allowlist (the eslint no-restricted-imports rule exists but the repo eslint toolchain is non-functional, so the prebuild script is the enforced layer). src/lib/require-family.ts resolves the session user's family once per request. User-facing CRUD routes and RSC pages moved OFF the service client onto the user client so RLS enforces (campaigns cluster, camp-prep extract/save/pdf, assets and call-prep-docs rows, offers/extract, schools/[id] plan rows, settings and campaigns pages, layout); SSE/LLM generators, triage routes, bulk-import, and gmail flows keep service role via familyAdmin(familyId); webhooks and the gmail/summary crons are pinned to family #1 with TODO(email-boundary) markers; roster-sync and camp-discovery run on catalogAdmin. All nine player_profile singleton reads became players-by-family reads (prompt builders read the players row and the hardcoded player name literal left the camp generate route and harness with them); the resume parser takes familyId and updates the family's player, skipping (with a warning) if a family has no player row. get_voice_references is called with p_family_id via the wrapper's introspectable scope. New storage writes go to family-prefixed paths ({family_id}/call-prep|camp-prep|resumes|...); legacy objects stay grandfathered at their old paths. Camp-status and school-summary/message-plan upserts target the composite (school_id,family_id)/(camp_id,family_id) keys. AccountMenu shows users.display_name instead of a hardcoded name. The bulk-import bearer path resolves the caller's family before writing. | Feature |
 | 2026-08-13 | EMERGENCY AUTH PATCH — closed the unauthenticated surface found by tenancy recon, before any tenancy work. (1) /api/offers/extract had NO auth check and returned any school's full inbound conversation to the unauthenticated internet — standard auth gate added. (2) /api/discover/similar same — gate added. (3) /design-preview/* removed from the proxy allowlist — its mockups carry identity data; now auth-gated like the rest of the app. (4) /api/gmail/manual-sync no longer lets any authenticated user trigger the global Gmail sync — it is gated on CRON_SECRET only (the Settings sync button now gets 401; proper admin tooling later). (5) ALL FOUR cron routes now REFUSE (503) when CRON_SECRET is unset instead of falling open — recon flagged gmail-sync and coach-roster-sync (open in dev when unset); camp-discovery and summary-refresh were worse, falling open even in production when unset. (6) The call-prep 14-day reuse query now filters doc_type='call' so a camp doc no longer satisfies the call-prep reuse check. No tenancy changes, no refactors. | Bug fix |
 | 2026-08-13 | CAMP PREP STRETCH — CONSOLIDATED (commits 99b1815 through 00a31af; the fourteen dated rows below record the increments and stand as history). Feature complete: prep_docs generalized from call_prep_docs (doc_type, camp_id + name/dates snapshots, storage_path nullable), the school_research pipeline (consumed by school detail only), player_profile camp fields including the family-authored preparation_notes and recruiting_preferences echo fields; the camp prep pipeline runs input -> Sonnet extraction -> editable confirm -> Opus generation -> validate-before-persist (one retry, visible failure, prior content kept) -> in-app render -> print stylesheet -> PDF with generation date. Mid-stretch SCOPE CUT (5.5): every derived-fact section was removed (THE FIT deferred to v2, staff credentials dropped, research and the cross-thread digest taken off the document's critical path) — the document now echoes only family-authored fields, CRM data, and the confirmed extraction. Day labels and touchpoint classifications are computed in code from model-emitted evidence. Current-state documentation added this pass: Section 4 tables (prep_docs, school_research, player_profile camp fields), and Section 9's Camp Prep Docs — Current State, Camp Prep Design Rules, and Productization Running List. | Feature |
