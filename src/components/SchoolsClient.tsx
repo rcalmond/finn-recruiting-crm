@@ -350,7 +350,9 @@ const TIER_ORDER: Record<string, number> = { A: 0, B: 1, C: 2 }
 // ─── Signal filter chip config ──────────────────────────────────────────────
 
 const SIGNAL_CHIP_CONFIG: Record<SchoolRecencyState, { label: string; bg: string; fg: string; bgOn: string; fgOn: string }> = {
-  hot:         { label: 'Awaiting Finn', bg: '#FBEAE8', fg: '#7A1E16', bgOn: '#D03A2E', fgOn: '#fff' },
+  // hot's label is player-name-driven at render time (Awaiting <player>) —
+  // this is the fallback for a family with no player row.
+  hot:         { label: 'Awaiting reply', bg: '#FBEAE8', fg: '#7A1E16', bgOn: '#D03A2E', fgOn: '#fff' },
   active:      { label: 'Active',        bg: '#D7F0ED', fg: '#006A65', bgOn: '#006A65', fgOn: '#fff' },
   cooling:     { label: 'Cooling',       bg: '#FCF0DB', fg: '#7A4F0E', bgOn: '#E8A33C', fgOn: '#fff' },
   cold:        { label: 'Cold',          bg: '#EFF1F3', fg: '#5A6168', bgOn: '#5A6168', fgOn: '#fff' },
@@ -360,7 +362,7 @@ const SIGNAL_CHIP_CONFIG: Record<SchoolRecencyState, { label: string; bg: string
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function SchoolsClient({ user }: { user: User }) {
+export default function SchoolsClient({ user, playerFirstName }: { user: User; playerFirstName?: string | null }) {
   const router = useRouter()
   const { schools, loading: schoolsLoading, insertSchool } = useSchools()
   const [showAddModal, setShowAddModal] = useState(false)
@@ -568,10 +570,11 @@ export default function SchoolsClient({ user }: { user: User }) {
 
   const signalChips = RECENCY_STATE_ORDER.map(state => {
     const cfg = SIGNAL_CHIP_CONFIG[state]
+    const label = state === 'hot' && playerFirstName ? `Awaiting ${playerFirstName}` : cfg.label
     return (
       <Chip
         key={state}
-        label={cfg.label}
+        label={label}
         count={signalCounts[state]}
         active={signalFilter.has(state)}
         onClick={() => toggleSignalFilter(state)}

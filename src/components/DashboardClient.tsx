@@ -37,7 +37,7 @@ export default function DashboardClient({ user }: { user: User }) {
   const { schools, loading, updateSchool, deleteSchool, reorderSchools } = useSchools()
   const { entries: contactLog } = useContactLog()
   const { items: actionItems, completeItem: completeActionItem, reorderItems: reorderActionItems } = useActionItems()
-  const { camps } = useCamps(schools)
+  const { camps } = useCamps(schools, loading)
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams.get('tab')
     return (t === 'actions' || t === 'log') ? t : 'pipeline'

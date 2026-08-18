@@ -41,6 +41,13 @@ export interface School {
   longitude: number | null
   recruiting_stage: RecruitingStage
   sort_order?: number | null
+  /** T2 Shape B: NOT NULL in DB — set by the RLS helper default (user client)
+   *  or familyAdmin injection (service role). Clients never supply it. */
+  family_id?: string
+  /** T2: linkage to the discovery_schools catalog row this school was added
+   *  from (null = manual or off-universe add). Preserves the future re-key
+   *  path for shared scraping/research. */
+  discovery_school_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -241,6 +248,8 @@ export const CALENDAR_EVENT_STATUS_META: Record<CalendarEventStatus, { label: st
 
 export interface Camp {
   id: string
+  /** T2 Shape B: NOT NULL in DB; set by RLS helper default / familyAdmin injection. */
+  family_id?: string
   host_school_id: string
   name: string
   start_date: string            // YYYY-MM-DD
@@ -256,6 +265,8 @@ export interface Camp {
 
 export interface CampSchoolAttendee {
   id: string
+  /** T2 Shape B: NOT NULL in DB; set by RLS helper default / familyAdmin injection. */
+  family_id?: string
   camp_id: string
   school_id: string
   source: string                // 'advertised' | 'confirmed' | 'rumored'
@@ -265,6 +276,8 @@ export interface CampSchoolAttendee {
 
 export interface CampCoachAttendee {
   id: string
+  /** T2 Shape B: NOT NULL in DB; set by RLS helper default / familyAdmin injection. */
+  family_id?: string
   camp_id: string
   coach_id: string
   source: string
@@ -501,6 +514,8 @@ export type CoachRole =
 
 export interface Coach {
   id: string
+  /** T2 Shape B: NOT NULL in DB; set by RLS helper default / familyAdmin injection. */
+  family_id?: string
   school_id: string
   name: string
   role: CoachRole

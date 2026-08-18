@@ -22,7 +22,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { catalogAdmin } from '@/lib/tenant-db'
+import { familyAdmin, ALMOND_FAMILY_ID } from '@/lib/tenant-db'
 import { reparsePartialsForSchool } from '@/lib/gmail-resolve'
 
 export async function PUT(
@@ -44,7 +44,9 @@ export async function PUT(
   const action: 'apply' | 'reject' = body.action
   const note: string | null = typeof body.note === 'string' && body.note.trim() ? body.note.trim() : null
 
-  const admin = catalogAdmin() // T1: catalog-only route (coaches + coach_changes stay shared until T2)
+  // T2 Shape B: coaches is family-scoped now; coach_changes stays catalog (passthrough).
+  // TODO(catalog-economics): review queue is Almond's until rosters are shared again.
+  const admin = familyAdmin(ALMOND_FAMILY_ID)
 
   // Fetch the change row
   const { data: change, error: fetchErr } = await admin

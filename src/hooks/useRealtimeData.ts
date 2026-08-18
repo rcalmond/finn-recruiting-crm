@@ -563,7 +563,7 @@ export function useCoaches(schoolId?: string) {
 
 // ─── Camps ───────────────────────────────────────────────────────────────────
 
-export function useCamps(schools: School[]) {
+export function useCamps(schools: School[], schoolsLoading?: boolean) {
   const [camps, setCamps] = useState<CampWithRelations[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = useMemo(() => createClient(), [])
@@ -610,12 +610,16 @@ export function useCamps(schools: School[]) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase])
 
-  // Fetch camps when schools first populate (initial empty → loaded)
-  const schoolsLoaded = schools.length > 0
+  // Fetch camps once the schools source has SETTLED — resolved-empty counts.
+  // Gating on rows>0 hung every camps consumer at "Loading..." for a
+  // zero-school family (the first zero-school viewer in the app's history).
+  // Callers that pass schoolsLoading get the settled signal; callers that
+  // don't keep the legacy first-rows trigger (they never render zero-state).
+  const schoolsSettled = schoolsLoading === undefined ? schools.length > 0 : !schoolsLoading
   useEffect(() => {
-    if (schoolsLoaded) fetchCamps()
+    if (schoolsSettled) fetchCamps()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schoolsLoaded])
+  }, [schoolsSettled])
 
   const createCamp = useCallback(async (data: Omit<Camp, 'id' | 'created_at' | 'updated_at'>): Promise<{ id: string | null; error: string | null }> => {
     const result = await createCampMutation(supabase, data)

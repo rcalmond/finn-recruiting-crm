@@ -18,7 +18,6 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { fetchSchoolContext } from '../src/lib/school-context'
 import { extractJsonObject } from '../src/lib/agentic-research'
@@ -26,7 +25,7 @@ import { CAMP_DOC_MODEL, buildCampDocSystemPrompt, buildCampDocUserPrompt, build
 import { validateCampDoc } from '../src/lib/camp-doc-validate'
 import type { CampExtraction, CampPrepInputs } from '../src/lib/camp-prep'
 import type { ContactLogRow, CoachRow, OfferRow } from '../src/lib/school-context'
-import { ALMOND_FAMILY_ID } from '../src/lib/tenant-db'
+import { ALMOND_FAMILY_ID, familyAdmin } from '../src/lib/tenant-db'
 
 const FIX_DIR = path.join(__dirname, 'fixtures')
 
@@ -49,7 +48,10 @@ interface CampDocFixture {
 }
 
 async function record(schoolQuery: string, fixturePath: string) {
-  const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  // T2 Shape B: the wrapper scopes every family-table read (schools/coaches/
+  // camps included now) — a raw service client would bypass RLS and mix
+  // families the day a second family has rows.
+  const db = familyAdmin(ALMOND_FAMILY_ID)
   const { data: school } = await db.from('schools').select('id, name').ilike('name', `%${schoolQuery}%`).limit(1).single()
   if (!school) throw new Error(`No school matching "${schoolQuery}"`)
 

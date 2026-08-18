@@ -153,7 +153,8 @@ export default function GetSeenClient({
       })
   }, [supabase])
 
-  const loaded = schools.length > 0
+  // Server-fetched props are complete by construction — zero schools is a real
+  // state (a new family), never "still loading". No length-derived gate.
   const activeSchools = schools.filter(s => s.category !== 'Nope' && s.status !== 'Inactive')
 
   // RQ metric (active A/B/C) — derived via the shared helper so the card and
@@ -217,7 +218,7 @@ export default function GetSeenClient({
                 Every program&apos;s first filter — free to complete, noticed when missing.
               </p>
               <div style={{ marginTop: 'auto' }}>
-                {loaded ? (
+                {(
                   <>
                     <div style={{ fontSize: 20, fontWeight: 800, color: SD.ink, letterSpacing: '-0.02em' }}>
                       {rqCompleted} <span style={{ fontSize: 13, fontWeight: 600, color: SD.inkLo }}>of {rq.total} complete</span>
@@ -235,7 +236,7 @@ export default function GetSeenClient({
                       </div>
                     )}
                   </>
-                ) : <div style={{ fontSize: 13, color: SD.inkMute }}>Loading…</div>}
+                )}
               </div>
             </ToolCard>
 
@@ -251,7 +252,7 @@ export default function GetSeenClient({
                     {reelAgeDays !== null && (
                       <div style={{ fontSize: 11, fontWeight: 600, color: freshnessColor(reelAgeDays), marginTop: 2 }}>Updated {ageShort(reelAgeDays)}</div>
                     )}
-                    {loaded && cov.total > 0 && (
+                    {cov.total > 0 && (
                       <div style={{ fontSize: 12, color: SD.inkMid, marginTop: 8 }}>
                         <b style={{ color: SD.ink }}>{reelHave} of {cov.total}</b> top schools have your latest reel.
                       </div>

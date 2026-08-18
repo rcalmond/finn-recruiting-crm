@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { catalogAdmin } from '@/lib/tenant-db'
+import { familyAdmin, ALMOND_FAMILY_ID } from '@/lib/tenant-db'
 import { searchTavily } from '@/lib/tavily'
 import { extractCampsFromText, shouldSkipProposal, classifyCampUpdate } from '@/lib/camp-extractor'
 import { startRun, completeRun } from '@/lib/cron-runs'
@@ -17,7 +17,9 @@ import { startRun, completeRun } from '@/lib/cron-runs'
 function serviceClient() {
   // T1: catalog cron — schools/coaches/camps/proposals are the shared catalog.
   // TODO(T2): the scan set derives from family relationships once tiers split.
-  return catalogAdmin()
+  // TODO(catalog-economics): camp discovery reads Almond's schools/camps until
+  // the discovery_schools re-key makes the camp universe shared again.
+  return familyAdmin(ALMOND_FAMILY_ID) as unknown as ReturnType<typeof familyAdmin>
 }
 
 function sleep(ms: number): Promise<void> {
