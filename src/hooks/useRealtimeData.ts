@@ -6,11 +6,35 @@ import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp,
 import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp as updateCampMutation, updateFamilyStatus as updateFamilyStatusMutation, deleteCamp as deleteCampMutation, addSchoolAttendee as addSchoolAttendeeMutation, removeSchoolAttendee as removeSchoolAttendeeMutation } from '@/lib/camps'
 import type { CurrentResearchRow } from '@/lib/school-research'
 
+// ─── Fail-closed on absence (binding project rule) ───────────────────────────
+//
+// A failed READ and an empty result are DIFFERENT STATES and must never render
+// the same. On 2026-08-19 a hard PostgREST 300 (ambiguous embed) was discarded
+// by `if (!error && data)` and rendered as "Send the first email to get
+// started" — the entire conversation history looked deleted while every row sat
+// intact in the database. It cost a day, and it was the FOURTH appearance of
+// this pattern in the project.
+//
+// Every fetch below now reports its failure loudly and exposes it on the hook
+// as `error`, so a consumer can distinguish "nothing here" from "we could not
+// look". Consumers that still render a bare empty state are no longer BLIND —
+// the failure is in the console and on the hook.
+function reportFetchError(source: string, error: { message?: string; code?: string } | null): void {
+  if (!error) return
+  console.error(
+    `[read-failed] ${source}: ${error.message ?? 'unknown error'}` +
+    (error.code ? ` (code ${error.code})` : '') +
+    ' — this is a FAILED READ, not an empty result; the UI may be rendering absence.'
+  )
+}
+
 // ─── Schools ─────────────────────────────────────────────────────────────────
 
 export function useSchools() {
   const [schools, setSchools] = useState<School[]>([])
   const [loading, setLoading] = useState(true)
+  // Distinguishes a FAILED read from an empty one (see reportFetchError).
+  const [error, setError] = useState<string | null>(null)
   const supabase = useMemo(() => createClient(), [])
 
   const fetchSchools = useCallback(async () => {
@@ -19,6 +43,8 @@ export function useSchools() {
       .select('*')
       .order('category', { ascending: true })
       .order('name', { ascending: true })
+    reportFetchError('schools', error)
+    setError(error?.message ?? null)
     if (!error && data) setSchools(data as School[])
     setLoading(false)
   }, [supabase])
@@ -96,7 +122,7 @@ export function useSchools() {
     )
   }, [supabase])
 
-  return { schools, loading, updateSchool, insertSchool, deleteSchool, reorderSchools, refetch: fetchSchools }
+  return { schools, loading, error, updateSchool, insertSchool, deleteSchool, reorderSchools, refetch: fetchSchools }
 }
 
 // ─── Contact Log ──────────────────────────────────────────────────────────────
@@ -110,6 +136,8 @@ export function useSchools() {
 export function useContactLog(schoolId?: string) {
   const [entries, setEntries] = useState<ContactLogEntry[]>([])
   const [loading, setLoading] = useState(true)
+  // Distinguishes a FAILED read from an empty one (see reportFetchError).
+  const [error, setError] = useState<string | null>(null)
   const supabase = useMemo(() => createClient(), [])
 
   const fetchEntries = useCallback(async () => {
@@ -119,6 +147,8 @@ export function useContactLog(schoolId?: string) {
       .order('sent_at', { ascending: false })
     if (schoolId) query = query.eq('school_id', schoolId)
     const { data, error } = await query
+    reportFetchError('contact_log', error)
+    setError(error?.message ?? null)
     if (!error && data) setEntries(data as ContactLogEntry[])
     setLoading(false)
   }, [supabase, schoolId])
@@ -211,7 +241,7 @@ export function useContactLog(schoolId?: string) {
     return error
   }, [supabase])
 
-  return { entries, loading, insertContact, insertContacts, updateEntry, deleteEntry, markHandled, markUnhandled, snoozeEntry, dismissEntry, undoEntry, refetch: fetchEntries }
+  return { entries, loading, error, insertContact, insertContacts, updateEntry, deleteEntry, markHandled, markUnhandled, snoozeEntry, dismissEntry, undoEntry, refetch: fetchEntries }
 }
 
 // ─── Action Items ─────────────────────────────────────────────────────────────
@@ -220,6 +250,8 @@ export function useActionItems(schoolId?: string) {
   const [items, setItems] = useState<ActionItem[]>([])
   const [completedItems, setCompletedItems] = useState<ActionItem[]>([])
   const [loading, setLoading] = useState(true)
+  // Distinguishes a FAILED read from an empty one (see reportFetchError).
+  const [error, setError] = useState<string | null>(null)
   const supabase = useMemo(() => createClient(), [])
 
   const fetchItems = useCallback(async () => {
@@ -232,6 +264,8 @@ export function useActionItems(schoolId?: string) {
       .order('created_at', { ascending: true })
     if (schoolId) query = query.eq('school_id', schoolId)
     const { data, error } = await query
+    reportFetchError('action_items', error)
+    setError(error?.message ?? null)
     if (!error && data) setItems(data as ActionItem[])
 
     // Last 5 completed items (per school if scoped)
@@ -329,7 +363,7 @@ export function useActionItems(schoolId?: string) {
     )
   }, [supabase])
 
-  return { items, completedItems, loading, insertItem, updateItem, completeItem, deleteItem, reorderItems, refetch: fetchItems }
+  return { items, completedItems, loading, error, insertItem, updateItem, completeItem, deleteItem, reorderItems, refetch: fetchItems }
 }
 
 // ─── Assets ───────────────────────────────────────────────────────────────────
@@ -337,6 +371,8 @@ export function useActionItems(schoolId?: string) {
 export function useAssets() {
   const [assets, setAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
+  // Distinguishes a FAILED read from an empty one (see reportFetchError).
+  const [error, setError] = useState<string | null>(null)
   const supabase = useMemo(() => createClient(), [])
 
   const fetchAssets = useCallback(async () => {
@@ -344,6 +380,8 @@ export function useAssets() {
       .from('assets')
       .select('*')
       .order('created_at', { ascending: false })
+    reportFetchError('assets', error)
+    setError(error?.message ?? null)
     if (!error && data) setAssets(data as Asset[])
     setLoading(false)
   }, [supabase])
@@ -406,7 +444,7 @@ export function useAssets() {
     return data.signedUrl
   }, [supabase])
 
-  return { assets, loading, insertLink, updateAsset, archiveAsset, removeAsset, getSignedUrl, refetch: fetchAssets }
+  return { assets, loading, error, insertLink, updateAsset, archiveAsset, removeAsset, getSignedUrl, refetch: fetchAssets }
 }
 
 // ─── Questions ────────────────────────────────────────────────────────────────
@@ -414,6 +452,8 @@ export function useAssets() {
 export function useQuestions() {
   const [questions, setQuestions] = useState<Question[]>([])
   const [loading, setLoading] = useState(true)
+  // Distinguishes a FAILED read from an empty one (see reportFetchError).
+  const [error, setError] = useState<string | null>(null)
   const supabase = useMemo(() => createClient(), [])
 
   const fetchQuestions = useCallback(async () => {
@@ -422,6 +462,8 @@ export function useQuestions() {
       .select('*')
       .order('sort_order', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
+    reportFetchError('questions', error)
+    setError(error?.message ?? null)
     if (!error && data) setQuestions(data as Question[])
     setLoading(false)
   }, [supabase])
@@ -453,7 +495,7 @@ export function useQuestions() {
     return error
   }, [supabase])
 
-  return { questions, loading, insertQuestion, updateQuestion, deleteQuestion }
+  return { questions, loading, error, insertQuestion, updateQuestion, deleteQuestion }
 }
 
 // ─── Coaches ──────────────────────────────────────────────────────────────────
@@ -462,6 +504,8 @@ export function useCoaches(schoolId?: string) {
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [archivedCoaches, setArchivedCoaches] = useState<Coach[]>([])
   const [loading, setLoading] = useState(true)
+  // Distinguishes a FAILED read from an empty one (see reportFetchError).
+  const [error, setError] = useState<string | null>(null)
   const supabase = useMemo(() => createClient(), [])
 
   const fetchCoaches = useCallback(async () => {
@@ -480,6 +524,8 @@ export function useCoaches(schoolId?: string) {
       .is('archived_at', null)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true })
+    reportFetchError('coaches', error)
+    setError(error?.message ?? null)
     if (!error && data) setCoaches(data as Coach[])
     // Fetch archived coaches
     const { data: archived } = await supabase
@@ -564,7 +610,7 @@ export function useCoaches(schoolId?: string) {
     return error
   }, [supabase, coaches, fetchCoaches])
 
-  return { coaches, archivedCoaches, loading, insertCoach, updateCoach, archiveCoach, unarchiveCoach, setPrimary, refetch: fetchCoaches }
+  return { coaches, archivedCoaches, loading, error, insertCoach, updateCoach, archiveCoach, unarchiveCoach, setPrimary, refetch: fetchCoaches }
 }
 
 // ─── Camps ───────────────────────────────────────────────────────────────────
@@ -587,7 +633,10 @@ export function useCamps(schools: School[], schoolsLoading?: boolean) {
       supabase.from('camp_coach_attendees').select('*'),
     ])
 
-    if (campsRes.error || !campsRes.data) { setLoading(false); return }
+    if (campsRes.error || !campsRes.data) {
+      reportFetchError('camps', campsRes.error)
+      setLoading(false); return
+    }
 
     const composed = composeCampsWithRelations(
       campsRes.data as Camp[],
@@ -678,6 +727,7 @@ export function useMessages() {
       .from('messages')
       .select('*')
       .order('created_at', { ascending: false })
+    reportFetchError('messages', error)
     if (!error && data) setMessages(data as Message[])
     setLoading(false)
   }, [supabase])
@@ -871,6 +921,7 @@ export function useStatusUpdates(schoolId?: string) {
       .select('*')
       .eq('school_id', schoolId)
       .order('created_at', { ascending: false })
+    reportFetchError('school_status_updates', error)
     if (!error && data) setUpdates(data as SchoolStatusUpdate[])
     setLoading(false)
   }, [supabase, schoolId])
@@ -918,6 +969,7 @@ export function useMilestones(schoolId?: string) {
       .select('*')
       .eq('school_id', schoolId)
       .order('occurred_on', { ascending: true })
+    reportFetchError('school_milestones', error)
     if (!error && data) setMilestones(data as SchoolMilestone[])
   }, [supabase, schoolId])
 

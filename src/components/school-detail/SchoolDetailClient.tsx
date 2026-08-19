@@ -529,10 +529,12 @@ function ChannelPill({ channel }: { channel: string }) {
 }
 
 function Timeline({
-  contactLog, actionItems, school, coaches, today, userId,
+  contactLog, contactLogError, actionItems, school, coaches, today, userId,
   onDraft, onComplete, onSnooze, onDismiss, onUndo, onLogEntry, onEditEntry, onDeleteEntry,
 }: {
   contactLog: ContactLogEntry[]
+  /** Non-null = the READ FAILED. Absence and failure must not render alike. */
+  contactLogError?: string | null
   actionItems: ActionItem[]
   school: School
   coaches: Coach[]
@@ -663,11 +665,23 @@ function Timeline({
         <div style={{
           padding: '40px 24px', textAlign: 'center',
           background: SD.paperDeep, borderRadius: 14,
-          border: `1px solid ${SD.line}`,
+          border: `1px solid ${contactLogError ? '#E0B4AC' : SD.line}`,
         }}>
+          {contactLogError ? (
+            /* FAIL CLOSED ON ABSENCE: we could not read the conversation, so we
+               say so. Rendering the cold-start copy here once made an entire
+               intact history look deleted. */
+            <div style={{ fontSize: 14, color: '#7A1E16', marginBottom: 12, lineHeight: 1.55 }}>
+              <b>We couldn&apos;t load this conversation.</b><br />
+              Nothing has been lost — the messages are still stored. Reload the page;
+              if it persists, this is a read error, not an empty history.
+            </div>
+          ) : (
           <div style={{ fontSize: 14, color: SD.inkLo, marginBottom: 12 }}>
             Conversations with this school will appear here. Send the first email to get started.
           </div>
+          )}
+          {!contactLogError && (
           <button
             onClick={() => onDraft('fresh')}
             style={{
@@ -676,6 +690,7 @@ function Timeline({
               cursor: 'pointer', letterSpacing: -0.1, fontFamily: 'inherit',
             }}
           >Start with an intro email →</button>
+          )}
         </div>
       </section>
     )
@@ -2137,7 +2152,7 @@ export default function SchoolDetailClient({
 
   // ── Realtime subscriptions ─────────────────────────────────────────────────
   const { schools, loading: schoolsLoading, updateSchool, deleteSchool } = useSchools()
-  const { entries: contactLog, loading: logLoading, insertContact, updateEntry, deleteEntry, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
+  const { entries: contactLog, loading: logLoading, error: contactLogError, insertContact, updateEntry, deleteEntry, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
   const { items: actionItems, completedItems, loading: actionsLoading, completeItem, insertItem, updateItem } = useActionItems(initialSchool.id)
   const { coaches, setPrimary } = useCoaches(initialSchool.id)
   const { camps } = useCamps(schools, schoolsLoading)
@@ -2276,6 +2291,7 @@ export default function SchoolDetailClient({
         <section style={{ marginTop: 'clamp(32px, 5vw, 48px)' }}>
           <Timeline
             contactLog={contactLog}
+            contactLogError={contactLogError}
             actionItems={actionItems}
             school={school}
             coaches={coaches}
