@@ -70,6 +70,10 @@ export default function PlayerSettingsClient({ initialPlayer }: { initialPlayer:
   const [suggestions, setSuggestions] = useState<IntakeSuggestion[]>([])
   const [suggestFacets, setSuggestFacets] = useState<import('@/lib/intake-narrow').IntakeFacets | null>(null)
   const [qualityProxy, setQualityProxy] = useState(false)
+  const [justCreated, setJustCreated] = useState(false)
+  // v3 §6: the stored intake prefills an editable retry so a skipped (or
+  // exhausted) starting-list run is always re-runnable from the profile.
+  const [retryIntake, setRetryIntake] = useState(initialPlayer?.intake_notes ?? '')
   const [addedCount, setAddedCount] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -119,11 +123,17 @@ export default function PlayerSettingsClient({ initialPlayer }: { initialPlayer:
     setPlayer(data as Player)
     setForm(f => ({ ...toForm(data as Player), intake: f.intake }))
 
+    setJustCreated(true)
     if (!intakeText) { setStep('done'); return }
+    await runSuggest(intakeText)
+  }
 
-    // Fail-soft suggestion fetch: any error or empty result lands on the
-    // normal flow with a browse pointer — signup never blocks on a model call.
+  // Fail-soft suggestion fetch, shared by the create flow and the profile
+  // retry: any error or empty result lands on the normal flow with a browse
+  // pointer — nothing here ever blocks on a model call (Amendment B §4).
+  async function runSuggest(intakeText: string) {
     setStep('suggesting')
+    setAddedCount(null)
     try {
       const res = await fetch('/api/discover/intake-suggest', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -138,13 +148,24 @@ export default function PlayerSettingsClient({ initialPlayer }: { initialPlayer:
         setStep('suggest')
       } else setStep('done')
     } catch (e) {
-      // Fail SOFT to the normal flow (Amendment B §4) — but observably: this
-      // fires when the request dies before reaching the route (e.g. a
-      // cross-host redirect killing the POST), so the route's own logs can't
-      // count it.
+      // Observable: this fires when the request dies before reaching the route
+      // (e.g. a cross-host redirect killing the POST), which the route's own
+      // logs can never count.
       console.warn('[intake-suggest] failed soft on the client — landing on the normal flow:', e)
       setStep('done')
     }
+  }
+
+  // v3 §6: re-run the starting list from the profile. Saves the (possibly
+  // rewritten) text back to intake_notes — non-canonical, no generator reads it.
+  async function handleRetry() {
+    const text = retryIntake.trim()
+    if (!text || !player) return
+    setJustCreated(false)
+    try {
+      await supabase.from('players').update({ intake_notes: text }).eq('id', player.id)
+    } catch { /* the suggestion run matters more than persisting the text */ }
+    await runSuggest(text)
   }
 
   // ── Adopt the checked suggestions via the shared add-from-catalog path ─────
@@ -247,7 +268,7 @@ export default function PlayerSettingsClient({ initialPlayer }: { initialPlayer:
           title="Player Profile"
           subtitle={isCreate
             ? 'A 30-second first step — the profile grows with your journey.'
-            : 'Your player, as every email subject, document, and screen will name them.'}
+            : 'The name and details that appear on your emails, documents, and screens.'}
         />
 
         {/* CREATE — the slim first step */}
@@ -325,11 +346,14 @@ export default function PlayerSettingsClient({ initialPlayer }: { initialPlayer:
                 padding: '12px 16px', marginBottom: 16, fontSize: 13, color: SP.ink, lineHeight: 1.5,
               }}>
                 {addedCount != null && addedCount > 0 ? (
-                  <><b>{form.name.trim()}</b> is set up and {addedCount} school{addedCount === 1 ? '' : 's'} landed on{' '}
+                  <>{justCreated ? <><b>{form.name.trim()}</b> is set up and </> : ''}{addedCount} school{addedCount === 1 ? '' : 's'} landed on{' '}
                   <Link href="/schools" style={{ color: SP.tealDeep, fontWeight: 650 }}>your list</Link>.</>
+                ) : justCreated ? (
+                  <><b>{form.name.trim()}</b> is set up. Build the list whenever you&apos;re ready — try the search below or{' '}
+                  <Link href="/get-ready" style={{ color: SP.tealDeep, fontWeight: 650 }}>browse Find Schools</Link>.</>
                 ) : (
-                  <><b>{form.name.trim()}</b> is set up. Build the list whenever you&apos;re ready —{' '}
-                  <Link href="/get-ready" style={{ color: SP.tealDeep, fontWeight: 650 }}>browse schools in Find Schools</Link>.</>
+                  <>Nothing added this time. Rewrite what you&apos;re looking for below, or{' '}
+                  <Link href="/get-ready" style={{ color: SP.tealDeep, fontWeight: 650 }}>browse Find Schools</Link>.</>
                 )}
               </div>
             )}
@@ -356,6 +380,23 @@ export default function PlayerSettingsClient({ initialPlayer }: { initialPlayer:
                     value={form.recruiting_preferences} onChange={e => set('recruiting_preferences')(e.target.value)} />
                 </Field>
               </div>
+            </SectionCard>
+
+            {/* v3 §6: skip is recoverable — the starting-list run lives here
+                permanently, prefilled with what the family last wrote. */}
+            <SectionCard
+              title="Find your schools"
+              eyebrowNote="Describe what you're looking for and we'll match it against the catalog."
+            >
+              <Field label={`What kind of schools is ${firstName} aiming for?`}>
+                <textarea style={{ ...inputStyle, minHeight: 72, resize: 'vertical' as const }}
+                  value={retryIntake} onChange={e => setRetryIntake(e.target.value)}
+                  placeholder={'e.g. "small engineering schools in the northeast, strong academics, D3"'} />
+              </Field>
+              <button style={pill('accent', !retryIntake.trim())} disabled={!retryIntake.trim()}
+                onClick={handleRetry}>
+                Find matches
+              </button>
             </SectionCard>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

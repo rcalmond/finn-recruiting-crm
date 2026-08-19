@@ -31,6 +31,7 @@ import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { familyAdmin } from '@/lib/tenant-db'
 import { getFamilyContext } from '@/lib/require-family'
+import { buildOnListIndex, isRowOnList } from '@/lib/school-name-key'
 
 // Two sequential model calls (~6-15s observed) — headroom against the default.
 export const maxDuration = 60
@@ -211,9 +212,16 @@ Output: {"divisions":[],"regions":[],"academic_bands":[],"enrollment_bands":[],"
     // is the men's universe and the only catalog today.
     const db = familyAdmin(familyId)
 
-    const { data: existing } = await db.from('schools').select('name, discovery_school_id')
-    const excludeIds = new Set((existing ?? []).map(r => r.discovery_school_id).filter(Boolean) as string[])
-    const excludeNames = new Set((existing ?? []).map(r => (r.name as string).toLowerCase()))
+    // Exclude what the family already has — through the SHARED exclude-bridge
+    // (src/lib/school-name-key.ts), so a school is recognized by recorded
+    // discovery id OR any of its name forms ("WPI" ↔ "Worcester Polytechnic
+    // Institute"). A retry after adding never re-offers the same schools, and
+    // every count downstream is post-exclusion.
+    const { data: existing } = await db.from('schools')
+      .select('name, short_name, aliases, discovery_school_id')
+    const onList = buildOnListIndex((existing ?? []) as {
+      name: string; short_name: string | null; aliases: string[] | null; discovery_school_id: string | null
+    }[])
 
     // Progressive relaxation: drop the narrowest dimensions in order (size,
     // then academics) — never division/region/programs, the core intent.
@@ -223,15 +231,19 @@ Output: {"divisions":[],"regions":[],"academic_bands":[],"enrollment_bands":[],"
       ['enrollment_bands', 'academic_bands'],
     ]
     let rows: Row[] = []
+    let totalMatches = 0
     for (const dropped of relaxOrders) {
-      let q = db.from('discovery_schools').select('*').limit(200)
+      // count: 'exact' + a ceiling well above any realistic match set (the whole
+      // catalog is ~1,066) so the counts the family sees are the real ones.
+      let q = db.from('discovery_schools').select('*', { count: 'exact' }).limit(400)
       if (facets.divisions.length) q = q.in('division', facets.divisions)
       if (facets.regions.length) q = q.in('region', facets.regions)
       if (facets.academic_bands.length && !dropped.includes('academic_bands')) q = q.in('academic_band', facets.academic_bands)
       if (facets.enrollment_bands.length && !dropped.includes('enrollment_bands')) q = q.in('enrollment_band', facets.enrollment_bands)
       if (facets.programs.length) q = q.overlaps('programs', facets.programs)
-      const { data } = await q
-      rows = ((data ?? []) as Row[]).filter(r => !excludeIds.has(r.id) && !excludeNames.has(r.name.toLowerCase()))
+      const { data, count } = await q
+      rows = ((data ?? []) as Row[]).filter(r => !isRowOnList(onList, r))
+      totalMatches = count ?? rows.length
       if (rows.length >= 4) break
     }
     if (rows.length === 0) {
@@ -278,7 +290,7 @@ Output: {"divisions":[],"regions":[],"academic_bands":[],"enrollment_bands":[],"
       (ACADEMIC_ORDINAL[b.academic_band ?? ''] ?? 0) - (ACADEMIC_ORDINAL[a.academic_band ?? ''] ?? 0) ||
       a.name.localeCompare(b.name),
     )
-    const ranked = rows.slice(0, 60)
+    const ranked = rows // full ranked set — the client narrows over it
 
     // ── 4. Cap semantics: ≤10 ships annotated; >10 ships un-annotated for the
     // client's narrowing step (whys come later for the final set only). ──────
@@ -294,7 +306,12 @@ Output: {"divisions":[],"regions":[],"academic_bands":[],"enrollment_bands":[],"
       suggestions = ranked.map(r => ({ ...r, why: null }))
     }
 
-    return NextResponse.json({ facets, priority, quality_proxy: qualityProxy, suggestions })
+    return NextResponse.json({
+      facets, priority, quality_proxy: qualityProxy, suggestions,
+      // total_matches is pre-exclusion; suggestions.length is what the family
+      // can actually add. The UI counts suggestions, never this.
+      total_matches: totalMatches,
+    })
   } catch (err) {
     // Never show an error where a family expected magic.
     console.error('[intake-suggest] soft-fail: hard-error', err instanceof Error ? err.message : err)

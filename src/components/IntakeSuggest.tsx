@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * IntakeSuggest — "Here's a starting list." (Intake v2)
+ * IntakeSuggest — "Here's a starting list." (Intake v3)
  *
  * PRESENTATIONAL + selection state only. The parent owns the API calls and the
  * adoption write — this component receives ranked rows and callbacks.
@@ -9,25 +9,27 @@
  * unauthenticated demo renders this same component with a different parent.
  * Do not add auth or DB access here.
  *
- * v2 flow:
- *  - ≤10 ranked rows → show them all (already annotated by the server).
- *  - >10 → a NARROWING step first: 1–2 tappable questions chosen by
- *    discriminating power (pure math in src/lib/intake-narrow.ts, only over
- *    dimensions the family did NOT state) → re-filter → top 10 ranked → the
- *    parent's fail-soft annotate callback fills the whys for the final set.
+ * Flow:
+ *  - ≤10 ranked rows → show them all (server already annotated them).
+ *  - >10 → a NARROWING step first: 1–2 questions chosen by discriminating power
+ *    (pure math in src/lib/intake-narrow.ts, only over dimensions the family
+ *    did NOT state). Options are MULTI-SELECT with live counts; "No preference"
+ *    is a real, selectable state. → re-filter → top 10 ranked.
  *  - Still >10 after narrowing → top 10, said plainly.
  *
+ * Every number on screen says what it counts (v3 §4): the live match line, the
+ * option counts, the button label, and the truncation line.
+ *
  * Cards start CHECKED: with a 10-cap the whole point remains a one-click
- * starting list; every row is C-tier exploratory and reversible, and
- * unchecking outliers is cheaper than hunting checkboxes.
+ * starting list; every row is C-tier exploratory and reversible.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { SP, pill } from '@/components/settings/SettingsChrome'
 import { ACADEMIC_LABELS, ENROLLMENT_LABELS, PROGRAM_LABELS } from '@/lib/types'
 import type { AcademicBand, DiscoveryProgram, EnrollmentBand } from '@/lib/types'
 import {
-  applyNarrowing, pickNarrowingQuestions,
-  type IntakeFacets, type NarrowDim,
+  applyNarrowing, countOptions, optionLabel, pickNarrowingQuestions,
+  type IntakeFacets, type NarrowDim, type NarrowSelections,
 } from '@/lib/intake-narrow'
 
 export interface IntakeSuggestion {
@@ -73,36 +75,61 @@ export default function IntakeSuggest({
     () => (suggestions.length > CAP ? pickNarrowingQuestions(suggestions, f) : []),
     [suggestions, f],
   )
-  const [phase, setPhase] = useState<'narrow' | 'list'>(
-    suggestions.length > CAP && questions.length > 0 ? 'narrow' : 'list',
+  const startNarrowing = suggestions.length > CAP && questions.length > 0
+
+  const [phase, setPhase] = useState<'narrow' | 'list'>(startNarrowing ? 'narrow' : 'list')
+  const [selections, setSelections] = useState<NarrowSelections>({})
+  const [finalRows, setFinalRows] = useState<IntakeSuggestion[]>(
+    () => (startNarrowing ? [] : suggestions.slice(0, CAP)),
   )
-  const [selections, setSelections] = useState<Partial<Record<NarrowDim, string>>>({})
-  const [finalRows, setFinalRows] = useState<IntakeSuggestion[]>(() =>
-    suggestions.length > CAP && questions.length > 0 ? [] : suggestions.slice(0, CAP))
   const [truncatedFrom, setTruncatedFrom] = useState<number>(
-    suggestions.length > CAP && questions.length === 0 ? suggestions.length : 0)
-  const [checked, setChecked] = useState<Set<string>>(() =>
-    new Set((suggestions.length > CAP && questions.length > 0 ? [] : suggestions.slice(0, CAP)).map(s => s.id)))
+    !startNarrowing && suggestions.length > CAP ? suggestions.length : 0,
+  )
+  const [checked, setChecked] = useState<Set<string>>(
+    () => new Set((startNarrowing ? [] : suggestions.slice(0, CAP)).map(s => s.id)),
+  )
   const [whys, setWhys] = useState<Record<string, string>>({})
 
-  const narrowedPreview = useMemo(
-    () => applyNarrowing(suggestions, selections),
-    [suggestions, selections],
-  )
+  // Live: the set the current picks would produce.
+  const narrowed = useMemo(() => applyNarrowing(suggestions, selections), [suggestions, selections])
 
-  async function finishNarrowing() {
-    const filtered = narrowedPreview.length > 0 ? narrowedPreview : suggestions
-    const top = filtered.slice(0, CAP)
-    setFinalRows(top)
-    setTruncatedFrom(filtered.length > CAP ? filtered.length : 0)
-    setChecked(new Set(top.map(s => s.id)))
-    setPhase('list')
-    if (annotate && top.some(r => !r.why)) {
-      try { setWhys(await annotate(top)) } catch { /* fail-soft: no whys */ }
-    }
+  // Whys for whatever is actually on screen — fail-soft, once per row set.
+  const annotatedKey = useRef<string>('')
+  useEffect(() => {
+    if (phase !== 'list' || !annotate || finalRows.length === 0) return
+    const missing = finalRows.filter(r => !r.why)
+    if (missing.length === 0) return
+    const key = finalRows.map(r => r.id).join(',')
+    if (annotatedKey.current === key) return
+    annotatedKey.current = key
+    let cancelled = false
+    annotate(finalRows)
+      .then(map => { if (!cancelled) setWhys(prev => ({ ...prev, ...map })) })
+      .catch(() => { /* fail-soft: no whys */ })
+    return () => { cancelled = true }
+  }, [phase, finalRows, annotate])
+
+  function toggleOption(dim: NarrowDim, value: string) {
+    setSelections(prev => {
+      const cur = prev[dim] ?? []
+      const next = cur.includes(value) ? cur.filter(v => v !== value) : [...cur, value]
+      return { ...prev, [dim]: next }
+    })
+  }
+  /** "No preference" IS the empty selection — selecting it clears the group. */
+  function clearDim(dim: NarrowDim) {
+    setSelections(prev => ({ ...prev, [dim]: [] }))
   }
 
-  const toggle = (id: string) => setChecked(prev => {
+  function showResults() {
+    const top = narrowed.slice(0, CAP)
+    setFinalRows(top)
+    setTruncatedFrom(narrowed.length > CAP ? narrowed.length : 0)
+    setChecked(new Set(top.map(s => s.id)))
+    setPhase('list')
+  }
+
+  const toggleCheck = (id: string) => setChecked(prev => {
     const next = new Set(prev)
     if (next.has(id)) next.delete(id); else next.add(id)
     return next
@@ -126,6 +153,8 @@ export default function IntakeSuggest({
 
   // ── Narrowing step ─────────────────────────────────────────────────────────
   if (phase === 'narrow') {
+    const n = narrowed.length
+    const shown = Math.min(n, CAP)
     return (
       <div>
         <h2 style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 750, fontStyle: 'italic', color: SP.ink }}>
@@ -133,47 +162,60 @@ export default function IntakeSuggest({
         </h2>
         {framing}
         <p style={{ margin: '0 0 14px', fontSize: 13.5, color: SP.inkMid, lineHeight: 1.55, maxWidth: 520 }}>
-          A couple of taps narrows it to the best fits — or skip straight to the
-          top matches.
+          A few taps narrows it to the best fits — pick as many options as you
+          like, or skip straight to the top matches.
         </p>
         {disclosure}
 
-        {questions.map(qn => (
-          <div key={qn.dim} style={{ background: SP.white, border: `1px solid ${SP.line}`, borderRadius: 12, padding: '14px 16px', marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 650, color: SP.ink, marginBottom: 9 }}>{qn.question}</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-              {qn.options.map(opt => {
-                const on = selections[qn.dim] === opt.value
-                return (
-                  <button key={opt.value}
-                    onClick={() => setSelections(s => ({ ...s, [qn.dim]: on ? undefined : opt.value }))}
-                    style={{
-                      padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
-                      fontFamily: 'inherit', cursor: 'pointer',
-                      border: `1px solid ${on ? SP.tealDeep : SP.line2}`,
-                      background: on ? SP.tealDeep : SP.white, color: on ? SP.white : SP.ink,
-                    }}>
-                    {opt.label} <span style={{ opacity: 0.65 }}>({opt.count})</span>
-                  </button>
-                )
-              })}
-              <button onClick={() => setSelections(s => ({ ...s, [qn.dim]: undefined }))}
-                style={{
-                  padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
-                  fontFamily: 'inherit', cursor: 'pointer',
-                  border: `1px solid ${SP.line}`,
-                  background: 'transparent',
-                  color: selections[qn.dim] ? SP.inkLo : SP.ink,
-                }}>
-                No preference
-              </button>
+        {questions.map(qn => {
+          const counts = countOptions(suggestions, qn.dim, selections)
+          const picked = selections[qn.dim] ?? []
+          const nonePicked = picked.length === 0
+          return (
+            <div key={qn.dim} style={{ background: SP.white, border: `1px solid ${SP.line}`, borderRadius: 12, padding: '14px 16px', marginBottom: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 650, color: SP.ink, marginBottom: 9 }}>{qn.question}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                {qn.options.map(value => {
+                  const on = picked.includes(value)
+                  const count = counts.get(value) ?? 0
+                  return (
+                    <button key={value} onClick={() => toggleOption(qn.dim, value)}
+                      style={{
+                        padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+                        fontFamily: 'inherit', cursor: 'pointer',
+                        border: `1px solid ${on ? SP.tealDeep : SP.line2}`,
+                        background: on ? SP.tealDeep : SP.white, color: on ? SP.white : SP.ink,
+                      }}>
+                      {optionLabel(qn.dim, value)} <span style={{ opacity: 0.65 }}>({count})</span>
+                    </button>
+                  )
+                })}
+                {/* "No preference" is a real state: filled when the group is
+                    empty, and selecting it clears the group. */}
+                <button onClick={() => clearDim(qn.dim)}
+                  style={{
+                    padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+                    fontFamily: 'inherit', cursor: 'pointer',
+                    border: `1px solid ${nonePicked ? SP.tealDeep : SP.line2}`,
+                    background: nonePicked ? SP.tealDeep : SP.white,
+                    color: nonePicked ? SP.white : SP.ink,
+                  }}>
+                  No preference
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14 }}>
-          <button style={pill('accent')} onClick={finishNarrowing}>
-            Show {Math.min(narrowedPreview.length || suggestions.length, CAP)} school{Math.min(narrowedPreview.length || suggestions.length, CAP) === 1 ? '' : 's'} →
+        <p style={{ margin: '12px 0 0', fontSize: 13, fontWeight: 600, color: n === 0 ? SP.red : SP.ink }}>
+          {n === 0
+            ? 'No programs match these picks — clear one to see matches again.'
+            : `${n} program${n === 1 ? '' : 's'} match your picks`}
+        </p>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
+          <button style={pill('accent', n === 0)} disabled={n === 0} onClick={showResults}>
+            {n > CAP ? `Show the ${CAP} best of ${n} →` : `Show ${shown} school${shown === 1 ? '' : 's'} →`}
           </button>
           <button style={pill('ghost')} onClick={onSkip}>Skip for now</button>
         </div>
@@ -219,7 +261,7 @@ export default function IntakeSuggest({
               borderRadius: 12, padding: '12px 14px',
               opacity: on ? 1 : 0.72, transition: 'border-color 0.12s, opacity 0.12s',
             }}>
-              <input type="checkbox" checked={on} onChange={() => toggle(s.id)}
+              <input type="checkbox" checked={on} onChange={() => toggleCheck(s.id)}
                 style={{ marginTop: 3, accentColor: SP.tealDeep }} />
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 650, color: SP.ink }}>{s.name}</div>

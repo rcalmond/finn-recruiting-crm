@@ -9,6 +9,7 @@ import type {
 } from '@/lib/types'
 import { ENROLLMENT_LABELS, ACADEMIC_LABELS, DISCOVERY_PROGRAMS, PROGRAM_LABELS } from '@/lib/types'
 import { toSchoolInsert } from '@/lib/discovery-add'
+import { nameKey } from '@/lib/school-name-key'
 import { usePlayer } from '@/hooks/usePlayer'
 import { sportNoun } from '@/lib/positions'
 
@@ -25,17 +26,8 @@ const SD = {
   cardWhite: '#FFFDF9',
 }
 
-// Token-normalized name key (mirrors the server matcher): drop generic words,
-// sort tokens, join. Lets "WPI" and "Worcester Polytechnic Institute" collapse to
-// the same key so pipeline schools are recognized across name-form differences.
-const NAME_STOP = new Set(['university', 'college', 'the', 'of', 'at', 'in', 'univ', 'and'])
-function nameKey(s: string): string {
-  // Strip a dash-suffix and any parenthetical first — working names carry them
-  // ("Illinois Institute of Technology (Illinois Tech)").
-  const cleaned = s.split(/\s+[—–-]\s+|\s*\(/)[0]
-  return cleaned.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
-    .filter(t => t && !NAME_STOP.has(t)).sort().join(' ')
-}
+// nameKey moved to src/lib/school-name-key.ts — the shared exclude-bridge, so
+// the on-your-list badge and the intake suggestion exclusion agree.
 
 const DIVISIONS: DiscoveryDivision[] = ['D1', 'D2', 'D3', 'NAIA', 'JUCO']
 const REGIONS: DiscoveryRegion[] = ['Northeast', 'Mid-Atlantic', 'Southeast', 'Midwest', 'Southwest', 'West']
