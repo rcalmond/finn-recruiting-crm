@@ -9,7 +9,7 @@
     "lint": "next lint",
     "db:types": "supabase gen types typescript --local > src/lib/database.types.ts",
     "export-context": "tsx scripts/generate-claude-context.ts",
-    "prebuild": "node scripts/check-tenancy-fence.mjs"
+    "prebuild": "node scripts/check-tenancy-fence.mjs && node scripts/check-embed-contracts.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
