@@ -49,6 +49,11 @@ export async function POST(
 
   const db = familyAdmin(familyId) // T1: service role, family-scoped (generator context)
 
+  // TODO(multi-player): first player by created_at.
+  const { data: strategistPlayer } = await db.from('players')
+    .select('name, position, grad_year, club, highlights, current_stats')
+    .order('created_at', { ascending: true }).limit(1).maybeSingle()
+
   // Fetch full context (same pattern as plan generator)
   const [
     ctx,
@@ -79,6 +84,7 @@ export async function POST(
 
   try {
     const result = await answerSchoolStrategyQuestion({
+      player: strategistPlayer,
       school: { ...school, admit_likelihood: school.admit_likelihood ?? null },
       coaches,
       contactHistory: history,

@@ -106,8 +106,19 @@ export async function POST(req: NextRequest) {
 
         send('progress', { stage: 'research', message: 'Starting agentic research with Opus...' })
 
-        const systemPrompt = buildCallPrepSystemPrompt()
+        // Identity + biography from the family's players row.
+        // TODO(multi-player): first player by created_at.
+        const { data: prepPlayer } = await admin.from('players')
+          .select('name, position, grad_year, club, academic_summary, highlights, current_stats')
+          .order('created_at', { ascending: true }).limit(1).maybeSingle()
+        const prepPositionNote =
+          /\b(transition(ed)?|moved|switch(ed)?|converted)\b/i.test(`${prepPlayer?.highlights ?? ''} ${prepPlayer?.current_stats ?? ''}`)
+            ? "the player's profile records a position change; any decline predating it was based on a different position"
+            : null
+
+        const systemPrompt = buildCallPrepSystemPrompt(prepPlayer, prepPlayer?.academic_summary, prepPlayer?.current_stats, prepPlayer?.highlights)
         const userPrompt = buildCallPrepUserPrompt({
+          positionChangeNote: prepPositionNote,
           school: ctx.school,
           targetCoach,
           coaches: ctx.coaches,

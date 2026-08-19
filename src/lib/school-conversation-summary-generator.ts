@@ -12,6 +12,9 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
+import {
+  buildDraftingPersona, personaIdentityLine, type PersonaSource,
+} from './drafting-persona'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Message, RecommendedAction } from '@/lib/types'
 import { fetchSchoolContext } from '@/lib/school-context'
@@ -77,23 +80,28 @@ function buildPrompt(
   uncoveredMessages: Message[],
   coveredMessages: Message[],
   currentDate: string,
+  player?: PersonaSource | null,
 ): { system: string; user: string } {
+  // Identity from the family's players row — absent fields omitted, never inferred.
+  const persona = buildDraftingPersona(player)
+  const NAME = persona.name || 'the player'
+  const FIRST = persona.firstName || 'the player'
 
-  const system = `You are a conversation analyst for Finn Almond, a 2027 left wingback (Albion SC Boulder County MLS NEXT Academy U19) recruiting to play college soccer.
+  const system = `You are a conversation analyst for ${personaIdentityLine(persona)}, recruiting to play college soccer.
 
-Your job is to read the full conversation history between Finn and a college coaching staff and produce:
+Your job is to read the full conversation history between ${FIRST} and a college coaching staff and produce:
 1. A short summary (2-3 sentences max) of the conversation state
 2. A recommended next action
 
 SUMMARY STYLE:
 - Model after Gmail's thread summaries: short, factual, conversation-focused.
 - Describe what the conversation has covered, current open threads, who has the next move.
-- Use the coach's last name only ("Streb invited Finn to visit" not "Coach Streb at the University of Rochester invited...").
+- Use the coach's last name only ("Streb invited ${FIRST} to visit" not "Coach Streb at the University of Rochester invited...").
 - Do NOT editorialize ("great conversation", "strong interest", "promising lead"). Describe the state, not vibes.
 - If no conversation exists, say so plainly.
 
 RECOMMENDED ACTION:
-- One concrete next step Finn should take (or "wait" if the ball is in the coach's court).
+- One concrete next step ${FIRST} should take (or "wait" if the ball is in the coach's court).
 - category must be one of: reply, follow_up, check_in, wait, introduce, new_topic
   - reply: there's an unanswered inbound from a coach that needs a response
   - follow_up: continue an existing thread or circle back on something discussed
@@ -104,7 +112,7 @@ RECOMMENDED ACTION:
 - source_message_ids: populate ONLY when the recommendation specifically draws from the UNCOVERED INVENTORY MESSAGES list below. Otherwise omit or use empty array.
 - recommended_coach_id: when the recommended action targets a specific coach (e.g., "follow up with Robinson", "reply to Peng"), set this to that coach's id from the COACHES list. Use null or omit when the target is unclear or the recommendation is school-level.
 - rationale: one sentence explaining why this is the next move.
-- If Finn's strategic notes mention something specific to do, that takes precedence over your own analysis.
+- If the family's strategic notes mention something specific to do, that takes precedence over your own analysis.
 
 STAGE vs TEMPERATURE:
 Recruiting stage measures depth reached (high-water mark), NOT priority or recency. A stage-4 school can be cold; a stage-3 school can be hot. Recommended actions should respect both — a stage-4 cold school may warrant a re-warm framing referencing prior evaluation, not a cold intro.
@@ -121,10 +129,10 @@ OUTPUT FORMAT:
 Return a single JSON object with exactly two keys: "summary" and "recommended_action".
 Example:
 {
-  "summary": "Streb invited Finn to Rochester's prospect day on Oct 12. Finn confirmed attendance but hasn't heard back about logistics. Last exchange was 3 days ago.",
+  "summary": "Streb invited the player to Rochester's prospect day on Oct 12. The player confirmed attendance but hasn't heard back about logistics. Last exchange was 3 days ago.",
   "recommended_action": {
     "description": "Wait for Streb's logistics details before following up",
-    "rationale": "Finn's last message confirmed attendance 3 days ago — give the coach time to reply with details.",
+    "rationale": "The player's last message confirmed attendance 3 days ago — give the coach time to reply with details.",
     "category": "wait",
     "source_message_ids": [],
     "recommended_coach_id": null,
@@ -209,7 +217,7 @@ Return ONLY the JSON object. No commentary before or after.`
   // Status updates from Finn
   if (statusUpdates && statusUpdates.length > 0) {
     parts.push(`STATUS UPDATES FROM FINN:`)
-    parts.push(`These describe Finn's current state, decisions, and intentions for this school. Weight them heavily when determining the recommended action — they take precedence over inferences from conversation history.`)
+    parts.push(`These describe the player's current state, decisions, and intentions for this school. Weight them heavily when determining the recommended action — they take precedence over inferences from conversation history.`)
     for (const u of statusUpdates) {
       parts.push(`[${u.created_at.split('T')[0]}, share: ${u.share_with_coach}] ${u.body}`)
     }
@@ -239,8 +247,8 @@ Return ONLY the JSON object. No commentary before or after.`
     parts.push('FULL CONVERSATION HISTORY (oldest first):')
     for (const row of contactLog) {
       const who = row.direction === 'Inbound'
-        ? `${row.coach_name ?? 'Coach'} → Finn`
-        : `Finn → ${row.coach_name ?? 'Coach'}`
+        ? `${row.coach_name ?? 'Coach'} → ${FIRST}`
+        : `${FIRST} → ${row.coach_name ?? 'Coach'}`
       const meta = [row.date, row.channel, row.direction].join(' | ')
       parts.push(`[${meta}] ${who}:`)
       if (row.summary) parts.push(row.summary)
@@ -288,9 +296,15 @@ export async function generateConversationSummary(
   const uncoveredMessages = messages.filter(m => !coveredIds.has(m.id))
   const coveredMessages = messages.filter(m => coveredIds.has(m.id))
 
+  // TODO(multi-player): first player by created_at.
+  const { data: summaryPlayer } = await admin.from('players')
+    .select('name, position, grad_year, club')
+    .order('created_at', { ascending: true }).limit(1).maybeSingle()
+
   const { system, user } = buildPrompt(
     school, coaches, contactLog, upcomingCamps, declineHistory,
     strategicNotes, statusUpdates, milestones, offers, uncoveredMessages, coveredMessages, currentDate,
+    summaryPlayer,
   )
 
   const client = new Anthropic()

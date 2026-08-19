@@ -9,6 +9,9 @@
  */
 
 import type { SchoolRow, CoachRow, ContactLogRow, CampRow, CurrentAssets } from './school-context'
+import {
+  buildDraftingPersona, personaIdentityLine, type PersonaSource,
+} from './drafting-persona'
 import { RECRUITING_JUDGMENT } from './recruiting-judgment'
 
 // ─── Output schema (matches docx generator input) ──────────────────────────
@@ -92,25 +95,27 @@ export interface CallPrepOutput {
 
 // ─── Prompt builders ───────────────────────────────────────────────────────
 
-export function buildCallPrepSystemPrompt(): string {
-  return `You are an experienced college soccer recruiting strategist preparing a call prep document for Finn Almond, a junior left wingback (Class of 2027).
+export function buildCallPrepSystemPrompt(
+  player?: PersonaSource | null,
+  academicSummary?: string | null,
+  currentStats?: string | null,
+  highlights?: string | null,
+): string {
+  // Identity from the family's players row; absent fields omitted.
+  const persona = buildDraftingPersona(player)
+  const NAME = persona.name || 'the player'
+  const FIRST = persona.firstName || 'the player'
+  return `You are an experienced college soccer recruiting strategist preparing a call prep document for ${personaIdentityLine(persona)}.
 
 You have access to web_search and web_fetch tools. You MUST use them extensively to research this school before producing the document. Do not rely on your training data alone — fetch live, current information.
 
 PLAYER PROFILE:
-- Name: Finn Almond, Class of 2027
-- Position: Left Wingback (transitioned from striker, November 2025)
-- Club: Albion SC Boulder County — MLS NEXT Academy U19
-- Spring 2026 stats: 9W-2L-3D, started every game at LWB, 3 goals 2 assists
-- GPA: 3.81 weighted / 3.56 unweighted
-- SAT: 1380 (690 Math / 690 English), retaking fall 2026 targeting 1450+
-- Primary academic interest: Chemistry (with strong interest in accelerated chemistry-to-engineering pathways like BS Chem / MAS Chemical Engineering programs)
-- Secondary academic interest: Mechanical Engineering or Aerospace Engineering
-- Honors: National Honor Society
-- AP Courses: AP Calculus AB, AP Chemistry, AP U.S. History
-- Senior year: AP Physics C, Calculus BC, AP Statistics, Discrete Math
-- Summer team: Flatirons FC (USL Academy summer, UPSL fall/spring, Wales tour)
-- High School: Alexander Dawson School, Lafayette, CO
+- Name: ${NAME}${persona.gradYear ? `, Class of ${persona.gradYear}` : ''}
+${persona.position ? `- Position: ${persona.position}` : ''}
+${persona.club ? `- Club: ${persona.club}` : ''}
+${currentStats ? `- Current season: ${currentStats}` : ''}
+${academicSummary ? `- Academics (family-authored, the ONLY source for academic claims): ${academicSummary}` : '- Academics: none on record — make no academic claims'}
+${highlights ? `- Highlights: ${highlights}` : ''}
 
 ═══════════════════════════════════════════════════════════════════
 RESEARCH PROTOCOL — YOU MUST FOLLOW THIS SEQUENCE
@@ -139,7 +144,7 @@ After phases 1 and 2, check what you're still missing:
   - Coach's hometown or education? Look harder at the bio page or search "[Coach] soccer playing career"
   - Colorado players on the roster? Scan the roster data you fetched.
   - Engineering/STEM majors on the roster? Same — scan for majors in the roster data.
-  - Depth at Finn's position (left back, left wingback, D/M hybrid)? Analyze the roster.
+  - Depth at ${FIRST}'s position${persona.position ? ` (${persona.position})` : ''}? Analyze the roster.
   - Recent season record still unknown? Try "[School abbreviation] men's soccer [conference] standings [year]"
 
 CRITICAL RULE: If your draft output would contain more than 2 "not available" or "information not found" statements, you have NOT researched enough. Go back and run more targeted searches and fetches before producing the output. Spending 15-25 tool calls is normal and expected. Err toward more research, not less.
@@ -162,10 +167,10 @@ SECTION-SPECIFIC INSTRUCTIONS:
 
 Recent Performance: Lead with positive achievements (overall record, tournament appearances, historic wins, notable individual awards) before noting losses or weaknesses. The framing should be balanced and factually complete, but not pessimistic. If the most recent game was a loss, include it but don't lead with it. Example: lead with "10-5-3 overall, advanced to NACC quarterfinals with a 3-0 win over #3 St. Norbert (the program's first NACC tournament win)" then add "lost to Aurora 5-4 in OT in the next round."
 
-Academic Anchor and Part 1 Background: When identifying academic pathways, prioritize matches to Finn's stated majors. Finn's PRIMARY stated major is Chemistry, with strong interest in accelerated chemistry-to-engineering pathways (3/2 SLAC partnerships, accelerated BS/MAS programs like IIT's BS Chem / MAS Chemical Engineering). His SECONDARY interest is Mechanical or Aerospace Engineering. For each school, surface BOTH:
-  - The school's relevant chemistry programs and any accelerated chemistry pathways
-  - The school's engineering programs that align with Finn's secondary interest
-If both exist, list chemistry first as it matches Finn's primary stated major, then engineering as a secondary anchor. If only one exists, lead with whichever is present.
+Academic Anchor and Part 1 Background: When identifying academic pathways, prioritize matches to the majors the family has actually stated in the academic summary below. Never infer a major they did not write. For each school, surface the programs that align with those stated interests, leading with the primary one if the summary names an order.
+
+ACADEMIC SUMMARY (family-authored; the ONLY source for academic claims):
+${academicSummary || '(none on record — make no academic claims)'}
 
 When you have completed your research, produce the structured JSON output. Return ONLY valid JSON matching the schema — no markdown fences, no preamble, no trailing text.
 
@@ -181,6 +186,8 @@ export function buildCallPrepUserPrompt(params: {
   declineHistory: ContactLogRow[]
   currentAssets: CurrentAssets
   framingNotes: string | null
+  /** Family-derived biography note, or null. Never a generic assertion. */
+  positionChangeNote?: string | null
   inventoryMessages: Array<{ title: string; type: string; notes: string | null }>
 }): string {
   const {
@@ -242,7 +249,7 @@ export function buildCallPrepUserPrompt(params: {
   if (camps.length > 0) {
     for (const c of camps) {
       const deadline = c.registration_deadline ? ` | Deadline: ${c.registration_deadline}` : ''
-      lines.push(`- ${c.name} | ${c.start_date} – ${c.end_date} | ${c.location ?? ''} | Finn's status: ${c.status}${deadline}`)
+      lines.push(`- ${c.name} | ${c.start_date} – ${c.end_date} | ${c.location ?? ''} | status: ${c.status}${deadline}`)
     }
   } else {
     lines.push('None scheduled')
@@ -255,7 +262,8 @@ export function buildCallPrepUserPrompt(params: {
     for (const d of declineHistory) {
       lines.push(`- Declined on ${d.date}${d.coach_name ? ` by ${d.coach_name}` : ''}: ${(d.summary ?? '').slice(0, 400)}`)
     }
-    lines.push('Note: Finn transitioned from striker to left wingback in Nov 2025. Any decline before that was based on a different position.')
+    // Biography only when the family's own profile records it (caller supplies).
+    if (params.positionChangeNote) lines.push(`Note: ${params.positionChangeNote}`)
     lines.push('')
   }
 
@@ -269,7 +277,7 @@ export function buildCallPrepUserPrompt(params: {
   // ── Inventory messages ──
   if (inventoryMessages.length > 0) {
     lines.push('=== FINN\'S ACTIVE MESSAGING INVENTORY ===')
-    lines.push('These are things Finn wants to communicate to coaches. Some may be relevant to this call.')
+    lines.push('These are things the family wants to communicate to coaches. Some may be relevant to this call.')
     for (const m of inventoryMessages) {
       lines.push(`- [${m.type.toUpperCase()}] ${m.title}${m.notes ? ': ' + m.notes.slice(0, 200) : ''}`)
     }

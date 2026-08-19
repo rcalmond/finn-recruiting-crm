@@ -11,6 +11,17 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
+import {
+  buildDraftingPersona, personaIdentityLine, type PersonaSource,
+} from './drafting-persona'
+
+/** Position-change context is the family's own biography, never a generic fact. */
+function derivePositionChangeNote(p: { highlights?: string | null; current_stats?: string | null } | null | undefined): string | null {
+  const text = `${p?.highlights ?? ''} ${p?.current_stats ?? ''}`
+  if (!/\b(transition(ed)?|moved|switch(ed)?|converted)\b/i.test(text)) return null
+  if (!/\b(position|strik|wing|back|mid|keeper|defender|forward)\b/i.test(text)) return null
+  return "the player's profile records a position change; any decline predating it was based on a different position"
+}
 import type { Message } from '@/lib/types'
 import { RECRUITING_JUDGMENT } from '@/lib/recruiting-judgment'
 
@@ -61,6 +72,8 @@ export interface GenerateInput {
   upcomingCamps: CampContext[]
   declineHistory: ContactRow[]
   finnNotes: string | null
+  /** The family's player row — identity for the strategist framing. */
+  player?: PersonaSource | null
   statusUpdates?: Array<{ body: string; share_with_coach: string; created_at: string }>
 }
 
@@ -95,6 +108,13 @@ const VALID_TIERS = new Set(['primary', 'extra'])
 export async function generateSchoolMessagePlan(
   input: GenerateInput
 ): Promise<GenerateOutput> {
+  // Identity + biography come from the family's players row, supplied by the
+  // caller (which holds the family-scoped client).
+  const strategistPlayer = input.player ?? null
+  const persona = buildDraftingPersona(strategistPlayer)
+  const FIRST = persona.firstName || 'the player'
+  const positionChangeNote = derivePositionChangeNote(strategistPlayer)
+
   if (input.uncoveredMessages.length === 0) {
     return { items: [], inputTokens: 0, outputTokens: 0 }
   }
@@ -102,15 +122,15 @@ export async function generateSchoolMessagePlan(
   const currentDate = formatCurrentDate()
   const client = new Anthropic()
 
-  const systemPrompt = `You are Finn Almond's recruiting strategist. Finn is a 2027 left wingback at Albion SC Boulder County MLS NEXT Academy U19. Your job is to recommend a prioritized list of messages Finn should communicate to a specific college coach, drawing from his inventory of things to say and ask.
+  const systemPrompt = `You are the recruiting strategist for ${personaIdentityLine(persona)}. Your job is to recommend a prioritized list of messages ${FIRST} should communicate to a specific college coach, drawing from their inventory of things to say and ask.
 
 Today is ${currentDate}.
 
 Return a prioritized list in TWO tiers:
 
-PRIMARY (3-6 items): the strategically most important things to communicate next. These are the main suggestion list Finn sees. Order by priority (1 = highest). Priority should reflect a strategic read of the full conversation arc: what's been said, what's uncovered, what the relationship state calls for, what timing makes sense.
+PRIMARY (3-6 items): the strategically most important things to communicate next. These are the main suggestion list the family sees. Order by priority (1 = highest). Priority should reflect a strategic read of the full conversation arc: what's been said, what's uncovered, what the relationship state calls for, what timing makes sense.
 
-EXTRA (up to 4 items): additional valid but lower-priority suggestions. These appear when Finn clicks "show me more." Continue the priority numbering from where PRIMARY left off.
+EXTRA (up to 4 items): additional valid but lower-priority suggestions. These appear when the family clicks "show me more." Continue the priority numbering from where PRIMARY left off.
 
 TIMING GUIDANCE:
 - "send_now" — communicate this in the next email
@@ -119,10 +139,10 @@ TIMING GUIDANCE:
 
 STRATEGIC CONSIDERATIONS:
 - Don't suggest messages already covered (those are listed separately for context, not as candidates)
-- Consider conversation flow — if Finn last asked the coach a question, suggesting more questions before a response is premature
+- Consider conversation flow — if the last outbound asked the coach a question, suggesting more questions before a response is premature
 - Match the relationship state — fresh schools get introductory content, established relationships get deeper engagement
-- Respect Finn's notes — if he has strategic notes for this school, defer to them
-- Priority should reflect strategic thinking, not arbitrary ordering. The #1 item should be the single most impactful thing Finn can say next to this specific coach given everything that's happened.
+- Respect the family's notes — if there are strategic notes for this school, defer to them
+- Priority should reflect strategic thinking, not arbitrary ordering. The #1 item should be the single most impactful thing ${FIRST} can say next to this specific coach given everything that's happened.
 
 RULE: Do not suggest topics that reference past dates or completed events as if they are future. Only forward-looking content.
 
@@ -166,7 +186,8 @@ ${RECRUITING_JUDGMENT}`
     for (const d of input.declineHistory) {
       usr.push(`- Declined on ${d.date}${d.coach_name ? ` by ${d.coach_name}` : ''}: ${(d.summary ?? '').slice(0, 300)}`)
     }
-    usr.push(`- Note: Finn transitioned from striker to left wingback in November 2025.`)
+    // Biography, only if the family's own profile records it.
+    if (positionChangeNote) usr.push(`- Note: ${positionChangeNote}`)
   } else {
     usr.push(`- None`)
   }
@@ -178,7 +199,7 @@ ${RECRUITING_JUDGMENT}`
 
   if (input.statusUpdates && input.statusUpdates.length > 0) {
     usr.push(`STATUS UPDATES FROM FINN:`)
-    usr.push(`These describe Finn's current state and intentions — weight them heavily when prioritizing suggestions.`)
+    usr.push(`These describe the player's current state and intentions — weight them heavily when prioritizing suggestions.`)
     for (const u of input.statusUpdates) {
       usr.push(`[${u.created_at.split('T')[0]}, share: ${u.share_with_coach}] ${u.body}`)
     }

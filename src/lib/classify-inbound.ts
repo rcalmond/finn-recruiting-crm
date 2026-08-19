@@ -101,17 +101,17 @@ EXAMPLES:
 
 Example 1:
   From: Gabriel Robinson (grobinson@lafayette.edu)
-  Body: "Finn, Thank you for the email reaching out and touching base with us. Please keep us updated on your schedule moving forward..."
-  → {"authored_by":"coach_personal","intent":"requires_reply","confidence":"high","notes":"Addresses Finn by name, explicit ask to share schedule"}
+  Body: "Jordan, Thank you for the email reaching out and touching base with us. Please keep us updated on your schedule moving forward..."
+  → {"authored_by":"coach_personal","intent":"requires_reply","confidence":"high","notes":"Addresses Jordan by name, explicit ask to share schedule"}
 
 Example 2:
   From: Brandon Bowman via Sports Recruits (notify@sportsrecruits.com)
-  Body: "Thank you Finn."
+  Body: "Thank you Jordan."
   → {"authored_by":"coach_via_platform","intent":"acknowledgement","confidence":"high","notes":"Generic two-word platform acknowledgement, no ask"}
 
 Example 3:
   From: Brandon Bautista (bbautista@calpoly.edu)
-  Body: "Hi Finn, Thanks for reaching out! We will be hosting an ID camp on May 9-10 & August 1-2..."
+  Body: "Hi Jordan, Thanks for reaching out! We will be hosting an ID camp on May 9-10 & August 1-2..."
   → {"authored_by":"coach_personal","intent":"requires_action","confidence":"high","notes":"Camp invitation with specific dates — needs RSVP, not a reply"}
 
 Example 4:
@@ -124,11 +124,11 @@ Example 5:
   → {"authored_by":"coach_personal","intent":"decline","confidence":"high","notes":"Explicit decline — program full for 2027"}
 
 Example 6:
-  Body: "Finn, please fill out our recruiting questionnaire at <link> so we can evaluate you."
+  Body: "Jordan, please fill out our recruiting questionnaire at <link> so we can evaluate you."
   → {"authored_by":"coach_personal","intent":"requires_action","confidence":"medium","notes":"Action requested (fill form), not a reply; medium confidence because sender wasn't clearly coach vs. staff"}
 
 Example 7 — recruiting-template email with multiple asks:
-  Body: "Finn, thank you for reaching out. Please keep us updated on your schedule moving forward. Please also see the information below for our program, camps, and questionnaire..."
+  Body: "Jordan, thank you for reaching out. Please keep us updated on your schedule moving forward. Please also see the information below for our program, camps, and questionnaire..."
   (email contains links to questionnaire + camp registration, extensive program marketing, and a 'keep us updated' pleasantry)
   → {"authored_by":"coach_via_platform","intent":"requires_action","confidence":"high","notes":"Template-style recruiting email with concrete asks (fill form, attend camp). 'Keep us updated' is conversational framing, not the primary ask."}
   RULE: when an email contains BOTH a pleasantry phrase ("keep us updated", "stay in touch") AND concrete action links (forms, camps, questionnaires), classify as requires_action. Concrete asks take priority over conversational framing.
@@ -145,7 +145,7 @@ Example 9 — Templated post-RQ funnel from personal sender:
 
 Example 10 — Personal sender + genuinely personal body (counter-example):
   From: Sean Streb (sstreb@rochester.edu)
-  Body: "Hi Finn, Thanks for sending the highlight reel. I watched the clips from the Scottsdale qualifier — that Olimpico was incredible. Are you free Wednesday at 2pm MT? I'd like to call and talk about how wingbacks fit in our system."
+  Body: "Hi Jordan, Thanks for sending the highlight reel. I watched the clips from the spring tournament — that finish was excellent. Are you free Wednesday at 2pm MT? I'd like to call and talk about how that position fits in our system."
   → {"authored_by":"coach_personal","intent":"requires_reply","confidence":"high","notes":"References specific film content (Scottsdale, Olimpico) + direct scheduling question. Clearly personal, not blast."}
 
 Respond ONLY with valid JSON matching this exact shape:

@@ -23,6 +23,10 @@ export interface PersonaSource {
   position?: string | null
   grad_year?: number | null
   club?: string | null
+  /** Optional, read only to DERIVE biography (e.g. a recorded position change).
+   *  Never used to assert a fact the family did not write. */
+  highlights?: string | null
+  current_stats?: string | null
 }
 
 export interface DraftingPersona {

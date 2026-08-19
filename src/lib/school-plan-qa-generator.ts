@@ -2,7 +2,7 @@
  * school-plan-qa-generator.ts
  *
  * Answers strategic questions about a specific school using Opus 4.7.
- * Finn types a question like "Should I push for a call or wait?" and
+ * The family types a question like "Should I push for a call or wait?" and
  * gets a concise, honest strategic answer drawing on full conversation
  * history and context.
  *
@@ -10,6 +10,17 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
+import {
+  buildDraftingPersona, personaIdentityLine, type PersonaSource,
+} from './drafting-persona'
+
+/** Position-change context is the family's own biography, never a generic fact. */
+function derivePositionChangeNote(p: { highlights?: string | null; current_stats?: string | null } | null | undefined): string | null {
+  const text = `${p?.highlights ?? ''} ${p?.current_stats ?? ''}`
+  if (!/\b(transition(ed)?|moved|switch(ed)?|converted)\b/i.test(text)) return null
+  if (!/\b(position|strik|wing|back|mid|keeper|defender|forward)\b/i.test(text)) return null
+  return "the player's profile records a position change; any decline predating it was based on a different position"
+}
 import type { Message } from '@/lib/types'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -52,6 +63,8 @@ interface CoverageEntry {
 }
 
 export interface QAInput {
+  /** The family's player row — identity for the strategist framing. */
+  player?: PersonaSource | null
   school: SchoolContext
   coaches: CoachContext[]
   contactHistory: ContactRow[]
@@ -81,14 +94,21 @@ function formatCurrentDate(): string {
 export async function answerSchoolStrategyQuestion(
   input: QAInput
 ): Promise<QAOutput> {
+  // Identity + biography come from the family's players row, supplied by the
+  // caller (which holds the family-scoped client).
+  const strategistPlayer = input.player ?? null
+  const persona = buildDraftingPersona(strategistPlayer)
+  const FIRST = persona.firstName || 'the player'
+  const positionChangeNote = derivePositionChangeNote(strategistPlayer)
+
   const currentDate = formatCurrentDate()
   const client = new Anthropic()
 
-  const systemPrompt = `You are Finn Almond's recruiting strategist. Finn is a 2027 left wingback at Albion SC Boulder County MLS NEXT Academy U19. He's asking a strategic question about ONE specific school. Answer it directly and concretely, drawing on the full conversation history and context provided.
+  const systemPrompt = `You are the recruiting strategist for ${personaIdentityLine(persona)}. The family is asking a strategic question about ONE specific school. Answer it directly and concretely, drawing on the full conversation history and context provided.
 
 Today is ${currentDate}.
 
-Be honest and specific. If the answer is "this school is going cold and probably isn't worth more effort," say so. If Finn should wait before pushing for a call, explain why. Don't hedge into uselessness. Keep the answer concise, a few sentences to a short paragraph. This is strategic advice, not an essay.
+Be honest and specific. If the answer is "this school is going cold and probably isn't worth more effort," say so. If the family should wait before pushing for a call, explain why. Don't hedge into uselessness. Keep the answer concise, a few sentences to a short paragraph. This is strategic advice, not an essay.
 
 Ground your answer in the actual data: what emails have been exchanged, how the coach has responded, what the timeline looks like, what inventory items remain uncovered. Don't speculate beyond what the context supports.`
 
@@ -125,7 +145,7 @@ Ground your answer in the actual data: what emails have been exchanged, how the 
     for (const d of input.declineHistory) {
       usr.push(`- Declined on ${d.date}${d.coach_name ? ` by ${d.coach_name}` : ''}: ${(d.summary ?? '').slice(0, 300)}`)
     }
-    usr.push(`- Note: Finn transitioned from striker to left wingback in November 2025.`)
+    if (positionChangeNote) usr.push(`- Note: ${positionChangeNote}`)
   } else {
     usr.push(`- None`)
   }

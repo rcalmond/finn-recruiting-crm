@@ -40,7 +40,7 @@ const SYSTEM_PROMPT = `You analyze sent recruiting emails to detect which predef
 
 Strict matching criteria:
 - "Substantively communicated" means the email contains the actual content or asks the actual question — not a passing mention or tangential reference.
-- For UPDATES: the specific update was shared with enough detail that the coach now knows it. Example: "Finn scored an Olimpico at MLS NEXT Cup Qualifier" covers a goal-of-the-season update. "Finn had a good season" does not cover detailed end-of-season stats.
+- For UPDATES: the specific update was shared with enough detail that the coach now knows it. Example: "scored a goal-of-the-season contender at the spring qualifier" covers a specific goal update. "had a good season" does not cover detailed end-of-season stats.
 - For QUESTIONS: the email asks the specific question or one that would elicit the same answer. Example: "Where can I meet you at Utah?" covers "Will you be at MLS NEXT Cup in Utah?". "Hope to see you soon" does not.
 - Better to under-detect than over-detect. Only flag matches you're confident about.
 
