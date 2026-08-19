@@ -87,6 +87,12 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
   const [copiedBody, setCopiedBody] = useState(false)
   const [copiedSubject, setCopiedSubject] = useState(false)
   const [ccCopied, setCcCopied] = useState(false)
+  // The subject guard's finding, surfaced to the person about to send. A
+  // warning that only reaches the server log is the fail-secret pattern again:
+  // the subject gets corrected, the body may still carry the wrong identity,
+  // and nobody sees it. Non-blocking by design — a diacritic or a nickname
+  // must never lock a family out of their own outreach.
+  const [identityWarning, setIdentityWarning] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [sending, setSending] = useState<string | null>(null)
   const [regenHint, setRegenHint] = useState('')
@@ -262,6 +268,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
       if (json.subject) setSubject(json.subject)
       setBody(json.body ?? '')
       setCachedBody(json.body ?? '')
+      setIdentityWarning(typeof json.identityWarning === 'string' ? json.identityWarning : null)
       if (json.closingQuestion) setClosingQuestion(json.closingQuestion)
       if (Array.isArray(json.closingAlternatives)) setClosingAlternatives(json.closingAlternatives)
       setStage('review')
@@ -738,6 +745,20 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
           {/* ── Review ────────────────────────────────────────────────── */}
           {stage === 'review' && (
             <>
+              {/* IDENTITY WARNING — names the specific risk. A vague "review
+                  before sending" trains people to click past it. */}
+              {identityWarning && (
+                <div style={{
+                  padding: '10px 13px', borderRadius: 8,
+                  background: '#FBEAE8', border: '1px solid #E0B4AC',
+                  fontSize: 12.5, color: '#7A1E16', lineHeight: 1.5,
+                }}>
+                  <strong>This draft may name the wrong player.</strong> The subject line was
+                  corrected automatically, but the body may still carry another player&apos;s
+                  name, position, grad year, or club. Read it before sending.
+                </div>
+              )}
+
               {/* Campaign reassurance: this is one individual, personalized email */}
               {isCampaign && (
                 <div style={{
