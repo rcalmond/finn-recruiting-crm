@@ -24,6 +24,9 @@ import Anthropic from '@anthropic-ai/sdk'
 import { familyAdmin } from '@/lib/tenant-db'
 import { getFamilyContext } from '@/lib/require-family'
 
+// Two sequential model calls (~6-15s observed) — headroom against the default.
+export const maxDuration = 60
+
 const PARSE_MODEL = 'claude-sonnet-4-6'
 
 const DIVISIONS = ['D1', 'D2', 'D3', 'NAIA', 'JUCO'] as const
@@ -96,7 +99,10 @@ Output: {"divisions":[],"regions":[],"academic_bands":[],"enrollment_bands":[],"
     const parsed = parseRes.content[0]?.type === 'text' ? extractJson(parseRes.content[0].text) : null
     const facets = sanitizeFacets(parsed)
     const hasAnyFacet = Object.values(facets).some(a => a.length > 0)
-    if (!hasAnyFacet) return NextResponse.json({ suggestions: [], facets: null })
+    if (!hasAnyFacet) {
+      console.warn('[intake-suggest] soft-fail: no-facets (text gave no signal)')
+      return NextResponse.json({ suggestions: [], facets: null })
+    }
 
     // ── 2. CODE filters the catalog — the model never names a school ────────
     // TODO(womens-catalog): sport would select the catalog here; discovery_schools
@@ -134,7 +140,10 @@ Output: {"divisions":[],"regions":[],"academic_bands":[],"enrollment_bands":[],"
       rows = ((data ?? []) as Row[]).filter(r => !excludeIds.has(r.id) && !excludeNames.has(r.name.toLowerCase()))
       if (rows.length >= 4) break
     }
-    if (rows.length === 0) return NextResponse.json({ suggestions: [], facets })
+    if (rows.length === 0) {
+      console.warn('[intake-suggest] soft-fail: zero-matches after relaxation', JSON.stringify(facets))
+      return NextResponse.json({ suggestions: [], facets })
+    }
 
     // Deterministic ranking: rows matching MORE of the requested facet
     // dimensions first (relaxation may have readmitted partial matches), then
@@ -169,7 +178,10 @@ ${JSON.stringify(top.map(r => ({ id: r.id, name: r.name, division: r.division, c
       whys = new Map((annoArr as { id?: string; why?: string }[])
         .filter(a => typeof a?.id === 'string' && typeof a?.why === 'string')
         .map(a => [a.id as string, (a.why as string).slice(0, 140)]))
-    } catch { /* annotation is optional — ship without whys */ }
+    } catch (annoErr) {
+      // annotation is optional — ship without whys, but count the degradation
+      console.warn('[intake-suggest] soft-fail: annotation-failed', annoErr instanceof Error ? annoErr.message : String(annoErr))
+    }
 
     return NextResponse.json({
       facets,
@@ -177,7 +189,7 @@ ${JSON.stringify(top.map(r => ({ id: r.id, name: r.name, division: r.division, c
     })
   } catch (err) {
     // Never show an error where a family expected magic.
-    console.error('[intake-suggest] failed soft:', err instanceof Error ? err.message : err)
+    console.error('[intake-suggest] soft-fail: hard-error', err instanceof Error ? err.message : err)
     return NextResponse.json({ suggestions: [], facets: null })
   }
 }

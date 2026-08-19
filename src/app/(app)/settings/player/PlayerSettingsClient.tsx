@@ -92,17 +92,28 @@ export default function PlayerSettingsClient({ initialPlayer }: { initialPlayer:
     const intakeText = form.intake.trim()
     // No family_id — the RLS helper default stamps it.
     // intake_notes is NON-CANONICAL: stored for the record, read by no generator.
-    const { data, error: err } = await supabase.from('players').insert({
-      name: form.name.trim(),
-      sport: form.sport,
-      position: form.position,
-      secondary_position: form.secondary_position || null,
-      grad_year: gradYearNum,
-      home_timezone: form.home_timezone,
-      intake_notes: intakeText || null,
-    }).select().single()
+    // try/catch: supabase-js REJECTS (not {error}) on network-layer failures —
+    // that seam must fail visibly-but-cleanly, never as an unhandled TypeError.
+    let data: Player | null = null
+    try {
+      const { data: row, error: err } = await supabase.from('players').insert({
+        name: form.name.trim(),
+        sport: form.sport,
+        position: form.position,
+        secondary_position: form.secondary_position || null,
+        grad_year: gradYearNum,
+        home_timezone: form.home_timezone,
+        intake_notes: intakeText || null,
+      }).select().single()
+      if (err) { setSaving(false); setError(err.message); return }
+      data = row as Player
+    } catch (e) {
+      setSaving(false)
+      setError('Could not reach the server — check your connection and try again.')
+      console.warn('[player-create] network-level failure:', e)
+      return
+    }
     setSaving(false)
-    if (err) { setError(err.message); return }
     setPlayer(data as Player)
     setForm(f => ({ ...toForm(data as Player), intake: f.intake }))
 
@@ -120,7 +131,14 @@ export default function PlayerSettingsClient({ initialPlayer }: { initialPlayer:
       const sugg = (json.suggestions ?? []) as IntakeSuggestion[]
       if (sugg.length > 0) { setSuggestions(sugg); setStep('suggest') }
       else setStep('done')
-    } catch { setStep('done') }
+    } catch (e) {
+      // Fail SOFT to the normal flow (Amendment B §4) — but observably: this
+      // fires when the request dies before reaching the route (e.g. a
+      // cross-host redirect killing the POST), so the route's own logs can't
+      // count it.
+      console.warn('[intake-suggest] failed soft on the client — landing on the normal flow:', e)
+      setStep('done')
+    }
   }
 
   // ── Adopt the checked suggestions via the shared add-from-catalog path ─────
