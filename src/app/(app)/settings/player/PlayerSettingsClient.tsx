@@ -68,6 +68,8 @@ export default function PlayerSettingsClient({ initialPlayer }: { initialPlayer:
   const [form, setForm] = useState<FormState>(() => toForm(initialPlayer))
   const [step, setStep] = useState<Step>('form')
   const [suggestions, setSuggestions] = useState<IntakeSuggestion[]>([])
+  const [suggestFacets, setSuggestFacets] = useState<import('@/lib/intake-narrow').IntakeFacets | null>(null)
+  const [qualityProxy, setQualityProxy] = useState(false)
   const [addedCount, setAddedCount] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -129,8 +131,12 @@ export default function PlayerSettingsClient({ initialPlayer }: { initialPlayer:
       })
       const json = res.ok ? await res.json() : { suggestions: [] }
       const sugg = (json.suggestions ?? []) as IntakeSuggestion[]
-      if (sugg.length > 0) { setSuggestions(sugg); setStep('suggest') }
-      else setStep('done')
+      if (sugg.length > 0) {
+        setSuggestions(sugg)
+        setSuggestFacets(json.facets ?? null)
+        setQualityProxy(json.quality_proxy === true)
+        setStep('suggest')
+      } else setStep('done')
     } catch (e) {
       // Fail SOFT to the normal flow (Amendment B §4) — but observably: this
       // fires when the request dies before reaching the route (e.g. a
@@ -291,9 +297,22 @@ export default function PlayerSettingsClient({ initialPlayer }: { initialPlayer:
         {step === 'suggest' && (
           <IntakeSuggest
             suggestions={suggestions}
+            facets={suggestFacets}
+            qualityProxy={qualityProxy}
             adding={adding}
             onAdd={handleAddChecked}
             onSkip={() => setStep('done')}
+            annotate={async rows => {
+              // Fail-soft whys for the final displayed set (post-narrowing).
+              try {
+                const r = await fetch('/api/discover/intake-suggest', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ mode: 'annotate', rows, facets: suggestFacets }),
+                })
+                const j = r.ok ? await r.json() : { whys: [] }
+                return Object.fromEntries(((j.whys ?? []) as { id: string; why: string }[]).map(w => [w.id, w.why]))
+              } catch { return {} }
+            }}
           />
         )}
 
