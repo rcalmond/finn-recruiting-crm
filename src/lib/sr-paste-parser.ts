@@ -42,6 +42,9 @@ import { createHash } from 'crypto'
 // evening message (e.g. 9:57 PM MDT) would roll forward to the next UTC day.
 
 export const USER_TIMEZONE = 'America/Denver'
+// ^ DEFAULT ONLY. Per-family dates come from players.home_timezone via
+// FamilyIdentity; callers pass it in. A non-Denver family's paste-imported
+// dates would otherwise land on the wrong calendar day.
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -161,9 +164,9 @@ const DATE_RE = new RegExp(
 
 // localDateString extracts the YYYY-MM-DD date as seen in USER_TIMEZONE,
 // regardless of what timezone the server is running in.
-function localDateString(d: Date): string {
+function localDateString(d: Date, timeZone: string = USER_TIMEZONE): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: USER_TIMEZONE,
+    timeZone,
     year:  'numeric',
     month: '2-digit',
     day:   '2-digit',
@@ -174,7 +177,7 @@ function localDateString(d: Date): string {
   return `${y}-${mon}-${day}`
 }
 
-function parseDateLine(line: string): { isoDate: string; rawDate: string } | null {
+function parseDateLine(line: string, timeZone: string = USER_TIMEZONE): { isoDate: string; rawDate: string } | null {
   const m = DATE_RE.exec(line)
   if (!m) return null
   const raw = m[1].trim()
@@ -184,7 +187,7 @@ function parseDateLine(line: string): { isoDate: string; rawDate: string } | nul
   if (isNaN(d.getTime())) return null
   // Extract the date in Finn's local timezone, not UTC —
   // avoids rolling forward on evening messages (e.g. 9:57 PM MDT → Apr 13 UTC)
-  const iso = localDateString(d)
+  const iso = localDateString(d, timeZone)
   return { isoDate: iso, rawDate: raw }
 }
 
@@ -226,7 +229,7 @@ function isSenderLine(line: string): boolean {
 
 // ─── Single block parser ──────────────────────────────────────────────────────
 
-function parseBlock(rawBlock: string, debug: boolean): RawMessage | null {
+function parseBlock(rawBlock: string, debug: boolean, timeZone: string = USER_TIMEZONE): RawMessage | null {
   const text = rawBlock.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
   const lines = text.split('\n')
 
@@ -303,7 +306,7 @@ function parseBlock(rawBlock: string, debug: boolean): RawMessage | null {
     }
 
     // Date line — check before subject (date is unambiguous)
-    const parsedDate = parseDateLine(trimmed)
+    const parsedDate = parseDateLine(trimmed, timeZone)
     if (parsedDate) {
       isoDate = parsedDate.isoDate
       rawDate = parsedDate.rawDate
@@ -369,7 +372,7 @@ const SEPARATOR_RE = /^\s*Reply(?:\s+All)?\s*$/m
 // below it — those are older messages in the thread, legitimate content to import.
 const EARLIER_MESSAGES_RE = /^.*Earlier Messages.*$/gm
 
-export function parseSRPaste(text: string, debug = false): RawMessage[] {
+export function parseSRPaste(text: string, debug = false, timeZone: string = USER_TIMEZONE): RawMessage[] {
   // Normalize line endings
   let normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
@@ -391,7 +394,7 @@ export function parseSRPaste(text: string, debug = false): RawMessage[] {
   const messages: RawMessage[] = []
   for (const block of rawBlocks) {
     if (block.trim() === '') continue
-    const msg = parseBlock(block, debug)
+    const msg = parseBlock(block, debug, timeZone)
     if (msg) messages.push(msg)
   }
 

@@ -1,0 +1,30 @@
+/**
+ * admin-gate.ts — the minimal admin check for the inbound console.
+ *
+ * Deliberately an ENV ALLOWLIST of auth user ids, not a role model: there is no
+ * admin concept in the schema yet, inventing one here would drag RLS and a
+ * permission surface into the email-boundary build, and an env list is
+ * trivially revocable. The real role model is deferred.
+ *
+ * ADMIN_USER_IDS="uuid1,uuid2"
+ */
+import { createClient } from '@/lib/supabase/server'
+
+export interface AdminCheck {
+  ok: boolean
+  userId: string | null
+}
+
+export async function requireAdmin(): Promise<AdminCheck> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, userId: null }
+
+  const allow = (process.env.ADMIN_USER_IDS ?? '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+
+  // Fail closed: an unset allowlist grants nobody access.
+  return { ok: allow.includes(user.id), userId: user.id }
+}

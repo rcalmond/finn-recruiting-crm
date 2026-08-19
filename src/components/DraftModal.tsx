@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { Message, MessageType, SchoolMessagePlanSuggestion, RecommendedAction } from '@/lib/types'
 import Link from 'next/link'
 import { usePlayer } from '@/hooks/usePlayer'
+import { useInboundAddress } from '@/hooks/useInboundAddress'
 import { buildOutreachSubject } from '@/lib/player-identity'
 
 // ─── Mode types ──────────────────────────────────────────────────────────────
@@ -69,6 +70,9 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
   // Identity gate: outreach carries the player's real name — derived from the
   // players row, never a literal. No player row → drafting is gated below.
   const { player, loading: playerLoading } = usePlayer()
+  // Amendment 1: the CC address is the SENDING family's own inbound address,
+  // never a literal. No address → no CC line (never a wrong one).
+  const { address: inboundAddress } = useInboundAddress()
   const isCampaign = mode.kind === 'campaign'
   const isReply = mode.kind === 'reply'
   const isFresh = mode.kind === 'fresh'
@@ -804,8 +808,8 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                 </div>
               )}
 
-              {/* CC reminder */}
-              <div style={{
+              {/* CC reminder — only when the family HAS an inbound address */}
+              {inboundAddress && <div style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '7px 12px', borderRadius: 6,
                 background: '#F6F1E8', border: '1px solid #E2DBC9',
@@ -815,7 +819,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                 <code
                   onClick={async () => {
                     try {
-                      await navigator.clipboard.writeText('finn@in.finnsoccer.com')
+                      await navigator.clipboard.writeText(inboundAddress)
                       setCcCopied(true)
                       setTimeout(() => setCcCopied(false), 2000)
                     } catch { /* noop */ }
@@ -829,10 +833,10 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                     transition: 'background 0.15s',
                   }}
                 >
-                  {ccCopied ? 'copied!' : 'finn@in.finnsoccer.com'}
+                  {ccCopied ? 'copied!' : inboundAddress}
                 </code>
                 <span>so it shows up in your school timeline</span>
-              </div>
+              </div>}
 
               {/* Channel recommendation (campaign only) */}
               {isCampaign && mode.channelRec && (

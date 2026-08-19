@@ -42,12 +42,26 @@ const FAMILY_TABLES = new Set([
   'messages', 'prep_docs', 'assets', 'action_items', 'batch_reel_sends',
   'questions', 'gmail_tokens', 'players',
   'schools', 'coaches', 'camps', 'camp_school_attendees', 'camp_coach_attendees',
+  'family_sending_addresses',
 ])
 
 /** Shared catalog + tenancy/infra tables — passthrough. */
 const CATALOG_TABLES = new Set([
   'discovery_schools', 'school_research', 'camp_proposals', 'coach_changes',
   'cron_runs', 'not_found_log', 'families', 'users',
+])
+
+/** CROSS-FAMILY BY DESIGN — service-role passthrough, and deliberately so:
+ *  inbound routing must resolve WHICH family a message belongs to *before* a
+ *  family scope can exist, so these cannot be family-scoped at the wrapper.
+ *  Both are protected at the database instead —
+ *    family_inbound_addresses: family RLS, so user-client reads see only their own
+ *    inbound_quarantine:       RLS on with NO policies, service-role only, never
+ *                              readable by any family under any circumstance
+ *  Nothing else belongs in this set. Adding a table here opts it out of tenancy
+ *  enforcement in code; do it only when cross-family reach is the table's purpose. */
+const ROUTING_TABLES = new Set([
+  'family_inbound_addresses', 'inbound_quarantine',
 ])
 
 /** Frozen since the C6 sitting; dropped in C7. Nothing new may read it. */
@@ -64,6 +78,7 @@ function classify(table: string): 'family' | 'catalog' | 'blocked' | 'unknown' {
   if (BLOCKED_TABLES.has(table)) return 'blocked'
   if (FAMILY_TABLES.has(table)) return 'family'
   if (CATALOG_TABLES.has(table)) return 'catalog'
+  if (ROUTING_TABLES.has(table)) return 'catalog'  // cross-family by design — see above
   return 'unknown'
 }
 

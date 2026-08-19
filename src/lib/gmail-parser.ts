@@ -10,7 +10,7 @@
  *         contact_log row, except schoolId/coachId (filled in by cron).
  */
 
-import { USER_TIMEZONE } from './sr-paste-parser'
+import { isFamilySender, type FamilyIdentity } from './family-identity'
 import { resolveSentAt } from './sent-at'
 import type { GmailMessageDetails } from './gmail-client'
 
@@ -34,7 +34,7 @@ export interface ParsedGmailEntry {
 
   // Content
   subject:     string | null
-  isoDate:     string         // YYYY-MM-DD in Denver (USER_TIMEZONE)
+  isoDate:     string         // YYYY-MM-DD in the family's home timezone
   sentAt:      string         // full ISO timestamp for sent_at column (always populated)
   rawDate:     string | null  // original Date header
   dateSource:  'header' | 'internalDate' | 'now'  // provenance for debugging
@@ -56,10 +56,10 @@ export interface ParsedGmailEntry {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-// Finn's own email addresses — any From: matching these is Outbound.
-const FINN_EMAILS = new Set([
-  (process.env.FINN_EMAIL ?? 'finnalmond08@gmail.com').toLowerCase(),
-])
+// §6: the family's own sending addresses arrive via FamilyIdentity — there is
+// no module-level identity constant any more. FAIL CLOSED: a family with an
+// EMPTY sending set must not have direction inferred (everything would file as
+// inbound-from-a-coach); callers gate on identity.hasSendingAddresses.
 
 // Domains that are definitely not school/coach domains — gmail.com coaches
 // won't match domain-based school lookup. The cron falls back to subject
@@ -71,7 +71,7 @@ const GENERIC_EMAIL_DOMAINS = new Set([
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export function parseGmailMessage(msg: GmailMessageDetails): ParsedGmailEntry {
+export function parseGmailMessage(msg: GmailMessageDetails, identity: FamilyIdentity): ParsedGmailEntry {
   const notes: string[] = []
 
   // ── Direction ──────────────────────────────────────────────────────────────
@@ -82,7 +82,9 @@ export function parseGmailMessage(msg: GmailMessageDetails): ParsedGmailEntry {
 
   const fromHeader    = msg.headers['from'] ?? ''
   const { email: senderEmail, name: senderName } = parseEmailAddress(fromHeader)
-  const isOutbound    = FINN_EMAILS.has(senderEmail.toLowerCase())
+  // Direction reads the From HEADER against the family's sending set.
+  // (Never envelope.from — Gmail rewrites it on forward.)
+  const isOutbound    = isFamilySender(identity, senderEmail)
   const direction     = isOutbound ? 'Outbound' : 'Inbound'
 
   // ── Recipients ─────────────────────────────────────────────────────────────
@@ -93,7 +95,7 @@ export function parseGmailMessage(msg: GmailMessageDetails): ParsedGmailEntry {
     .filter(Boolean)
     .flatMap(h => splitAddressList(h))
     .map(a => parseEmailAddress(a).email.toLowerCase())
-    .filter(e => e.length > 0 && !FINN_EMAILS.has(e))  // exclude Finn's own addresses
+    .filter(e => e.length > 0 && !identity.sendingAddresses.has(e))  // exclude the family's own addresses
 
   // ── Subject ────────────────────────────────────────────────────────────────
 
@@ -111,7 +113,7 @@ export function parseGmailMessage(msg: GmailMessageDetails): ParsedGmailEntry {
   //   2. internalDate — when Gmail received the message (a few seconds later)
   //   3. now — last resort; flagged so the cron can set parse_status=partial
   //
-  // We localise to USER_TIMEZONE (America/Denver) so the YYYY-MM-DD date
+  // We localise to the family's home timezone so the YYYY-MM-DD date
   // matches Finn's local calendar, consistent with the SR paste importer.
   // A 9:57 PM Denver email stays on the same date rather than rolling to
   // the next UTC day.
@@ -125,7 +127,7 @@ export function parseGmailMessage(msg: GmailMessageDetails): ParsedGmailEntry {
   if (dateHeader) {
     const parsed = new Date(dateHeader)
     if (!isNaN(parsed.getTime())) {
-      isoDate    = localDateString(parsed)
+      isoDate    = localDateString(parsed, identity.homeTimezone)
       sentAt     = parsed.toISOString()
       rawDate    = dateHeader
       dateSource = 'header'
@@ -137,7 +139,7 @@ export function parseGmailMessage(msg: GmailMessageDetails): ParsedGmailEntry {
   if (dateSource === 'now' && msg.internalDate) {
     const parsed = new Date(Number(msg.internalDate))
     if (!isNaN(parsed.getTime())) {
-      isoDate    = localDateString(parsed)
+      isoDate    = localDateString(parsed, identity.homeTimezone)
       sentAt     = parsed.toISOString()
       rawDate    = new Date(Number(msg.internalDate)).toISOString()
       dateSource = 'internalDate'
@@ -146,7 +148,7 @@ export function parseGmailMessage(msg: GmailMessageDetails): ParsedGmailEntry {
   }
 
   if (dateSource === 'now') {
-    isoDate = localDateString(new Date())
+    isoDate = localDateString(new Date(), identity.homeTimezone)
     // Approximate: combine calendar date with current time-of-day (same as migration 026 backfill)
     sentAt  = resolveSentAt(null, null, isoDate)
     notes.push('Could not parse any date — using today; review needed')
@@ -273,9 +275,9 @@ function extractDomain(email: string): string | null {
 
 // ── Date localisation ─────────────────────────────────────────────────────────
 
-function localDateString(d: Date): string {
+function localDateString(d: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: USER_TIMEZONE,
+    timeZone,
     year:  'numeric',
     month: '2-digit',
     day:   '2-digit',

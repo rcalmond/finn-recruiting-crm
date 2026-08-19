@@ -28,7 +28,10 @@ const PHASE_CONTENT_PATHS: Record<string, string[]> = {
 
 // Settings sub-items (settings routes)
 const SETTINGS_PATHS = [
+  '/settings/inbox',
   '/settings/player',
+  '/bulk-import',
+  '/admin/inbound',
   '/settings/coach-changes',
   '/settings/camp-proposals',
   '/settings/gmail',
@@ -50,6 +53,8 @@ function buildSettingsSubItems(
 ): SettingsSubItem[] {
   return [
     { label: 'Player Profile', href: '/settings/player' },
+    { label: 'Your Inbox',     href: '/settings/inbox' },
+    { label: 'Import a Thread', href: '/bulk-import' },
     { label: 'Coach Changes',  href: '/settings/coach-changes',
       count: pendingCoachChanges > 0 ? pendingCoachChanges : undefined },
     { label: 'Camp Proposals', href: '/settings/camp-proposals',
