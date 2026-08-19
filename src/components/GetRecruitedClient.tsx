@@ -291,7 +291,8 @@ export default function GetRecruitedClient({
           background: '#FBEAE8', border: '1px solid #EAD5CC', borderRadius: 10,
           fontSize: 12.5, color: '#7A1E16', fontWeight: 600,
         }}>
-          {unmatchedCount} message{unmatchedCount === 1 ? '' : 's'} arrived that we couldn&apos;t match to a school
+          {unmatchedCount} message{unmatchedCount === 1 ? '' : 's'}{' '}
+          arrived that we couldn&apos;t match to a school
           <span style={{ marginLeft: 'auto', fontWeight: 700 }}>Review →</span>
         </a>
       )}

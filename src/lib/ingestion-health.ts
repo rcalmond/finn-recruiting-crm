@@ -89,6 +89,21 @@ async function checkGmail(): Promise<SourceHealth> {
 // ─── SendGrid health ─────────────────────────────────────────────────────────
 // Thresholds: < 7d healthy, 7-14d warning, > 14d critical
 
+// WHAT THIS MEASURES — and what it does not.
+//
+// It reads the most recent contact_log row that arrived via the webhook, so it
+// answers "has SportsRecruits mail FILED recently?" It CANNOT answer "is the
+// webhook reachable?": mail that arrives and is dropped at the non-SR filter
+// (which is most of it — Almond's Gmail forward is unconditional, so marketing
+// and newsletters pass through daily) writes nothing at all.
+//
+// It used to claim "webhook may be broken" on that evidence, which was a false
+// alarm every quiet fortnight and was firing on 2026-08-19 while test sends
+// proved the webhook healthy. The copy now says what it actually knows.
+//
+// TODO(receipt-heartbeat): true reachability needs a row written on EVERY
+// webhook hit including drops — a small schema addition, deliberately not
+// smuggled into a copy fix.
 async function checkSendGrid(): Promise<SourceHealth> {
   try {
     const admin = makeAdmin()
@@ -105,34 +120,31 @@ async function checkSendGrid(): Promise<SourceHealth> {
 
     if (!data) {
       return {
-        source: 'sendgrid', isHealthy: false, severity: 'warning',
+        source: 'sendgrid', isHealthy: true, severity: 'none',
         lastEventAt: null, hoursStale: null,
-        message: 'No SendGrid events found — verify webhook if SR is active',
-        actionLabel: 'Open SendGrid dashboard', actionUrl: 'https://app.sendgrid.com/',
+        message: 'No SportsRecruits mail filed yet',
       }
     }
 
     const hours = (Date.now() - new Date(data.created_at).getTime()) / (1000 * 60 * 60)
     const days = Math.round(hours / 24)
 
-    if (hours < 7 * 24) {
+    // Quiet stretches are NORMAL in recruiting (post-camp lulls, off-season),
+    // so the bar is 14 days and it never escalates to critical.
+    if (hours < 14 * 24) {
       return {
         source: 'sendgrid', isHealthy: true, severity: 'none',
         lastEventAt: data.created_at, hoursStale: Math.round(hours),
-        message: 'SendGrid webhook healthy',
+        message: 'SportsRecruits mail filing normally',
       }
     }
 
-    const severity = hours < 14 * 24 ? 'warning' as const : 'critical' as const
-    const message = severity === 'warning'
-      ? `No SendGrid events in ${days} days — verify webhook if SR is active`
-      : `No SendGrid events in ${days} days — webhook may be broken`
-
     return {
-      source: 'sendgrid', isHealthy: false, severity,
+      source: 'sendgrid', isHealthy: false, severity: 'warning',
       lastEventAt: data.created_at, hoursStale: Math.round(hours),
-      message,
-      actionLabel: 'Open SendGrid dashboard', actionUrl: 'https://app.sendgrid.com/',
+      message:
+        `No SportsRecruits mail has filed in ${days} days. This tracks mail that FILED, ` +
+        `not whether the webhook is reachable — a quiet stretch looks identical here.`,
     }
   } catch {
     return {

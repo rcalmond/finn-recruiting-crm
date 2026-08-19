@@ -758,13 +758,13 @@ export async function ingestSrMessage(
 
   // 6a. SR product notifications (view alerts) — drop silently, no coach content
   if (/college coach just viewed your/i.test(subject)) {
-    console.log(`[orphan-drop] ${receivedAt} — skipping SR product notification: ${subject}`)
+    console.log(`[orphan-drop] ${receivedAt} family=${identity.familyId} — skipping SR product notification: ${subject}`)
     return { status: 'dropped', why: 'sr_product_notification' }
   }
 
   // 6b. Non-SR detection — drop silently (non-recruiting email forwarded from Gmail)
   if (!isSRNotification(subject, innerBody, identity.playerFirstName)) {
-    console.log(`[orphan-drop] ${receivedAt} — skipping non-recruiting email from ${from}: ${subject || '(no subject)'}`)
+    console.log(`[orphan-drop] ${receivedAt} family=${identity.familyId} — skipping non-recruiting email from ${from}: ${subject || '(no subject)'}`)
     return { status: 'dropped', why: 'not_sr_notification' }
   }
 

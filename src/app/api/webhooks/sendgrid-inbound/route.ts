@@ -131,6 +131,15 @@ export async function POST(req: NextRequest) {
   const familyId = route.familyId
   const admin = familyAdmin(familyId)
 
+  // Name the resolved family on every routed message. Without this, mail that
+  // is DROPPED (non-SR test sends, marketing forwarded from a family's inbox)
+  // leaves no evidence of where routing sent it — which made plain test emails
+  // useless as routing proof during acceptance.
+  console.log(
+    `[sg-inbound] ${receivedAt} — routed family=${familyId}` +
+    ` via ${route.matchedAddress} | subject="${fields.subject}"`
+  )
+
   // 4. Gmail forwarding-confirmation capture — after routing (so we know whose
   //    code it is), before the non-SR drop that would otherwise discard it.
   //    Sender-gated on the From HEADER: envelope.from is rewritten by forwarding.
