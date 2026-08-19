@@ -36,6 +36,7 @@ import {
   GmailMessageDetails,
 } from '@/lib/gmail-client'
 import { parseGmailMessage, ParsedGmailEntry } from '@/lib/gmail-parser'
+import { loadFamilyIdentity } from '@/lib/family-identity'
 import { autoLabelKnownSenders } from '@/lib/gmail-autolabel'
 import { resolveSchoolAndCoach } from '@/lib/gmail-resolve'
 
@@ -75,6 +76,17 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = serviceClient()
+  // §4 FAIL CLOSED: direction detection compares the From header against the
+  // family's registered sending addresses. With an EMPTY set every message the
+  // family sent would file as inbound-from-a-coach — inverting touchpoint
+  // classification, falsely lighting awaiting-reply, promoting the stage floor
+  // on their own words. Refuse the run instead of inferring.
+  const identity = await loadFamilyIdentity(admin, ALMOND_FAMILY_ID)
+  if (!identity.hasSendingAddresses) {
+    console.error(`[gmail-backfill] refusing: family has no registered sending addresses — direction cannot be determined`)
+    return NextResponse.json({ ok: true, skipped: 'no_sending_addresses' })
+  }
+
 
   // Confirm gmail_tokens exists (i.e. OAuth was completed)
   const { data: tokenRow, error: tokenErr } = await admin
@@ -214,7 +226,7 @@ export async function POST(req: NextRequest) {
             let details: GmailMessageDetails
             try {
               details = await getMessageDetails(GMAIL_USER, messageId)
-              parsed  = parseGmailMessage(details)
+              parsed  = parseGmailMessage(details, identity)
             } catch (err) {
               const errMsg = err instanceof Error ? err.message : String(err)
               console.error(`[gmail-backfill] FAILED message ${messageId}: ${errMsg}`)

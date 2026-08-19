@@ -147,9 +147,12 @@ function GhostNumeral({ n, color, opacity }: { n: number | string; color: string
 export default function GetRecruitedClient({
   user,
   ingestionHealth,
+  unmatchedCount = 0,
 }: {
   user: User
   ingestionHealth?: SourceHealth[]
+  /** Orphaned inbound messages — the banner renders only when > 0. */
+  unmatchedCount?: number
 }) {
   const { schools, loading: schoolsLoading } = useSchools()
   const { entries: contactLog, loading: logLoading } = useContactLog()
@@ -277,6 +280,21 @@ export default function GetRecruitedClient({
       paddingBottom: 80,
     }}>
       {ingestionHealth && <SyncHealthBanner sources={ingestionHealth} />}
+
+      {/* Unmatched mail — appears ONLY when there is some, so a clean inbox
+          adds no noise. Mail that arrived and didn't match must never look
+          like mail that never arrived. */}
+      {unmatchedCount > 0 && (
+        <a href="/unmatched" style={{
+          display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none',
+          margin: '10px clamp(28px, 4vw, 56px) 0', padding: '9px 14px',
+          background: '#FBEAE8', border: '1px solid #EAD5CC', borderRadius: 10,
+          fontSize: 12.5, color: '#7A1E16', fontWeight: 600,
+        }}>
+          {unmatchedCount} message{unmatchedCount === 1 ? '' : 's'} arrived that we couldn&apos;t match to a school
+          <span style={{ marginLeft: 'auto', fontWeight: 700 }}>Review →</span>
+        </a>
+      )}
 
       {/* Masthead */}
       <div style={{ padding: '24px clamp(28px, 4vw, 56px) 4px' }}>

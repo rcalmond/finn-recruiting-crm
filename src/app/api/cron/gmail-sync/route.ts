@@ -31,6 +31,7 @@ import {
   GmailMessageDetails,
 } from '@/lib/gmail-client'
 import { parseGmailMessage, ParsedGmailEntry } from '@/lib/gmail-parser'
+import { loadFamilyIdentity } from '@/lib/family-identity'
 import { autoLabelKnownSenders } from '@/lib/gmail-autolabel'
 import { resolveSchoolAndCoach } from '@/lib/gmail-resolve'
 import { startRun, completeRun } from '@/lib/cron-runs'
@@ -91,6 +92,16 @@ export async function GET(req: NextRequest) {
   }
 
   const admin = serviceClient()
+  // §4 FAIL CLOSED: direction detection compares the From header against the
+  // family's registered sending addresses. With an EMPTY set every message the
+  // family sent would file as inbound-from-a-coach — inverting touchpoint
+  // classification, falsely lighting awaiting-reply, promoting the stage floor
+  // on their own words. Refuse the run instead of inferring.
+  const identity = await loadFamilyIdentity(admin, ALMOND_FAMILY_ID)
+  if (!identity.hasSendingAddresses) {
+    console.error(`[gmail-sync] refusing: family has no registered sending addresses — direction cannot be determined`)
+    return NextResponse.json({ ok: true, skipped: 'no_sending_addresses' })
+  }
   const runId = await startRun(admin, 'gmail-sync')
 
   // ── 2. Fetch last_sync_at ───────────────────────────────────────────────────
@@ -206,7 +217,7 @@ export async function GET(req: NextRequest) {
       let details: GmailMessageDetails
       try {
         details = await getMessageDetails(GMAIL_USER, messageId)
-        parsed  = parseGmailMessage(details)
+        parsed  = parseGmailMessage(details, identity)
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err)
         console.error(`[gmail-sync] FAILED message ${messageId}: ${errMsg}`)
