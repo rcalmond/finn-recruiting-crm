@@ -101,6 +101,12 @@ export function useSchools() {
 
 // ─── Contact Log ──────────────────────────────────────────────────────────────
 
+// contact_log ↔ schools has TWO foreign keys — contact_log.school_id (the
+// message's school) and schools.origin_contact_log_id (auto-add provenance) —
+// so a bare `school:schools(...)` embed is AMBIGUOUS and PostgREST refuses it
+// with PGRST201. Every embed below names its constraint explicitly. Do not
+// "simplify" these back to the bare form: the failure is a silent empty list,
+// not an error anyone sees.
 export function useContactLog(schoolId?: string) {
   const [entries, setEntries] = useState<ContactLogEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -109,7 +115,7 @@ export function useContactLog(schoolId?: string) {
   const fetchEntries = useCallback(async () => {
     let query = supabase
       .from('contact_log')
-      .select('*, school:schools(id, name, short_name)')
+      .select('*, school:schools!contact_log_school_id_fkey(id, name, short_name)')
       .order('sent_at', { ascending: false })
     if (schoolId) query = query.eq('school_id', schoolId)
     const { data, error } = await query
@@ -127,13 +133,13 @@ export function useContactLog(schoolId?: string) {
   }, [fetchEntries, supabase, schoolId])
 
   const insertContact = useCallback(async (entry: Omit<ContactLogEntry, 'id' | 'created_at' | 'school'>) => {
-    const { data, error } = await supabase.from('contact_log').insert(entry).select('*, school:schools(id, name, short_name)').single()
+    const { data, error } = await supabase.from('contact_log').insert(entry).select('*, school:schools!contact_log_school_id_fkey(id, name, short_name)').single()
     if (!error && data) setEntries(prev => [data as ContactLogEntry, ...prev])
     return error
   }, [supabase])
 
   const insertContacts = useCallback(async (entries: Omit<ContactLogEntry, 'id' | 'created_at' | 'school'>[]) => {
-    const { data, error } = await supabase.from('contact_log').insert(entries).select('*, school:schools(id, name, short_name)')
+    const { data, error } = await supabase.from('contact_log').insert(entries).select('*, school:schools!contact_log_school_id_fkey(id, name, short_name)')
     if (!error && data) setEntries(prev => [...(data as ContactLogEntry[]), ...prev])
     return error
   }, [supabase])
