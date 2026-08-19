@@ -720,6 +720,55 @@ export async function POST(req: NextRequest) {
 
   console.log(`[sg-inbound] ${receivedAt} | from="${from}" | to="${to}" | subject="${subject}"`)
 
+  // ── OBSERVATION ONLY — email-boundary Amendment 2 ───────────────────────────
+  //
+  // The per-family routing design rests on one external-platform assumption:
+  // that SendGrid posts an `envelope` field carrying the TRUE SMTP recipient,
+  // intact through Gmail auto-forwarding — while the `to` HEADER names the
+  // ORIGINAL mailbox and would mis-file if routed on. That assumption is
+  // currently held from documentation, not from this pipeline's own evidence.
+  //
+  // This block logs both fields side by side on real forwarded mail so the
+  // assumption can be confirmed (or falsified) before any code depends on it.
+  // It routes nothing, reads no DB, changes no behaviour, and must never throw:
+  // ingestion continues identically whatever this observes.
+  //
+  // Query it with: runtime logs, search "envelope-probe".
+  // REMOVE (or fold into routing) once the routing cutover ships.
+  try {
+    const envelopeRaw = (form.get('envelope') as string | null) ?? ''
+    let envTo: unknown = null
+    let envFrom: unknown = null
+    let parsedOk = false
+    if (envelopeRaw) {
+      try {
+        const env = JSON.parse(envelopeRaw) as { to?: unknown; from?: unknown }
+        envTo = env.to ?? null
+        envFrom = env.from ?? null
+        parsedOk = true
+      } catch {
+        parsedOk = false
+      }
+    }
+    console.log(
+      `[envelope-probe] ${receivedAt}` +
+      ` | envelope_present=${envelopeRaw ? 'yes' : 'NO'}` +
+      ` parsed=${parsedOk ? 'ok' : 'FAIL'}` +
+      ` | envelope.to=${JSON.stringify(envTo)}` +
+      ` | envelope.from=${JSON.stringify(envFrom)}` +
+      ` | header.to="${to}"` +
+      ` | header.from="${from}"` +
+      ` | subject="${subject}"` +
+      ` | envelope_raw=${envelopeRaw.slice(0, 200)}`
+    )
+  } catch (probeErr) {
+    // A probe must never cost a message.
+    console.log(
+      `[envelope-probe] ${receivedAt} — probe failed (ingestion unaffected): ` +
+      (probeErr instanceof Error ? probeErr.message : String(probeErr))
+    )
+  }
+
   // 3. SPF / DKIM — reject only if both fail (forwarded emails may fail DKIM)
   if (!spfPasses(spf) && !dkimPasses(dkim)) {
     console.log(`[sg-inbound] ${receivedAt} — rejected: SPF="${spf}" DKIM="${dkim}"`)
