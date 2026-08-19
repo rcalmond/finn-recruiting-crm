@@ -863,7 +863,7 @@ export default function DraftModal({ mode, userId, onClose, onSent, onDismissed,
                       <button
                         onClick={handleCampaignPersonalize}
                         disabled={generating || sending !== null}
-                        title="Fill [Finn: ...] placeholders with AI-generated content"
+                        title="Fill [PLAYER: ...] placeholders with AI-generated content"
                         style={{
                           ...copyBtnStyle(false),
                           opacity: generating || sending !== null ? 0.5 : 1,

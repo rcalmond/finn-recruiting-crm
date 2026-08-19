@@ -27,6 +27,12 @@ export async function POST(req: NextRequest) {
 
     const admin = familyAdmin(familyId) // T1: service role, family-scoped (SSE/LLM path)
 
+    // Identity for the advisor framing — the family's own player.
+    // TODO(multi-player): first player by created_at.
+    const { data: prepPlayer } = await admin.from('players')
+      .select('name, position, grad_year, club, academic_summary')
+      .order('created_at', { ascending: true }).limit(1).maybeSingle()
+
     const { school, coaches, contactLog, upcomingCamps: camps, declineHistory: declineRows, statusUpdates, currentAssets } =
       await fetchSchoolContext(admin, schoolId)
 
@@ -47,7 +53,7 @@ export async function POST(req: NextRequest) {
     const message = await anthropic.messages.create({
       model: 'claude-opus-4-7',
       max_tokens: 4096,
-      system: buildPrepSystemPrompt(currentAssets),
+      system: buildPrepSystemPrompt(currentAssets, prepPlayer, prepPlayer?.academic_summary),
       messages: [{ role: 'user', content: userPrompt }],
     })
 

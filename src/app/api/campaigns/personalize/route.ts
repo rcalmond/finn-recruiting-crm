@@ -14,7 +14,7 @@ import { createClient } from '@/lib/supabase/server'
 import { familyAdmin } from '@/lib/tenant-db'
 import { getFamilyContext } from '@/lib/require-family'
 import {
-  CAMPAIGN_PERSONALIZE_SYSTEM_PROMPT,
+  buildCampaignPersonalizeSystemPrompt,
   buildCampaignPersonalizePrompt,
 } from '@/lib/prompts'
 
@@ -37,6 +37,12 @@ export async function POST(req: NextRequest) {
     }
 
     const db = familyAdmin(familyId) // T1: service role, family-scoped (SSE/LLM path)
+
+    // Identity for the personalizer — the family's own player, never a literal.
+    // TODO(multi-player): first player by created_at.
+    const { data: personalizePlayer } = await db.from('players')
+      .select('name, position, grad_year, club, academic_summary, highlights')
+      .order('created_at', { ascending: true }).limit(1).maybeSingle()
 
     // Fetch school context
     const { data: school } = await db
@@ -89,7 +95,7 @@ export async function POST(req: NextRequest) {
     const stream = anthropic.messages.stream({
       model:      'claude-opus-4-7',
       max_tokens: 1000,
-      system:     CAMPAIGN_PERSONALIZE_SYSTEM_PROMPT,
+      system:     buildCampaignPersonalizeSystemPrompt(personalizePlayer, personalizePlayer?.academic_summary, personalizePlayer?.highlights),
       messages:   [{ role: 'user', content: userPrompt }],
     })
 

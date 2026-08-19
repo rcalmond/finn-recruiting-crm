@@ -137,12 +137,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await generateCampaignEmailBody(generatorInput)
-
+    // Identity first: the persona feeds BOTH the body and the subject, and a
+    // missing player must stop the draft before a model call, not after.
     // TODO(multi-player): first player by created_at
     const { data: playerRow } = await db.from('players')
-      .select('name, position, grad_year')
+      .select('name, position, grad_year, club')
       .order('created_at', { ascending: true }).limit(1).maybeSingle()
+
+    const result = await generateCampaignEmailBody({ ...generatorInput, player: playerRow })
     if (!(playerRow?.name as string | undefined)?.trim()) {
       return NextResponse.json(
         { error: 'No player profile yet — add your player before drafting outreach.' },

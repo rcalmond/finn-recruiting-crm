@@ -7,6 +7,9 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
+import {
+  buildDraftingPersona, personaIdentityLine, personaVoiceDescriptor, type PersonaSource,
+} from './drafting-persona'
 import { RECRUITING_JUDGMENT } from '@/lib/recruiting-judgment'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -40,6 +43,8 @@ export interface GenerateInput {
   currentReelUrl: string | null
   statusUpdates?: Array<{ body: string; share_with_coach: string; created_at: string }>
   regenerationHint?: string | null
+  /** The family's player row — identity for the drafting persona. */
+  player?: PersonaSource | null
 }
 
 export interface GenerateOutput {
@@ -50,9 +55,14 @@ export interface GenerateOutput {
 
 // ─── Generator ──────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are drafting a personalized recruiting email from Finn Almond, a 2027 left wingback playing for Albion SC Boulder County MLS NEXT Academy, to a college soccer coach. Your goal is to draft an email that synthesizes the campaign messages while respecting what's already been discussed with this coach. Don't repeat questions that have been answered. Reference specific prior exchanges when relevant. Match the tone of past conversations.
+function buildSystemPrompt(player?: PersonaSource | null): string {
+  // Identity from the family's players row (drafting-persona.ts). Absent
+  // fields are OMITTED — never inferred, abbreviated, or invented.
+  const persona = buildDraftingPersona(player)
+  const FIRST = persona.firstName || 'the player'
+  return `You are drafting a personalized recruiting email from ${personaIdentityLine(persona)}, to a college soccer coach. Your goal is to draft an email that synthesizes the campaign messages while respecting what's already been discussed with this coach. Don't repeat questions that have been answered. Reference specific prior exchanges when relevant. Match the tone of past conversations.
 
-VOICE: Finn is a 17-year-old high school senior writing to a college soccer coach. The email must sound like a serious, polite, articulate teenager, not a corporate professional, not a parent, not a recruiter.
+VOICE: ${personaVoiceDescriptor(persona)}. The email must sound like a serious, polite, articulate teenager, not a corporate professional, not a parent, not a recruiter.
 
 Hard voice rules:
 - NEVER use em-dashes (—) or en-dashes (–). Use periods, commas, or simple connecting words instead.
@@ -64,9 +74,10 @@ Hard voice rules:
 
 Tone: direct, genuine, a little understated. Specific over generic. Avoid recruiting-spam phrasing. Length: 100-180 words for fresh conversations, 60-120 words for established relationships.
 
-Output: write the email body only. Start with a natural greeting like 'Coach {LastName},'. Do not include a subject line. Sign as Finn (just 'Finn' on its own line at the end, no signature block, that's handled separately by the email client).
+Output: write the email body only. Start with a natural greeting like 'Coach {LastName},'. Do not include a subject line. Sign as ${FIRST} (just '${FIRST}' on its own line at the end, no signature block, that's handled separately by the email client).
 
 ${RECRUITING_JUDGMENT}`
+}
 
 export async function generateCampaignEmailBody(
   input: GenerateInput
@@ -89,7 +100,7 @@ export async function generateCampaignEmailBody(
 
   // Build campaign messages section
   const messageSection = input.messageSet?.trim()
-    ? `CAMPAIGN MESSAGES (Finn wants to communicate this round):\n${input.messageSet}`
+    ? `CAMPAIGN MESSAGES (the player wants to communicate this round):\n${input.messageSet}`
     : 'CAMPAIGN MESSAGES:\nGeneric spring follow-up.'
 
   // Build camps section
@@ -109,11 +120,18 @@ export async function generateCampaignEmailBody(
     ? `${input.coachName}${input.coachRole ? ` (${input.coachRole})` : ''}`
     : 'Coach (unknown name)'
 
-  const userMessage = `CONTEXT ABOUT FINN:
-- Position: Left wingback
-- Class: 2027
-- Club: Albion SC Boulder County MLS NEXT Academy U19
-- Recent reel: ${input.currentReelUrl ?? 'not yet available'}
+  // Identity from the family's player. Every line conditional — an absent
+  // field is OMITTED, never inferred (the club contract).
+  const persona = buildDraftingPersona(input.player)
+  const contextLines = [
+    persona.position ? `- Position: ${persona.position}` : '',
+    persona.gradYear ? `- Class: ${persona.gradYear}` : '',
+    persona.club ? `- Club: ${persona.club}` : '',
+    `- Recent reel: ${input.currentReelUrl ?? 'not yet available'}`,
+  ].filter(Boolean).join('\n')
+
+  const userMessage = `CONTEXT ABOUT ${(persona.name || 'THE PLAYER').toUpperCase()}:
+${contextLines}
 
 SCHOOL: ${input.schoolName}
 COACH: ${coachLabel}
@@ -142,7 +160,7 @@ Write the email body.`
     const response = await client.messages.create({
       model: 'claude-opus-4-7',
       max_tokens: 600,
-      system: SYSTEM_PROMPT,
+      system: buildSystemPrompt(input.player),
       messages: [{ role: 'user', content: userMessage }],
     })
 

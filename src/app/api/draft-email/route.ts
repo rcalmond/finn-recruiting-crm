@@ -13,6 +13,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { familyAdmin } from '@/lib/tenant-db'
+import { buildOutreachSubject } from '@/lib/player-identity'
+import { enforceSubject } from '@/lib/subject-guard'
 import { getFamilyContext } from '@/lib/require-family'
 import { buildEmailDraftPrompt } from '@/lib/prompts'
 
@@ -59,7 +61,24 @@ export async function POST(req: NextRequest) {
 
     const isReply = !!body.replyToContactLogId
 
-    const { system: baseSystem, user: userPrompt } = await buildEmailDraftPrompt(familyAdmin(familyId), {
+    const db = familyAdmin(familyId)
+
+    // ENFORCE, DON'T ASK. A templated subject in the prompt was overridden by
+    // contradicting persona instructions on 2026-08-19 — the model emitted a
+    // different family's child. Prose does not hold a line, so the subject is
+    // COMPUTED here and the model's version is only ever evidence.
+    // TODO(multi-player): first player by created_at.
+    const [{ data: subjectPlayer }, { data: subjectSchool }] = await Promise.all([
+      db.from('players').select('name, position, grad_year')
+        .order('created_at', { ascending: true }).limit(1).maybeSingle(),
+      db.from('schools').select('name, short_name').eq('id', body.schoolId).maybeSingle(),
+    ])
+    const canonicalSubject = buildOutreachSubject(
+      subjectPlayer,
+      (subjectSchool?.short_name as string | null) || (subjectSchool?.name as string | null) || '',
+    )
+
+    const { system: baseSystem, user: userPrompt } = await buildEmailDraftPrompt(db, {
       schoolId: body.schoolId,
       coachId: body.coachId ?? null,
       brief: body.brief,
@@ -92,7 +111,7 @@ export async function POST(req: NextRequest) {
     const parsed = extractJSON(raw)
     if (parsed) {
       return NextResponse.json({
-        subject: parsed.subject as string | undefined,
+        ...enforceSubject(parsed.subject as string | undefined, canonicalSubject, subjectPlayer?.name ?? null),
         body: parsed.body as string,
         closingQuestion: parsed.closingQuestion as string | undefined,
         closingAlternatives: Array.isArray(parsed.closingAlternatives) ? parsed.closingAlternatives : [],
@@ -118,7 +137,7 @@ export async function POST(req: NextRequest) {
 
     if (parsed2) {
       return NextResponse.json({
-        subject: parsed2.subject as string | undefined,
+        ...enforceSubject(parsed2.subject as string | undefined, canonicalSubject, subjectPlayer?.name ?? null),
         body: parsed2.body as string,
         closingQuestion: parsed2.closingQuestion as string | undefined,
         closingAlternatives: Array.isArray(parsed2.closingAlternatives) ? parsed2.closingAlternatives : [],
