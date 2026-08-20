@@ -57,6 +57,15 @@ export type MintResult =
   | { ok: false; reason: 'family_not_found' }
   | { ok: false; reason: 'exhausted_attempts' | 'insert_failed'; detail?: string }
 
+/** WHO minted. Required, and deliberately a POSITIONAL argument rather than an
+ *  optional field on MintOptions: minting creates a family's only routing
+ *  credential, so "which admin did this" must never be silently omittable. A
+ *  required position makes the compiler find every call site. */
+export interface Minter {
+  userId: string | null
+  email: string | null
+}
+
 export interface MintOptions {
   /** Mint a SECOND address for a family that already has one. Off by default:
    *  silently minting duplicates makes "which address is mine?" ambiguous
@@ -67,6 +76,7 @@ export interface MintOptions {
 
 export async function mintInboundAddress(
   familyId: string,
+  minter: Minter,
   opts: MintOptions = {},
 ): Promise<MintResult> {
   const db = rawService()
@@ -100,6 +110,8 @@ export async function mintInboundAddress(
         address,
         label: opts.label ?? 'primary — minted',
         status: 'active',
+        minted_by: minter.userId,
+        minted_by_email: minter.email,
       })
       .select('id')
       .single()

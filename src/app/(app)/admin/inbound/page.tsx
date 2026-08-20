@@ -13,12 +13,12 @@ export default async function AdminInboundPage() {
   const db = rawService()
   const [{ data: rows }, { data: families }, { data: addresses }] = await Promise.all([
     db.from('inbound_quarantine')
-      .select('id, received_at, envelope_to, envelope_from, header_from, header_to, subject, reason, matched_family_ids, status, resolved_at, resolver_note')
+      .select('id, received_at, envelope_to, envelope_from, header_from, header_to, subject, reason, matched_family_ids, status, resolved_at, resolver_note, resolved_by_email')
       .order('received_at', { ascending: false })
       .limit(100),
     db.from('families').select('id, name').order('name'),
     db.from('family_inbound_addresses')
-      .select('id, family_id, address, status, label, created_at')
+      .select('id, family_id, address, status, label, created_at, minted_by_email')
       .order('created_at', { ascending: true }),
   ])
 

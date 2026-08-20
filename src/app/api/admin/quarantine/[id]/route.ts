@@ -37,9 +37,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   // ── Discard ───────────────────────────────────────────────────────────────
   if (body.action === 'discard') {
+    // Discard is an ACTOR-BEARING decision, not a cleanup: somebody decided this
+    // message belongs to nobody. It is recorded exactly like a replay.
     await db.from('inbound_quarantine').update({
       status: 'discarded',
       resolved_at: new Date().toISOString(),
+      resolved_by: admin.userId,
+      resolved_by_email: admin.email,
       resolver_note: body.note ?? null,
     }).eq('id', id)
     return NextResponse.json({ ok: true, action: 'discarded' })
@@ -71,6 +75,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     status: 'resolved',
     resolved_at: new Date().toISOString(),
     resolved_family_id: body.familyId,
+    resolved_by: admin.userId,
+    resolved_by_email: admin.email,
     resolver_note: body.note ?? `replayed → ${result.status}${result.status === 'dropped' ? ` (${result.why})` : ''}`,
   }).eq('id', id)
 

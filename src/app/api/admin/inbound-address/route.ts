@@ -24,10 +24,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'familyId is required' }, { status: 400 })
   }
 
-  const result = await mintInboundAddress(body.familyId, {
-    allowAdditional: body.allowAdditional === true,
-    label: body.label,
-  })
+  const result = await mintInboundAddress(
+    body.familyId,
+    { userId: admin.userId, email: admin.email },
+    {
+      allowAdditional: body.allowAdditional === true,
+      label: body.label,
+    },
+  )
 
   if (result.ok) {
     return NextResponse.json({ ok: true, address: result.address, attempts: result.attempts })

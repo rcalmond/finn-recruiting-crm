@@ -13,12 +13,16 @@ import { createClient } from '@/lib/supabase/server'
 export interface AdminCheck {
   ok: boolean
   userId: string | null
+  /** The acting admin's email, for audit columns. The id is the durable key;
+   *  the email is the READABLE one — an audit row nobody can read without a
+   *  second lookup is the same decoration as no audit row at all. */
+  email: string | null
 }
 
 export async function requireAdmin(): Promise<AdminCheck> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false, userId: null }
+  if (!user) return { ok: false, userId: null, email: null }
 
   const allow = (process.env.ADMIN_USER_IDS ?? '')
     .split(',')
@@ -26,5 +30,5 @@ export async function requireAdmin(): Promise<AdminCheck> {
     .filter(Boolean)
 
   // Fail closed: an unset allowlist grants nobody access.
-  return { ok: allow.includes(user.id), userId: user.id }
+  return { ok: allow.includes(user.id), userId: user.id, email: user.email ?? null }
 }

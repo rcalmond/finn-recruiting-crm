@@ -17,6 +17,7 @@ export interface QuarantineRow {
   status: string
   resolved_at: string | null
   resolver_note: string | null
+  resolved_by_email: string | null
 }
 export interface FamilyOption { id: string; name: string | null }
 export interface AddressRow {
@@ -26,6 +27,7 @@ export interface AddressRow {
   status: string
   label: string | null
   created_at: string
+  minted_by_email: string | null
 }
 
 const REASON_COPY: Record<string, string> = {
@@ -171,6 +173,9 @@ export default function AdminInboundClient({
                   : list.map(a => (
                       <span key={a.id} style={{ color: a.status === 'active' ? SP.inkMid : SP.inkMute }}>
                         {' · '}{a.address}{a.status !== 'active' ? ` (${a.status})` : ''}
+                        <span style={{ color: SP.inkMute }}>
+                          {a.minted_by_email ? ` — minted by ${a.minted_by_email}` : ' — minted by (unrecorded)'}
+                        </span>
                       </span>
                     ))}
               </div>
@@ -255,6 +260,7 @@ export default function AdminInboundClient({
               {done.map(r => (
                 <div key={r.id} style={{ fontSize: 12, color: SP.inkLo, padding: '6px 0', borderBottom: `1px solid ${SP.line}` }}>
                   {new Date(r.received_at).toLocaleDateString()} · {r.subject || '(no subject)'} · <b>{r.status}</b>
+                  {r.resolved_by_email ? ` by ${r.resolved_by_email}` : ' by (unrecorded)'}
                   {r.resolver_note ? ` — ${r.resolver_note}` : ''}
                 </div>
               ))}
