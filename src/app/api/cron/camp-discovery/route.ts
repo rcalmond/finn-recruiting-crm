@@ -12,8 +12,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { familyAdmin, catalogAdmin } from '@/lib/tenant-db'
 import { searchTavily } from '@/lib/tavily'
 import { extractCampsFromText, shouldSkipProposal, classifyCampUpdate } from '@/lib/camp-extractor'
-import { startRun, completeRun } from '@/lib/cron-runs'
-import { buildFamilyScanSet, distinctTargets } from '@/lib/cron-scan-set'
+import { startRun, completeRun, priorRunCount } from '@/lib/cron-runs'
+import { buildFamilyScanSet, distinctTargets, interleaveByFamily, rotate } from '@/lib/cron-scan-set'
 import { fetchAll } from '@/lib/fetch-all'
 
 // The ALMOND_FAMILY_ID pin is GONE. It scanned one family's schools, which was
@@ -93,12 +93,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 })
   }
 
-  const entries = scan.entries
+  // FAIRNESS: this run WILL probably be killed before it finishes (see the
+  // wall-clock constraint in Section 9). Interleaving across families makes that
+  // cost every family proportionally instead of starving whoever sorts last, and
+  // rotating the start by the run counter moves the tail that keeps getting cut.
+  // It does not make the run complete — it makes the incompleteness survivable.
+  const rotation = await priorRunCount(runDb, 'camp-discovery')
+  const entries = rotate(interleaveByFamily(scan.entries), rotation)
   const distinctSchools = distinctTargets(entries, s => s.short_name || s.name)
   console.log(
     `[camp-discovery] ${startedAt} — scan set: ${entries.length} (family, school) pair(s) ` +
-    `across ${scan.families.length} family(ies); ${distinctSchools} distinct school(s). ` +
-    `The gap is duplicated external search — per-school work billed per pair.`
+    `across ${scan.families.length} family(ies); ${distinctSchools} distinct school(s); ` +
+    `interleaved by family, rotated by ${rotation}. ` +
+    `The pair-vs-distinct gap is duplicated external search.`
   )
 
   const perSchool: SchoolStats[] = []

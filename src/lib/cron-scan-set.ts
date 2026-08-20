@@ -73,6 +73,52 @@ export async function buildFamilyScanSet<T extends { id: string }>(
 }
 
 /**
+ * FAIRNESS UNDER A KILL.
+ *
+ * A flat loop over pairs grouped by family means a run that dies partway always
+ * starves whoever sorts last — the same family, every week, invisibly. Two cheap
+ * properties fix that without any stored state:
+ *
+ *   INTERLEAVE — round-robin across families, so an interrupted run costs every
+ *   family PROPORTIONALLY instead of costing one family everything. A kill at the
+ *   halfway mark leaves each family about half done rather than the first family
+ *   complete and the last untouched.
+ *
+ *   ROTATE — start each run at a different offset, so within a family a different
+ *   subset leads each week and the tail that keeps getting cut is not always the
+ *   same schools. Rotating a round-robin list is cyclic, so it preserves the
+ *   interleave.
+ *
+ * This does NOT make the run complete. It makes the incompleteness survivable and
+ * self-correcting across runs, which is the cheap half of the fix; resumability
+ * is the real one.
+ */
+export function interleaveByFamily<T>(entries: ScanEntry<T>[]): ScanEntry<T>[] {
+  const byFamily = new Map<string, ScanEntry<T>[]>()
+  for (const e of entries) {
+    const list = byFamily.get(e.familyId)
+    if (list) list.push(e)
+    else byFamily.set(e.familyId, [e])
+  }
+  const queues = Array.from(byFamily.values())
+  const out: ScanEntry<T>[] = []
+  for (let i = 0; out.length < entries.length; i++) {
+    for (const q of queues) {
+      if (i < q.length) out.push(q[i])
+    }
+  }
+  return out
+}
+
+/** Cyclic rotation by `offset`. Offset comes from the run counter, so each run
+ *  begins somewhere new and the starved tail moves. */
+export function rotate<T>(items: T[], offset: number): T[] {
+  if (items.length === 0) return items
+  const n = ((offset % items.length) + items.length) % items.length
+  return n === 0 ? items : [...items.slice(n), ...items.slice(0, n)]
+}
+
+/**
  * How many DISTINCT external targets a scan set implies, keyed by whatever
  * identifies the outside thing being fetched (a school name, a page url).
  * Reported next to the pair count so duplicated external work stays visible.

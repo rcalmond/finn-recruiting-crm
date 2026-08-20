@@ -21,8 +21,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { familyAdmin, catalogAdmin } from '@/lib/tenant-db'
 import { scrapeSchool } from '@/lib/coach-scraper'
-import { startRun, completeRun } from '@/lib/cron-runs'
-import { buildFamilyScanSet, distinctTargets } from '@/lib/cron-scan-set'
+import { startRun, completeRun, priorRunCount } from '@/lib/cron-runs'
+import { buildFamilyScanSet, distinctTargets, interleaveByFamily, rotate } from '@/lib/cron-scan-set'
 
 // The ALMOND_FAMILY_ID pin is GONE. It scraped one family's schools, so a school
 // only another family tracked was never scraped and nobody saw an error — a cron
@@ -88,7 +88,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 })
   }
 
-  const allSchools = scan.entries
+  // Same fairness shape as camp-discovery. This job completes comfortably today
+  // (32-70s), but it scales identically, so it gets the property before it needs it.
+  const rotation = await priorRunCount(runDb, 'coach-roster-sync')
+  const allSchools = rotate(interleaveByFamily(scan.entries), rotation)
   const distinctPages = distinctTargets(allSchools, s => s.coach_page_url)
   console.log(
     `[coach-roster-sync] ${startedAt} — scan set: ${allSchools.length} (family, school) pair(s) ` +
