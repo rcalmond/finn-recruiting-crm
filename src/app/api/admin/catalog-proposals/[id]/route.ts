@@ -79,10 +79,28 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
    *  else's list. */
   async function linkFamilyRow(discoveryId: string): Promise<string | null> {
     if (!proposal!.origin_school_id) return null
+
+    // Carry the catalog's facts onto the family row, exactly as a normal
+    // catalog add does (toSchoolInsert copies division and location). Without
+    // this the row stays division-null and keeps reading "Unclassified" even
+    // though it is now linked to a classified school — the family would see no
+    // change from a review that did resolve their request.
+    const { data: cat } = await db
+      .from('discovery_schools')
+      .select('division, city, state, conference')
+      .eq('id', discoveryId)
+      .maybeSingle()
+
+    const patch: Record<string, unknown> = { discovery_school_id: discoveryId }
+    if (cat?.division) patch.division = cat.division
+    if (cat?.conference) patch.conference = cat.conference
+    const location = [cat?.city, cat?.state].filter(Boolean).join(', ')
+    if (location) patch.location = location
+
     const scoped = familyAdmin(proposal!.proposed_by_family_id as string)
     const { error } = await scoped
       .from('schools')
-      .update({ discovery_school_id: discoveryId })
+      .update(patch)
       .eq('id', proposal!.origin_school_id)
     return error?.message ?? null
   }
