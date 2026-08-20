@@ -7,6 +7,7 @@ import type { School } from '@/lib/types'
 import type { SchoolRecencyState } from '@/lib/school-recency-state'
 import { SCHOOL_RECENCY_STYLE } from '@/lib/school-recency-state'
 import 'leaflet/dist/leaflet.css'
+import { divisionLabel } from '@/lib/division-label'
 
 // ── Icon creation ───────────────────────────────────────────────────────────
 
@@ -113,7 +114,7 @@ export default function SchoolsMap({ schools, onSchoolClick }: Props) {
                     {school.short_name ?? school.name}
                   </div>
                   <div style={{ fontSize: 12, color: '#666', marginBottom: 2 }}>
-                    Tier {school.category} · {school.division}
+                    Tier {school.category} · {divisionLabel(school.division)}
                   </div>
                   {stateStyle && (
                     <div style={{

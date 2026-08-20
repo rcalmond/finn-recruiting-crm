@@ -51,8 +51,15 @@ export default function DashboardView({ schools, contactLog, actionItems, onNavi
   const statusCounts = Object.fromEntries(STATUSES.map(s => [s, 0])) as Record<string, number>
   active.forEach(s => { statusCounts[s.status] = (statusCounts[s.status] || 0) + 1 })
 
-  const divCounts = { D1: 0, D2: 0, D3: 0 }
-  active.forEach(s => { if (s.division in divCounts) divCounts[s.division as keyof typeof divCounts]++ })
+  // Unclassified is a real bucket, not a gap. These bars are proportions of
+  // active.length, so a school with no division would inflate the denominator
+  // while appearing in no bar — the totals would quietly stop adding up.
+  const divCounts = { D1: 0, D2: 0, D3: 0, Unclassified: 0 }
+  active.forEach(s => {
+    const d = s.division
+    if (d && d in divCounts) divCounts[d as keyof typeof divCounts]++
+    else divCounts.Unclassified++
+  })
 
   const admitCounts = Object.fromEntries(ADMIT_LEVELS.map(a => [a, 0])) as Record<string, number>
   active.forEach(s => { if (s.admit_likelihood) admitCounts[s.admit_likelihood] = (admitCounts[s.admit_likelihood] || 0) + 1 })
@@ -159,6 +166,9 @@ export default function DashboardView({ schools, contactLog, actionItems, onNavi
           <MiniBar label="D1" count={divCounts.D1} total={active.length} color="#ef4444" />
           <MiniBar label="D2" count={divCounts.D2} total={active.length} color="#f59e0b" />
           <MiniBar label="D3" count={divCounts.D3} total={active.length} color="#10b981" />
+          {divCounts.Unclassified > 0 && (
+            <MiniBar label="Unclassified" count={divCounts.Unclassified} total={active.length} color="#94a3b8" />
+          )}
           <div style={{ marginTop: 16 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12 }}>By Tier</div>
             <MiniBar label="Tier A" count={tierCounts.A} total={active.length} color={CATEGORY_COLORS.A} />

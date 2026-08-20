@@ -7,6 +7,7 @@ import { ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate } from '@/lib/
 import ContactLogPanel from './ContactLogPanel'
 import DraftModal from './DraftModal'
 import PrepForCallModal from './PrepForCallModal'
+import { divisionLabel } from '@/lib/division-label'
 
 // status is intentionally NOT editable here — the stage/milestone model
 // superseded the legacy Status enum (Pipeline removal Pass 1). New schools get
@@ -71,7 +72,10 @@ export default function SchoolModal(props: Props) {
   const [name, setName] = useState(s?.name ?? '')
   const [shortName, setShortName] = useState(s?.short_name ?? '')
   const [category, setCategory] = useState<Category>(s?.category ?? 'B')
-  const [division, setDivision] = useState<Division>(s?.division ?? 'D3')
+  // NEVER default a missing division to a real one. Opening an unclassified
+  // school and saving used to silently write 'D3' — the same fabricated value
+  // the off-universe add used to insert, resurfacing through the edit path.
+  const [division, setDivision] = useState<Division | ''>(s?.division ?? '')
   const [conference, setConference] = useState(s?.conference ?? '')
   const [location, setLocation] = useState(s?.location ?? '')
   const [lastContact, setLastContact] = useState(s?.last_contact ?? '')
@@ -168,7 +172,7 @@ export default function SchoolModal(props: Props) {
     // status is deliberately omitted from the edit payload (left untouched) and
     // defaulted only for a brand-new school on insert.
     const data = {
-      name, short_name: shortName || null, category, division,
+      name, short_name: shortName || null, category, division: division || null,
       conference: conference || null, location: location || null,
       last_contact: lastContact || null, head_coach: headCoach || null,
       coach_email: coachEmail || null,
@@ -217,7 +221,7 @@ export default function SchoolModal(props: Props) {
                 <>
                   {s!.admit_likelihood && <span style={pill(ac + '18', ac)}>{s!.admit_likelihood}</span>}
                   <span style={pill(cc + '14', cc)}>{categoryLabel(s!.category)}</span>
-                  {s!.division && <span style={pill(M.paperDeep, M.inkMid)}>{s!.division}{s!.conference ? ` · ${s!.conference}` : ''}</span>}
+                  <span style={pill(M.paperDeep, M.inkMid)}>{divisionLabel(s!.division)}{s!.conference ? ` · ${s!.conference}` : ''}</span>
                 </>
               )
             })()}
@@ -267,7 +271,8 @@ export default function SchoolModal(props: Props) {
                   </select>
                 </Field>
                 <Field label="Division">
-                  <select value={division} onChange={e => setDivision(e.target.value as Division)} style={fieldStyle}>
+                  <select value={division} onChange={e => setDivision(e.target.value as Division | '')} style={fieldStyle}>
+                    <option value="">Unclassified</option>
                     {DIVISIONS.map(d => <option key={d}>{d}</option>)}
                   </select>
                 </Field>

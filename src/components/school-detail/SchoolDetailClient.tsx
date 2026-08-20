@@ -23,6 +23,7 @@ import CallPrepSection from '@/components/school-detail/CallPrepSection'
 import ResearchSection from '@/components/school-detail/ResearchSection'
 import StatusUpdatesPanel from '@/components/school-detail/StatusUpdatesPanel'
 import NotePopover from '@/components/school-detail/NotePopover'
+import { divisionLabel } from '@/lib/division-label'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -1794,7 +1795,7 @@ function LogisticsStrip({
   const [editingAdmit, setEditingAdmit] = useState(false)
 
   const aboutRows: [string, string][] = [
-    ['Division',     school.division                                          ],
+    ['Division',     divisionLabel(school.division)                            ],
     ['Conference',   school.conference                                  ?? ''],
     ['Location',     school.location                                    ?? ''],
     ['Status',       school.status                                            ],

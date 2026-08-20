@@ -19,7 +19,11 @@ export interface School {
   name: string
   short_name: string | null
   category: Category
-  division: Division
+  /** NULLABLE since the add-a-school flow: a family who proposes a school the
+   *  catalog does not hold has given us a name and nothing else, and inventing
+   *  a division for them is the failure the old off-universe add committed.
+   *  Render it through divisionLabel() so it reads as Unclassified, never blank. */
+  division: Division | null
   conference: string | null
   location: string | null
   status: Status

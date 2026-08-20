@@ -7,6 +7,7 @@ import {
   rqBucket, rqAgeDays, summarizeRq, rqSearchUrl,
   rqMarkCompletedPatch, rqMarkUpdatedPatch, rqSetDatePatch, rqSetLinkPatch,
 } from '@/lib/rq'
+import { divisionLabel } from '@/lib/division-label'
 
 // Brand chrome (Throughball, Brand Sweep Pass 4D). The old petrol accent is
 // repointed at the shared --tb-pitch; softer ink. TIER_STYLE + the staleness
@@ -195,7 +196,7 @@ function RqRow({
           {school.short_name || school.name}
         </div>
         <div style={{ fontSize: 11.5, color: C.inkLo, marginTop: 1 }}>
-          {school.division}
+          {divisionLabel(school.division)}
           {subline && <> · {subline}</>}
         </div>
       </div>

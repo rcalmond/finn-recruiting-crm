@@ -21,6 +21,7 @@ import {
 import type { SchoolRecencyState, SchoolRecencyResult } from '@/lib/school-recency-state'
 import type { School, ContactLogEntry, Division, Category, SchoolConversationSummary, RecommendedActionCategory } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
+import { divisionLabel, isUnclassified } from '@/lib/division-label'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -176,7 +177,7 @@ function DesktopRow({ rich, even, summary }: {
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{school.name}</div>
         <div style={{ fontSize: 11, color: SL.inkLo, fontWeight: 500, letterSpacing: 0.2 }}>
-          {school.division}
+          {divisionLabel(school.division)}
         </div>
       </div>
       {/* Next step */}
@@ -274,7 +275,7 @@ function BenchRow({ school }: { school: School }) {
         flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: SL.inkMid, letterSpacing: -0.2,
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>{school.short_name || school.name}</span>
-      <span style={{ fontSize: 11, color: SL.inkLo, fontWeight: 500, flexShrink: 0 }}>{school.division}</span>
+      <span style={{ fontSize: 11, color: isUnclassified(school.division) ? SL.inkMute : SL.inkLo, fontWeight: 500, flexShrink: 0, fontStyle: isUnclassified(school.division) ? 'italic' : 'normal' }}>{divisionLabel(school.division)}</span>
       <span style={{ fontSize: 10.5, fontWeight: 600, color: SL.inkMute, flexShrink: 0, width: 66, textAlign: 'right' }}>
         {benchHint(school)}
       </span>

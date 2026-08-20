@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from 'react'
 import type { School, ActionItem, PipelineFilters, Division, Status, AdmitLikelihood, Category, ActionOwner, CampWithRelations } from '@/lib/types'
 import { STATUS_COLORS, ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate, daysBetween, todayStr } from '@/lib/utils'
 import { getNextUpcomingCamp } from '@/lib/camps'
+import { divisionLabel, isUnclassified } from '@/lib/division-label'
 
 const STATUSES: Status[] = ['Not Contacted', 'Intro Sent', 'Ongoing Conversation', 'Visit Scheduled', 'Offer', 'Inactive']
 const CATEGORIES: Category[] = ['A', 'B', 'C', 'Nope']
@@ -275,7 +276,7 @@ export default function PipelineTable({ schools, actionItems = [], camps = [], o
                       {s.location && <div style={{ fontWeight: 400, color: T.inkMute, fontSize: 11 }}>{s.location}</div>}
                     </td>
                     <td style={{ padding: '10px 12px' }}>
-                      <span style={{ display: 'inline-block', padding: '1px 8px', borderRadius: 999, fontSize: 10, fontWeight: 650, background: T.paperDeep, color: T.inkMid }}>{s.division}</span>
+                      <span style={{ display: 'inline-block', padding: '1px 8px', borderRadius: 999, fontSize: 10, fontWeight: 650, background: T.paperDeep, color: T.inkMid, fontStyle: isUnclassified(s.division) ? 'italic' : 'normal' }}>{divisionLabel(s.division)}</span>
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       <select
