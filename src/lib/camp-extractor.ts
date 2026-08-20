@@ -7,6 +7,10 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { scopeOf } from '@/lib/tenant-db'
+
+/** Concurrent enqueue of the same (proposal, family) is expected and benign. */
+const PG_UNIQUE_VIOLATION = '23505'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -178,20 +182,60 @@ export async function extractCampsFromText(input: ExtractionInput): Promise<Extr
 
 // ─── Dedup ───────────────────────────────────────────────────────────────────
 
+export interface ProposalDedupInput {
+  /** REQUIRED, and deliberately not optional. An optional family recreates the
+   *  defect the first time a caller omits it: camp_proposals is a SHARED catalog
+   *  table, so suppression decided without a family is suppression for everyone.
+   *  Required means the compiler finds every call site. */
+  familyId: string
+  hostSchoolId: string
+  startDate: string
+  endDate: string | null
+}
+
+export interface ProposalDedupResult {
+  skip: boolean
+  reason?: string
+  matchedCampId?: string
+  /** Set when a SHARED pending proposal already existed and this family had no
+   *  decision row, so one was created and the proposal entered their queue. */
+  enqueuedProposalId?: string
+}
+
 /**
- * Check whether a proposed camp should be skipped (previously rejected)
- * or matched to an existing camp.
+ * Should this proposed camp be skipped for THIS FAMILY?
+ *
+ * THE MODEL: the PROPOSAL is shared so it is reviewed once; the DECISION is
+ * per-family. Before this split, one family rejecting a camp set a global
+ * status and silently suppressed that camp for every other family, forever,
+ * with no surface anywhere. The camp-discovery cron's ALMOND_FAMILY_ID pin was
+ * the only thing keeping that from firing, which was an accident, not a control.
+ *
+ * The checks, in order:
+ *   1. An existing camps row with a matching signature — matched, not skipped.
+ *   2a. status 'invalid' — a bad extraction, never a real camp. Skips for EVERYONE.
+ *   2b. THIS family dismissed a proposal with this signature. Skips for them ONLY.
+ *   3. A shared PENDING proposal exists. Never insert a duplicate — but if this
+ *      family has no decision row, CREATE one so the proposal enters their queue.
+ *      The dangerous inversion is treating "no decision row" as "already handled":
+ *      that is the original bug wearing a new schema.
  */
 export async function shouldSkipProposal(
   supabase: SupabaseClient,
-  input: {
-    hostSchoolId: string
-    startDate: string
-    endDate: string | null
-  }
-): Promise<{ skip: boolean; reason?: string; matchedCampId?: string }> {
-  const { hostSchoolId, startDate, endDate } = input
+  input: ProposalDedupInput,
+): Promise<ProposalDedupResult> {
+  const { familyId, hostSchoolId, startDate, endDate } = input
   const effectiveEnd = endDate ?? startDate
+
+  // The family argument must agree with the client's own scope. A Testerson id
+  // on an Almond-scoped client would read Almond's decisions and write Almond's
+  // rows — a mismatch the wrapper would only catch on write, and only sometimes.
+  const clientScope = scopeOf(supabase)
+  if (clientScope && clientScope !== familyId) {
+    throw new Error(
+      `shouldSkipProposal: familyId ${familyId} disagrees with the client scope ${clientScope}`
+    )
+  }
 
   // Check 1: existing camps row with matching signature (±2 days tolerance)
   const startLow = shiftDate(startDate, -2)
@@ -213,36 +257,79 @@ export async function shouldSkipProposal(
     return { skip: false, matchedCampId: existingCamps[0].id }
   }
 
-  // Check 2: most recent terminal camp_proposal with matching date signature
-  // Use contains on jsonb to match start_date (exact — ±2 day tolerance handled
-  // by checking multiple dates if needed in future, but exact match is sufficient
-  // for dedup of the same extractor output)
-  const { data: priorProposals } = await supabase
+  // Every proposal carrying this signature, any status. One read serves 2a, 2b
+  // and 3 — and reading the statuses together is what makes the per-family split
+  // expressible at all.
+  const { data: signatureProposals, error: sigErr } = await supabase
     .from('camp_proposals')
-    .select('status')
+    .select('id, status, created_at')
     .eq('host_school_id', hostSchoolId)
-    .in('status', ['applied', 'rejected'])
     .contains('proposed_data', { start_date: startDate })
     .order('created_at', { ascending: false })
-    .limit(1)
 
-  if (priorProposals && priorProposals.length > 0 && priorProposals[0].status === 'rejected') {
-    return { skip: true, reason: 'previously rejected' }
+  if (sigErr) {
+    // Fail CLOSED on a failed read: a dedup check that errors must not be read
+    // as "nothing found, go ahead and insert" — that duplicates proposals.
+    console.error('[camp-dedup] signature read failed:', sigErr.message)
+    return { skip: true, reason: `dedup read failed: ${sigErr.message}` }
   }
 
-  // Check 3: pending proposal with matching signature already in queue
-  const { data: pendingProposals } = await supabase
-    .from('camp_proposals')
-    .select('id')
-    .eq('host_school_id', hostSchoolId)
-    .eq('status', 'pending')
-    .contains('proposed_data', { start_date: startDate })
-    .limit(1)
+  const proposals = signatureProposals ?? []
+  if (proposals.length === 0) return { skip: false }
 
-  if (pendingProposals && pendingProposals.length > 0) {
-    return { skip: true, reason: 'pending proposal already exists' }
+  // Check 2a: marked invalid by an admin — a bad extraction, not a real camp.
+  // The ONE suppression that is correctly global.
+  if (proposals.some(p => p.status === 'invalid')) {
+    return { skip: true, reason: 'proposal marked invalid — suppressed for every family' }
   }
 
+  // This family's decisions on those proposals.
+  const { data: decisionRows, error: decErr } = await supabase
+    .from('camp_proposal_decisions')
+    .select('proposal_id, decision')
+    .eq('family_id', familyId)
+    .in('proposal_id', proposals.map(p => p.id))
+
+  if (decErr) {
+    console.error('[camp-dedup] decision read failed:', decErr.message)
+    return { skip: true, reason: `dedup read failed: ${decErr.message}` }
+  }
+
+  const decisions = decisionRows ?? []
+
+  // Check 2b: THIS family dismissed it. Skips for them and nobody else.
+  if (decisions.some(d => d.decision === 'dismissed')) {
+    return { skip: true, reason: 'dismissed by this family' }
+  }
+
+  // Check 3: a shared pending proposal already exists — never duplicate it.
+  const pending = proposals.find(p => p.status === 'pending')
+  if (pending) {
+    const decided = new Set(decisions.map(d => d.proposal_id))
+    if (decided.has(pending.id)) {
+      return { skip: true, reason: 'pending proposal already in this family queue' }
+    }
+
+    // No decision row: the proposal exists but this family has never been
+    // offered it. Create the row rather than silently doing nothing — absence
+    // of a decision is NOT evidence the family already saw it.
+    const { error: insErr } = await supabase
+      .from('camp_proposal_decisions')
+      .insert({ proposal_id: pending.id, family_id: familyId, decision: 'pending' })
+
+    if (insErr && insErr.code !== PG_UNIQUE_VIOLATION) {
+      console.error('[camp-dedup] could not enqueue for family:', insErr.message)
+    }
+    return {
+      skip: true,
+      reason: 'shared pending proposal — surfaced to this family',
+      enqueuedProposalId: pending.id,
+    }
+  }
+
+  // Terminal proposals exist for this signature, but none is invalid, none was
+  // dismissed by this family, and none is pending. This family has never been
+  // offered this camp — propose it.
   return { skip: false }
 }
 
@@ -358,6 +445,17 @@ export async function extractAndProposeCamps(
   admin: SupabaseClient
 ): Promise<void> {
   try {
+    // The family comes from the CLIENT'S OWN SCOPE, not a parameter. A parameter
+    // could disagree with the client that reads and writes the rows; a derived
+    // value cannot. Fail closed when there is no scope: a proposal with no family
+    // is a proposal nobody owns, and under a shared proposals table that is
+    // exactly how one family's decision leaks onto everyone.
+    const familyId = scopeOf(admin)
+    if (!familyId) {
+      console.error('[camp-extract] refusing to propose: client has no family scope')
+      return
+    }
+
     // 1. Load the contact_log row with school join
     const { data: row, error } = await admin
       .from('contact_log')
@@ -420,6 +518,7 @@ export async function extractAndProposeCamps(
     // 6. Insert proposals with dedup + materiality gate
     for (const camp of extracted) {
       const dedup = await shouldSkipProposal(admin, {
+        familyId,
         hostSchoolId: school.id,
         startDate: camp.start_date,
         endDate: camp.end_date,

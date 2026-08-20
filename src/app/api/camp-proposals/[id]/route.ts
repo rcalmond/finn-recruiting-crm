@@ -48,10 +48,27 @@ export async function POST(
   // ── Reject ──────────────────────────────────────────────────────────────────
 
   if (body.action === 'reject') {
-    await admin
-      .from('camp_proposals')
-      .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
-      .eq('id', id)
+    // DISMISS IS A PER-FAMILY HIDE, NOT A GLOBAL REJECTION. This used to set
+    // camp_proposals.status='rejected', which removed the proposal from every
+    // family's queue — one family's preference silently deciding for all of
+    // them, with no surface anywhere. The shared proposal row is left untouched
+    // (it stays pending and reviewable by others); only this family's decision
+    // is recorded. Marking a proposal globally dead is a different act, needs a
+    // different claim ('invalid' — bad extraction), and is admin-only.
+    const { error: decErr } = await admin
+      .from('camp_proposal_decisions')
+      .upsert({
+        proposal_id: id,
+        family_id: familyId,
+        decision: 'dismissed',
+        decided_at: new Date().toISOString(),
+        decided_by: fam.ctx.user.id,
+      }, { onConflict: 'proposal_id,family_id' })
+
+    if (decErr) {
+      console.error('[camp-proposal] dismiss failed:', decErr.message)
+      return NextResponse.json({ error: decErr.message }, { status: 500 })
+    }
     return NextResponse.json({ ok: true, action: 'reject' })
   }
 

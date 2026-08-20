@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getFamilyContext } from '@/lib/require-family'
+import { pendingProposalIdsForFamily } from '@/lib/camp-proposal-queue'
 import ToolsLandingClient from './ToolsLandingClient'
 
 // T1: RSC pages read on the user client — RLS enforces; catalog tables carry
@@ -21,11 +23,10 @@ export default async function ToolsPage() {
       .select('id', { count: 'exact', head: true })
       .eq('status', 'manual')
       .then(r => r.count ?? 0),
-    admin
-      .from('camp_proposals')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending')
-      .then(r => r.count ?? 0),
+    // This family's queue, not the shared pending total (see camp-proposal-queue).
+    getFamilyContext().then(async fam =>
+      fam.ok ? (await pendingProposalIdsForFamily(admin, fam.ctx.familyId)).length : 0
+    ),
   ])
 
   return (

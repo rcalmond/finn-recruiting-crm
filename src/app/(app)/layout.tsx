@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
+import { getFamilyContext } from '@/lib/require-family'
+import { pendingProposalIdsForFamily } from '@/lib/camp-proposal-queue'
 import { getPlayerIdentity } from '@/lib/player-identity'
 import { AppSidebar, AppBottomNav } from '@/components/AppNav'
 
@@ -22,11 +24,12 @@ async function getPendingCoachChanges(): Promise<number> {
 
 async function getPendingCampProposals(): Promise<number> {
   try {
-    const { count } = await (await makeAdmin())
-      .from('camp_proposals')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending')
-    return count ?? 0
+    // Counts what THIS family still has to review, not the shared pending total.
+    // A badge that disagrees with its page is how people learn to ignore badges.
+    const fam = await getFamilyContext()
+    if (!fam.ok) return 0
+    const ids = await pendingProposalIdsForFamily(await makeAdmin(), fam.ctx.familyId)
+    return ids.length
   } catch {
     return 0
   }

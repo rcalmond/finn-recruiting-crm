@@ -43,6 +43,9 @@ const FAMILY_TABLES = new Set([
   'questions', 'gmail_tokens', 'players',
   'schools', 'coaches', 'camps', 'camp_school_attendees', 'camp_coach_attendees',
   'family_sending_addresses',
+  // The PROPOSAL is shared (catalog) so it is reviewed once; the DECISION is
+  // per-family, so one family's dismissal never suppresses another's camp.
+  'camp_proposal_decisions',
 ])
 
 /** Shared catalog + tenancy/infra tables — passthrough. */

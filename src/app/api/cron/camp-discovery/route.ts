@@ -141,6 +141,9 @@ export async function GET(req: NextRequest) {
 
           for (const camp of extracted) {
             const dedup = await shouldSkipProposal(admin, {
+              // From the client's scope, which is the ALMOND pin below. When the
+              // pin is lifted this becomes the scan set's family with no edit here.
+              familyId: ALMOND_FAMILY_ID,
               hostSchoolId: school.id,
               startDate: camp.start_date,
               endDate: camp.end_date,

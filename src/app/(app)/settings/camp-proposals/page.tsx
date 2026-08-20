@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getFamilyContext } from '@/lib/require-family'
+import { pendingProposalIdsForFamily } from '@/lib/camp-proposal-queue'
 import CampProposalsClient from './CampProposalsClient'
 
 // T1: RSC pages read on the user client — RLS enforces; catalog tables carry
@@ -15,12 +17,20 @@ export default async function CampProposalsPage() {
 
   const admin = await makeAdmin()
 
+  const fam = await getFamilyContext()
+  if (!fam.ok) redirect('/get-recruited')
+
+  // A family's queue is the shared pending set MINUS what THIS family dismissed.
+  const visibleIds = await pendingProposalIdsForFamily(admin, fam.ctx.familyId)
+
   // Fetch pending proposals with host school join
-  const { data: rows } = await admin
-    .from('camp_proposals')
-    .select('*, schools!camp_proposals_host_school_id_fkey(id, name, short_name, category)')
-    .eq('status', 'pending')
-    .order('created_at', { ascending: true })
+  const { data: rows } = visibleIds.length > 0
+    ? await admin
+        .from('camp_proposals')
+        .select('*, schools!camp_proposals_host_school_id_fkey(id, name, short_name, category)')
+        .in('id', visibleIds)
+        .order('created_at', { ascending: true })
+    : { data: [] }
 
   // Fetch all active A/B/C schools for attendee resolution display
   const { data: schools } = await admin
