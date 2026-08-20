@@ -43,6 +43,26 @@ export default function CatalogProposalsClient({
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [accepting, setAccepting] = useState<string | null>(null)
+  // Manual merge target: the reviewer's escape hatch for the cases the matcher
+  // DELIBERATELY refuses (Wisconsin Madison, Cal Poly SLO). Without it, the
+  // false-negative class the descriptor guard hands to a human is the one class
+  // a human cannot resolve.
+  const [searchFor, setSearchFor] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [hits, setHits] = useState<Array<{ id: string; name: string; division: string | null; state: string | null; city: string | null }>>([])
+  const [searching, setSearching] = useState(false)
+
+  async function runSearch(q: string) {
+    setQuery(q)
+    if (q.trim().length < 2) { setHits([]); return }
+    setSearching(true)
+    try {
+      const res = await fetch(`/api/admin/catalog-search?q=${encodeURIComponent(q)}`)
+      const json = await res.json()
+      setHits(json.rows ?? [])
+    } catch { setHits([]) }
+    setSearching(false)
+  }
   const [form, setForm] = useState<{ name: string; shortName: string; division: string; state: string; city: string }>(
     { name: '', shortName: '', division: '', state: '', city: '' },
   )
@@ -124,6 +144,46 @@ export default function CatalogProposalsClient({
                   </button>
                 </div>
               ))}
+            </div>
+
+            {/* ── Manual merge target ── */}
+            <div style={{ marginTop: 8 }}>
+              {searchFor === r.id ? (
+                <div>
+                  <input
+                    autoFocus
+                    value={query}
+                    onChange={e => runSearch(e.target.value)}
+                    placeholder="Search the catalog by any name…"
+                    style={{ width: '100%', padding: '7px 10px', fontSize: 13, border: `1px solid ${SP.line}`, borderRadius: 7, fontFamily: 'inherit', marginBottom: 6 }}
+                  />
+                  {searching && <div style={{ fontSize: 12, color: SP.inkMute }}>Searching…</div>}
+                  {!searching && query.trim().length >= 2 && hits.length === 0 && (
+                    <div style={{ fontSize: 12, color: SP.inkMute }}>Nothing in the catalog matches that.</div>
+                  )}
+                  {hits.map(h => (
+                    <div key={h.id} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+                      padding: '7px 10px', border: `1px solid ${SP.line}`, borderRadius: 8, marginBottom: 5,
+                    }}>
+                      <span style={{ fontSize: 13 }}>
+                        <b>{h.name}</b>{' '}
+                        <span style={{ color: SP.inkLo }}>{[h.division, h.state, h.city].filter(Boolean).join(' · ')}</span>
+                      </span>
+                      <button style={pill('accent', busy === r.id)} disabled={busy === r.id}
+                        onClick={() => act(r.id, { action: 'merge', discoveryId: h.id, note: `merged into ${h.name} (found by reviewer search)` })}>
+                        Merge into this
+                      </button>
+                    </div>
+                  ))}
+                  <button style={pill('ghost', false)} onClick={() => { setSearchFor(null); setQuery(''); setHits([]) }}>Close search</button>
+                </div>
+              ) : (
+                <button style={pill('ghost', false)}
+                  onClick={() => { setSearchFor(r.id); setQuery(''); setHits([]) }}>
+                  Search the catalog myself
+                </button>
+              )}
             </div>
 
             {/* ── What the family was shown and declined ── */}
