@@ -10,14 +10,28 @@
  * Extracted from DiscoverSection (the exclude-bridge) in Intake v3.
  */
 
-const NAME_STOP = new Set(['university', 'college', 'the', 'of', 'at', 'in', 'univ', 'and'])
+/** 'u' earns its place here: families write "U Michigan" and "U of Maryland",
+ *  and without it those never reach "Michigan" / "Maryland". Verified against
+ *  the live 1066-row catalog to introduce no new catalog-internal collisions. */
+const NAME_STOP = new Set(['university', 'college', 'the', 'of', 'at', 'in', 'univ', 'u', 'and'])
 
-/** Drop a dash-suffix and any parenthetical, lowercase, strip punctuation,
- *  drop generic words, sort tokens, join. */
-export function nameKey(s: string): string {
-  const cleaned = s.split(/\s+[—–-]\s+|\s*\(/)[0]
+/** The ONE normalizer. Drop a dash-suffix and any parenthetical, lowercase,
+ *  strip punctuation, drop generic words. Returns the token list so that
+ *  set-based matching (school-match.ts) and key-based matching share exactly
+ *  one definition of what a name's meaningful words are.
+ *
+ *  NOTE the parenthetical strip: "Trinity University (TX)" and "Trinity College
+ *  (CT)" both reduce to ["trinity"]. That is intentional for recognition, and it
+ *  is precisely why a match must never be auto-applied — see school-match.ts. */
+export function nameTokens(s: string): string[] {
+  const cleaned = (s ?? '').split(/\s+[—–-]\s+|\s*\(/)[0]
   return cleaned.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
-    .filter(t => t && !NAME_STOP.has(t)).sort().join(' ')
+    .filter(t => t && !NAME_STOP.has(t))
+}
+
+/** Token-set identity as a comparable string: sorted, joined. */
+export function nameKey(s: string): string {
+  return nameTokens(s).sort().join(' ')
 }
 
 export interface ListedSchool {
