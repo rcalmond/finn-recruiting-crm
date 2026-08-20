@@ -9,6 +9,7 @@ import type {
 } from '@/lib/types'
 import { ENROLLMENT_LABELS, ACADEMIC_LABELS, DISCOVERY_PROGRAMS, PROGRAM_LABELS } from '@/lib/types'
 import { toSchoolInsert } from '@/lib/discovery-add'
+import AddSchoolFlow from './AddSchoolFlow'
 import { nameKey } from '@/lib/school-name-key'
 import { usePlayer } from '@/hooks/usePlayer'
 import { sportNoun } from '@/lib/positions'
@@ -266,20 +267,31 @@ export default function DiscoverSection() {
     }
   }, [seeds, excludeNames, canFindMore])
 
+  // The typed/suggested name currently being disambiguated, or null.
+  const [addFlowName, setAddFlowName] = useState<string | null>(null)
+
+  /** Adopt a catalog row the family CONFIRMED from the matcher's candidates. */
+  const adoptCatalogRow = useCallback(async (discoveryId: string) => {
+    const { data } = await supabase.from('discovery_schools').select('*').eq('id', discoveryId).single()
+    if (data) await addDiscovery(data as DiscoverySchool)
+    setAddFlowName(null)
+  }, [supabase, addDiscovery])
+
   const addProposal = useCallback(async (p: Proposal) => {
-    setAdding(prev => new Set(prev).add(p.name))
     if (p.discoveryId) {
+      setAdding(prev => new Set(prev).add(p.name))
       const { data } = await supabase.from('discovery_schools').select('*').eq('id', p.discoveryId).single()
-      if (data) { await addDiscovery(data as DiscoverySchool); setAdding(prev => { const n = new Set(prev); n.delete(p.name); return n }); return }
+      if (data) await addDiscovery(data as DiscoverySchool)
+      setAdding(prev => { const n = new Set(prev); n.delete(p.name); return n })
+      return
     }
-    // Off-universe proposal — minimal add, flagged for program verification.
-    const err = await insertSchool(toSchoolInsert({
-      name: p.name, short_name: null, division: p.division ?? 'D3', conference: null,
-      region: p.region, academic_band: null, has_engineering: false, city: null, state: null,
-    }))
-    setAdding(prev => { const n = new Set(prev); n.delete(p.name); return n })
-    if (err) alert(`Could not add ${p.name}: ${err.message}`)
-  }, [supabase, insertSchool, addDiscovery])
+    // OFF-UNIVERSE: this used to insert immediately with a FABRICATED division
+    // of 'D3' — a made-up fact that then browsed as if verified, and a duplicate
+    // waiting to happen because nothing checked the catalog for another name
+    // form of the same school. It now goes through disambiguation: confirm an
+    // existing catalog row, or file a proposal with no invented division.
+    setAddFlowName(p.name)
+  }, [supabase, addDiscovery])
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -418,6 +430,25 @@ export default function DiscoverSection() {
           </div>
 
           {proposalError && <p style={{ margin: 0, fontSize: 13, color: SD.rust }}>{proposalError}</p>}
+
+          {/* Can't find it? Disambiguate FIRST, then browse, then propose.
+              Also the landing point for an off-universe suggestion. */}
+          {addFlowName !== null ? (
+            <AddSchoolFlow
+              initialName={addFlowName}
+              onAdoptCatalogRow={adoptCatalogRow}
+              onProposed={() => setAddFlowName(null)}
+              onCancel={() => setAddFlowName(null)}
+            />
+          ) : (
+            <button onClick={() => setAddFlowName('')} style={{
+              alignSelf: 'flex-start', padding: 0, border: 'none', background: 'none',
+              fontSize: 12.5, fontWeight: 650, color: GREEN.accent, cursor: 'pointer',
+              fontFamily: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3,
+            }}>
+              Can&apos;t find your school? Add it
+            </button>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {(proposals ?? []).map(p => {

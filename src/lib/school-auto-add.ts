@@ -23,7 +23,8 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { catalogAdmin } from '@/lib/tenant-db'
-import { nameKey } from '@/lib/school-name-key'
+import { fetchAll } from '@/lib/fetch-all'
+import { matchCatalog } from '@/lib/school-match'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>
@@ -44,16 +45,31 @@ export interface CatalogRow {
 const CATALOG_COLS = 'id, name, short_name, division, conference, city, state, domains'
 
 /** Resolve a school NAME against the catalog — exactly one match or nothing.
- *  Exact name / short_name only, token-normalized. No substring matching. */
+ *
+ *  Uses the SHARED matcher (school-match.ts), the same one E1 linkage, the
+ *  add-a-school flow and admin review run, so all four agree about what a typed
+ *  name means. Exactly-one-or-refuse is preserved and is stricter than the
+ *  matcher's own contract: the matcher returns candidates for a human to
+ *  confirm, and this path has no human, so anything ambiguous resolves to
+ *  nothing. Only the EXACT tier is accepted here — the subset tier is for a
+ *  person looking at division and state, not for an unattended write.
+ *
+ *  THE CATALOG READ IS PAGINATED AND ASSERTED. This used to be .limit(1200),
+ *  which PostgREST silently capped at 1000 — so auto-add resolved against 1000
+ *  of 1066 rows and a school in the missing 66 could never be matched. It
+ *  failed CLOSED (a refusal, not a wrong add), so nothing looked broken. */
 export async function strictCatalogMatchByName(name: string): Promise<CatalogRow | null> {
-  const key = nameKey(name)
-  if (!key) return null
-  const db = catalogAdmin()
-  const { data } = await db.from('discovery_schools').select(CATALOG_COLS).limit(1200)
-  const rows = (data ?? []) as CatalogRow[]
-  const hits = rows.filter(r => nameKey(r.name) === key || (r.short_name && nameKey(r.short_name) === key))
-  const ids = new Set(hits.map(h => h.id))
-  return ids.size === 1 ? hits[0] : null   // exactly-one-or-refuse
+  const rows = await loadCatalog()
+  const result = matchCatalog(name, rows)
+  if (result.tier !== 'exact' || result.candidates.length !== 1) return null
+  return rows.find(r => r.id === result.candidates[0].id) ?? null
+}
+
+/** One complete, assertion-checked read of the catalog. Throwing on a short
+ *  read is correct here: a truncated catalog turns real schools into refusals,
+ *  and a refusal is indistinguishable from "not a real school". */
+async function loadCatalog(): Promise<CatalogRow[]> {
+  return fetchAll<CatalogRow>(catalogAdmin(), 'discovery_schools', CATALOG_COLS, { orderBy: 'id' })
 }
 
 /** Resolve an email DOMAIN against the catalog — exactly one match or nothing. */

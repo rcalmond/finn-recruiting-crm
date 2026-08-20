@@ -52,6 +52,11 @@ const FAMILY_TABLES = new Set([
 const CATALOG_TABLES = new Set([
   'discovery_schools', 'school_research', 'camp_proposals', 'coach_changes',
   'cron_runs', 'not_found_log', 'families', 'users',
+  // A shared review queue, like camp_proposals: one admin decides whether a
+  // school joins the catalog. It carries proposed_by_family_id and family RLS
+  // so a family sees its own proposals on the user client, while review runs
+  // service-role across all of them.
+  'catalog_proposals',
 ])
 
 /** CROSS-FAMILY BY DESIGN — service-role passthrough, and deliberately so:
