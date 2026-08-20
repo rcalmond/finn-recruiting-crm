@@ -65,7 +65,12 @@ export async function POST(req: NextRequest) {
       videos_sent: false,
       aliases: [],
       discovery_school_id: null,          // not in the catalog yet, by definition
-      origin: 'family_proposed',
+      // 'manual' is the honest existing value — the family added this by hand.
+      // The SPECIFIC provenance (not found in the catalog, proposed for review)
+      // lives in origin_note and in the catalog_proposals row, which points back
+      // here via origin_school_id, so nothing is lost by not minting a new
+      // origin enum value for it.
+      origin: 'manual',
       origin_note: `Added by the family as "${name}" — not found in the catalog; proposed for review.`,
     })
     .select('id, name')
