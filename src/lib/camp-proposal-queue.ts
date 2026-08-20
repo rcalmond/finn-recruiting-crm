@@ -17,6 +17,7 @@
  * grow without bound and eventually meet the silent 1000-row PostgREST cap.
  */
 import { familyAdmin } from '@/lib/tenant-db'
+import { fetchAll } from '@/lib/fetch-all'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
@@ -31,9 +32,19 @@ export async function pendingProposalIdsForFamily(
   reader: SupabaseClient,
   familyId: string,
 ): Promise<string[]> {
+  // HOSTED AT ONE OF THIS FAMILY'S SCHOOLS. Once the crons scan the union of
+  // families, camp_proposals contains proposals for schools this family does
+  // not track — and a shared table filtered only by status would put another
+  // family's camp in this family's review queue. Invisible while one family
+  // existed, which is exactly why it survived until the pin came off.
+  const scoped = familyAdmin(familyId)
+  const mySchools = await fetchAll<{ id: string }>(scoped, 'schools', 'id', { orderBy: 'id' })
+  const mine = new Set(mySchools.map(s => s.id))
+  if (mine.size === 0) return []
+
   const { data: pending, error } = await reader
     .from('camp_proposals')
-    .select('id')
+    .select('id, host_school_id')
     .eq('status', 'pending')
 
   if (error) {
@@ -41,7 +52,9 @@ export async function pendingProposalIdsForFamily(
     return []
   }
 
-  const ids = (pending ?? []).map(p => p.id as string)
+  const ids = (pending ?? [])
+    .filter(p => mine.has(p.host_school_id as string))
+    .map(p => p.id as string)
   if (ids.length === 0) return []
 
   const { data: dismissed, error: decErr } = await familyAdmin(familyId)
