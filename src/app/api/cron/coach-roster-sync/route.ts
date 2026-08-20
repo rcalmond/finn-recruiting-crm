@@ -193,6 +193,9 @@ export async function GET(req: NextRequest) {
     {
       families_scanned: scan.families.length,
       distinct_coach_pages: distinctPages,
+      // Duplication series: pairs minus distinct pages, recorded every run so the
+      // value of a shared catalog is measurable before we need the answer.
+      duplicated_work: allSchools.length - distinctPages,
       schools_scraped: stats.schools,
       changes_proposed: stats.changes,
       changes_auto_applied: stats.applied,

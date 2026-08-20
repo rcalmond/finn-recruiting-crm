@@ -12,9 +12,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { familyAdmin, catalogAdmin } from '@/lib/tenant-db'
 import { searchTavily } from '@/lib/tavily'
 import { extractCampsFromText, shouldSkipProposal, classifyCampUpdate } from '@/lib/camp-extractor'
-import { startRun, completeRun, priorRunCount } from '@/lib/cron-runs'
-import { buildFamilyScanSet, distinctTargets, interleaveByFamily, rotate } from '@/lib/cron-scan-set'
+import { startRun, completeRun } from '@/lib/cron-runs'
+import { buildFamilyScanSet, distinctTargets, interleaveByFamily } from '@/lib/cron-scan-set'
 import { fetchAll } from '@/lib/fetch-all'
+import { orderByBookmark, runWithBudget, stampScanned, DEFAULT_BUDGET_MS } from '@/lib/scan-budget'
 
 // The ALMOND_FAMILY_ID pin is GONE. It scanned one family's schools, which was
 // correct while one family existed and silently wrong the moment a second one
@@ -54,6 +55,9 @@ interface SchoolStats {
 
 export async function GET(req: NextRequest) {
   const startedAt = new Date().toISOString()
+  // The budget is measured from the top of the request, not from the start of
+  // the loop: the scan-set build is part of the 300s too.
+  const startedAtMs = Date.now()
 
   // Auth guard — an unset secret REFUSES in every environment (never falls open).
   const cronSecret = process.env.CRON_SECRET
@@ -79,11 +83,22 @@ export async function GET(req: NextRequest) {
   // THE UNION SCAN SET: one entry per (family, school) pair, across every
   // family. Paginated and asserted inside fetchAll — a truncated scan set in an
   // unattended nightly job is a silent undercount nobody would ever read.
-  interface ScanSchool { id: string; name: string; short_name: string | null; category: string }
+  interface ScanSchool {
+    id: string; name: string; short_name: string | null; category: string
+    // THE BOOKMARK. It lives on schools because schools is family-scoped, so the
+    // grain is (family, school) — which is TEMPORARY. Two families tracking
+    // Middlebury run two identical searches today, so this cost scales with
+    // FAMILIES rather than with the world. When camps move to the catalog
+    // (E1.5/E2) the scan unit becomes the DISTINCT SCHOOL and this bookmark
+    // migrates to discovery_schools.camp_scan_last_at. The ordering and budget
+    // logic in scan-budget.ts is grain-indifferent precisely so that migration
+    // is a change here and nowhere else.
+    camp_scan_last_at: string | null
+  }
   let scan
   try {
     scan = await buildFamilyScanSet<ScanSchool>(
-      'id, name, short_name, category',
+      'id, name, short_name, category, camp_scan_last_at',
       q => q.in('category', ['A', 'B', 'C']).neq('status', 'Inactive'),
     )
   } catch (err) {
@@ -93,19 +108,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 })
   }
 
-  // FAIRNESS: this run WILL probably be killed before it finishes (see the
-  // wall-clock constraint in Section 9). Interleaving across families makes that
-  // cost every family proportionally instead of starving whoever sorts last, and
-  // rotating the start by the run counter moves the tail that keeps getting cut.
-  // It does not make the run complete — it makes the incompleteness survivable.
-  const rotation = await priorRunCount(runDb, 'camp-discovery')
-  const entries = rotate(interleaveByFamily(scan.entries), rotation)
+  // ORDER: least-recently-scanned first, so a run that covers half the set
+  // leaves the other half at the FRONT of the next run's queue. This replaces
+  // the run-counter rotation — a bookmark responds to what actually completed
+  // rather than assuming a fixed stride. Interleaving is kept as the tie-break
+  // shape for the never-scanned block, where every bookmark is null and the
+  // order would otherwise be all of one family then all of the next.
+  const entries = orderByBookmark(interleaveByFamily(scan.entries), e => e.school.camp_scan_last_at)
   const distinctSchools = distinctTargets(entries, s => s.short_name || s.name)
+  const duplicatedWork = entries.length - distinctSchools
   console.log(
     `[camp-discovery] ${startedAt} — scan set: ${entries.length} (family, school) pair(s) ` +
     `across ${scan.families.length} family(ies); ${distinctSchools} distinct school(s); ` +
-    `interleaved by family, rotated by ${rotation}. ` +
-    `The pair-vs-distinct gap is duplicated external search.`
+    `${duplicatedWork} duplicated external search(es). ` +
+    `THE DUPLICATION SERIES: this gap is what moving camps to the catalog would remove — ` +
+    `recorded every run so the answer exists before it is needed.`
   )
 
   const perSchool: SchoolStats[] = []
@@ -129,10 +146,14 @@ export async function GET(req: NextRequest) {
     return list
   }
 
-  for (let i = 0; i < entries.length; i++) {
+  // RESUMABLE: stop BEFORE the ceiling rather than being killed at it. A run
+  // that stops has still made progress, stamped what it finished, and says how
+  // much is left — which is what makes a completed-partial run distinguishable
+  // from a killed one.
+  const budget = await runWithBudget(entries, async (entry, i) => {
     if (i > 0) await sleep(2000)
 
-    const { familyId, familyName, school } = entries[i]
+    const { familyId, familyName, school } = entry
     const db = familyAdmin(familyId)
     const schoolName = school.short_name || school.name
     const stats: SchoolStats = {
@@ -269,6 +290,12 @@ export async function GET(req: NextRequest) {
       stats.errors++
     }
 
+    // Stamped AFTER the unit completes, so a unit cut off mid-flight keeps its
+    // old bookmark and leads the next run's queue. Table and column are passed
+    // explicitly — at E1.5/E2 this becomes discovery_schools and nothing else
+    // in the budget layer changes.
+    await stampScanned(db, 'schools', school.id, 'camp_scan_last_at')
+
     perSchool.push(stats)
     totalInserted += stats.proposalsInserted
     totalSkipped += stats.proposalsSkipped
@@ -277,6 +304,14 @@ export async function GET(req: NextRequest) {
     if (stats.proposalsInserted > 0 || stats.errors > 0) {
       console.log(`[camp-discovery] ${schoolName}: +${stats.proposalsInserted} proposals, ${stats.proposalsSkipped} skipped, ${stats.errors} errors`)
     }
+  }, { budgetMs: DEFAULT_BUDGET_MS, startedAtMs })
+
+  if (budget.stoppedEarly) {
+    console.warn(
+      `[camp-discovery] ${startedAt} — STOPPED ON BUDGET after ${budget.processed} of ${entries.length} pair(s), ` +
+      `${budget.remaining} remaining, ${(budget.elapsedMs / 1000).toFixed(0)}s elapsed, ` +
+      `~${(budget.meanUnitMs / 1000).toFixed(1)}s per pair. The remainder leads the next run by bookmark.`
+    )
   }
 
   const totalEnqueued = perSchool.reduce((sum, s) => sum + s.proposalsEnqueued, 0)
@@ -284,8 +319,14 @@ export async function GET(req: NextRequest) {
   const summary = {
     ranAt: startedAt,
     familiesScanned: scan.families.length,
-    pairsProcessed: entries.length,
+    pairsInScanSet: entries.length,
+    pairsProcessed: budget.processed,
+    pairsRemaining: budget.remaining,
+    stoppedEarly: budget.stoppedEarly,
+    elapsedSeconds: Math.round(budget.elapsedMs / 1000),
+    meanSecondsPerPair: Number((budget.meanUnitMs / 1000).toFixed(1)),
     distinctSchools,
+    duplicatedWork,
     totalProposalsInserted: totalInserted,
     totalEnqueuedForFamily: totalEnqueued,
     totalSkipped,
@@ -293,7 +334,7 @@ export async function GET(req: NextRequest) {
     perSchool: perSchool.filter(s => s.proposalsInserted > 0 || s.errors > 0),
   }
 
-  console.log(`[camp-discovery] ${startedAt} — done: ${totalInserted} inserted, ${totalEnqueued} enqueued for a family, ${totalSkipped} skipped, ${totalErrors} errors across ${entries.length} (family, school) pair(s)`)
+  console.log(`[camp-discovery] ${startedAt} — done: ${totalInserted} inserted, ${totalEnqueued} enqueued for a family, ${totalSkipped} skipped, ${totalErrors} errors across ${budget.processed} of ${entries.length} (family, school) pair(s)${budget.stoppedEarly ? ` — PARTIAL, ${budget.remaining} remaining` : ''}`)
 
   const errorsPerSchool = perSchool.filter(s => s.errors > 0).map(s => ({
     school: s.schoolName,
@@ -301,14 +342,28 @@ export async function GET(req: NextRequest) {
     errors: s.errors,
   }))
 
+  // Three outcomes, three distinguishable records: 'success' means the whole
+  // scan set was covered; 'partial' means we stopped on budget (or a school
+  // errored) and says how much is left; a run KILLED anyway stays 'running' and
+  // is reaped to 'failed' by the next run. Killed and stopped-early must never
+  // look alike — that is the defect underneath the timeout.
   await completeRun(
     runDb, runId,
-    errorsPerSchool.length > 0 ? 'partial' : 'success',
+    (budget.stoppedEarly || errorsPerSchool.length > 0) ? 'partial' : 'success',
     {
       families_scanned: scan.families.length,
-      pairs_processed: entries.length,
+      pairs_in_scan_set: entries.length,
+      pairs_processed: budget.processed,
+      pairs_remaining: budget.remaining,
+      stopped_early: budget.stoppedEarly,
+      elapsed_seconds: Math.round(budget.elapsedMs / 1000),
+      mean_seconds_per_pair: Number((budget.meanUnitMs / 1000).toFixed(1)),
       distinct_schools: distinctSchools,
-      schools_searched: entries.length,
+      // THE DUPLICATION SERIES — pairs minus distinct schools, recorded every
+      // run. Today it is near zero and says nothing; at ten families it is the
+      // number that says how much moving camps to the catalog would buy.
+      duplicated_work: duplicatedWork,
+      schools_searched: budget.processed,
       tavily_calls: perSchool.reduce((sum, s) => sum + (s.tavilyResults > 0 ? 1 : 0), 0),
       camps_extracted: perSchool.reduce((sum, s) => sum + s.campsExtracted, 0),
       proposals_inserted: totalInserted,
