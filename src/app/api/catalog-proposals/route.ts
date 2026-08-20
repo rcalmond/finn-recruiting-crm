@@ -73,7 +73,18 @@ export async function POST(req: NextRequest) {
 
   if (schoolErr || !school) {
     console.error('[catalog-proposals] school insert failed:', schoolErr?.message)
-    return NextResponse.json({ error: schoolErr?.message ?? 'could not add the school' }, { status: 500 })
+    // schools.division is currently NOT NULL with a CHECK limited to the five
+    // known divisions, so there is no way to record "we do not know yet" — which
+    // is exactly why the old off-universe add fabricated 'D3'. Refusing to
+    // invent one is correct; the schema has to allow the honest value. Until
+    // then this path cannot complete, and it says so plainly rather than
+    // leaking a constraint name at a family.
+    const blockedByDivision = /division/.test(schoolErr?.message ?? '')
+    return NextResponse.json({
+      error: blockedByDivision
+        ? 'Adding a school that is not in the catalog is not available yet. Nothing was changed.'
+        : (schoolErr?.message ?? 'could not add the school'),
+    }, { status: blockedByDivision ? 503 : 500 })
   }
 
   // 2. The claim about the world, for review. Failure here must NOT undo the
