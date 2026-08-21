@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { primaryCoachIdsBySchool } from '@/lib/coach-primary'
 import { createClient } from '@/lib/supabase/server'
 import NewCampaignClient from '@/components/campaigns/NewCampaignClient'
 import type { School, Coach } from '@/lib/types'
@@ -23,15 +24,18 @@ export default async function NewCampaignPage() {
     .neq('category', 'Nope')
     .order('name')
 
-  // Fetch primary coaches for preview rendering
+  // Fetch primary coaches for preview rendering.
+  // Resolution reads BOTH domains (schools.primary_coach_id first); the rows
+  // are then fetched by id, so the preview shows whoever the family actually
+  // designated rather than whoever still carries the legacy flag.
   const schoolIds = (schools ?? []).map(s => s.id)
-  const { data: coaches } = schoolIds.length > 0
+  const primaryIdBySchool = await primaryCoachIdsBySchool(admin, schoolIds)
+  const primaryIds = Array.from(primaryIdBySchool.values())
+  const { data: coaches } = primaryIds.length > 0
     ? await admin
         .from('coaches')
         .select('id, school_id, name, role, email, is_primary, needs_review, sort_order, notes, created_at, updated_at')
-        .eq('is_primary', true)
-        .eq('is_active', true)
-        .in('school_id', schoolIds)
+        .in('id', primaryIds)
     : { data: [] }
 
   const coachBySchool = new Map((coaches ?? []).map(c => [c.school_id, c]))

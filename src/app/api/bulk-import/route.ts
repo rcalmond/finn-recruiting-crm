@@ -19,6 +19,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { primaryCoachIdsBySchool } from '@/lib/coach-primary'
 import { familyAdmin, rawService } from '@/lib/tenant-db'
 import { computeContentHash } from '@/lib/sr-paste-parser'
 
@@ -206,6 +207,10 @@ export async function POST(req: NextRequest) {
     .in('school_id', schoolIds)
   const allCoaches = (coachData ?? []) as CoachRow[]
 
+  // The family's designated contact per school, resolved across BOTH domains
+  // (schools.primary_coach_id first, coaches.is_primary as fallback).
+  const primaryIdBySchool = await primaryCoachIdsBySchool(admin, schoolIds)
+
   // Build schoolId → CoachRow[] map
   const coachesBySchool: Record<string, CoachRow[]> = {}
   for (const c of allCoaches) {
@@ -255,12 +260,12 @@ export async function POST(req: NextRequest) {
     const allMatched = matchResults.every(r => r.matched)
     const parseStatus: 'full' | 'partial' = allMatched ? 'full' : 'partial'
 
-    // Primary: prefer a DB coach flagged is_primary; fall back to first matched
+    // Primary: prefer the family's designated contact (both domains resolved
+    // above — schools.primary_coach_id first, coaches.is_primary as fallback);
+    // fall back to first matched.
+    const designated = primaryIdBySchool.get(row.schoolId ?? '') ?? null
     const primaryCoachId =
-      resolvedCoachIds.find(id => {
-        const coach = schoolCoaches.find(c => c.id === id)
-        return coach?.is_primary ?? false
-      }) ??
+      resolvedCoachIds.find(id => id === designated) ??
       resolvedCoachIds[0] ??
       null
 

@@ -140,9 +140,45 @@ function diffDocs(prev: Record<string, unknown>, cur: Record<string, unknown>) {
   }
 }
 
+/**
+ * A FIXTURE IS AN UNCHECKED CAST, SO tsc CANNOT DEFEND IT.
+ *
+ * `JSON.parse(...) as CampDocFixture` type-checks against whatever the file
+ * happens to contain. When E2 renamed the composed coach field is_primary →
+ * isPrimary, every recorded fixture on disk still carried the old key: the
+ * harness would have replayed them with `c.isPrimary === undefined`, camp-doc
+ * would have silently dropped "[PRIMARY on file]" from every coach, and the
+ * run would have reported GREEN. A fixture-driven gate that stays green against
+ * a stale fixture certifies the OLD shape — this project has already had a
+ * harness stay green straight through an outage.
+ *
+ * These fixtures are gitignored (they contain real coach email bodies), so they
+ * cannot be corrected by a commit — every machine seeds its own with --record,
+ * and after any context-shape change a local fixture WILL be stale. So the
+ * guard has to live in the code that reads them. Fail loudly, name the fix.
+ */
+function assertFixtureShape(fx: CampDocFixture, fixturePath: string): void {
+  const stale: string[] = []
+  for (const [i, c] of (fx.coaches ?? []).entries()) {
+    const raw = c as unknown as Record<string, unknown>
+    if (typeof raw.isPrimary !== 'boolean') {
+      stale.push(`coaches[${i}] (${String(raw.name ?? '?')}) has no boolean isPrimary` +
+        (('is_primary' in raw) ? ' — it still carries the pre-E2 is_primary key' : ''))
+    }
+  }
+  if (stale.length > 0) {
+    throw new Error(
+      `Stale fixture at ${fixturePath} — recorded before the current context shape:\n` +
+      stale.map(s => `  - ${s}`).join('\n') +
+      `\nRe-record it: npx tsx scripts/camp-doc-harness.ts --record <school>`
+    )
+  }
+}
+
 async function generate(schoolQuery: string, fixturePath: string) {
   if (!fs.existsSync(fixturePath)) throw new Error(`No fixture at ${fixturePath} — run with --record ${schoolQuery} first`)
   const fx = JSON.parse(fs.readFileSync(fixturePath, 'utf8')) as CampDocFixture
+  assertFixtureShape(fx, fixturePath)
   console.log(`fixture: ${fx.schoolName} · thread=${fx.contactLog.length} · prefs=${fx.preferences.status} · campDates=[${(fx.campDates ?? []).join(', ') || 'none'}]`)
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })

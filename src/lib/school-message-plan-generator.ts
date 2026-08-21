@@ -39,7 +39,8 @@ interface SchoolContext {
 interface CoachContext {
   name: string
   role: string | null
-  is_primary: boolean
+  /** COMPOSED view field — see coach-primary.ts. Never a DB column. */
+  isPrimary: boolean
   needs_review: boolean
 }
 
@@ -165,7 +166,7 @@ ${RECRUITING_JUDGMENT}`
   usr.push(`COACHES:`)
   for (const c of input.coaches) {
     const parts = [`${c.name} (${c.role ?? 'unknown role'})`]
-    if (c.is_primary) parts.push('— PRIMARY')
+    if (c.isPrimary) parts.push('— PRIMARY')
     if (c.needs_review) parts.push('— may have departed')
     usr.push(`- ${parts.join(' ')}`)
   }

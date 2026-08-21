@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { primaryCoachIdsBySchool } from '@/lib/coach-primary'
 import { familyAdmin, rawService } from '@/lib/tenant-db'
 import {
   parseSRPaste,
@@ -175,6 +176,11 @@ export async function POST(req: NextRequest) {
   const schools = (schoolData ?? []) as SchoolRow[]
   const allCoaches = (coachData ?? []) as CoachRow[]
 
+  // The family's designated contact per school, across BOTH domains.
+  // NOTE: the two reads above are still UNBOUNDED and silently cap at 1000 —
+  // out of scope for this chunk, tracked with the other bounded-read fixes.
+  const primaryIdBySchool = await primaryCoachIdsBySchool(admin, schools.map(s => s.id))
+
   // ── Build preview rows for outbound messages ──
   const rows: PreviewRow[] = []
 
@@ -225,12 +231,10 @@ export async function POST(req: NextRequest) {
       return { coachId, parsedName: r.name, matchType }
     })
 
+    // Both domains — schools.primary_coach_id first (see coach-primary.ts).
+    const designated = matchedSchool ? (primaryIdBySchool.get(matchedSchool.id) ?? null) : null
     const primaryCoachId =
-      coaches.find(c => {
-        if (!c.coachId) return false
-        const dbCoach = schoolCoaches.find(sc => sc.id === c.coachId)
-        return dbCoach?.is_primary ?? false
-      })?.coachId ??
+      coaches.find(c => c.coachId !== null && c.coachId === designated)?.coachId ??
       coaches.find(c => c.coachId !== null)?.coachId ??
       null
 

@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFamilyStatus, CampFamilyStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message, CallPrepDoc, SchoolStatusUpdate, ShareWithCoach, SchoolMilestone, MilestoneType, CalendarEvent } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, CoachView, Camp, CampFamilyStatus, CampFamilyStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message, CallPrepDoc, SchoolStatusUpdate, ShareWithCoach, SchoolMilestone, MilestoneType, CalendarEvent } from '@/lib/types'
 import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp as updateCampMutation, updateFamilyStatus as updateFamilyStatusMutation, deleteCamp as deleteCampMutation, addSchoolAttendee as addSchoolAttendeeMutation, removeSchoolAttendee as removeSchoolAttendeeMutation } from '@/lib/camps'
 import type { CurrentResearchRow } from '@/lib/school-research'
 import { campHostFilterIds } from '@/lib/camp-host'
+import { withPrimary } from '@/lib/coach-primary'
 
 // ─── Fail-closed on absence (binding project rule) ───────────────────────────
 //
@@ -505,9 +506,17 @@ export function useQuestions() {
 
 // ─── Coaches ──────────────────────────────────────────────────────────────────
 
+/** Row → view: strip the legacy flag, attach the composed one. */
+function composeCoachViews(
+  school: { primary_coach_id: string | null } | null,
+  rows: Coach[],
+): CoachView[] {
+  return withPrimary(school, rows).map(({ is_primary: _legacy, ...rest }) => rest)
+}
+
 export function useCoaches(schoolId?: string) {
-  const [coaches, setCoaches] = useState<Coach[]>([])
-  const [archivedCoaches, setArchivedCoaches] = useState<Coach[]>([])
+  const [coaches, setCoaches] = useState<CoachView[]>([])
+  const [archivedCoaches, setArchivedCoaches] = useState<CoachView[]>([])
   const [loading, setLoading] = useState(true)
   // Distinguishes a FAILED read from an empty one (see reportFetchError).
   const [error, setError] = useState<string | null>(null)
@@ -520,6 +529,17 @@ export function useCoaches(schoolId?: string) {
       setLoading(false)
       return
     }
+    // The family's designated contact now lives on the relationship row. Read
+    // it alongside the roster so this hook composes the same answer that
+    // fetchSchoolContext composes server-side — a badge that disagrees with a
+    // generated document is how people learn to distrust both.
+    const { data: schoolRow } = await supabase
+      .from('schools')
+      .select('primary_coach_id')
+      .eq('id', schoolId)
+      .maybeSingle()
+    const school = (schoolRow ?? null) as { primary_coach_id: string | null } | null
+
     // Fetch active coaches
     const { data, error } = await supabase
       .from('coaches')
@@ -531,7 +551,7 @@ export function useCoaches(schoolId?: string) {
       .order('created_at', { ascending: true })
     reportFetchError('coaches', error)
     setError(error?.message ?? null)
-    if (!error && data) setCoaches(data as Coach[])
+    if (!error && data) setCoaches(composeCoachViews(school, data as Coach[]))
     // Fetch archived coaches
     const { data: archived } = await supabase
       .from('coaches')
@@ -539,7 +559,7 @@ export function useCoaches(schoolId?: string) {
       .eq('school_id', schoolId)
       .not('archived_at', 'is', null)
       .order('archived_at', { ascending: false })
-    if (archived) setArchivedCoaches(archived as Coach[])
+    if (archived) setArchivedCoaches(composeCoachViews(school, archived as Coach[]))
     setLoading(false)
   }, [supabase, schoolId])
 
@@ -554,13 +574,17 @@ export function useCoaches(schoolId?: string) {
 
   const insertCoach = useCallback(async (coach: Omit<Coach, 'id' | 'created_at' | 'updated_at'>) => {
     const { data, error } = await supabase.from('coaches').insert(coach).select().single()
-    if (!error && data) {
-      setCoaches(prev => [...prev, data as Coach].sort((a, b) => a.sort_order - b.sort_order))
-    }
+    // Refetch rather than splicing the raw row in: isPrimary is COMPOSED against
+    // schools.primary_coach_id, so an optimistic push of a row carrying
+    // is_primary=true could render two primaries until the next fetch.
+    if (!error && data) await fetchCoaches()
     return error
-  }, [supabase])
+  }, [supabase, fetchCoaches])
 
-  const updateCoach = useCallback(async (id: string, updates: Partial<Omit<Coach, 'id' | 'school_id' | 'created_at' | 'updated_at'>>) => {
+  // is_primary is deliberately NOT updatable here — setPrimary owns it, because
+  // it has to write the schools pointer in the same breath. A caller reaching it
+  // through this path would write one domain and leave the other stale.
+  const updateCoach = useCallback(async (id: string, updates: Partial<Omit<Coach, 'id' | 'school_id' | 'is_primary' | 'created_at' | 'updated_at'>>) => {
     const { error } = await supabase.from('coaches').update(updates).eq('id', id)
     if (!error) setCoaches(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
     return error
@@ -591,22 +615,43 @@ export function useCoaches(schoolId?: string) {
     return error
   }, [supabase])
 
-  // Flip is_primary to the given coach; clears all others for the same school first.
+  // Designate the family's contact at this school.
+  //
+  // WRITES BOTH DOMAINS, and must: reads now PREFER schools.primary_coach_id,
+  // so a write that touched only coaches.is_primary would leave the pointer on
+  // the previous coach and every read would keep rendering the old answer — a
+  // regression manufactured by the read change, not by the schema.
+  //
+  // THE POINTER IS WRITTEN FIRST, deliberately. It is the authoritative domain,
+  // so a partial failure leaves the NEW answer winning rather than the stale one.
   // Optimistic: updates state immediately, reverts on error.
   const setPrimary = useCallback(async (coachId: string) => {
     const target = coaches.find(c => c.id === coachId)
     if (!target) return null
 
     // Optimistic update
-    setCoaches(prev => prev.map(c => ({ ...c, is_primary: c.id === coachId })))
+    setCoaches(prev => prev.map(c => ({ ...c, isPrimary: c.id === coachId })))
 
-    // Clear all primaries for this school, then set the new one
+    const { error: pointerErr } = await supabase
+      .from('schools')
+      .update({ primary_coach_id: coachId })
+      .eq('id', target.school_id)
+    if (pointerErr) {
+      await fetchCoaches()   // revert
+      return pointerErr
+    }
+
+    // Legacy flag, kept in step until it drops at the catalog re-point.
+    // The unscoped-looking clear is bounded by family RLS today, because
+    // coaches is still a FAMILY table; it CANNOT survive the re-point, when
+    // one family's clear would reach every other family's rows. It dies with
+    // the column in the same chunk.
     const { error: clearErr } = await supabase
       .from('coaches')
       .update({ is_primary: false })
       .eq('school_id', target.school_id)
     if (clearErr) {
-      await fetchCoaches()   // revert
+      await fetchCoaches()
       return clearErr
     }
 

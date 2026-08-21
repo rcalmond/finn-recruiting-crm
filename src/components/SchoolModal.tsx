@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { School, Division, AdmitLikelihood, Category, ActionOwner, ActionItem, Coach, CoachRole } from '@/lib/types'
+import type { School, Division, AdmitLikelihood, Category, ActionOwner, ActionItem, Coach, CoachView, CoachRole } from '@/lib/types'
 import { useContactLog, useActionItems, useCoaches } from '@/hooks/useRealtimeData'
 import { ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate } from '@/lib/utils'
 import ContactLogPanel from './ContactLogPanel'
@@ -106,7 +106,7 @@ export default function SchoolModal(props: Props) {
   const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null)
   const [showArchived, setShowArchived] = useState(false)
 
-  function startEditCoach(coach: Coach) {
+  function startEditCoach(coach: CoachView) {
     setEditingCoachId(coach.id)
     setCoachEditDraft({ name: coach.name, role: coach.role, email: coach.email ?? '' })
   }
@@ -128,6 +128,10 @@ export default function SchoolModal(props: Props) {
       name: newCoachDraft.name.trim(),
       role: newCoachDraft.role,
       email: newCoachDraft.email.trim() || null,
+      // First coach at a school becomes the contact. Deliberately writes only
+      // the legacy flag: the school's pointer is null in exactly this case, so
+      // resolvePrimaryCoachId falls through to it and every surface agrees.
+      // Set primary (which writes both) takes over from the second coach on.
       is_primary: coaches.length === 0,
       is_active: true,
       needs_review: false,
@@ -345,10 +349,10 @@ export default function SchoolModal(props: Props) {
                               >Needs review</span>
                             )}
                           </div>
-                          {coach.is_primary && (
+                          {coach.isPrimary && (
                             <span style={{ fontSize: 10, fontWeight: 700, color: M.ink, background: M.paperDeep, borderRadius: 999, padding: '2px 8px', flexShrink: 0 }}>Primary</span>
                           )}
-                          {!coach.is_primary && (
+                          {!coach.isPrimary && (
                             <button type="button" onClick={() => s?.id && setPrimary(coach.id)} style={{ ...ghostBtn, fontSize: 10, padding: '2px 8px' }}>
                               Set primary
                             </button>
@@ -496,7 +500,7 @@ export default function SchoolModal(props: Props) {
         </div>
 
         {draftingEmail && isEdit && (() => {
-          const pc = coaches.find(c => c.is_primary)
+          const pc = coaches.find(c => c.isPrimary)
             ?? coaches.find(c => c.role?.toLowerCase().includes('head'))
             ?? coaches[0] ?? null
           return pc ? (

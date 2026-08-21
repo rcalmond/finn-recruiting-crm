@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { familyAdmin, ALMOND_FAMILY_ID } from '@/lib/tenant-db'
 import { reparsePartialsForSchool } from '@/lib/gmail-resolve'
+import { schoolHasPrimary, designatePrimary } from '@/lib/coach-primary'
 
 export async function PUT(
   req: NextRequest,
@@ -83,16 +84,11 @@ export async function PUT(
           .limit(1)
         const nextSort = ((existing?.[0]?.sort_order as number | undefined) ?? 0) + 1
 
-        // is_primary: Head Coach when no primary exists yet
-        const { data: primaryCheck } = await admin
-          .from('coaches')
-          .select('id')
-          .eq('school_id', change.school_id)
-          .eq('is_primary', true)
-          .limit(1)
-        const isPrimary = details.role === 'Head Coach' && (primaryCheck?.length ?? 0) === 0
+        // Head Coach becomes primary only when the school has none yet — asked
+        // of BOTH domains (schools.primary_coach_id and the legacy flag).
+        const isPrimary = details.role === 'Head Coach' && !(await schoolHasPrimary(admin, change.school_id))
 
-        const { error } = await admin.from('coaches').insert({
+        const { data: insertedCoach, error } = await admin.from('coaches').insert({
           school_id:    change.school_id,
           name:         details.name,
           role:         details.role,
@@ -101,8 +97,12 @@ export async function PUT(
           needs_review: false,
           sort_order:   nextSort,
           source:       'scraped',
-        })
+        }).select('id').single()
         if (error) applyErr = error.message
+        // Writes set BOTH domains while both exist.
+        else if (isPrimary && insertedCoach) {
+          await designatePrimary(admin, change.school_id, (insertedCoach as { id: string }).id)
+        }
         break
       }
 

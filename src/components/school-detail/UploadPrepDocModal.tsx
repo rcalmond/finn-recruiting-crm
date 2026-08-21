@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import type { Coach } from '@/lib/types'
+import type { Coach, CoachView } from '@/lib/types'
 
 const SD = {
   ink: '#0E0E0E', inkMid: '#4A4A4A', inkLo: '#7A7570',
@@ -10,13 +10,13 @@ const SD = {
 
 interface Props {
   schoolId: string
-  coaches: Coach[]
+  coaches: CoachView[]
   onClose: (uploaded: boolean) => void
 }
 
 export default function UploadPrepDocModal({ schoolId, coaches, onClose }: Props) {
   const activeCoaches = coaches.filter(c => c.is_active)
-  const defaultCoach = activeCoaches.find(c => c.is_primary)
+  const defaultCoach = activeCoaches.find(c => c.isPrimary)
     ?? activeCoaches.find(c => c.role === 'Head Coach')
     ?? activeCoaches[0]
 

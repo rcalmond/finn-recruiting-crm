@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { primaryCoachIdsBySchool } from '@/lib/coach-primary'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(
@@ -43,16 +44,8 @@ export async function POST(
     .maybeSingle()
   if (existing) return NextResponse.json({ error: 'School is already in this campaign' }, { status: 409 })
 
-  // Resolve primary coach
-  const { data: coaches } = await db
-    .from('coaches')
-    .select('id')
-    .eq('school_id', schoolId)
-    .eq('is_primary', true)
-    .eq('is_active', true)
-    .order('sort_order', { ascending: true, nullsFirst: false })
-    .limit(1)
-  const coachId = coaches?.[0]?.id ?? null
+  // Resolve primary coach — both domains, pointer first (see coach-primary.ts).
+  const coachId = (await primaryCoachIdsBySchool(db, [schoolId])).get(schoolId) ?? null
 
   // Insert row
   const { data: inserted, error: insertErr } = await db

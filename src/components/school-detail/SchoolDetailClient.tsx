@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import type { School, ContactLogEntry, ActionItem, Coach, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampFamilyStatusValue, CampWithRelations, SchoolMilestone, MilestoneType, RecruitingStage, SchoolOffer, OfferStatus } from '@/lib/types'
+import type { School, ContactLogEntry, ActionItem, Coach, CoachView, ContactChannel, ContactDirection, Category, AdmitLikelihood, CampFamilyStatusValue, CampWithRelations, SchoolMilestone, MilestoneType, RecruitingStage, SchoolOffer, OfferStatus } from '@/lib/types'
 import { STAGE_META, MILESTONE_META, OFFER_TYPE_LABELS } from '@/lib/types'
 import { useSchools, useContactLog, useActionItems, useCoaches, useCamps, useCallPrepDocs, useStatusUpdates, useMilestones } from '@/hooks/useRealtimeData'
 import { stageLabel, STAGE_LABELS } from '@/lib/stages'
@@ -557,7 +557,7 @@ function Timeline({
   contactLogError?: string | null
   actionItems: ActionItem[]
   school: School
-  coaches: Coach[]
+  coaches: CoachView[]
   today: string
   userId: string
   onDraft: (kind: 'fresh' | 'reply', entryId?: string, channel?: string) => void
@@ -1062,7 +1062,7 @@ function ZoneHeading({ children }: { children: ReactNode }) {
 
 function LogEntryForm({ school, coaches, userId, initial, onSave, onCancel, onDelete }: {
   school: School
-  coaches: Coach[]
+  coaches: CoachView[]
   userId: string
   initial?: ContactLogEntry
   onDelete?: () => Promise<void>
@@ -1520,7 +1520,7 @@ function StaffZone({
   school, coaches, onDraftForCoach, onSetPrimary,
 }: {
   school: School
-  coaches: Coach[]
+  coaches: CoachView[]
   onDraftForCoach: (coachId: string) => void
   onSetPrimary: (id: string) => Promise<unknown>
 }) {
@@ -1531,7 +1531,7 @@ function StaffZone({
       {coaches.length > 0 ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
           {coaches.map(coach => {
-            const isPrimary = coach.is_primary
+            const isPrimary = coach.isPrimary
             const emailToShow = isPrimary
               ? (coach.email ?? school.generic_team_email ?? null)
               : (coach.email ?? null)
@@ -1673,7 +1673,7 @@ function StaffZone({
 
 function CallPrepZone({ school, coaches, callPrepDocs, onRefetchPrep, onPrepForCall }: {
   school: School
-  coaches: Coach[]
+  coaches: CoachView[]
   callPrepDocs: ReturnType<typeof useCallPrepDocs>['docs']
   onRefetchPrep: () => void
   onPrepForCall: () => void
@@ -2245,7 +2245,7 @@ export default function SchoolDetailClient({
   const targetCoach = (() => {
     const active = coaches.filter(c => c.is_active)
     if (active.length === 0) return null
-    const primary = active.find(c => c.is_primary)
+    const primary = active.find(c => c.isPrimary)
     if (primary) return primary
     const head = active.find(c => c.role?.toLowerCase().includes('head'))
     if (head) return head

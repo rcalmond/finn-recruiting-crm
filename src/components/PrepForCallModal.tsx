@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import JitProfilePrompt from '@/components/JitProfilePrompt'
 import { usePlayer } from '@/hooks/usePlayer'
-import type { School, Coach } from '@/lib/types'
+import type { School, Coach, CoachView } from '@/lib/types'
 
 type ModalState = 'setup' | 'confirm_existing' | 'generating' | 'complete' | 'error'
 
@@ -31,14 +31,14 @@ const PROGRESS_STAGES: Record<string, { label: string; pct: number }> = {
 
 interface Props {
   school: School
-  coaches: Coach[]
+  coaches: CoachView[]
   onClose: () => void
   onGenerated?: () => void
 }
 
 export default function PrepForCallModal({ school, coaches, onClose, onGenerated }: Props) {
   const activeCoaches = coaches.filter(c => c.is_active)
-  const defaultCoach = activeCoaches.find(c => c.is_primary)
+  const defaultCoach = activeCoaches.find(c => c.isPrimary)
     ?? activeCoaches.find(c => c.role === 'Head Coach')
     ?? activeCoaches[0]
 
@@ -215,7 +215,7 @@ export default function PrepForCallModal({ school, coaches, onClose, onGenerated
                   {activeCoaches.map(c => (
                     <option key={c.id} value={c.id}>
                       {c.name} — {c.role ?? 'Unknown role'}
-                      {c.is_primary ? ' (primary)' : ''}
+                      {c.isPrimary ? ' (primary)' : ''}
                     </option>
                   ))}
                 </select>

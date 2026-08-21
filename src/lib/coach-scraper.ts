@@ -19,6 +19,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { schoolHasPrimary, designatePrimary } from '@/lib/coach-primary'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -478,14 +479,11 @@ async function applyChanges(
           .limit(1)
         const nextSort = ((existing?.[0]?.sort_order as number | undefined) ?? 0) + 1
 
-        // is_primary: set true for Head Coach only when no primary coach exists yet
-        const { data: primaryCheck } = await admin
-          .from('coaches')
-          .select('id')
-          .eq('school_id', schoolId)
-          .eq('is_primary', true)
-          .limit(1)
-        const isPrimary = d.role === 'Head Coach' && (primaryCheck?.length ?? 0) === 0
+        // Promote a scraped Head Coach only when the school has no primary yet,
+        // asking BOTH domains (schools.primary_coach_id and the legacy flag) —
+        // otherwise a school whose family had chosen an assistant would have
+        // that choice overwritten by the next roster scrape.
+        const isPrimary = d.role === 'Head Coach' && !(await schoolHasPrimary(admin, schoolId))
 
         const { data: inserted, error: insertErr } = await admin
           .from('coaches')
@@ -505,6 +503,8 @@ async function applyChanges(
           console.error(`  [apply] Failed to insert coach "${d.name}": ${insertErr.message}`)
         } else {
           change.coachId = inserted.id  // backfill for coach_changes log
+          // Writes set BOTH domains while both exist.
+          if (isPrimary) await designatePrimary(admin, schoolId, inserted.id as string)
           appliedToCoaches++
         }
       }

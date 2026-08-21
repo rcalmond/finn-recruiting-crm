@@ -22,6 +22,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { familyAdmin } from '@/lib/tenant-db'
 import { getFamilyContext } from '@/lib/require-family'
 import { reparsePartialsForSchool } from '@/lib/gmail-resolve'
+import { schoolHasPrimary, designatePrimary } from '@/lib/coach-primary'
 
 const VALID_ROLES = [
   'Head Coach',
@@ -129,14 +130,9 @@ export async function POST(
       .limit(1)
     const nextSort = ((existing?.[0]?.sort_order as number | undefined) ?? 0) + 1
 
-    // is_primary: Head Coach when no primary exists yet
-    const { data: primaryCheck } = await admin
-      .from('coaches')
-      .select('id')
-      .eq('school_id', row.school_id)
-      .eq('is_primary', true)
-      .limit(1)
-    const isPrimary = role === 'Head Coach' && (primaryCheck?.length ?? 0) === 0
+    // Head Coach becomes primary only when the school has none yet — asked of
+    // BOTH domains (schools.primary_coach_id and the legacy flag).
+    const isPrimary = role === 'Head Coach' && !(await schoolHasPrimary(admin, row.school_id))
 
     const { data: newCoach, error: insertErr } = await admin
       .from('coaches')
@@ -157,6 +153,9 @@ export async function POST(
     if (insertErr || !newCoach) {
       return NextResponse.json({ error: insertErr?.message ?? 'Insert failed' }, { status: 500 })
     }
+
+    // Writes set BOTH domains while both exist.
+    if (isPrimary) await designatePrimary(admin, row.school_id, newCoach.id as string)
 
     // Link the partial row
     const { error: linkErr } = await admin

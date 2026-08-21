@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { CallPrepDoc, Coach } from '@/lib/types'
+import type { CallPrepDoc, CoachView } from '@/lib/types'
 
 const SD = {
   paper: '#F6F1E8', ink: '#0E0E0E', inkMid: '#4A4A4A',
@@ -41,7 +41,7 @@ interface Props {
   docs: CallPrepDoc[]
   schoolId: string
   schoolName: string
-  coaches: Coach[]
+  coaches: CoachView[]
   onRefetch: () => void | Promise<void>
 }
 

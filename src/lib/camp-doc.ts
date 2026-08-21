@@ -334,7 +334,7 @@ export function buildCampDocUserPrompt(ctx: {
     L.push('')
   }
   L.push('=== COACHES ON FILE (CRM — who the family corresponds with; primary relationship lives here, NOT in research) ===')
-  for (const c of ctx.coaches) L.push(`- ${c.name} (${c.role ?? 'role?'})${c.is_primary ? ' [PRIMARY on file]' : ''}${c.email ? ` ${c.email}` : ''}`)
+  for (const c of ctx.coaches) L.push(`- ${c.name} (${c.role ?? 'role?'})${c.isPrimary ? ' [PRIMARY on file]' : ''}${c.email ? ` ${c.email}` : ''}`)
   L.push('')
   if (ctx.offers.length > 0) {
     L.push('=== OFFERS THIS SCHOOL ===')

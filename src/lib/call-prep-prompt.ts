@@ -222,7 +222,7 @@ export function buildCallPrepUserPrompt(params: {
   lines.push('=== CALL IS WITH ===')
   lines.push(`${targetCoach.name} — ${targetCoach.role ?? 'Unknown role'}`)
   if (targetCoach.email) lines.push(`Email: ${targetCoach.email}`)
-  lines.push(`Is primary contact: ${targetCoach.is_primary}`)
+  lines.push(`Is primary contact: ${targetCoach.isPrimary}`)
   if (targetCoach.needs_review) lines.push('⚠ This coach may have departed (needs_review flag)')
   lines.push('')
 
@@ -230,7 +230,7 @@ export function buildCallPrepUserPrompt(params: {
   lines.push('=== ALL COACHING STAFF ===')
   for (const c of coaches) {
     const tags = [c.role ?? 'unknown role']
-    if (c.is_primary) tags.push('PRIMARY')
+    if (c.isPrimary) tags.push('PRIMARY')
     if (c.needs_review) tags.push('needs_review')
     if (c.email) tags.push(c.email)
     lines.push(`- ${c.name} (${tags.join(', ')})`)

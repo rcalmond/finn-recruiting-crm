@@ -159,7 +159,7 @@ Return ONLY the JSON object. No commentary before or after.`
   if (coaches.length > 0) {
     parts.push('COACHES:')
     for (const c of coaches) {
-      const flags = [c.is_primary ? 'primary' : null, c.needs_review ? 'needs_review' : null].filter(Boolean).join(', ')
+      const flags = [c.isPrimary ? 'primary' : null, c.needs_review ? 'needs_review' : null].filter(Boolean).join(', ')
       parts.push(`- id="${c.id}" ${c.name} (${c.role ?? 'unknown role'})${flags ? ` [${flags}]` : ''}`)
     }
     parts.push('')

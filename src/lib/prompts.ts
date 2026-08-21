@@ -198,7 +198,8 @@ interface CoachContext {
   name: string
   role: string | null
   email: string | null
-  is_primary: boolean
+  /** COMPOSED view field — see coach-primary.ts. Never a DB column. */
+  isPrimary: boolean
   needs_review: boolean
 }
 
@@ -444,7 +445,7 @@ Body uses plain line breaks between paragraphs, no HTML.`)
   if (coaches.length > 0) {
     for (const c of coaches) {
       const parts = [`${c.name} (${c.role ?? 'unknown role'})`]
-      if (c.is_primary) parts.push('— PRIMARY')
+      if (c.isPrimary) parts.push('— PRIMARY')
       if (c.needs_review) parts.push('— needs_review, may have departed')
       usr.push(`- ${parts.join(' ')}`)
     }
@@ -712,7 +713,7 @@ Return a JSON array of 3 strings. No preamble.`
   if (coaches.length > 0) {
     for (const c of coaches) {
       const parts = [`${c.name} (${c.role ?? 'unknown role'})`]
-      if (c.is_primary) parts.push('— PRIMARY')
+      if (c.isPrimary) parts.push('— PRIMARY')
       if (c.needs_review) parts.push('— needs_review, may have departed')
       usr.push(`- ${parts.join(' ')}`)
     }
@@ -869,7 +870,8 @@ interface PrepCoach {
   name: string
   role: string | null
   email: string | null
-  is_primary: boolean
+  /** COMPOSED view field — see coach-primary.ts. Never a DB column. */
+  isPrimary: boolean
   needs_review: boolean
 }
 
@@ -928,7 +930,7 @@ export function buildPrepPrompt(params: {
   if (coaches.length > 0) {
     for (const c of coaches) {
       const parts = [`${c.name} (${c.role ?? 'unknown role'})`]
-      if (c.is_primary) parts.push('— PRIMARY')
+      if (c.isPrimary) parts.push('— PRIMARY')
       if (c.needs_review) parts.push('— needs_review, may have departed')
       if (c.email) parts.push(`<${c.email}>`)
       lines.push(`- ${parts.join(' ')}`)

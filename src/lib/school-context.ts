@@ -11,6 +11,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { campHostFilterIds } from '@/lib/camp-host'
+import { withPrimary, primaryFirst } from '@/lib/coach-primary'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,8 @@ export interface SchoolRow {
   head_coach: string | null
   admit_likelihood: string | null
   recruiting_stage: number
+  /** E2 private layer: the family's designated contact. Null until set. */
+  primary_coach_id: string | null
 }
 
 export interface CoachRow {
@@ -33,7 +36,8 @@ export interface CoachRow {
   name: string
   role: string | null
   email: string | null
-  is_primary: boolean
+  /** COMPOSED, not a column — see coach-primary.ts. Reads both domains. */
+  isPrimary: boolean
   needs_review: boolean
 }
 
@@ -134,15 +138,18 @@ export async function fetchSchoolContext(
   const queries: PromiseLike<{ data: any }>[] = [
     // 0. School details (superset of all routes' needs)
     admin.from('schools')
-      .select('id, name, short_name, category, division, conference, location, status, head_coach, admit_likelihood, recruiting_stage')
+      .select('id, name, short_name, category, division, conference, location, status, head_coach, admit_likelihood, recruiting_stage, primary_coach_id')
       .eq('id', schoolId)
       .single(),
-    // 1. All active coaches
+    // 1. All active coaches.
+    //    NO DB-side .order('is_primary') — that column is going away and a
+    //    sort on it cannot survive the re-point. Primary-first ordering is
+    //    applied in JS below, off whichever domain answers (coach-primary.ts).
     admin.from('coaches')
       .select('id, name, role, email, is_primary, needs_review')
       .eq('school_id', schoolId)
       .eq('is_active', true)
-      .order('is_primary', { ascending: false }),
+      .order('sort_order', { ascending: true }),
     // 2. Full contact_log (chronological) — ALWAYS filtered
     admin.from('contact_log')
       .select('date, sent_at, direction, channel, coach_name, summary, authored_by, intent, raw_source')
@@ -230,15 +237,24 @@ export async function fetchSchoolContext(
   const offersIdx = milestonesIdx + 1
   const rawOffers = (results[offersIdx]?.data ?? []) as OfferRow[]
 
-  // Process coaches
-  const coaches: CoachRow[] = rawCoaches.map(c => ({
-    id: c.id as string,
-    name: c.name as string,
-    role: c.role as string | null,
-    email: c.email as string | null,
-    is_primary: c.is_primary as boolean,
-    needs_review: c.needs_review as boolean,
-  }))
+  // Process coaches. isPrimary is COMPOSED from schools.primary_coach_id with
+  // the legacy coaches.is_primary as fallback — no flag, both domains accepted.
+  // This is the funnel for every generator: prompts.ts (x3), the message-plan,
+  // plan-QA and conversation-summary generators, camp-doc and call-prep all
+  // read their coach arrays from here, so composing once reaches all of them.
+  const coaches: CoachRow[] = primaryFirst(
+    withPrimary(
+      school,
+      rawCoaches.map(c => ({
+        id: c.id as string,
+        name: c.name as string,
+        role: c.role as string | null,
+        email: c.email as string | null,
+        is_primary: c.is_primary as boolean,
+        needs_review: c.needs_review as boolean,
+      })),
+    ),
+  ).map(({ is_primary: _legacy, ...c }) => c)
 
   // Process camps (flatten join)
   const upcomingCamps: CampRow[] = rawCamps.map(c => {

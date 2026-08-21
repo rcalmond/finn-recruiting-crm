@@ -523,6 +523,12 @@ export type CoachRole =
   | 'Interim Assistant Coach'
   | 'Other'
 
+/**
+ * The coaches ROW as it exists in the database. is_primary is the LEGACY
+ * per-coach flag; it is still written (dual-write) and still authoritative
+ * wherever schools.primary_coach_id is null, and it drops at the catalog
+ * re-point. UI code should hold a CoachView, not this.
+ */
 export interface Coach {
   id: string
   /** T2 Shape B: NOT NULL in DB; set by RLS helper default / familyAdmin injection. */
@@ -540,6 +546,16 @@ export interface Coach {
   created_at: string
   updated_at: string
 }
+
+/**
+ * A coach as every UI surface should see one: the row with the legacy
+ * is_primary REMOVED and the composed isPrimary in its place. is_primary is
+ * omitted rather than kept so that reading the stale flag off a view is a
+ * compile error, not a silent disagreement between two surfaces.
+ * Composed by coach-primary.ts — schools.primary_coach_id first, the legacy
+ * flag as fallback, no migration flag consulted.
+ */
+export type CoachView = Omit<Coach, 'is_primary'> & { isPrimary: boolean }
 
 // ─── Campaigns (Phase 2a) ─────────────────────────────────────────────────────
 

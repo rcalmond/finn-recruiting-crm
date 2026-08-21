@@ -5,6 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { primaryCoachIdsBySchool } from '@/lib/coach-primary'
 import { createClient } from '@/lib/supabase/server'
 
 // ── GET /api/campaigns ────────────────────────────────────────────────────────
@@ -100,19 +101,12 @@ export async function POST(req: NextRequest) {
     .single()
   if (campErr) return NextResponse.json({ error: campErr.message }, { status: 500 })
 
-  // 3. Resolve primary coach per school
-  const { data: coaches } = await db
-    .from('coaches')
-    .select('id, school_id')
-    .eq('is_primary', true)
-    .eq('is_active', true)
-    .in('school_id', schoolIds)
-    .order('sort_order', { ascending: true, nullsFirst: false })
-  // DISTINCT ON equivalent: keep first coach per school
-  const coachBySchool = new Map<string, string>()
-  for (const c of coaches ?? []) {
-    if (!coachBySchool.has(c.school_id)) coachBySchool.set(c.school_id, c.id)
-  }
+  // 3. Resolve primary coach per school.
+  //    Reads BOTH domains — schools.primary_coach_id first, coaches.is_primary
+  //    as fallback. The old .eq('is_primary', true) filter answered from the
+  //    legacy column alone, so a family that re-designated their contact would
+  //    have had the campaign address the previous one.
+  const coachBySchool = await primaryCoachIdsBySchool(db, schoolIds)
 
   // 4. Insert campaign_schools — all pending
   const rows = schoolIds.map(sid => ({
