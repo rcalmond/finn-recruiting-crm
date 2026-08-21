@@ -13,7 +13,7 @@
  * Trinity (CT), Rochester (NY) from Rochester (MI). Picking from names alone is
  * how a school gets attached to another school's coaches and camps.
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface Row {
@@ -40,18 +40,27 @@ export default function LinkToCatalog({
   const [searching, setSearching] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Every keystroke fires a search, and replies do not arrive in the order they
+  // were sent. Without this, typing "Wisconsin" showed the results for "wi" —
+  // an earlier, slower response overwriting a later one, so the list looked
+  // authoritative and was answering a question the user had already moved past.
+  const seqRef = useRef(0)
 
   const search = useCallback(async (text: string) => {
     setQ(text); setError(null)
-    if (text.trim().length < 2) { setRows([]); return }
+    const seq = ++seqRef.current
+    if (text.trim().length < 2) { setRows([]); setSearching(false); return }
     setSearching(true)
     try {
       const u = new URL('/api/catalog-search', window.location.origin)
       u.searchParams.set('q', text)
       const json = await (await fetch(u.toString())).json()
+      if (seq !== seqRef.current) return          // a newer keystroke won
       setRows(json.rows ?? [])
-    } catch { setRows([]) }
-    setSearching(false)
+    } catch {
+      if (seq === seqRef.current) setRows([])
+    }
+    if (seq === seqRef.current) setSearching(false)
   }, [])
 
   const link = useCallback(async (row: Row) => {
