@@ -24,6 +24,7 @@ import ResearchSection from '@/components/school-detail/ResearchSection'
 import StatusUpdatesPanel from '@/components/school-detail/StatusUpdatesPanel'
 import NotePopover from '@/components/school-detail/NotePopover'
 import { divisionLabel } from '@/lib/division-label'
+import LinkToCatalog from './LinkToCatalog'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -327,6 +328,24 @@ function DetailHeader({
           <>
             <div style={{ width: 1, height: 14, background: SD.line2, flexShrink: 0 }} />
             <div style={{ fontSize: 12, color: SD.inkMid }}>{metaParts}</div>
+          </>
+        )}
+
+        {/* UNLINKED: not broken, but limited — nothing the shared catalog learns
+            can reach this school. The way out is a control, not a migration:
+            unlinked rows arrive from auto-add, family proposals, imports, and
+            rejected proposals that stay on the list. */}
+        {!school.discovery_school_id && (
+          <>
+            <div style={{ width: 1, height: 14, background: SD.line2, flexShrink: 0 }} />
+            <LinkToCatalog
+              schoolId={school.id}
+              schoolName={school.name}
+              tokens={{
+                ink: SD.ink, inkMid: SD.inkMid, inkLo: SD.inkLo, inkMute: SD.inkMute,
+                line: SD.line, accent: SD.pitch, soft: SD.paperDeep, cream: SD.cream, rust: SD.red,
+              }}
+            />
           </>
         )}
 
