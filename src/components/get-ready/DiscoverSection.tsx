@@ -410,6 +410,31 @@ export default function DiscoverSection() {
         )}
       </div>
 
+      {/* CAN'T FIND IT — always reachable, and deliberately NOT inside the
+          Regista suggestions block: it used to live there, which meant a family
+          only saw it after clicking "Find more". The one person who needs this
+          is the person who has already failed to find their school, so it sits
+          with the results. Also the landing point for an off-universe
+          suggestion, which is why it takes a seed name. */}
+      <div style={{ marginTop: 14 }}>
+        {addFlowName !== null ? (
+          <AddSchoolFlow
+            initialName={addFlowName}
+            onAdoptCatalogRow={adoptCatalogRow}
+            onProposed={() => setAddFlowName(null)}
+            onCancel={() => setAddFlowName(null)}
+          />
+        ) : (
+          <button onClick={() => setAddFlowName('')} style={{
+            padding: 0, border: 'none', background: 'none',
+            fontSize: 12.5, fontWeight: 650, color: GREEN.accent, cursor: 'pointer',
+            fontFamily: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3,
+          }}>
+            Can&apos;t find your school? Add it
+          </button>
+        )}
+      </div>
+
       {/* Proposals */}
       {(proposals !== null || proposalError) && (
         <div ref={proposalsRef} style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${SD.line}` }}>
@@ -430,25 +455,6 @@ export default function DiscoverSection() {
           </div>
 
           {proposalError && <p style={{ margin: 0, fontSize: 13, color: SD.rust }}>{proposalError}</p>}
-
-          {/* Can't find it? Disambiguate FIRST, then browse, then propose.
-              Also the landing point for an off-universe suggestion. */}
-          {addFlowName !== null ? (
-            <AddSchoolFlow
-              initialName={addFlowName}
-              onAdoptCatalogRow={adoptCatalogRow}
-              onProposed={() => setAddFlowName(null)}
-              onCancel={() => setAddFlowName(null)}
-            />
-          ) : (
-            <button onClick={() => setAddFlowName('')} style={{
-              alignSelf: 'flex-start', padding: 0, border: 'none', background: 'none',
-              fontSize: 12.5, fontWeight: 650, color: GREEN.accent, cursor: 'pointer',
-              fontFamily: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3,
-            }}>
-              Can&apos;t find your school? Add it
-            </button>
-          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {(proposals ?? []).map(p => {
