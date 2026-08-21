@@ -39,7 +39,28 @@ export async function POST(req: NextRequest) {
 
   let candidates
   try {
-    const catalog = await fetchAll<CatalogCandidateRow>(catalogAdmin(), 'discovery_schools', COLS, { orderBy: 'id' })
+    const [catalog, mine] = await Promise.all([
+      fetchAll<CatalogCandidateRow>(catalogAdmin(), 'discovery_schools', COLS, { orderBy: 'id' }),
+      fetchAll<{ id: string; name: string; short_name: string | null; division: string | null }>(
+        familyAdmin(familyId), 'schools', 'id, name, short_name, division', { orderBy: 'id' }),
+    ])
+
+    // ALREADY ON THEIR LIST? The UI checks this before offering "create", but a
+    // client check is a courtesy, not a control — this is the one that counts.
+    // A family holding "Trinity College (CT)" from intake who types "Trinity"
+    // must not be able to mint a second row on the same school, which is
+    // exactly the collision that reached production on 2026-08-20.
+    const already = matchCatalog(name, mine.map(s => ({
+      id: s.id, name: s.name, short_name: s.short_name, division: s.division, state: null,
+    })))
+    if (already.candidates.length > 0) {
+      const hit = already.candidates[0]
+      return NextResponse.json({
+        error: `You already have ${hit.name} on your list.`,
+        alreadyOnList: { id: hit.id, name: hit.name },
+      }, { status: 409 })
+    }
+
     candidates = freezeCandidates(matchCatalog(name, catalog))
   } catch (err) {
     const message = err instanceof Error ? err.message : 'catalog read failed'

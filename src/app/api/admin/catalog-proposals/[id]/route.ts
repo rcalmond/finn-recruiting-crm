@@ -122,6 +122,30 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       .from('discovery_schools').select('id, name').eq('id', body.discoveryId).maybeSingle()
     if (!target) return NextResponse.json({ error: 'discoveryId not found' }, { status: 404 })
 
+    // REFUSE IF THE FAMILY ALREADY HOLDS THIS SCHOOL. Merging is the act most
+    // likely to create a duplicate linkage, because the reviewer is looking at
+    // the CATALOG and cannot see the family's list. On 2026-08-20 a merge put a
+    // second Testerson row onto Trinity College (CT), which they had held from
+    // their intake starting list since the day before — and the unique index on
+    // (family_id, discovery_school_id) could not be created until it was undone.
+    // The database will enforce this once that index lands; a constraint
+    // violation is a terrible way to learn it, so the refusal explains instead
+    // and names the row already holding the link.
+    const { data: holders } = await familyAdmin(proposal.proposed_by_family_id as string)
+      .from('schools')
+      .select('id, name')
+      .eq('discovery_school_id', body.discoveryId)
+
+    const conflict = (holders ?? []).find(h => h.id !== proposal!.origin_school_id)
+    if (conflict) {
+      return NextResponse.json({
+        error: `This family already has "${conflict.name}" linked to ${target.name}. ` +
+               `Merging would create a second row on the same school — reject this proposal instead, ` +
+               `or merge it into a different catalog row.`,
+        conflictSchool: { id: conflict.id, name: conflict.name },
+      }, { status: 409 })
+    }
+
     const linkErr = await linkFamilyRow(body.discoveryId)
     if (linkErr) return NextResponse.json({ error: `link failed: ${linkErr}` }, { status: 500 })
 

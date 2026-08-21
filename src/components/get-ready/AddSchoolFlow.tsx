@@ -31,12 +31,16 @@ interface Candidate {
   state: string | null
   city?: string | null
   via: 'exact' | 'subset'
+  /** Set when THIS family already has a school linked to this catalog row. */
+  alreadyOnList: { id: string; name: string } | null
 }
 
 interface MatchResponse {
   tier: 'exact' | 'subset' | 'none'
   candidates: Candidate[]
   ambiguous: boolean
+  /** The family's OWN schools whose name matches what was typed. */
+  onList: Array<{ id: string; name: string; division: string | null }>
   error?: string
 }
 
@@ -141,8 +145,32 @@ export default function AddSchoolFlow({
 
       {error && <p style={{ margin: 0, fontSize: 12.5, color: T.rust }}>{error}</p>}
 
+      {/* ── Step 0: ALREADY ON YOUR LIST. Checked before anything else,
+             because the answer here is not "create" but "here it is". ── */}
+      {result && (result.onList?.length ?? 0) > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <p style={{ margin: 0, fontSize: 12.5, color: T.inkMid }}>
+            You already have this on your list:
+          </p>
+          {result.onList.map(s => (
+            <div key={s.id} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: 10, padding: '9px 11px', border: `1px solid ${T.line}`,
+              borderRadius: 8, background: T.soft,
+            }}>
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: T.ink }}>
+                {s.name}{s.division ? <span style={{ fontWeight: 500, color: T.inkLo }}> · {s.division}</span> : null}
+              </span>
+              <a href={`/schools/${s.id}`} style={{ ...pill(true), textDecoration: 'none', display: 'inline-block' }}>
+                Open it
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ── Step 1: candidates. Always confirmed, never auto-applied. ── */}
-      {result && result.candidates.length > 0 && (
+      {result && (result.onList?.length ?? 0) === 0 && result.candidates.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <p style={{ margin: 0, fontSize: 12.5, color: T.inkMid }}>
             {result.candidates.length === 1
@@ -162,9 +190,15 @@ export default function AddSchoolFlow({
                   {[c.division, c.state, c.city].filter(Boolean).join(' · ')}
                 </span>
               </div>
-              <button onClick={() => adopt(c)} disabled={busy !== null} style={pill(true)}>
-                {busy === 'adopt' ? 'Adding…' : "That's it"}
-              </button>
+              {c.alreadyOnList ? (
+                <a href={`/schools/${c.alreadyOnList.id}`} style={{ ...pill(false), textDecoration: 'none', display: 'inline-block' }}>
+                  Already yours — open
+                </a>
+              ) : (
+                <button onClick={() => adopt(c)} disabled={busy !== null} style={pill(true)}>
+                  {busy === 'adopt' ? 'Adding…' : "That's it"}
+                </button>
+              )}
             </div>
           ))}
           {!confirmedNoMatch && (
@@ -176,7 +210,7 @@ export default function AddSchoolFlow({
       )}
 
       {/* ── Step 2: browse before create. ── */}
-      {result && (result.candidates.length === 0 || confirmedNoMatch) && (
+      {result && (result.onList?.length ?? 0) === 0 && (result.candidates.length === 0 || confirmedNoMatch) && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <p style={{ margin: 0, fontSize: 12.5, color: T.inkMid, lineHeight: 1.5 }}>
             Nothing in the catalog matches that name.{' '}
