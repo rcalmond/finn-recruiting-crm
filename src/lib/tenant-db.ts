@@ -41,7 +41,7 @@ const FAMILY_TABLES = new Set([
   'campaigns', 'campaign_schools', 'campaign_templates', 'campaign_email_drafts',
   'messages', 'prep_docs', 'assets', 'action_items', 'batch_reel_sends',
   'questions', 'gmail_tokens', 'players',
-  'schools', 'coaches', 'camps', 'camp_school_attendees', 'camp_coach_attendees',
+  'schools', 'coaches',
   'family_sending_addresses',
   // The PROPOSAL is shared (catalog) so it is reviewed once; the DECISION is
   // per-family, so one family's dismissal never suppresses another's camp.
@@ -52,6 +52,11 @@ const FAMILY_TABLES = new Set([
 const CATALOG_TABLES = new Set([
   'discovery_schools', 'school_research', 'camp_proposals', 'coach_changes',
   'cron_runs', 'not_found_log', 'families', 'users',
+  // E1.5: camps and their attendee rows are SHARED — a camp and the schools
+  // attending it are facts about the world, not about a family. The per-family
+  // layer is camp_family_status, which stays a FAMILY table. camp_coach_attendees
+  // was dropped (chunk C) rather than migrated: it never held a row.
+  'camps', 'camp_school_attendees',
   // A shared review queue, like camp_proposals: one admin decides whether a
   // school joins the catalog. It carries proposed_by_family_id and family RLS
   // so a family sees its own proposals on the user client, while review runs

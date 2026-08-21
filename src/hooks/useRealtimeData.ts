@@ -631,14 +631,15 @@ export function useCamps(schools: School[], schoolsLoading?: boolean) {
   schoolsRef.current = schools
 
   const fetchCamps = useCallback(async () => {
-    const [campsRes, statusRes, attendeesRes, coachesRes] = await Promise.all([
+    // camp_coach_attendees was DROPPED in E1.5 chunk C — it never held a row,
+    // so it was dropped rather than migrated. Reading it now would 404.
+    const [campsRes, statusRes, attendeesRes] = await Promise.all([
       supabase.from('camps').select('*').order('start_date', { ascending: true }),
       supabase.from('camp_family_status').select('*'),
       // NO schools embed — camp_school_attendees.school_id re-targets
       // discovery_schools at E1.5. Attendee schools are resolved against the
       // family's own list in buildCampsWithRelations (see camp-host.ts).
       supabase.from('camp_school_attendees').select('*'),
-      supabase.from('camp_coach_attendees').select('*'),
     ])
 
     if (campsRes.error || !campsRes.data) {
@@ -651,7 +652,7 @@ export function useCamps(schools: School[], schoolsLoading?: boolean) {
       schoolsRef.current,
       (statusRes.data ?? []) as CampFamilyStatus[],
       (attendeesRes.data ?? []) as Array<CampSchoolAttendee & { school: Pick<School, 'id' | 'name' | 'short_name' | 'category'> }>,
-      (coachesRes.data ?? []) as CampCoachAttendee[],
+      [],   // camp_coach_attendees dropped (chunk C); the shape stays for now
     )
     setCamps(composed)
     setLoading(false)
@@ -666,7 +667,7 @@ export function useCamps(schools: School[], schoolsLoading?: boolean) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'camps' }, fetchCamps)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'camp_family_status' }, fetchCamps)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'camp_school_attendees' }, fetchCamps)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'camp_coach_attendees' }, fetchCamps)
+
       .subscribe()
     channelRef.current = channel
     return () => { supabase.removeChannel(channel) }

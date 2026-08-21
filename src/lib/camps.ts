@@ -348,9 +348,17 @@ export async function addSchoolAttendee(
   const { data: school } = await supabase
     .from('schools').select('id, discovery_school_id').eq('id', schoolId).maybeSingle()
   const value = school ? campHostIdFor(school as { id: string; discovery_school_id: string | null }) : schoolId
+  // ON CONFLICT DO NOTHING. camp_school_attendees carries a UNIQUE index on
+  // (camp_id, school_id). While camp_id was per-family a collision was
+  // impossible; now that camps are shared, two families marking the same school
+  // at the same camp is EXPECTED — and one row is the correct outcome, because
+  // attendance is a fact about the world, not a per-family assertion. So the
+  // write absorbs the collision instead of erroring at whoever happens to be
+  // second.
   const { error } = await supabase
     .from('camp_school_attendees')
-    .insert({ camp_id: campId, school_id: value, source })
+    .upsert({ camp_id: campId, school_id: value, source },
+            { onConflict: 'camp_id,school_id', ignoreDuplicates: true })
   return error?.message ?? null
 }
 

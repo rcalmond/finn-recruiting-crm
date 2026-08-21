@@ -27,10 +27,11 @@
  */
 
 /**
- * FALSE until E1.5's re-point lands, then flipped in the SAME deploy as the
- * schema chunk. It governs WRITES only; reads accept both forms regardless.
+ * TRUE since E1.5's re-point landed (chunk G, 2026-08-21). It governs WRITES
+ * only; reads accept both forms regardless, which is what made the
+ * SQL-then-deploy window safe rather than an outage.
  */
-export const CAMPS_KEYED_ON_CATALOG = false
+export const CAMPS_KEYED_ON_CATALOG = true
 
 export interface HostSchoolRef {
   id: string
