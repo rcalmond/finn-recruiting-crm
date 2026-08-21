@@ -16,6 +16,7 @@ import type {
   School,
 } from './types'
 import { buildHostIndex, campHostIdFor } from '@/lib/camp-host'
+import { campHostMatches, resolveHostSchool, type HostSchoolRef } from '@/lib/camp-host'
 
 // ─── Composition ─────────────────────────────────────────────────────────────
 
@@ -94,6 +95,17 @@ async function syncActionItemForCamp(
   const { campId, campName, hostSchoolId, status, registrationDeadline, actionItemId } = opts
   const shouldExist = status === 'targeted' && registrationDeadline !== null
 
+  // hostSchoolId is whatever camps.host_school_id holds — a FAMILY id today, a
+  // CATALOG id after E1.5. action_items.school_id is family-scoped either way,
+  // so resolve rather than write through.
+  let familySchoolId = hostSchoolId
+  if (shouldExist) {
+    const { data: famRows } = await supabase.from('schools').select('id, discovery_school_id')
+    familySchoolId =
+      resolveHostSchool(hostSchoolId, (famRows ?? []) as Array<{ id: string; discovery_school_id: string | null }>)?.id
+      ?? hostSchoolId
+  }
+
   if (shouldExist && !actionItemId) {
     // CREATE: interested + deadline, no action_item yet
     const { data: maxData } = await supabase
@@ -108,7 +120,10 @@ async function syncActionItemForCamp(
     const { data: item, error } = await supabase
       .from('action_items')
       .insert({
-        school_id: hostSchoolId,
+        // action_items.school_id points at the FAMILY schools table, while
+        // hostSchoolId becomes a CATALOG id at E1.5. Resolved back rather than
+        // written through — the same wrong-domain write as prep_docs.school_id.
+        school_id: familySchoolId,
         action: `Register: ${campName}`,
         owner: 'Finn',
         due_date: registrationDeadline,
@@ -363,11 +378,13 @@ export async function removeSchoolAttendee(
  */
 export function getNextUpcomingCamp(
   camps: CampWithRelations[],
-  schoolId: string,
+  /** The school itself, not just its id: camps.host_school_id holds a FAMILY id
+   *  today and a CATALOG id after E1.5, so matching needs both forms. */
+  school: HostSchoolRef,
   today: string,
 ): CampWithRelations | null {
   const upcoming = camps
-    .filter(c => c.camp.host_school_id === schoolId && c.camp.start_date >= today)
+    .filter(c => campHostMatches(c.camp.host_school_id, school) && c.camp.start_date >= today)
     .sort((a, b) => a.camp.start_date.localeCompare(b.camp.start_date))
   return upcoming[0] ?? null
 }
@@ -412,15 +429,16 @@ export function sortCampsChronological(camps: CampWithRelations[]): CampWithRela
  */
 export function getCampsForSchool(
   camps: CampWithRelations[],
-  schoolId: string,
+  /** See getNextUpcomingCamp — both id forms are needed across the re-point. */
+  school: HostSchoolRef,
 ): { hosted: CampWithRelations[]; attending: CampWithRelations[] } {
   const hosted: CampWithRelations[] = []
   const attending: CampWithRelations[] = []
 
   for (const c of camps) {
-    if (c.camp.host_school_id === schoolId) {
+    if (campHostMatches(c.camp.host_school_id, school)) {
       hosted.push(c)
-    } else if (c.schoolAttendees.some(a => a.school_id === schoolId)) {
+    } else if (c.schoolAttendees.some(a => campHostMatches(a.school_id, school))) {
       attending.push(c)
     }
   }

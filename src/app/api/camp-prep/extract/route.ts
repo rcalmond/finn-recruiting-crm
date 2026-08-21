@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { extractJsonObject } from '@/lib/agentic-research'
+import { resolveHostSchool } from '@/lib/camp-host'
 import {
   CAMP_EXTRACTION_MODEL, buildCampExtractionSystemPrompt, buildCampExtractionUserPrompt,
   type CampExtraction, type CampPrepInputs,
@@ -39,11 +40,14 @@ export async function POST(req: NextRequest) {
     .single()
   if (!camp) return NextResponse.json({ error: 'Camp not found' }, { status: 404 })
 
-  const { data: school } = await db
-    .from('schools')
-    .select('location')
-    .eq('id', camp.host_school_id)
-    .maybeSingle()
+  // camps.host_school_id becomes a CATALOG id at E1.5, so an .eq('id', ...)
+  // against the FAMILY schools table would silently find nothing and the prep
+  // doc would lose the host's location. Resolved against both id forms.
+  const { data: famRows } = await db.from('schools').select('id, location, discovery_school_id')
+  const school = resolveHostSchool(
+    camp.host_school_id,
+    (famRows ?? []) as Array<{ id: string; location: string | null; discovery_school_id: string | null }>,
+  ) ?? null
 
   // T1: players by family (RLS scopes; one player at alpha)
   const { data: profile } = await db

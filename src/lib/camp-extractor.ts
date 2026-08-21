@@ -8,7 +8,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scopeOf } from '@/lib/tenant-db'
-import { campHostFilterIds, type HostSchoolRef } from '@/lib/camp-host'
+import { campHostFilterIds, campHostIdFor, resolveHostSchool, type HostSchoolRef } from '@/lib/camp-host'
 
 /** Concurrent enqueue of the same (proposal, family) is expected and benign. */
 const PG_UNIQUE_VIOLATION = '23505'
@@ -379,17 +379,33 @@ export async function classifyCampUpdate(
     ((attendeesResult.data ?? []) as Array<{ school_id: string }>).map(a => a.school_id)
   )
 
+  // The stored ids are FAMILY ids today and CATALOG ids after E1.5, while the
+  // proposed ids are always FAMILY ids (they come from the extractor's candidate
+  // list). Comparing the two directly would call every host and attendee NEW
+  // after the re-point, so every matched camp would look material and the review
+  // queue would fill with updates that changed nothing. Normalise to the family
+  // form before comparing.
+  const { data: famRows } = await supabase.from('schools').select('id, discovery_school_id')
+  const famList = (famRows ?? []) as Array<{ id: string; discovery_school_id: string | null }>
+  const toFamilyId = (id: string | undefined | null): string | undefined =>
+    id ? (resolveHostSchool(id, famList)?.id ?? id) : undefined
+
+  const existingHostFamilyId = toFamilyId(existingHostId)
+  const existingAttendeeFamilyIds = new Set(
+    Array.from(existingAttendeeIds).map(id => toFamilyId(id)).filter(Boolean) as string[]
+  )
+
   // Compute newly-associated schools
   const candidateNew: Array<{ schoolId: string; role: 'host' | 'attendee' }> = []
 
   // Check if proposed host is different from existing host
-  if (proposedHostSchoolId !== existingHostId) {
+  if (proposedHostSchoolId !== existingHostFamilyId) {
     candidateNew.push({ schoolId: proposedHostSchoolId, role: 'host' })
   }
 
   // Check proposed attendees not already on the camp
   for (const sid of proposedData.attendee_school_ids) {
-    if (!existingAttendeeIds.has(sid) && sid !== existingHostId) {
+    if (!existingAttendeeFamilyIds.has(sid) && sid !== existingHostFamilyId) {
       candidateNew.push({ schoolId: sid, role: 'attendee' })
     }
   }
@@ -556,7 +572,10 @@ export async function extractAndProposeCamps(
       await admin.from('camp_proposals').insert({
         source: 'email_extract',
         source_ref: rowId,
-        host_school_id: school.id,
+        // camp_proposals.host_school_id re-points with camps at E1.5 — writing
+        // the family id after that would key proposals and camps on different
+        // domains, which is the duplicate-generating loop wearing a second hat.
+        host_school_id: campHostIdFor(school as { id: string; discovery_school_id?: string | null }),
         proposed_data: {
           name: camp.name,
           start_date: camp.start_date,

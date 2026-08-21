@@ -37,9 +37,18 @@ export async function pendingProposalIdsForFamily(
   // not track — and a shared table filtered only by status would put another
   // family's camp in this family's review queue. Invisible while one family
   // existed, which is exactly why it survived until the pin came off.
+  // BOTH id forms: camp_proposals.host_school_id re-points at the catalog with
+  // camps at E1.5, so a set of family ids alone would match nothing and every
+  // family's proposal queue would silently empty — a queue that says "nothing
+  // waiting" is indistinguishable from a queue that is actually clear.
   const scoped = familyAdmin(familyId)
-  const mySchools = await fetchAll<{ id: string }>(scoped, 'schools', 'id', { orderBy: 'id' })
-  const mine = new Set(mySchools.map(s => s.id))
+  const mySchools = await fetchAll<{ id: string; discovery_school_id: string | null }>(
+    scoped, 'schools', 'id, discovery_school_id', { orderBy: 'id' })
+  const mine = new Set<string>()
+  for (const s of mySchools) {
+    mine.add(s.id)
+    if (s.discovery_school_id) mine.add(s.discovery_school_id)
+  }
   if (mine.size === 0) return []
 
   const { data: pending, error } = await reader

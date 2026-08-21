@@ -9,6 +9,7 @@ import CampPrepModal from '@/components/CampPrepModal'
 import CampDocGenerator from '@/components/CampDocGenerator'
 import type { CampWithRelations, CampFamilyStatusValue, Category, School } from '@/lib/types'
 import type { CampDoc } from '@/lib/camp-doc'
+import { campHostMatches } from '@/lib/camp-host'
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 
@@ -574,7 +575,7 @@ function AttendeesSection({ camp, schools, onAdd, onRemove }: {
   const attendeeIds = new Set(camp.schoolAttendees.map(a => a.school_id))
   // Exclude host school and already-added schools from search
   const available = schools.filter(s =>
-    s.id !== camp.camp.host_school_id &&
+    !campHostMatches(camp.camp.host_school_id, s) &&
     !attendeeIds.has(s.id) &&
     s.status !== 'Inactive' &&
     s.category !== 'Nope' &&

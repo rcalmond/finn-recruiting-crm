@@ -16,6 +16,7 @@ import { startRun, completeRun } from '@/lib/cron-runs'
 import { buildFamilyScanSet, distinctTargets, interleaveByFamily } from '@/lib/cron-scan-set'
 import { fetchAll } from '@/lib/fetch-all'
 import { orderByBookmark, runWithBudget, stampScanned, DEFAULT_BUDGET_MS } from '@/lib/scan-budget'
+import { campHostIdFor } from '@/lib/camp-host'
 
 // The ALMOND_FAMILY_ID pin is GONE. It scanned one family's schools, which was
 // correct while one family existed and silently wrong the moment a second one
@@ -259,7 +260,8 @@ export async function GET(req: NextRequest) {
             const { error: insertErr } = await db.from('camp_proposals').insert({
               source: 'web_search',
               source_ref: sourceRef,
-              host_school_id: school.id,
+              // Re-points with camps at E1.5 — see camp-host.ts.
+              host_school_id: campHostIdFor(school),
               proposed_data: {
                 name: camp.name,
                 start_date: camp.start_date,

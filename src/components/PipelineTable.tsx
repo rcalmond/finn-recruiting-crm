@@ -320,7 +320,7 @@ export default function PipelineTable({ schools, actionItems = [], camps = [], o
                     </td>
                     <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
                       {(() => {
-                        const next = getNextUpcomingCamp(camps, s.id, today)
+                        const next = getNextUpcomingCamp(camps, s, today)
                         if (!next) return <span style={{ fontSize: 11, color: T.inkMute }}>—</span>
                         return (
                           <div style={{ fontSize: 11, fontWeight: 650, color: T.tealDeep, background: T.tealSoft, borderRadius: 999, padding: '1px 8px', display: 'inline-block' }}>

@@ -2018,7 +2018,7 @@ function SidebarCamps({ school, camps, schools }: {
 }) {
   const router = useRouter()
   const [showAddModal, setShowAddModal] = useState(false)
-  const { hosted, attending } = getCampsForSchool(camps, school.id)
+  const { hosted, attending } = getCampsForSchool(camps, school)
   const totalCount = hosted.length + attending.length
 
   return (
