@@ -10,6 +10,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { campHostFilterIds } from '@/lib/camp-host'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -123,6 +124,12 @@ export async function fetchSchoolContext(
 ): Promise<SchoolContext> {
   const today = new Date().toISOString().split('T')[0]
 
+  // Resolve the school's catalog linkage up front so the camps query can match
+  // on either id form across E1.5's re-point (see camp-host.ts).
+  const { data: hostRow } = await admin
+    .from('schools').select('id, discovery_school_id').eq('id', schoolId).maybeSingle()
+  const campHostIds = campHostFilterIds(hostRow ?? { id: schoolId })
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const queries: PromiseLike<{ data: any }>[] = [
     // 0. School details (superset of all routes' needs)
@@ -142,10 +149,14 @@ export async function fetchSchoolContext(
       .eq('school_id', schoolId)
       .not('parse_status', 'in', '("orphan","non_coach")')
       .order('sent_at', { ascending: true }),
-    // 3. Upcoming camps with Finn's status
+    // 3. Upcoming camps with the family's status.
+    //    Filtered on BOTH id forms (see camp-host.ts): after E1.5 re-points
+    //    camps.host_school_id at the catalog, an .eq() on the family school id
+    //    matches nothing and every generator would silently believe this school
+    //    has no camps — the worst kind of wrong, since the doc reads confident.
     admin.from('camps')
       .select('name, start_date, end_date, location, registration_deadline, camp_family_status(status)')
-      .eq('host_school_id', schoolId)
+      .in('host_school_id', campHostIds)
       .gte('start_date', today),
     // 4. Strategic notes (from school_message_plan)
     admin.from('school_message_plan')

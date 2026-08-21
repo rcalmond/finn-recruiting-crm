@@ -15,6 +15,7 @@ import type {
   CampWithRelations,
   School,
 } from './types'
+import { buildHostIndex, campHostIdFor } from '@/lib/camp-host'
 
 // ─── Composition ─────────────────────────────────────────────────────────────
 
@@ -26,15 +27,30 @@ export function composeCampsWithRelations(
   camps: Camp[],
   schools: School[],
   familyStatuses: CampFamilyStatus[],
-  schoolAttendees: Array<CampSchoolAttendee & { school: Pick<School, 'id' | 'name' | 'short_name' | 'category'> }>,
+  /** Raw rows. The school is resolved HERE rather than by a PostgREST embed:
+   *  camp_school_attendees.school_id re-targets discovery_schools at E1.5, which
+   *  breaks the embed outright, and resolving against the family's own list
+   *  works on either side of the re-point. */
+  schoolAttendees: CampSchoolAttendee[],
   coachAttendees: CampCoachAttendee[],
 ): CampWithRelations[] {
-  const schoolMap = new Map(schools.map(s => [s.id, s]))
+  // Indexed on BOTH id forms: after E1.5 re-points camps.host_school_id at the
+  // catalog, a map keyed only on the family school id returns undefined for
+  // every camp and each one renders as "Unknown" — no error, no empty state.
+  const schoolMap = buildHostIndex(schools)
   const statusByCamp = new Map(familyStatuses.map(fs => [fs.camp_id, fs]))
-  const attendeesByCamp = new Map<string, typeof schoolAttendees>()
+  type ResolvedAttendee = CampSchoolAttendee & { school: Pick<School, 'id' | 'name' | 'short_name' | 'category'> }
+  const attendeesByCamp = new Map<string, ResolvedAttendee[]>()
   for (const a of schoolAttendees) {
+    const s = schoolMap.get(a.school_id)
+    const resolved: ResolvedAttendee = {
+      ...a,
+      school: s
+        ? { id: s.id, name: s.name, short_name: s.short_name, category: s.category }
+        : { id: a.school_id, name: 'Unknown', short_name: null, category: 'C' as School['category'] },
+    }
     if (!attendeesByCamp.has(a.camp_id)) attendeesByCamp.set(a.camp_id, [])
-    attendeesByCamp.get(a.camp_id)!.push(a)
+    attendeesByCamp.get(a.camp_id)!.push(resolved)
   }
   const coachesByCamp = new Map<string, CampCoachAttendee[]>()
   for (const c of coachAttendees) {
@@ -311,9 +327,15 @@ export async function addSchoolAttendee(
   schoolId: string,
   source: string = 'advertised',
 ): Promise<string | null> {
+  // WRITE side: camp_school_attendees.school_id becomes a CATALOG id at E1.5.
+  // The family school is resolved to whichever id form the column expects (see
+  // camp-host.ts); reads accept both, writes must pick one.
+  const { data: school } = await supabase
+    .from('schools').select('id, discovery_school_id').eq('id', schoolId).maybeSingle()
+  const value = school ? campHostIdFor(school as { id: string; discovery_school_id: string | null }) : schoolId
   const { error } = await supabase
     .from('camp_school_attendees')
-    .insert({ camp_id: campId, school_id: schoolId, source })
+    .insert({ camp_id: campId, school_id: value, source })
   return error?.message ?? null
 }
 

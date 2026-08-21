@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { CampExtraction, CampPrepInputs } from '@/lib/camp-prep'
+import { resolveHostSchool } from '@/lib/camp-host'
 
 export const runtime = 'nodejs'
 
@@ -53,6 +54,14 @@ export async function POST(req: NextRequest) {
     .single()
   if (!camp) return NextResponse.json({ error: 'Camp not found' }, { status: 404 })
 
+  // camps.host_school_id becomes a CATALOG id at E1.5, but prep_docs.school_id
+  // points at the FAMILY schools table. Resolve back to this family's own row
+  // rather than writing a catalog id into a family-scoped FK.
+  const { data: famSchools } = await db.from('schools').select('id, discovery_school_id')
+  const hostFamilySchoolId =
+    resolveHostSchool(camp.host_school_id, (famSchools ?? []) as Array<{ id: string; discovery_school_id: string | null }>)?.id
+    ?? camp.host_school_id
+
   if (existingDocId) {
     // Resume: update inputs + extracted_schedule; leave snapshots (insert-time) alone.
     const { data: doc, error } = await db
@@ -69,7 +78,10 @@ export async function POST(req: NextRequest) {
   const { data: doc, error } = await db
     .from('prep_docs')
     .insert({
-      school_id: camp.host_school_id,      // prep_docs.school_id is NOT NULL
+      // prep_docs.school_id is NOT NULL and points at the FAMILY schools table.
+      // camp.host_school_id becomes a CATALOG id at E1.5, so it is resolved back
+      // to this family's own school row rather than written through.
+      school_id: hostFamilySchoolId,
       coach_id: null,
       // coach_name_snapshot is NOT NULL on prep_docs and meaningless for a camp doc;
       // use the camp name as a placeholder. (Flagged for a future nullable migration.)

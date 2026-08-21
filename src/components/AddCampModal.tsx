@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useCamps } from '@/hooks/useRealtimeData'
 import type { School } from '@/lib/types'
+import { campHostIdFor } from '@/lib/camp-host'
 
 const LV = {
   paper:    '#F6F1E8',
@@ -54,8 +55,12 @@ export default function AddCampModal({ schools, onClose, onCreated, prefilledHos
     setSaving(true)
     setError(null)
 
+    // WRITE side: camps.host_school_id becomes a CATALOG id at E1.5, so the
+    // value written is chosen by campHostIdFor rather than assumed — the one
+    // switch, in camp-host.ts, flipped with the schema chunk.
+    const hostSchool = schools.find(s => s.id === hostSchoolId)
     const result = await createCamp({
-      host_school_id: hostSchoolId,
+      host_school_id: hostSchool ? campHostIdFor(hostSchool) : hostSchoolId,
       name,
       start_date: startDate,
       end_date: endDate,

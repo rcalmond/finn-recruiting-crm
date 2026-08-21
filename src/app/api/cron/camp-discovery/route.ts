@@ -85,6 +85,9 @@ export async function GET(req: NextRequest) {
   // unattended nightly job is a silent undercount nobody would ever read.
   interface ScanSchool {
     id: string; name: string; short_name: string | null; category: string
+    /** Carried so camp dedup can match on either id form across E1.5's
+     *  re-point — see camp-host.ts. */
+    discovery_school_id: string | null
     // THE BOOKMARK. It lives on schools because schools is family-scoped, so the
     // grain is (family, school) — which is TEMPORARY. Two families tracking
     // Middlebury run two identical searches today, so this cost scales with
@@ -98,7 +101,7 @@ export async function GET(req: NextRequest) {
   let scan
   try {
     scan = await buildFamilyScanSet<ScanSchool>(
-      'id, name, short_name, category, camp_scan_last_at',
+      'id, name, short_name, category, camp_scan_last_at, discovery_school_id',
       q => q.in('category', ['A', 'B', 'C']).neq('status', 'Inactive'),
     )
   } catch (err) {
@@ -227,6 +230,7 @@ export async function GET(req: NextRequest) {
             const dedup = await shouldSkipProposal(db, {
               familyId,
               hostSchoolId: school.id,
+              hostDiscoverySchoolId: school.discovery_school_id,
               startDate: camp.start_date,
               endDate: camp.end_date,
             })

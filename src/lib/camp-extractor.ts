@@ -8,6 +8,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scopeOf } from '@/lib/tenant-db'
+import { campHostFilterIds, type HostSchoolRef } from '@/lib/camp-host'
 
 /** Concurrent enqueue of the same (proposal, family) is expected and benign. */
 const PG_UNIQUE_VIOLATION = '23505'
@@ -189,6 +190,12 @@ export interface ProposalDedupInput {
    *  Required means the compiler finds every call site. */
   familyId: string
   hostSchoolId: string
+  /** The host school's catalog linkage, when it has one. Supplied so the
+   *  existing-camp check can match on EITHER id and stays correct across
+   *  E1.5's re-point — see camp-host.ts. Without it, the check silently
+   *  matches nothing after the re-point and every camp looks new, which
+   *  generates a duplicate on every cron run. */
+  hostDiscoverySchoolId?: string | null
   startDate: string
   endDate: string | null
 }
@@ -224,8 +231,10 @@ export async function shouldSkipProposal(
   supabase: SupabaseClient,
   input: ProposalDedupInput,
 ): Promise<ProposalDedupResult> {
-  const { familyId, hostSchoolId, startDate, endDate } = input
+  const { familyId, hostSchoolId, hostDiscoverySchoolId, startDate, endDate } = input
   const effectiveEnd = endDate ?? startDate
+  const hostRef: HostSchoolRef = { id: hostSchoolId, discovery_school_id: hostDiscoverySchoolId ?? null }
+  const hostIds = campHostFilterIds(hostRef)
 
   // The family argument must agree with the client's own scope. A Testerson id
   // on an Almond-scoped client would read Almond's decisions and write Almond's
@@ -243,10 +252,14 @@ export async function shouldSkipProposal(
   const endLow = shiftDate(effectiveEnd, -2)
   const endHigh = shiftDate(effectiveEnd, 2)
 
+  // .in() over BOTH id forms, never .eq() — see camp-host.ts. THE KEY IS
+  // (host, start +/-2d, end +/-2d), and after E1.5 this read goes CROSS-FAMILY
+  // because camps becomes a catalog table. That is the intended win: two
+  // families discovering the same camp land on one row instead of two.
   const { data: existingCamps } = await supabase
     .from('camps')
     .select('id, start_date, end_date')
-    .eq('host_school_id', hostSchoolId)
+    .in('host_school_id', hostIds)
     .gte('start_date', startLow)
     .lte('start_date', startHigh)
     .gte('end_date', endLow)
@@ -263,7 +276,7 @@ export async function shouldSkipProposal(
   const { data: signatureProposals, error: sigErr } = await supabase
     .from('camp_proposals')
     .select('id, status, created_at')
-    .eq('host_school_id', hostSchoolId)
+    .in('host_school_id', hostIds)
     .contains('proposed_data', { start_date: startDate })
     .order('created_at', { ascending: false })
 
@@ -459,7 +472,7 @@ export async function extractAndProposeCamps(
     // 1. Load the contact_log row with school join
     const { data: row, error } = await admin
       .from('contact_log')
-      .select('id, school_id, direction, coach_name, channel, summary, raw_source, sent_at, date, parse_status, schools!inner(id, name, short_name, category)')
+      .select('id, school_id, direction, coach_name, channel, summary, raw_source, sent_at, date, parse_status, schools!inner(id, name, short_name, category, discovery_school_id)')
       .eq('id', rowId)
       .single()
 
@@ -520,6 +533,7 @@ export async function extractAndProposeCamps(
       const dedup = await shouldSkipProposal(admin, {
         familyId,
         hostSchoolId: school.id,
+        hostDiscoverySchoolId: (school as { discovery_school_id?: string | null }).discovery_school_id ?? null,
         startDate: camp.start_date,
         endDate: camp.end_date,
       })

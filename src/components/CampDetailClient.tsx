@@ -42,7 +42,7 @@ const STATUS_COLORS: Record<CampFamilyStatusValue, { bg: string; color: string }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function CampDetailClient({ campId }: { campId: string }) {
+export default function CampDetailClient({ campId, isAdmin = false }: { campId: string; isAdmin?: boolean }) {
   const router = useRouter()
   const { schools, loading: schoolsLoading } = useSchools()
   const { camps, loading, updateCamp, updateFamilyStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee } = useCamps(schools, schoolsLoading)
@@ -92,7 +92,7 @@ export default function CampDetailClient({ campId }: { campId: string }) {
       <StatusSection camp={campData} onUpdateStatus={updateFamilyStatus} />
 
       {/* Details */}
-      <DetailsSection camp={campData} schools={schools} onUpdate={updateCamp} />
+      <DetailsSection camp={campData} schools={schools} onUpdate={updateCamp} isAdmin={isAdmin} />
 
       {/* School attendees */}
       <AttendeesSection
@@ -282,10 +282,11 @@ function StatusSection({ camp, onUpdateStatus }: {
 
 // ─── Details (inline editable) ───────────────────────────────────────────────
 
-function DetailsSection({ camp, schools, onUpdate }: {
+function DetailsSection({ camp, schools, onUpdate, isAdmin }: {
   camp: CampWithRelations
   schools: School[]
   onUpdate: (id: string, data: Record<string, unknown>) => Promise<string | null>
+  isAdmin: boolean
 }) {
   return (
     <div style={{ marginBottom: 28 }}>
@@ -295,7 +296,7 @@ function DetailsSection({ camp, schools, onUpdate }: {
       }}>Details</div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <HostSchoolRow camp={camp} schools={schools} onUpdate={onUpdate} />
+        <HostSchoolRow camp={camp} schools={schools} onUpdate={onUpdate} isAdmin={isAdmin} />
         <EditableRow label="Start date" value={camp.camp.start_date} field="start_date" type="date" campId={camp.camp.id} onUpdate={onUpdate} />
         <EditableRow label="End date" value={camp.camp.end_date} field="end_date" type="date" campId={camp.camp.id} onUpdate={onUpdate} />
         <EditableRow label="Location" value={camp.camp.location} field="location" type="text" campId={camp.camp.id} onUpdate={onUpdate} />
@@ -308,10 +309,11 @@ function DetailsSection({ camp, schools, onUpdate }: {
   )
 }
 
-function HostSchoolRow({ camp, schools, onUpdate }: {
+function HostSchoolRow({ camp, schools, onUpdate, isAdmin }: {
   camp: CampWithRelations
   schools: School[]
   onUpdate: (id: string, data: Record<string, unknown>) => Promise<string | null>
+  isAdmin: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [hovered, setHovered] = useState(false)
@@ -340,7 +342,16 @@ function HostSchoolRow({ camp, schools, onUpdate }: {
         .slice(0, 10)
     : []
 
+  // CAMPS ARE ADMIN-EDITED. A camp's host, dates and cost are claims about the
+  // WORLD, and once camps is a shared catalog table one family's edit reaches
+  // into every other family's planning — which is exactly what
+  // propose-don't-create exists to prevent. Follows from ACCEPT IS ADMIN-ONLY.
+  // A family's own thinking about a camp belongs in camp_family_status.notes,
+  // which already exists as the per-family layer and is empty on every row.
+  // Deliberately NOT adding per-family overrides for dates or cost: two sources
+  // of truth for a date is worse than a review queue.
   async function handleSelect(schoolId: string) {
+    if (!isAdmin) return
     await onUpdate(camp.camp.id, { host_school_id: schoolId })
     setEditing(false)
     setSearch('')

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import GetSeenClient from '@/components/GetSeenClient'
 import type { CalendarEventKind } from '@/lib/types'
 import type { UpcomingCampItem, TimelineEventItem } from '@/components/get-seen/MergedTimeline'
+import { buildHostIndex } from '@/lib/camp-host'
 
 // Only camps Finn is actually pursuing belong on the timeline. Declined
 // (and null / attended / other) camps are excluded from the merged calendar.
@@ -22,6 +23,12 @@ export default async function GetSeenPage() {
     .select('id').neq('category', 'Nope').neq('status', 'Inactive')
   const activeIds = (activeSchoolRows ?? []).map(r => r.id as string)
 
+  // Host names for the camp timeline, resolved in JS rather than by an embed —
+  // see the camps query below and camp-host.ts.
+  const { data: hostRows } = await supabase.from('schools')
+    .select('id, name, short_name, discovery_school_id')
+  const hostIndex = buildHostIndex((hostRows ?? []) as Array<{ id: string; name: string; short_name: string | null; discovery_school_id: string | null }>)
+
   const [
     { data: upcomingCamps },
     { data: eventRows },
@@ -29,8 +36,12 @@ export default async function GetSeenPage() {
     { count: coachTotal },
     { count: coachReview },
   ] = await Promise.all([
+    // NO schools EMBED: camps_host_school_id_fkey re-targets discovery_schools
+    // at E1.5 and the embed would break (PGRST200). The host name is resolved in
+    // JS against the family's own schools instead, which works either side of
+    // the re-point — see camp-host.ts.
     supabase.from('camps')
-      .select('id, name, start_date, end_date, host_school_id, schools!camps_host_school_id_fkey(name, short_name), camp_family_status(status)')
+      .select('id, name, start_date, end_date, host_school_id, camp_family_status(status)')
       .gte('start_date', today)
       .lte('start_date', tenWeeksOut)
       .order('start_date', { ascending: true })
@@ -69,7 +80,7 @@ export default async function GetSeenPage() {
   // null / attended / other are excluded from the merged calendar).
   const campItems: UpcomingCampItem[] = (upcomingCamps ?? [])
     .map((c: Record<string, unknown>) => {
-      const school = c.schools as { name: string; short_name: string | null } | null
+      const school = hostIndex.get(c.host_school_id as string) ?? null
       // PostgREST returns this embed as a one-to-one OBJECT ({status}), not an
       // array — the old [0] read always yielded null. Handle both shapes.
       const cfs = c.camp_family_status as { status?: string } | Array<{ status: string }> | null

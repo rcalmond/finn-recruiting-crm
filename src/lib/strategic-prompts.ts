@@ -8,6 +8,7 @@
 
 import type { School, ContactLogEntry, CampWithRelations } from './types'
 import { daysBetween } from './utils'
+import { buildHostIndex } from '@/lib/camp-host'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -169,7 +170,9 @@ export function computeCampDecisions(
   cutoff.setDate(cutoff.getDate() + 60)
   const cutoffStr = cutoff.toISOString().split('T')[0]
 
-  const schoolMap = new Map(schools.map(s => [s.id, s]))
+  // Both id forms — see camp-host.ts. A host lookup that misses silently drops
+  // the camp from the strategic prompt entirely.
+  const schoolMap = buildHostIndex(schools)
 
   const pending = camps.filter(c => {
     // Camp must start between today and today + 60 days

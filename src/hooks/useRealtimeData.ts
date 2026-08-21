@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { School, ContactLogEntry, ActionItem, Asset, Question, Coach, Camp, CampFamilyStatus, CampFamilyStatusValue, CampSchoolAttendee, CampCoachAttendee, CampWithRelations, Message, CallPrepDoc, SchoolStatusUpdate, ShareWithCoach, SchoolMilestone, MilestoneType, CalendarEvent } from '@/lib/types'
 import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp as updateCampMutation, updateFamilyStatus as updateFamilyStatusMutation, deleteCamp as deleteCampMutation, addSchoolAttendee as addSchoolAttendeeMutation, removeSchoolAttendee as removeSchoolAttendeeMutation } from '@/lib/camps'
 import type { CurrentResearchRow } from '@/lib/school-research'
+import { campHostFilterIds } from '@/lib/camp-host'
 
 // ─── Fail-closed on absence (binding project rule) ───────────────────────────
 //
@@ -67,10 +68,14 @@ export function useSchools() {
       setSchools(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s))
       // Auto-decline interested camps when school moves to Nope
       if (updates.category === 'Nope') {
+        // Both id forms — see camp-host.ts. After E1.5 an .eq() here matches
+        // nothing, so deleting a school would silently leave its camps behind.
+        const { data: school } = await supabase
+          .from('schools').select('id, discovery_school_id').eq('id', id).maybeSingle()
         const { data: campIds } = await supabase
           .from('camps')
           .select('id')
-          .eq('host_school_id', id)
+          .in('host_school_id', campHostFilterIds(school ?? { id }))
         if (campIds && campIds.length > 0) {
           await supabase
             .from('camp_family_status')
@@ -629,7 +634,10 @@ export function useCamps(schools: School[], schoolsLoading?: boolean) {
     const [campsRes, statusRes, attendeesRes, coachesRes] = await Promise.all([
       supabase.from('camps').select('*').order('start_date', { ascending: true }),
       supabase.from('camp_family_status').select('*'),
-      supabase.from('camp_school_attendees').select('*, school:schools(id, name, short_name, category)'),
+      // NO schools embed — camp_school_attendees.school_id re-targets
+      // discovery_schools at E1.5. Attendee schools are resolved against the
+      // family's own list in buildCampsWithRelations (see camp-host.ts).
+      supabase.from('camp_school_attendees').select('*'),
       supabase.from('camp_coach_attendees').select('*'),
     ])
 
