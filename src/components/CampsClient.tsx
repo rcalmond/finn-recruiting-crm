@@ -68,8 +68,21 @@ export default function CampsClient({ user }: { user: User }) {
   const [showAddCamp, setShowAddCamp] = useState(false)
   const [eventModal, setEventModal] = useState<CalendarEvent | 'add' | null>(null)
   const [pastOpen, setPastOpen] = useState(false)
+  const [browseOpen, setBrowseOpen] = useState(false)
 
-  const activeCamps = useMemo(() => camps.filter(c => c.hostSchool.category !== 'Nope'), [camps])
+  // MY CAMPS vs THE CATALOG. Since E1.5 camps are shared, so this list holds
+  // every camp any family has discovered. "Tracking" is camp_family_status —
+  // the per-family layer — and nothing else. A camp with no status row is one
+  // this family has said nothing about; it belongs in browse, not in the plan.
+  // (The Nope filter is family posture and only applies to tracked camps; an
+  // untracked host has no category at all.)
+  const trackedCamps = useMemo(
+    () => camps.filter(c => c.familyStatus && c.hostSchool.category !== 'Nope'),
+    [camps])
+  const browseCamps = useMemo(
+    () => sortCampsChronological(camps.filter(c => !c.familyStatus)),
+    [camps])
+  const activeCamps = trackedCamps
 
   // ── Timeline input (10-week window, same rule as Get Seen) ──────────────────
   const timelineCamps: UpcomingCampItem[] = useMemo(() =>
@@ -187,6 +200,30 @@ export default function CampsClient({ user }: { user: User }) {
             )}
           </section>
         )}
+
+        {/* ── Browse: camps the catalog holds that this family is not tracking ── */}
+        {browseCamps.length > 0 && (
+          <section style={{ marginTop: 28, paddingTop: 20, borderTop: `1px solid ${LV.line}` }}>
+            <button onClick={() => setBrowseOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
+              <h2 style={{ margin: 0, fontSize: 'clamp(16px, 2.2vw, 20px)', fontWeight: 700, letterSpacing: '-0.02em', color: LV.inkLo, fontStyle: 'italic' }}>
+                Other camps we know about<span style={{ color: LV.petrol }}>.</span>
+              </h2>
+              <span style={{ fontSize: 13, fontWeight: 600, color: LV.inkLo }}>{browseCamps.length}</span>
+              <span style={{ fontSize: 12, color: LV.inkMute, transform: browseOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}>▾</span>
+            </button>
+            <p style={{ margin: '6px 0 0', fontSize: 12.5, color: LV.inkMute, maxWidth: 560, lineHeight: 1.5 }}>
+              Found by camp discovery across the shared catalog. You are not tracking these — open one and set a status to add it to your plan.
+            </p>
+            {browseOpen && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+                {browseCamps.map(c => (
+                  <UnifiedRow key={`b-${c.camp.id}`} item={{ kind: 'camp', date: c.camp.start_date, camp: c }} today={today} dim
+                    onClick={() => router.push(`/calendar/${c.camp.id}`)} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       {/* Add camp modal */}
@@ -234,10 +271,10 @@ function UnifiedRow({ item, today, onClick, dim }: { item: ListItem; today: stri
   let meta: React.ReactNode
   if (item.kind === 'camp') {
     const c = item.camp
-    const tier = TIER_STYLE[c.hostSchool.category] ?? TIER_STYLE.C
+    const tier = c.hostSchool.category ? TIER_STYLE[c.hostSchool.category] : null
     meta = (
       <>
-        <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 3, background: tier.bg, color: tier.color, flexShrink: 0 }}>{c.hostSchool.category}</span>
+        {tier && <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 3, background: tier.bg, color: tier.color, flexShrink: 0 }}>{c.hostSchool.category}</span>}
         <span>{c.hostSchool.short_name || c.hostSchool.name}</span>
         <span style={{ color: LV.inkMute }}>·</span>
         <span>{formatDateRange(start, end)}</span>
@@ -255,9 +292,15 @@ function UnifiedRow({ item, today, onClick, dim }: { item: ListItem; today: stri
   // status pill
   let pill: React.ReactNode = null
   if (item.kind === 'camp') {
-    const status = item.camp.familyStatus?.status ?? 'interested'
-    const st = STATUS_STYLE[status]
-    pill = <span style={{ ...pillStyle, background: st.bg, color: st.color, textTransform: 'capitalize' }}>{status}</span>
+    // NO FABRICATED DEFAULT. A camp with no camp_family_status row is one this
+    // family has expressed nothing about — which is now the common case, since
+    // camps are shared and most were discovered by someone else. Claiming
+    // "Interested" on their behalf is a claim about their intent.
+    const status = item.camp.familyStatus?.status ?? null
+    const st = status ? STATUS_STYLE[status] : null
+    pill = st
+      ? <span style={{ ...pillStyle, background: st.bg, color: st.color, textTransform: 'capitalize' }}>{status}</span>
+      : <span style={{ ...pillStyle, background: LV.paper, color: LV.inkMute, border: `1px solid ${LV.line}` }}>Not tracked</span>
   } else {
     const sm = CALENDAR_EVENT_STATUS_META[item.event.status]
     pill = <span style={{ ...pillStyle, background: sm.bg, color: sm.color }}>{sm.label}</span>

@@ -633,13 +633,18 @@ export function useCamps(schools: School[], schoolsLoading?: boolean) {
   const fetchCamps = useCallback(async () => {
     // camp_coach_attendees was DROPPED in E1.5 chunk C — it never held a row,
     // so it was dropped rather than migrated. Reading it now would 404.
-    const [campsRes, statusRes, attendeesRes] = await Promise.all([
+    const [campsRes, statusRes, attendeesRes, catalogRes] = await Promise.all([
       supabase.from('camps').select('*').order('start_date', { ascending: true }),
       supabase.from('camp_family_status').select('*'),
       // NO schools embed — camp_school_attendees.school_id re-targets
       // discovery_schools at E1.5. Attendee schools are resolved against the
       // family's own list in buildCampsWithRelations (see camp-host.ts).
       supabase.from('camp_school_attendees').select('*'),
+      // Camps are shared since E1.5, so a host is frequently a school this
+      // family does not track. Its NAME is a fact about the camp and we hold
+      // it — the catalog is fetched so it can be shown rather than replaced
+      // with "Unknown".
+      supabase.from('discovery_schools').select('id, name, short_name'),
     ])
 
     if (campsRes.error || !campsRes.data) {
@@ -651,7 +656,8 @@ export function useCamps(schools: School[], schoolsLoading?: boolean) {
       campsRes.data as Camp[],
       schoolsRef.current,
       (statusRes.data ?? []) as CampFamilyStatus[],
-      (attendeesRes.data ?? []) as Array<CampSchoolAttendee & { school: Pick<School, 'id' | 'name' | 'short_name' | 'category'> }>,
+      (catalogRes.data ?? []) as Array<{ id: string; name: string; short_name: string | null }>,
+      (attendeesRes.data ?? []) as CampSchoolAttendee[],
       [],   // camp_coach_attendees dropped (chunk C); the shape stays for now
     )
     setCamps(composed)

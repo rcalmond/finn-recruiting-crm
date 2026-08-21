@@ -2093,9 +2093,10 @@ function SidebarCampRow({ camp, showHost, onClick }: {
   showHost?: boolean
   onClick: () => void
 }) {
-  const status = camp.familyStatus?.status ?? 'interested'
-  const statusStyle = CAMP_STATUS_STYLE[status]
-  const hostTier = CAMP_TIER_STYLE[camp.hostSchool.category] ?? CAMP_TIER_STYLE.C
+  // No fabricated default — see CampsClient. Absent posture renders as absent.
+  const status = camp.familyStatus?.status ?? null
+  const statusStyle = status ? CAMP_STATUS_STYLE[status] : null
+  const hostTier = camp.hostSchool.category ? CAMP_TIER_STYLE[camp.hostSchool.category] : null
 
   const s = new Date(camp.camp.start_date + 'T12:00:00')
   const e = new Date(camp.camp.end_date + 'T12:00:00')
@@ -2125,20 +2126,22 @@ function SidebarCampRow({ camp, showHost, onClick }: {
       }}>
         {showHost && (
           <>
-            <span style={{
+            {hostTier && <span style={{
               fontSize: 9, fontWeight: 800, padding: '1px 4px', borderRadius: 3,
               background: hostTier.bg, color: hostTier.color,
-            }}>{camp.hostSchool.category}</span>
+            }}>{camp.hostSchool.category}</span>}
             <span>{camp.hostSchool.short_name || camp.hostSchool.name}</span>
             <span style={{ color: SD.inkMute }}>·</span>
           </>
         )}
         <span>{dateStr}</span>
-        <span style={{
-          fontSize: 9, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
-          background: statusStyle.bg, color: statusStyle.color,
-          textTransform: 'capitalize',
-        }}>{status}</span>
+        {statusStyle && (
+          <span style={{
+            fontSize: 9, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
+            background: statusStyle.bg, color: statusStyle.color,
+            textTransform: 'capitalize',
+          }}>{status}</span>
+        )}
       </div>
     </div>
   )

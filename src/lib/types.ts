@@ -306,10 +306,17 @@ export interface CampFamilyStatus {
 /** Composed type for UI rendering — camp with all related data joined. */
 export interface CampWithRelations {
   camp: Camp
-  hostSchool: Pick<School, 'id' | 'name' | 'short_name' | 'category'>
+  /** CATALOG FACTS RENDER; FAMILY POSTURE RENDERS ONLY WHEN IT EXISTS.
+   *  Since E1.5 camps are shared, so a host may be a school this family does
+   *  not track. The NAME is a fact about the camp and always resolves — from
+   *  the family's list if they have it, otherwise from the catalog. CATEGORY is
+   *  family posture, so it is NULL when there is no relationship row, and the
+   *  tier badge is simply absent. It used to default to 'C', which is the same
+   *  fabrication class as the 'Interested' chip and the old 'D3'. */
+  hostSchool: Pick<School, 'id' | 'name' | 'short_name'> & { category: School['category'] | null }
   familyStatus: CampFamilyStatus | null
   schoolAttendees: Array<CampSchoolAttendee & {
-    school: Pick<School, 'id' | 'name' | 'short_name' | 'category'>
+    school: Pick<School, 'id' | 'name' | 'short_name'> & { category: School['category'] | null }
   }>
   coachAttendees: CampCoachAttendee[]
 }

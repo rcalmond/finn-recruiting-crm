@@ -28,6 +28,11 @@ export function composeCampsWithRelations(
   camps: Camp[],
   schools: School[],
   familyStatuses: CampFamilyStatus[],
+  /** The shared catalog, for hosts and attendees this family does not track.
+   *  Camps are shared since E1.5, so a camp's host is frequently a school the
+   *  viewing family has no row for — and the host's NAME is a fact about the
+   *  camp that we now hold. Withholding it would be hiding something we know. */
+  catalogSchools: Array<{ id: string; name: string; short_name: string | null }>,
   /** Raw rows. The school is resolved HERE rather than by a PostgREST embed:
    *  camp_school_attendees.school_id re-targets discovery_schools at E1.5, which
    *  breaks the embed outright, and resolving against the family's own list
@@ -39,16 +44,30 @@ export function composeCampsWithRelations(
   // catalog, a map keyed only on the family school id returns undefined for
   // every camp and each one renders as "Unknown" — no error, no empty state.
   const schoolMap = buildHostIndex(schools)
+  const catalogMap = new Map(catalogSchools.map(c => [c.id, c]))
+
+  /** Resolve a host/attendee id to something renderable.
+   *  FAMILY row first (carries posture), then CATALOG (name only, category
+   *  null so no tier badge is drawn). Never invents a category — the old
+   *  'C' fallback was a fabricated claim that then powered a filter. */
+  function resolveSchoolRef(id: string): { id: string; name: string; short_name: string | null; category: School['category'] | null } | null {
+    const fam = schoolMap.get(id)
+    if (fam) return { id: fam.id, name: fam.name, short_name: fam.short_name, category: fam.category }
+    const cat = catalogMap.get(id)
+    if (cat) return { id: cat.id, name: cat.name, short_name: cat.short_name, category: null }
+    return null
+  }
+
   const statusByCamp = new Map(familyStatuses.map(fs => [fs.camp_id, fs]))
-  type ResolvedAttendee = CampSchoolAttendee & { school: Pick<School, 'id' | 'name' | 'short_name' | 'category'> }
+  type ResolvedAttendee = CampSchoolAttendee & { school: Pick<School, 'id' | 'name' | 'short_name'> & { category: School['category'] | null } }
   const attendeesByCamp = new Map<string, ResolvedAttendee[]>()
   for (const a of schoolAttendees) {
-    const s = schoolMap.get(a.school_id)
+    const s = resolveSchoolRef(a.school_id)
     const resolved: ResolvedAttendee = {
       ...a,
-      school: s
-        ? { id: s.id, name: s.name, short_name: s.short_name, category: s.category }
-        : { id: a.school_id, name: 'Unknown', short_name: null, category: 'C' as School['category'] },
+      // A truly unresolvable id (neither list) is a dangling reference, not a
+      // school we know about — say so rather than inventing a tier.
+      school: s ?? { id: a.school_id, name: 'Unknown school', short_name: null, category: null },
     }
     if (!attendeesByCamp.has(a.camp_id)) attendeesByCamp.set(a.camp_id, [])
     attendeesByCamp.get(a.camp_id)!.push(resolved)
@@ -60,12 +79,10 @@ export function composeCampsWithRelations(
   }
 
   return camps.map(camp => {
-    const host = schoolMap.get(camp.host_school_id)
+    const host = resolveSchoolRef(camp.host_school_id)
     return {
       camp,
-      hostSchool: host
-        ? { id: host.id, name: host.name, short_name: host.short_name, category: host.category }
-        : { id: camp.host_school_id, name: 'Unknown', short_name: null, category: 'C' as School['category'] },
+      hostSchool: host ?? { id: camp.host_school_id, name: 'Unknown school', short_name: null, category: null },
       familyStatus: statusByCamp.get(camp.id) ?? null,
       schoolAttendees: attendeesByCamp.get(camp.id) ?? [],
       coachAttendees: coachesByCamp.get(camp.id) ?? [],

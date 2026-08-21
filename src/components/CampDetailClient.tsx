@@ -122,7 +122,9 @@ function HeaderSection({ camp, onUpdate }: {
   const [nameText, setNameText] = useState(camp.camp.name)
 
   const hostName = camp.hostSchool.short_name || camp.hostSchool.name
-  const tier = TIER_STYLE[camp.hostSchool.category] ?? TIER_STYLE.C
+  // Tier is FAMILY POSTURE — absent when this family has no row for the host.
+  // No fallback: an invented tier is a claim about a relationship that does not exist.
+  const tier = camp.hostSchool.category ? TIER_STYLE[camp.hostSchool.category] : null
 
   async function saveName() {
     if (nameText.trim() && nameText !== camp.camp.name) {
@@ -165,10 +167,10 @@ function HeaderSection({ camp, onUpdate }: {
         marginTop: 8, display: 'flex', alignItems: 'center', gap: 8,
         fontSize: 13, color: LV.inkMid, flexWrap: 'wrap',
       }}>
-        <span style={{
+        {tier && <span style={{
           fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
           background: tier.bg, color: tier.color,
-        }}>{camp.hostSchool.category}</span>
+        }}>{camp.hostSchool.category}</span>}
         <Link href={`/schools/${camp.hostSchool.id}`} style={{
           color: LV.ink, fontWeight: 600, textDecoration: 'none',
         }}>{hostName}</Link>
@@ -334,7 +336,9 @@ function HostSchoolRow({ camp, schools, onUpdate, isAdmin }: {
   }, [editing])
 
   const hostName = camp.hostSchool.short_name || camp.hostSchool.name
-  const tier = TIER_STYLE[camp.hostSchool.category] ?? TIER_STYLE.C
+  // Tier is FAMILY POSTURE — absent when this family has no row for the host.
+  // No fallback: an invented tier is a claim about a relationship that does not exist.
+  const tier = camp.hostSchool.category ? TIER_STYLE[camp.hostSchool.category] : null
 
   const filtered = search.length > 0
     ? schools
@@ -429,10 +433,10 @@ function HostSchoolRow({ camp, schools, onUpdate, isAdmin }: {
             cursor: 'pointer', minHeight: 20,
           }}
         >
-          <span style={{
+          {tier && <span style={{
             fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
             background: tier.bg, color: tier.color,
-          }}>{camp.hostSchool.category}</span>
+          }}>{camp.hostSchool.category}</span>}
           <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: LV.ink }}>{hostName}</span>
           <span style={{
             color: LV.inkMute, flexShrink: 0, marginTop: 2,
@@ -671,17 +675,17 @@ function AttendeesSection({ camp, schools, onAdd, onRemove }: {
           borderRadius: 10, overflow: 'hidden',
         }}>
           {camp.schoolAttendees.map((a, i) => {
-            const tier = TIER_STYLE[a.school.category] ?? TIER_STYLE.C
+            const tier = a.school.category ? TIER_STYLE[a.school.category] : null
             return (
               <div key={a.id} style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '10px 14px',
                 borderTop: i > 0 ? `1px solid ${LV.line}` : 'none',
               }}>
-                <span style={{
+                {tier && <span style={{
                   fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
                   background: tier.bg, color: tier.color,
-                }}>{a.school.category}</span>
+                }}>{a.school.category}</span>}
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: LV.ink }}>
                   {a.school.short_name || a.school.name}
                 </span>
