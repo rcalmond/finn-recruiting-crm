@@ -159,16 +159,72 @@ function diffDocs(prev: Record<string, unknown>, cur: Record<string, unknown>) {
  */
 function assertFixtureShape(fx: CampDocFixture, fixturePath: string): void {
   const stale: string[] = []
-  for (const [i, c] of (fx.coaches ?? []).entries()) {
-    const raw = c as unknown as Record<string, unknown>
-    if (typeof raw.isPrimary !== 'boolean') {
-      stale.push(`coaches[${i}] (${String(raw.name ?? '?')}) has no boolean isPrimary` +
-        (('is_primary' in raw) ? ' — it still carries the pre-E2 is_primary key' : ''))
-    }
-    if (typeof raw.hidden !== 'boolean') {
-      stale.push(`coaches[${i}] (${String(raw.name ?? '?')}) has no boolean hidden — recorded before the family layer was wired`)
+  const raw = fx as unknown as Record<string, unknown>
+
+  // EVERY top-level key the harness reads. The first version of this guard
+  // checked only `coaches`, because coaches was the field that had just broken
+  // — a guard scoped to the last defect, named as though it validated the
+  // fixture. That is the same shape as the embed gate's count/id heuristic.
+  const REQUIRED: Array<[string, (v: unknown) => boolean]> = [
+    ['today',         v => typeof v === 'string' && v.length > 0],
+    ['referenceDate', v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)],
+    ['campDates',     v => Array.isArray(v)],
+    ['player',        v => !!v && typeof v === 'object'],
+    ['camp',          v => !!v && typeof v === 'object'],
+    ['extraction',    v => !!v && typeof v === 'object'],
+    ['inputs',        v => !!v && typeof v === 'object'],
+    ['contactLog',    v => Array.isArray(v)],
+    ['coaches',       v => Array.isArray(v)],
+    ['offers',        v => Array.isArray(v)],
+    ['schoolName',    v => typeof v === 'string' && v.length > 0],
+    ['schoolList',    v => Array.isArray(v)],
+    ['preferences',   v => !!v && typeof v === 'object'],
+  ]
+  for (const [key, ok] of REQUIRED) {
+    if (!(key in raw)) stale.push(`missing top-level "${key}"`)
+    else if (!ok(raw[key])) stale.push(`"${key}" has the wrong shape`)
+  }
+
+  // The player fields the prompt builder dereferences directly.
+  const player = raw.player as Record<string, unknown> | undefined
+  if (player && typeof player.home_timezone !== 'string') {
+    stale.push('player.home_timezone is not a string — every date in the doc is computed from it')
+  }
+
+  // Row shapes. A recorded row that predates a context change is exactly how a
+  // replay reads as green while rendering the old shape.
+  const rowCheck = (arr: unknown, label: string, fields: string[]) => {
+    if (!Array.isArray(arr)) return
+    for (const [i, r] of arr.entries()) {
+      const row = r as Record<string, unknown>
+      const missing = fields.filter(f => !(f in row))
+      if (missing.length) stale.push(`${label}[${i}] missing ${missing.join(', ')}`)
     }
   }
+  rowCheck(raw.contactLog, 'contactLog',
+    ['date', 'sent_at', 'direction', 'channel', 'coach_name', 'summary', 'authored_by', 'intent', 'raw_source'])
+  rowCheck(raw.offers, 'offers',
+    ['offer_type', 'headline', 'status'])
+
+  // Coaches carry COMPOSED view fields, which is where the original break was:
+  // isPrimary and hidden are computed by coach-primary / coach-family-state and
+  // do not exist on the database row, so a fixture recorded before either
+  // landed replays with them undefined and the doc silently drops the markers.
+  for (const [i, c] of (fx.coaches ?? []).entries()) {
+    const row = c as unknown as Record<string, unknown>
+    const name = String(row.name ?? '?')
+    for (const f of ['id', 'name', 'role', 'email', 'needs_review']) {
+      if (!(f in row)) stale.push(`coaches[${i}] (${name}) missing ${f}`)
+    }
+    if (typeof row.isPrimary !== 'boolean') {
+      stale.push(`coaches[${i}] (${name}) has no boolean isPrimary` +
+        (('is_primary' in row) ? ' — it still carries the pre-E2 is_primary key' : ''))
+    }
+    if (typeof row.hidden !== 'boolean') {
+      stale.push(`coaches[${i}] (${name}) has no boolean hidden — recorded before the family layer was wired`)
+    }
+  }
+
   if (stale.length > 0) {
     throw new Error(
       `Stale fixture at ${fixturePath} — recorded before the current context shape:\n` +
