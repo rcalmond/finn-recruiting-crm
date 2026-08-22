@@ -59,7 +59,7 @@ async function run() {
   // Fetch inbound contact_log rows matching camp pattern
   let query = supabase
     .from('contact_log')
-    .select('id, school_id, direction, coach_name, channel, summary, raw_source, sent_at, date, schools!inner(id, name, short_name, category)')
+    .select('id, school_id, direction, coach_name, channel, summary, raw_source, sent_at, date, schools!inner(id, name, short_name, category, family_id, discovery_school_id)')
     .eq('direction', 'Inbound')
     .not('school_id', 'is', null)
     .in('parse_status', ['full', 'partial'])
@@ -102,7 +102,7 @@ async function run() {
     if (i > 0) await sleep(RATE_LIMIT_MS)
 
     const row = campRows[i]
-    const school = (row as Record<string, unknown>).schools as { id: string; name: string; short_name: string | null; category: string }
+    const school = (row as Record<string, unknown>).schools as { id: string; name: string; short_name: string | null; category: string; family_id: string; discovery_school_id: string | null }
     const schoolName = school.short_name || school.name
     const text = row.raw_source || row.summary || ''
     const dateLabel = row.date || row.sent_at?.split('T')[0] || 'unknown'
@@ -128,9 +128,18 @@ async function run() {
       console.log(`  → ${extracted.length} camp(s) extracted`)
 
       for (const camp of extracted) {
-        // Dedup check
+        // Dedup check.
+        // familyId is REQUIRED and comes from the school row, never a default.
+        // camp_proposals is a SHARED catalog table, so a suppression decided
+        // without a family suppresses for EVERYONE — the defect chunk I made
+        // this parameter required to prevent. The compiler was supposed to find
+        // every call site; it could not find THIS one, because scripts/ was
+        // excluded from tsconfig. That exclusion is what tsconfig.scripts.json
+        // closes, and this call is what it found.
         const dedup = await shouldSkipProposal(supabase, {
+          familyId: school.family_id,
           hostSchoolId: school.id,
+          hostDiscoverySchoolId: school.discovery_school_id,
           startDate: camp.start_date,
           endDate: camp.end_date,
         })

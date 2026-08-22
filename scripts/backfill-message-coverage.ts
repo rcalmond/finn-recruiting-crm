@@ -73,7 +73,11 @@ async function main() {
 
   for (const row of eligible) {
     processed++
-    const school = row.schools as { name: string; short_name: string | null } | null
+    // A PostgREST embed returns an ARRAY. Casting it straight to an object made
+    // school?.name undefined, so every row logged "Unknown" — harmless here, but
+    // it is the same shape as reading a joined row that is not there.
+    const schoolEmbed = row.schools as unknown as { name: string; short_name: string | null }[] | { name: string; short_name: string | null } | null
+    const school = Array.isArray(schoolEmbed) ? (schoolEmbed[0] ?? null) : schoolEmbed
     const schoolName = school?.name ?? 'Unknown'
     const schoolShortName = school?.short_name ?? null
 
