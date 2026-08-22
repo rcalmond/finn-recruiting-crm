@@ -165,6 +165,9 @@ function assertFixtureShape(fx: CampDocFixture, fixturePath: string): void {
       stale.push(`coaches[${i}] (${String(raw.name ?? '?')}) has no boolean isPrimary` +
         (('is_primary' in raw) ? ' — it still carries the pre-E2 is_primary key' : ''))
     }
+    if (typeof raw.hidden !== 'boolean') {
+      stale.push(`coaches[${i}] (${String(raw.name ?? '?')}) has no boolean hidden — recorded before the family layer was wired`)
+    }
   }
   if (stale.length > 0) {
     throw new Error(

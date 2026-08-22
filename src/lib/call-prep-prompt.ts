@@ -231,6 +231,7 @@ export function buildCallPrepUserPrompt(params: {
   for (const c of coaches) {
     const tags = [c.role ?? 'unknown role']
     if (c.isPrimary) tags.push('PRIMARY')
+    if (c.hidden) tags.push('HIDDEN by the family — do not propose contacting')
     if (c.needs_review) tags.push('needs_review')
     if (c.email) tags.push(c.email)
     lines.push(`- ${c.name} (${tags.join(', ')})`)

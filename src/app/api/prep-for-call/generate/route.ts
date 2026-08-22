@@ -4,6 +4,7 @@ import { getFamilyContext } from '@/lib/require-family'
 import { createClient } from '@/lib/supabase/server'
 import { fetchSchoolContext } from '@/lib/school-context'
 import { withPrimary } from '@/lib/coach-primary'
+import { fetchCoachFamilyState, withFamilyState } from '@/lib/coach-family-state'
 import { runAgenticResearch } from '@/lib/call-prep-research'
 import { buildCallPrepSystemPrompt, buildCallPrepUserPrompt } from '@/lib/call-prep-prompt'
 import { generateCallPrepPdf } from '@/lib/call-prep-pdf'
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
         // Find the target coach
         const { data: coachData } = await admin
           .from('coaches')
-          .select('id, name, role, email, is_primary, needs_review')
+          .select('id, name, role, email, is_primary, archived_at, needs_review')
           .eq('id', coachId)
           .single()
 
@@ -70,14 +71,19 @@ export async function POST(req: NextRequest) {
         // read, and call-prep-prompt renders "Is primary contact:" from it. It
         // has to be composed here or that one line would keep answering from
         // the legacy column after every other surface had moved.
-        const targetCoach = withPrimary(ctx.school, [coachData as {
-          id: string
-          name: string
-          role: string | null
-          email: string | null
-          is_primary: boolean
-          needs_review: boolean
-        }])[0]
+        const targetState = await fetchCoachFamilyState(admin, [coachId])
+        const targetCoach = withPrimary(
+          ctx.school,
+          withFamilyState([coachData as {
+            id: string
+            name: string
+            role: string | null
+            email: string | null
+            is_primary: boolean
+            archived_at: string | null
+            needs_review: boolean
+          }], targetState),
+        )[0]
 
         // Fetch active inventory messages
         const { data: messages } = await admin

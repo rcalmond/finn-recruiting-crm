@@ -41,6 +41,9 @@ interface CoachContext {
   role: string | null
   /** COMPOSED view field — see coach-primary.ts. Never a DB column. */
   isPrimary: boolean
+  /** COMPOSED — hidden by this family. Present so a generator KNOWS the person
+   *  exists, and marked so it never proposes contacting them. */
+  hidden: boolean
   needs_review: boolean
 }
 
@@ -167,6 +170,7 @@ ${RECRUITING_JUDGMENT}`
   for (const c of input.coaches) {
     const parts = [`${c.name} (${c.role ?? 'unknown role'})`]
     if (c.isPrimary) parts.push('— PRIMARY')
+    if (c.hidden) parts.push('— HIDDEN by the family: on the roster, but do NOT propose contacting them')
     if (c.needs_review) parts.push('— may have departed')
     usr.push(`- ${parts.join(' ')}`)
   }

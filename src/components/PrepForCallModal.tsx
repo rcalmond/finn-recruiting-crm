@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { selectableCoaches } from '@/lib/coach-family-state'
 import JitProfilePrompt from '@/components/JitProfilePrompt'
 import { usePlayer } from '@/hooks/usePlayer'
 import type { School, Coach, CoachView } from '@/lib/types'
@@ -38,7 +39,7 @@ interface Props {
 
 export default function PrepForCallModal({ school, coaches, onClose, onGenerated }: Props) {
   const activeCoaches = coaches.filter(c => c.is_active)
-  const defaultCoach = activeCoaches.find(c => c.isPrimary)
+  const defaultCoach = selectableCoaches(activeCoaches).find(c => c.isPrimary)
     ?? activeCoaches.find(c => c.role === 'Head Coach')
     ?? activeCoaches[0]
 

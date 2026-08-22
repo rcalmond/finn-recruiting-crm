@@ -7,6 +7,7 @@ import { composeCampsWithRelations, createCamp as createCampMutation, updateCamp
 import type { CurrentResearchRow } from '@/lib/school-research'
 import { campHostFilterIds } from '@/lib/camp-host'
 import { withPrimary } from '@/lib/coach-primary'
+import { fetchCoachFamilyState, withFamilyState, hideCoach, unhideCoach, type CoachFamilyStateMap } from '@/lib/coach-family-state'
 
 // ─── Fail-closed on absence (binding project rule) ───────────────────────────
 //
@@ -506,12 +507,14 @@ export function useQuestions() {
 
 // ─── Coaches ──────────────────────────────────────────────────────────────────
 
-/** Row → view: strip the legacy flag, attach the composed one. */
+/** Row → view: strip the legacy flag, attach the composed ones. */
 function composeCoachViews(
   school: { primary_coach_id: string | null } | null,
   rows: Coach[],
+  familyState: CoachFamilyStateMap,
 ): CoachView[] {
-  return withPrimary(school, rows).map(({ is_primary: _legacy, ...rest }) => rest)
+  return withPrimary(school, withFamilyState(rows, familyState))
+    .map(({ is_primary: _legacy, ...rest }) => rest)
 }
 
 export function useCoaches(schoolId?: string) {
@@ -540,26 +543,39 @@ export function useCoaches(schoolId?: string) {
       .maybeSingle()
     const school = (schoolRow ?? null) as { primary_coach_id: string | null } | null
 
-    // Fetch active coaches
+    // TWO QUERIES, THEN PARTITION IN JS. Hidden lives in a different table now,
+    // so it cannot be a SQL filter here. The pair preserves today's behaviour
+    // exactly while adding the new domain:
+    //   A — is_active coaches, split into visible and hidden-by-this-family
+    //   B — the LEGACY hide (archived_at), which also covers rows A misses
+    //       because archiving used to set is_active=false as well
     const { data, error } = await supabase
       .from('coaches')
       .select('*')
       .eq('school_id', schoolId)
       .eq('is_active', true)
-      .is('archived_at', null)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true })
     reportFetchError('coaches', error)
     setError(error?.message ?? null)
-    if (!error && data) setCoaches(composeCoachViews(school, data as Coach[]))
-    // Fetch archived coaches
-    const { data: archived } = await supabase
+
+    const { data: legacyHidden } = await supabase
       .from('coaches')
       .select('*')
       .eq('school_id', schoolId)
       .not('archived_at', 'is', null)
       .order('archived_at', { ascending: false })
-    if (archived) setArchivedCoaches(composeCoachViews(school, archived as Coach[]))
+
+    const activeRows = (error ? [] : (data ?? [])) as Coach[]
+    const legacyRows = (legacyHidden ?? []) as Coach[]
+    const seen = new Set(activeRows.map(c => c.id))
+    const allRows = [...activeRows, ...legacyRows.filter(c => !seen.has(c.id))]
+
+    const familyState = await fetchCoachFamilyState(supabase, allRows.map(c => c.id))
+    const composed = composeCoachViews(school, allRows, familyState)
+
+    if (!error) setCoaches(composed.filter(c => !c.hidden && c.is_active))
+    setArchivedCoaches(composed.filter(c => c.hidden))
     setLoading(false)
   }, [supabase, schoolId])
 
@@ -590,30 +606,33 @@ export function useCoaches(schoolId?: string) {
     return error
   }, [supabase])
 
-  const archiveCoach = useCallback(async (id: string) => {
-    const now = new Date().toISOString()
-    const { error } = await supabase.from('coaches').update({ archived_at: now, is_active: false }).eq('id', id)
-    if (!error) {
-      setCoaches(prev => {
-        const coach = prev.find(c => c.id === id)
-        if (coach) setArchivedCoaches(ap => [{ ...coach, archived_at: now, is_active: false }, ...ap])
-        return prev.filter(c => c.id !== id)
-      })
-    }
-    return error
-  }, [supabase])
+  // HIDE, not archive. The write goes ONLY to coach_family_state.hidden_at and
+  // deliberately no longer touches coaches.archived_at / is_active:
+  //   - is_active is ROSTER TRUTH (the scraper's departure detection) and a
+  //     family preference must never assert that someone left the program.
+  //   - archived_at becomes CATALOG state at the re-point, so writing family
+  //     posture there would put one family's preference into everyone's truth.
+  // This is the deliberate asymmetry with setPrimary's dual-write: that pointer
+  // stays per-family afterwards, these columns do not. Reads still accept both,
+  // so a rollback simply makes hidden coaches reappear — visible and
+  // recoverable rather than silent.
+  //
+  // Hiding the designated contact surrenders the designation in the same call:
+  // a pointer aimed at someone the family has said they do not want to see is
+  // not a contact. Returns whether that happened so the UI can say so.
+  const hideCoachForFamily = useCallback(async (id: string) => {
+    const target = coaches.find(c => c.id === id)
+    if (!target) return { error: null, clearedPrimary: false }
+    const result = await hideCoach(supabase, id, target.school_id)
+    if (!result.error) await fetchCoaches()
+    return result
+  }, [supabase, coaches, fetchCoaches])
 
-  const unarchiveCoach = useCallback(async (id: string) => {
-    const { error } = await supabase.from('coaches').update({ archived_at: null, is_active: true }).eq('id', id)
-    if (!error) {
-      setArchivedCoaches(prev => {
-        const coach = prev.find(c => c.id === id)
-        if (coach) setCoaches(cp => [...cp, { ...coach, archived_at: null, is_active: true }].sort((a, b) => a.sort_order - b.sort_order))
-        return prev.filter(c => c.id !== id)
-      })
-    }
+  const unhideCoachForFamily = useCallback(async (id: string) => {
+    const { error } = await unhideCoach(supabase, id)
+    if (!error) await fetchCoaches()
     return error
-  }, [supabase])
+  }, [supabase, fetchCoaches])
 
   // Designate the family's contact at this school.
   //
@@ -660,7 +679,15 @@ export function useCoaches(schoolId?: string) {
     return error
   }, [supabase, coaches, fetchCoaches])
 
-  return { coaches, archivedCoaches, loading, error, insertCoach, updateCoach, archiveCoach, unarchiveCoach, setPrimary, refetch: fetchCoaches }
+  return {
+    coaches,
+    /** Hidden BY THIS FAMILY — not departed. See coach-family-state.ts. */
+    hiddenCoaches: archivedCoaches,
+    loading, error, insertCoach, updateCoach,
+    hideCoach: hideCoachForFamily,
+    unhideCoach: unhideCoachForFamily,
+    setPrimary, refetch: fetchCoaches,
+  }
 }
 
 // ─── Camps ───────────────────────────────────────────────────────────────────

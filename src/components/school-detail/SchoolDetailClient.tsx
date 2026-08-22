@@ -24,6 +24,7 @@ import ResearchSection from '@/components/school-detail/ResearchSection'
 import StatusUpdatesPanel from '@/components/school-detail/StatusUpdatesPanel'
 import NotePopover from '@/components/school-detail/NotePopover'
 import { divisionLabel } from '@/lib/division-label'
+import { selectableCoaches } from '@/lib/coach-family-state'
 import LinkToCatalog from './LinkToCatalog'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -1517,13 +1518,16 @@ function OffersZone({ schoolId }: { schoolId: string }) {
 // ─── Zone 2: The staff — coaches + call prep ─────────────────────────────────
 
 function StaffZone({
-  school, coaches, onDraftForCoach, onSetPrimary,
+  school, coaches, hiddenCoaches, onDraftForCoach, onSetPrimary, onUnhide,
 }: {
   school: School
   coaches: CoachView[]
+  hiddenCoaches: CoachView[]
   onDraftForCoach: (coachId: string) => void
   onSetPrimary: (id: string) => Promise<unknown>
+  onUnhide: (id: string) => Promise<unknown>
 }) {
+  const [showHidden, setShowHidden] = useState(false)
   return (
     <section style={{ marginTop: 'clamp(32px, 5vw, 48px)' }}>
       <ZoneHeading>The staff.</ZoneHeading>
@@ -1663,6 +1667,55 @@ function StaffZone({
       ) : (
         <div style={{ fontSize: 13, color: SD.inkLo, fontStyle: 'italic' }}>
           No coaching contacts yet. They appear when the scraper finds them or you add one manually.
+        </div>
+      )}
+
+      {/* HIDDEN BY THIS FAMILY — rendered, collapsed, never silently absent.
+          A hidden coach is still on the roster; what we are showing is the
+          family's own choice about them. Omitting them entirely would be the
+          fabricated-default rule running in reverse: withholding a fact we hold. */}
+      {hiddenCoaches.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <button
+            type="button"
+            onClick={() => setShowHidden(o => !o)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, background: 'none',
+              border: 'none', padding: 0, cursor: 'pointer',
+              fontSize: 12, fontWeight: 600, color: SD.inkLo,
+            }}
+          >
+            <span style={{ display: 'inline-block', transform: showHidden ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>▾</span>
+            Hidden by you ({hiddenCoaches.length})
+          </button>
+          {showHidden && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+              {hiddenCoaches.map(coach => (
+                <div key={coach.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  background: '#fff', border: `1px solid ${SD.line}`, borderRadius: 8,
+                  padding: '8px 12px',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 12.5, color: SD.inkMid, fontStyle: 'italic' }}>{coach.name}</span>
+                    <span style={{ fontSize: 11, color: SD.inkLo, marginLeft: 6 }}>{coach.role}</span>
+                    {coach.is_active === false && (
+                      <span style={{ fontSize: 10.5, color: SD.inkLo, marginLeft: 6 }}>· no longer on the roster</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onUnhide(coach.id)}
+                    style={{
+                      background: 'none', border: `1px solid ${SD.line}`, borderRadius: 999,
+                      padding: '2px 10px', fontSize: 10.5, fontWeight: 600,
+                      color: SD.inkMid, cursor: 'pointer',
+                    }}
+                  >Unhide</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </section>
@@ -2177,7 +2230,7 @@ export default function SchoolDetailClient({
   const { schools, loading: schoolsLoading, updateSchool, deleteSchool } = useSchools()
   const { entries: contactLog, loading: logLoading, error: contactLogError, insertContact, updateEntry, deleteEntry, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
   const { items: actionItems, completedItems, loading: actionsLoading, completeItem, insertItem, updateItem } = useActionItems(initialSchool.id)
-  const { coaches, setPrimary } = useCoaches(initialSchool.id)
+  const { coaches, hiddenCoaches, setPrimary, unhideCoach } = useCoaches(initialSchool.id)
   const { camps } = useCamps(schools, schoolsLoading)
   const { docs: callPrepDocs, refetch: refetchPrepDocs } = useCallPrepDocs(initialSchool.id)
   const { updates: statusUpdates, insertUpdate, updateUpdate, deleteUpdate } = useStatusUpdates(initialSchool.id)
@@ -2243,7 +2296,7 @@ export default function SchoolDetailClient({
   const stage = school.recruiting_stage ?? 1
   // Resolve target coach: primary → head coach → most recent active coach
   const targetCoach = (() => {
-    const active = coaches.filter(c => c.is_active)
+    const active = selectableCoaches(coaches)
     if (active.length === 0) return null
     const primary = active.find(c => c.isPrimary)
     if (primary) return primary
@@ -2335,8 +2388,10 @@ export default function SchoolDetailClient({
         <StaffZone
           school={school}
           coaches={coaches}
+          hiddenCoaches={hiddenCoaches}
           onDraftForCoach={(coachId) => setDraftTarget({ kind: 'fresh', coachId })}
           onSetPrimary={setPrimary}
+          onUnhide={unhideCoach}
         />
 
         {/* ZONE 2b — Call prep (promoted to its own section) */}

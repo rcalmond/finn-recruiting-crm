@@ -42,6 +42,10 @@ const FAMILY_TABLES = new Set([
   'messages', 'prep_docs', 'assets', 'action_items', 'batch_reel_sends',
   'questions', 'gmail_tokens', 'players',
   'schools', 'coaches',
+  // E2 private layer: what a family thinks about a coach, as distinct from what
+  // the roster says. Stays a FAMILY table through the catalog re-point — it is
+  // the whole point of the split (coaches goes shared, this does not).
+  'coach_family_state',
   'family_sending_addresses',
   // The PROPOSAL is shared (catalog) so it is reviewed once; the DECISION is
   // per-family, so one family's dismissal never suppresses another's camp.

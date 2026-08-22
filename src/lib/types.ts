@@ -555,7 +555,13 @@ export interface Coach {
  * Composed by coach-primary.ts — schools.primary_coach_id first, the legacy
  * flag as fallback, no migration flag consulted.
  */
-export type CoachView = Omit<Coach, 'is_primary'> & { isPrimary: boolean }
+export type CoachView = Omit<Coach, 'is_primary'> & {
+  isPrimary: boolean
+  /** COMPOSED: coach_family_state.hidden_at OR the legacy coaches.archived_at.
+   *  "This family does not want to see them" — NOT "they left the program",
+   *  which is is_active. See coach-family-state.ts. */
+  hidden: boolean
+}
 
 // ─── Campaigns (Phase 2a) ─────────────────────────────────────────────────────
 

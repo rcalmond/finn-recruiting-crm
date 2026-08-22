@@ -200,6 +200,9 @@ interface CoachContext {
   email: string | null
   /** COMPOSED view field — see coach-primary.ts. Never a DB column. */
   isPrimary: boolean
+  /** COMPOSED — hidden by this family. Present so a generator KNOWS the person
+   *  exists, and marked so it never proposes contacting them. */
+  hidden: boolean
   needs_review: boolean
 }
 
@@ -446,6 +449,7 @@ Body uses plain line breaks between paragraphs, no HTML.`)
     for (const c of coaches) {
       const parts = [`${c.name} (${c.role ?? 'unknown role'})`]
       if (c.isPrimary) parts.push('— PRIMARY')
+      if (c.hidden) parts.push('— HIDDEN by the family: on the roster, but do NOT propose contacting them')
       if (c.needs_review) parts.push('— needs_review, may have departed')
       usr.push(`- ${parts.join(' ')}`)
     }
@@ -714,6 +718,7 @@ Return a JSON array of 3 strings. No preamble.`
     for (const c of coaches) {
       const parts = [`${c.name} (${c.role ?? 'unknown role'})`]
       if (c.isPrimary) parts.push('— PRIMARY')
+      if (c.hidden) parts.push('— HIDDEN by the family: on the roster, but do NOT propose contacting them')
       if (c.needs_review) parts.push('— needs_review, may have departed')
       usr.push(`- ${parts.join(' ')}`)
     }
@@ -872,6 +877,9 @@ interface PrepCoach {
   email: string | null
   /** COMPOSED view field — see coach-primary.ts. Never a DB column. */
   isPrimary: boolean
+  /** COMPOSED — hidden by this family. Present so a generator KNOWS the person
+   *  exists, and marked so it never proposes contacting them. */
+  hidden: boolean
   needs_review: boolean
 }
 
@@ -931,6 +939,7 @@ export function buildPrepPrompt(params: {
     for (const c of coaches) {
       const parts = [`${c.name} (${c.role ?? 'unknown role'})`]
       if (c.isPrimary) parts.push('— PRIMARY')
+      if (c.hidden) parts.push('— HIDDEN by the family: on the roster, but do NOT propose contacting them')
       if (c.needs_review) parts.push('— needs_review, may have departed')
       if (c.email) parts.push(`<${c.email}>`)
       lines.push(`- ${parts.join(' ')}`)

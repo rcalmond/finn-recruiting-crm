@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { selectableCoaches } from '@/lib/coach-family-state'
 import type { Coach, CoachView } from '@/lib/types'
 
 const SD = {
@@ -16,7 +17,7 @@ interface Props {
 
 export default function UploadPrepDocModal({ schoolId, coaches, onClose }: Props) {
   const activeCoaches = coaches.filter(c => c.is_active)
-  const defaultCoach = activeCoaches.find(c => c.isPrimary)
+  const defaultCoach = selectableCoaches(activeCoaches).find(c => c.isPrimary)
     ?? activeCoaches.find(c => c.role === 'Head Coach')
     ?? activeCoaches[0]
 

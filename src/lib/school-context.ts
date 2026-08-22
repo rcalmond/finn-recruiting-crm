@@ -12,6 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { campHostFilterIds } from '@/lib/camp-host'
 import { withPrimary, primaryFirst } from '@/lib/coach-primary'
+import { fetchCoachFamilyState, withFamilyState } from '@/lib/coach-family-state'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,11 @@ export interface CoachRow {
   email: string | null
   /** COMPOSED, not a column — see coach-primary.ts. Reads both domains. */
   isPrimary: boolean
+  /** COMPOSED — this family has hidden them. Hidden coaches are INCLUDED here
+   *  and flagged: a hidden coach is still a fact about the roster, and a
+   *  generator should know the GK coach exists even though the family will
+   *  never email him. Generators must not propose contacting a hidden coach. */
+  hidden: boolean
   needs_review: boolean
 }
 
@@ -146,7 +152,7 @@ export async function fetchSchoolContext(
     //    sort on it cannot survive the re-point. Primary-first ordering is
     //    applied in JS below, off whichever domain answers (coach-primary.ts).
     admin.from('coaches')
-      .select('id, name, role, email, is_primary, needs_review')
+      .select('id, name, role, email, is_primary, archived_at, needs_review')
       .eq('school_id', schoolId)
       .eq('is_active', true)
       .order('sort_order', { ascending: true }),
@@ -242,19 +248,24 @@ export async function fetchSchoolContext(
   // This is the funnel for every generator: prompts.ts (x3), the message-plan,
   // plan-QA and conversation-summary generators, camp-doc and call-prep all
   // read their coach arrays from here, so composing once reaches all of them.
+  const familyState = await fetchCoachFamilyState(admin, rawCoaches.map(c => c.id as string))
   const coaches: CoachRow[] = primaryFirst(
     withPrimary(
       school,
-      rawCoaches.map(c => ({
-        id: c.id as string,
-        name: c.name as string,
-        role: c.role as string | null,
-        email: c.email as string | null,
-        is_primary: c.is_primary as boolean,
-        needs_review: c.needs_review as boolean,
-      })),
+      withFamilyState(
+        rawCoaches.map(c => ({
+          id: c.id as string,
+          name: c.name as string,
+          role: c.role as string | null,
+          email: c.email as string | null,
+          is_primary: c.is_primary as boolean,
+          archived_at: (c.archived_at ?? null) as string | null,
+          needs_review: c.needs_review as boolean,
+        })),
+        familyState,
+      ),
     ),
-  ).map(({ is_primary: _legacy, ...c }) => c)
+  ).map(({ is_primary: _legacy, archived_at: _legacyHide, notes: _notes, ...c }) => c)
 
   // Process camps (flatten join)
   const upcomingCamps: CampRow[] = rawCamps.map(c => {

@@ -98,13 +98,13 @@ export default function SchoolModal(props: Props) {
   const { entries: contactLog } = useContactLog(s?.id)
 
   // Coaches (edit mode only)
-  const { coaches, archivedCoaches, insertCoach, updateCoach, archiveCoach, unarchiveCoach, setPrimary } = useCoaches(s?.id)
+  const { coaches, hiddenCoaches, insertCoach, updateCoach, hideCoach, unhideCoach, setPrimary } = useCoaches(s?.id)
   const [editingCoachId, setEditingCoachId] = useState<string | null>(null)
   const [coachEditDraft, setCoachEditDraft] = useState<{ name: string; role: CoachRole; email: string }>({ name: '', role: 'Head Coach', email: '' })
   const [addingCoach, setAddingCoach] = useState(false)
   const [newCoachDraft, setNewCoachDraft] = useState<{ name: string; role: CoachRole; email: string }>({ name: '', role: 'Head Coach', email: '' })
-  const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null)
-  const [showArchived, setShowArchived] = useState(false)
+  const [confirmHideId, setConfirmHideId] = useState<string | null>(null)
+  const [showHidden, setShowHidden] = useState(false)
 
   function startEditCoach(coach: CoachView) {
     setEditingCoachId(coach.id)
@@ -322,13 +322,13 @@ export default function SchoolModal(props: Props) {
                           <button type="button" onClick={saveEditCoach} style={primarySmBtn}>Save</button>
                           <button type="button" onClick={() => setEditingCoachId(null)} style={mutedSmBtn}>&times;</button>
                         </div>
-                      ) : confirmArchiveId === coach.id ? (
+                      ) : confirmHideId === coach.id ? (
                         <div key={coach.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: M.goldSoft, borderRadius: 8, padding: '8px 12px', border: `1px solid ${M.goldDeep}40` }}>
                           <div style={{ flex: 1, fontSize: 12, color: M.goldInk }}>
-                            Archive {coach.name}? They&apos;ll be hidden from active staff but contact history is preserved.
+                            Hide {coach.name}? They stay on the roster and in generated documents — they just stop appearing in your staff list and in email recipient pickers.{coach.isPrimary ? ' They are your designated contact, so that designation will be cleared.' : ''}
                           </div>
-                          <button type="button" onClick={async () => { await archiveCoach(coach.id); setConfirmArchiveId(null) }} style={{ ...primarySmBtn, background: M.goldInk }}>Archive</button>
-                          <button type="button" onClick={() => setConfirmArchiveId(null)} style={mutedSmBtn}>Cancel</button>
+                          <button type="button" onClick={async () => { await hideCoach(coach.id); setConfirmHideId(null) }} style={{ ...primarySmBtn, background: M.goldInk }}>Hide</button>
+                          <button type="button" onClick={() => setConfirmHideId(null)} style={mutedSmBtn}>Cancel</button>
                         </div>
                       ) : (
                         <div key={coach.id} style={displayRow}>
@@ -358,7 +358,7 @@ export default function SchoolModal(props: Props) {
                             </button>
                           )}
                           <button type="button" onClick={() => startEditCoach(coach)} style={mutedSmBtn}>Edit</button>
-                          <button type="button" onClick={() => setConfirmArchiveId(coach.id)} title="Archive coach" style={{ ...mutedSmBtn, color: M.inkMute }}>Archive</button>
+                          <button type="button" onClick={() => setConfirmHideId(coach.id)} title="Hide this coach from your staff list" style={{ ...mutedSmBtn, color: M.inkMute }}>Hide</button>
                         </div>
                       )
                     ))}
@@ -379,31 +379,31 @@ export default function SchoolModal(props: Props) {
                       <div style={{ fontSize: 12, color: M.inkMute, fontStyle: 'italic' }}>No coach records yet. Click + Add to create one.</div>
                     )}
 
-                    {/* Archived coaches disclosure */}
-                    {archivedCoaches.length > 0 && (
+                    {/* Hidden-by-this-family disclosure */}
+                    {hiddenCoaches.length > 0 && (
                       <div style={{ marginTop: 6 }}>
                         <button
                           type="button"
-                          onClick={() => setShowArchived(o => !o)}
+                          onClick={() => setShowHidden(o => !o)}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: M.inkMute, fontFamily: 'inherit', padding: '4px 0', display: 'flex', alignItems: 'center', gap: 4 }}
                         >
-                          <span style={{ display: 'inline-block', transform: showArchived ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>▾</span>
-                          Archived coaches ({archivedCoaches.length})
+                          <span style={{ display: 'inline-block', transform: showHidden ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>▾</span>
+                          Hidden by you ({hiddenCoaches.length})
                         </button>
-                        {showArchived && (
+                        {showHidden && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-                            {archivedCoaches.map(coach => (
+                            {hiddenCoaches.map((coach: CoachView) => (
                               <div key={coach.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: M.paperDeep, borderRadius: 8, padding: '6px 12px', border: `1px solid ${M.line}`, opacity: 0.7 }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <span style={{ fontSize: 12, color: M.inkMute, fontStyle: 'italic' }}>{coach.name}</span>
                                   <span style={{ fontSize: 10, color: M.inkMute, marginLeft: 6 }}>{coach.role}</span>
                                   {coach.archived_at && (
                                     <span style={{ fontSize: 10, color: M.inkMute, marginLeft: 6 }}>
-                                      Archived {new Date(coach.archived_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                      Hidden {new Date(coach.archived_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                     </span>
                                   )}
                                 </div>
-                                <button type="button" onClick={() => unarchiveCoach(coach.id)} style={{ ...ghostBtn, fontSize: 10, padding: '2px 8px' }}>Unarchive</button>
+                                <button type="button" onClick={() => unhideCoach(coach.id)} style={{ ...ghostBtn, fontSize: 10, padding: '2px 8px' }}>Unhide</button>
                               </div>
                             ))}
                           </div>
