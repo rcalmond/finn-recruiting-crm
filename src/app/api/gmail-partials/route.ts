@@ -19,7 +19,7 @@ export async function GET() {
 
   const { data: rows, error } = await admin
     .from('contact_log')
-    .select('id, school_id, direction, coach_name, summary, date, created_at, parse_notes, schools!inner(id, name)')
+    .select('id, school_id, direction, coach_name, summary, date, created_at, parse_notes, schools!contact_log_school_id_fkey!inner(id, name)')
     .eq('parse_status', 'partial')
     .not('gmail_message_id', 'is', null)
     .order('created_at', { ascending: false })

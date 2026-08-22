@@ -12,13 +12,29 @@
  *   npx tsx scripts/backfill-camp-extraction.ts --since=2025-06-01
  */
 
-import { createClient } from '@supabase/supabase-js'
-import { extractCampsFromText, shouldSkipProposal } from '../src/lib/camp-extractor'
+import * as fs from 'fs'
+import * as path from 'path'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Env FIRST: the tenant-db wrapper builds its client lazily on first use, so
+// this only has to run before run(). The script previously had no loader at all
+// and simply failed on a missing supabaseUrl — it was not runnable as checked in.
+function loadEnv() {
+  const envPath = path.resolve(process.cwd(), '.env.local')
+  if (!fs.existsSync(envPath)) return
+  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const eq = trimmed.indexOf('=')
+    if (eq === -1) continue
+    const key = trimmed.slice(0, eq).trim()
+    if (!process.env[key]) process.env[key] = trimmed.slice(eq + 1).trim()
+  }
+}
+loadEnv()
+
+import { extractCampsFromText, shouldSkipProposal } from '../src/lib/camp-extractor'
+import { familyAdmin } from '../src/lib/tenant-db'
+import { listFamilies } from '../src/lib/cron-scan-set'
 
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
@@ -32,6 +48,27 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+/**
+ * ONE FAMILY AT A TIME, through that family's scoped client.
+ *
+ * This script used to build a RAW service client and read contact_log and
+ * schools across every family in one query. Two consequences, and the second
+ * is the worse one:
+ *
+ *   - shouldSkipProposal was called with NO familyId at all. camp_proposals is
+ *     a SHARED catalog table, so a suppression decided without a family
+ *     suppresses for EVERYONE — the defect chunk I made that parameter
+ *     required to prevent. The compiler was meant to find every call site and
+ *     could not find this one, because scripts/ was outside tsconfig.
+ *   - the attendee CANDIDATE list was every family's A/B/C schools, so an
+ *     email from one family's school was resolved against another family's
+ *     list. Benign while family #2 is a test fixture; a cross-family read in
+ *     the privileged layer either way, with no stated reason.
+ *
+ * Iterating families fixes both by construction: familyId comes from the loop
+ * rather than from a row, and every read is scoped by the wrapper. Same shape
+ * as camp-discovery, which does the ongoing version of this work.
+ */
 async function run() {
   const today = new Date().toISOString().split('T')[0]
   const sinceDate = sinceArg ?? (() => {
@@ -43,7 +80,14 @@ async function run() {
   console.log(`[backfill] mode=${dryRun ? 'DRY RUN' : 'LIVE'} since=${sinceDate} school=${schoolIdArg ?? 'all'}`)
   console.log()
 
-  // Fetch candidate attendee schools (all active A/B/C)
+  const families = await listFamilies()
+  console.log(`[backfill] ${families.length} family(ies) to scan`)
+
+  for (const family of families) {
+  const supabase = familyAdmin(family.id)
+  console.log(`\n[backfill] === family ${family.name ?? family.id.slice(0, 8)} ===`)
+
+  // Candidate attendee schools — THIS family's active A/B/C only
   const { data: allSchools } = await supabase
     .from('schools')
     .select('id, name, short_name, category, aliases')
@@ -59,7 +103,7 @@ async function run() {
   // Fetch inbound contact_log rows matching camp pattern
   let query = supabase
     .from('contact_log')
-    .select('id, school_id, direction, coach_name, channel, summary, raw_source, sent_at, date, schools!inner(id, name, short_name, category, family_id, discovery_school_id)')
+    .select('id, school_id, direction, coach_name, channel, summary, raw_source, sent_at, date, schools!contact_log_school_id_fkey!inner(id, name, short_name, category, family_id, discovery_school_id)')
     .eq('direction', 'Inbound')
     .not('school_id', 'is', null)
     .in('parse_status', ['full', 'partial'])
@@ -137,7 +181,7 @@ async function run() {
         // excluded from tsconfig. That exclusion is what tsconfig.scripts.json
         // closes, and this call is what it found.
         const dedup = await shouldSkipProposal(supabase, {
-          familyId: school.family_id,
+          familyId: family.id,
           hostSchoolId: school.id,
           hostDiscoverySchoolId: school.discovery_school_id,
           startDate: camp.start_date,
@@ -217,6 +261,7 @@ async function run() {
       console.log(`  ${school}: ${count}`)
     }
   }
+  } // end per-family loop
 }
 
 run().catch(err => {

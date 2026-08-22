@@ -488,7 +488,7 @@ export async function extractAndProposeCamps(
     // 1. Load the contact_log row with school join
     const { data: row, error } = await admin
       .from('contact_log')
-      .select('id, school_id, direction, coach_name, channel, summary, raw_source, sent_at, date, parse_status, schools!inner(id, name, short_name, category, discovery_school_id)')
+      .select('id, school_id, direction, coach_name, channel, summary, raw_source, sent_at, date, parse_status, schools!contact_log_school_id_fkey!inner(id, name, short_name, category, discovery_school_id)')
       .eq('id', rowId)
       .single()
 

@@ -49,7 +49,7 @@ async function main() {
   // Fetch all outbound rows with school_id and substantial body
   const { data: rows, error } = await admin
     .from('contact_log')
-    .select('id, school_id, summary, date, schools(name, short_name)')
+    .select('id, school_id, summary, date, schools!contact_log_school_id_fkey(name, short_name)')
     .eq('direction', 'Outbound')
     .not('school_id', 'is', null)
     .not('summary', 'is', null)

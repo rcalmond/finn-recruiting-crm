@@ -31,7 +31,12 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-const SRC = 'src'
+// scripts/ IS SCANNED TOO. It was not, and that made this the THIRD gate with
+// the same blind spot — after the typechecker and the tenancy fence. A bare
+// schools!inner embed sat in backfill-camp-extraction.ts, broken since the
+// email boundary added schools.origin_contact_log_id and made that pair
+// ambiguous, and no gate could see it because every gate stopped at src/.
+const SRC_DIRS = ['src', 'scripts']
 const URL_ENV = process.env.NEXT_PUBLIC_SUPABASE_URL
 const ANON_ENV = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -73,12 +78,15 @@ function walk(dir, acc = []) {
 // The select may sit on the same line or a following one.
 const FROM_RE = /\.from\(\s*['"]([a-z_]+)['"]\s*\)/g
 const SELECT_RE = /\.select\(\s*(['"`])([\s\S]*?)\1/g
-// An embed is alias:table(...) or table(...) inside a select string.
-const EMBED_RE = /(?:([A-Za-z_][\w]*)\s*:\s*)?([a-z_]+(?:![a-z_]+)?)\s*\(/g
+// An embed is alias:table(...) or table(...) inside a select string. The hint
+// suffix REPEATS — schools!contact_log_school_id_fkey!inner names a constraint
+// AND an inner join — and matching only one !segment made every doubly-hinted
+// embed invisible to this gate, which is how an ambiguous one survived.
+const EMBED_RE = /(?:([A-Za-z_][\w]*)\s*:\s*)?([a-z_]+(?:![a-z_]+)*)\s*\(/g
 
 const contracts = new Map() // key -> {table, select, files:Set}
 
-for (const file of walk(SRC)) {
+for (const file of SRC_DIRS.flatMap(d => walk(d))) {
   const text = readFileSync(file, 'utf8')
   // Pair each .from(...) with the nearest following .select(...)
   // Collect .from() positions so a chain's select is never confused with the
@@ -99,8 +107,12 @@ for (const file of walk(SRC)) {
     const select = sm[2].replace(/\s+/g, ' ').trim()
     if (!select.includes('(')) continue // no embed — nothing to verify
 
-    // Ignore aggregate/function-ish selects and count shorthands
-    if (/^(count|id)\b/.test(select) && !select.includes(':')) continue
+    // Skip TRUE aggregates only. The previous guard was /^(count|id)\b/ with no
+    // alias — which silently dropped any select that merely STARTED with "id,"
+    // and used an UNALIASED embed. That is a common shape, and it is how an
+    // ambiguous schools!inner embed sat unverified: the gate had already
+    // decided the line was a count shorthand. Count/head selects carry no "("
+    // at all and are dropped by the check above.
 
     const key = `${table}::${select}`
     if (!contracts.has(key)) contracts.set(key, { table, select, files: new Set() })
