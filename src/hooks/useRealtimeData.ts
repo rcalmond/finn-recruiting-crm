@@ -849,52 +849,125 @@ export function useCamps(schools: School[], schoolsLoading?: boolean) {
     return error
   }, [])
 
+  // IN-FLIGHT GUARD. A second click while a mutation is pending fires a second
+  // write against state the first has not committed yet — which is how a status
+  // pill produced a duplicate-key violation on a family's very first status.
+  // The upsert makes that harmless; this stops it happening at all, and covers
+  // the mutations that have no unique constraint to catch them.
+  const inFlight = useRef<Set<string>>(new Set())
+
   const createCamp = useCallback(async (data: Omit<Camp, 'id' | 'created_at' | 'updated_at'>): Promise<{ id: string | null; error: string | null }> => {
+    if (inFlight.current.has('Create camp')) return { id: null, error: null }
+    inFlight.current.add('Create camp')
     setMutationError(null)
-    const result = await createCampMutation(supabase, data)
-    report('Create camp', result.error)
-    if (!result.error) await fetchCamps()
-    return { id: result.camp?.id ?? null, error: result.error }
+    try {
+      const result = await createCampMutation(supabase, data)
+      report('Create camp', result.error)
+      await fetchCamps()
+      return { id: result.camp?.id ?? null, error: result.error }
+    } finally {
+      inFlight.current.delete('Create camp')
+    }
   }, [supabase, fetchCamps, report])
 
   const updateCamp = useCallback(async (id: string, data: Partial<Omit<Camp, 'id' | 'created_at' | 'updated_at'>>) => {
+    const key = `Update camp:${id}`
+    if (inFlight.current.has(key)) return null
+    inFlight.current.add(key)
     setMutationError(null)
-    const error = await updateCampMutation(supabase, id, data)
-    report('Update camp', error)
-    if (!error) await fetchCamps()
-    return error
+    try {
+      const error = await updateCampMutation(supabase, id, data)
+      report('Update camp', error)
+      // RESYNC EITHER WAY. On failure the local view must not keep
+      // showing a change the server refused — a pill that advanced
+      // beside a banner saying the write failed is two surfaces
+      // contradicting each other, and the user believes whichever
+      // they looked at.
+      await fetchCamps()
+      return error
+    } finally {
+      inFlight.current.delete(key)
+    }
   }, [supabase, fetchCamps, report])
 
   const updateFamilyStatus = useCallback(async (campId: string, status: CampFamilyStatusValue, opts?: { declined_reason?: string; notes?: string }) => {
+    const key = `Update camp status:${campId}`
+    if (inFlight.current.has(key)) return null
+    inFlight.current.add(key)
     setMutationError(null)
-    const error = await updateFamilyStatusMutation(supabase, campId, status, opts)
-    report('Update camp status', error)
-    if (!error) await fetchCamps()
-    return error
+    try {
+      const error = await updateFamilyStatusMutation(supabase, campId, status, opts)
+      report('Update camp status', error)
+      // RESYNC EITHER WAY. On failure the local view must not keep
+      // showing a change the server refused — a pill that advanced
+      // beside a banner saying the write failed is two surfaces
+      // contradicting each other, and the user believes whichever
+      // they looked at.
+      await fetchCamps()
+      return error
+    } finally {
+      inFlight.current.delete(key)
+    }
   }, [supabase, fetchCamps, report])
 
   const deleteCamp = useCallback(async (id: string) => {
+    const key = `Delete camp:${id}`
+    if (inFlight.current.has(key)) return null
+    inFlight.current.add(key)
     setMutationError(null)
-    const error = await deleteCampMutation(id)
-    report('Delete camp', error)
-    if (!error) await fetchCamps()
-    return error
+    try {
+      const error = await deleteCampMutation(id)
+      report('Delete camp', error)
+      // RESYNC EITHER WAY. On failure the local view must not keep
+      // showing a change the server refused — a pill that advanced
+      // beside a banner saying the write failed is two surfaces
+      // contradicting each other, and the user believes whichever
+      // they looked at.
+      await fetchCamps()
+      return error
+    } finally {
+      inFlight.current.delete(key)
+    }
   }, [supabase, fetchCamps, report])
 
   const addSchoolAttendee = useCallback(async (campId: string, schoolId: string, source?: string) => {
+    const key = `Add school to camp:${campId}`
+    if (inFlight.current.has(key)) return null
+    inFlight.current.add(key)
     setMutationError(null)
-    const error = await addSchoolAttendeeMutation(supabase, campId, schoolId, source)
-    report('Add school to camp', error)
-    if (!error) await fetchCamps()
-    return error
+    try {
+      const error = await addSchoolAttendeeMutation(supabase, campId, schoolId, source)
+      report('Add school to camp', error)
+      // RESYNC EITHER WAY. On failure the local view must not keep
+      // showing a change the server refused — a pill that advanced
+      // beside a banner saying the write failed is two surfaces
+      // contradicting each other, and the user believes whichever
+      // they looked at.
+      await fetchCamps()
+      return error
+    } finally {
+      inFlight.current.delete(key)
+    }
   }, [supabase, fetchCamps, report])
 
   const removeSchoolAttendee = useCallback(async (campId: string, schoolId: string) => {
+    const key = `Remove school from camp:${campId}`
+    if (inFlight.current.has(key)) return null
+    inFlight.current.add(key)
     setMutationError(null)
-    const error = await removeSchoolAttendeeMutation(supabase, campId, schoolId)
-    report('Remove school from camp', error)
-    if (!error) await fetchCamps()
-    return error
+    try {
+      const error = await removeSchoolAttendeeMutation(supabase, campId, schoolId)
+      report('Remove school from camp', error)
+      // RESYNC EITHER WAY. On failure the local view must not keep
+      // showing a change the server refused — a pill that advanced
+      // beside a banner saying the write failed is two surfaces
+      // contradicting each other, and the user believes whichever
+      // they looked at.
+      await fetchCamps()
+      return error
+    } finally {
+      inFlight.current.delete(key)
+    }
   }, [supabase, fetchCamps, report])
 
   return { camps, loading, mutationError, clearMutationError: () => setMutationError(null), createCamp, updateCamp, updateFamilyStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee }

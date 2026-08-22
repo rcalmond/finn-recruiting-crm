@@ -309,25 +309,26 @@ export async function updateFamilyStatus(
 
   if (opts?.notes !== undefined) updates.notes = opts.notes
 
-  // INSERT-OR-UPDATE, not a bare UPDATE. A plain update matching zero rows
-  // returns NO ERROR and changes nothing, so the pill click did nothing and
-  // said nothing. Every existing row was seeded by createCamp for the family
-  // that created the camp — Almond had 76 of 76 — so the INSERT path had never
-  // been exercised by anybody, and a second family clicking a status pill on a
-  // SHARED camp is exactly the case that has no row yet. camp_family_status is
-  // the per-family layer of a shared table: absence is its normal starting
-  // state, not an anomaly.
-  const { data: existing } = await supabase
+  // A REAL UPSERT ON (camp_id, family_id), not read-then-branch.
+  //
+  // It started as a bare UPDATE, which matched zero rows for a family with no
+  // status row yet and returned NO ERROR — every row in the table had been
+  // seeded by createCamp for the family that created the camp, so the INSERT
+  // path had never run for anybody. Replacing it with select-then-insert-or-
+  // update fixed the missing write and introduced a RACE: two clicks close
+  // together both read "no row", both INSERT, and the second violates
+  // camp_family_status_camp_family_key. The state ends up correct and the UI
+  // reports a failure, which is the worst of both.
+  //
+  // The unique constraint already expresses the intent, so the write should
+  // lean on it rather than re-derive it. A double fire is now harmless.
+  //
+  // family_id is STILL never supplied — it comes from the column DEFAULT (the
+  // app.current_family_id() helper), which is the designed tripwire. Postgres
+  // fills defaults before resolving ON CONFLICT, so the target still matches.
+  const { error } = await supabase
     .from('camp_family_status')
-    .select('id')
-    .eq('camp_id', campId)
-    .maybeSingle()
-
-  const { error } = existing
-    ? await supabase.from('camp_family_status').update(updates).eq('camp_id', campId)
-    // family_id is NEVER supplied — it comes from the column DEFAULT (the
-    // app.current_family_id() helper), which is the designed tripwire.
-    : await supabase.from('camp_family_status').insert({ camp_id: campId, ...updates })
+    .upsert({ camp_id: campId, ...updates }, { onConflict: 'camp_id,family_id' })
 
   if (error) return error.message
 
