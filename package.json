@@ -9,7 +9,7 @@
     "lint": "next lint",
     "db:types": "supabase gen types typescript --local > src/lib/database.types.ts",
     "export-context": "tsx scripts/generate-claude-context.ts",
-    "prebuild": "tsc --noEmit -p tsconfig.scripts.json && node scripts/check-tenancy-fence.mjs && node scripts/check-embed-contracts.mjs",
+    "prebuild": "node scripts/check-conflict-markers.mjs && tsc --noEmit -p tsconfig.scripts.json && node scripts/check-tenancy-fence.mjs && node scripts/check-embed-contracts.mjs",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json"
   },
   "dependencies": {
