@@ -520,6 +520,7 @@ function composeCoachViews(
 export function useCoaches(schoolId?: string) {
   const [coaches, setCoaches] = useState<CoachView[]>([])
   const [archivedCoaches, setArchivedCoaches] = useState<CoachView[]>([])
+  const [departedCoaches, setDepartedCoaches] = useState<CoachView[]>([])
   const [loading, setLoading] = useState(true)
   // Distinguishes a FAILED read from an empty one (see reportFetchError).
   const [error, setError] = useState<string | null>(null)
@@ -529,6 +530,7 @@ export function useCoaches(schoolId?: string) {
     if (!schoolId) {
       setCoaches([])
       setArchivedCoaches([])
+      setDepartedCoaches([])
       setLoading(false)
       return
     }
@@ -543,39 +545,32 @@ export function useCoaches(schoolId?: string) {
       .maybeSingle()
     const school = (schoolRow ?? null) as { primary_coach_id: string | null } | null
 
-    // TWO QUERIES, THEN PARTITION IN JS. Hidden lives in a different table now,
-    // so it cannot be a SQL filter here. The pair preserves today's behaviour
-    // exactly while adding the new domain:
-    //   A — is_active coaches, split into visible and hidden-by-this-family
-    //   B — the LEGACY hide (archived_at), which also covers rows A misses
-    //       because archiving used to set is_active=false as well
+    // ONE QUERY, THEN A THREE-WAY PARTITION IN JS. Hidden lives in a different
+    // table, so it can never be a SQL filter here, and the roster is a handful
+    // of rows per school. Three states, three groups, and the precedence
+    // matters — a coach the family explicitly hid reads as hidden even if they
+    // have also left the program, because that was the family's own decision.
+    //
+    //   hidden    — hidden_at OR the legacy archived_at (both domains)
+    //   departed  — is_active = false, read from is_active ALONE so it does not
+    //               depend on the archived_at conflation we are retiring
+    //   active    — everything else
     const { data, error } = await supabase
       .from('coaches')
       .select('*')
       .eq('school_id', schoolId)
-      .eq('is_active', true)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true })
     reportFetchError('coaches', error)
     setError(error?.message ?? null)
 
-    const { data: legacyHidden } = await supabase
-      .from('coaches')
-      .select('*')
-      .eq('school_id', schoolId)
-      .not('archived_at', 'is', null)
-      .order('archived_at', { ascending: false })
-
-    const activeRows = (error ? [] : (data ?? [])) as Coach[]
-    const legacyRows = (legacyHidden ?? []) as Coach[]
-    const seen = new Set(activeRows.map(c => c.id))
-    const allRows = [...activeRows, ...legacyRows.filter(c => !seen.has(c.id))]
-
+    const allRows = (error ? [] : (data ?? [])) as Coach[]
     const familyState = await fetchCoachFamilyState(supabase, allRows.map(c => c.id))
     const composed = composeCoachViews(school, allRows, familyState)
 
     if (!error) setCoaches(composed.filter(c => !c.hidden && c.is_active))
     setArchivedCoaches(composed.filter(c => c.hidden))
+    setDepartedCoaches(composed.filter(c => !c.hidden && !c.is_active))
     setLoading(false)
   }, [supabase, schoolId])
 
@@ -681,8 +676,11 @@ export function useCoaches(schoolId?: string) {
 
   return {
     coaches,
-    /** Hidden BY THIS FAMILY — not departed. See coach-family-state.ts. */
+    /** Hidden BY THIS FAMILY — a preference. See coach-family-state.ts. */
     hiddenCoaches: archivedCoaches,
+    /** DEPARTED — is_active = false. Roster truth, not a preference. Read from
+     *  is_active alone; a family that hid them sees them under hidden instead. */
+    departedCoaches,
     loading, error, insertCoach, updateCoach,
     hideCoach: hideCoachForFamily,
     unhideCoach: unhideCoachForFamily,

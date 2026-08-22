@@ -1518,16 +1518,18 @@ function OffersZone({ schoolId }: { schoolId: string }) {
 // ─── Zone 2: The staff — coaches + call prep ─────────────────────────────────
 
 function StaffZone({
-  school, coaches, hiddenCoaches, onDraftForCoach, onSetPrimary, onUnhide,
+  school, coaches, hiddenCoaches, departedCoaches, onDraftForCoach, onSetPrimary, onUnhide,
 }: {
   school: School
   coaches: CoachView[]
   hiddenCoaches: CoachView[]
+  departedCoaches: CoachView[]
   onDraftForCoach: (coachId: string) => void
   onSetPrimary: (id: string) => Promise<unknown>
   onUnhide: (id: string) => Promise<unknown>
 }) {
   const [showHidden, setShowHidden] = useState(false)
+  const [showDeparted, setShowDeparted] = useState(false)
   return (
     <section style={{ marginTop: 'clamp(32px, 5vw, 48px)' }}>
       <ZoneHeading>The staff.</ZoneHeading>
@@ -1712,6 +1714,52 @@ function StaffZone({
                       color: SD.inkMid, cursor: 'pointer',
                     }}
                   >Unhide</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* DEPARTED — is_active = false, which is the SCRAPER's departure
+          detection, not a family preference. These rows previously rendered
+          NOWHERE: not in the active roster, not in the archived drawer. Two of
+          them are somebody's designated contact, so a family whose replies had
+          stopped got no explanation at all. Read from is_active alone. */}
+      {departedCoaches.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <button
+            type="button"
+            onClick={() => setShowDeparted(o => !o)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, background: 'none',
+              border: 'none', padding: 0, cursor: 'pointer',
+              fontSize: 12, fontWeight: 600, color: SD.inkLo,
+            }}
+          >
+            <span style={{ display: 'inline-block', transform: showDeparted ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>▾</span>
+            No longer at this program ({departedCoaches.length})
+          </button>
+          {showDeparted && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+              {departedCoaches.map(coach => (
+                <div key={coach.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  background: '#fff', border: `1px solid ${SD.line}`, borderRadius: 8,
+                  padding: '8px 12px',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 12.5, color: SD.inkMid, fontStyle: 'italic' }}>{coach.name}</span>
+                    <span style={{ fontSize: 11, color: SD.inkLo, marginLeft: 6 }}>{coach.role}</span>
+                    {coach.isPrimary && (
+                      <span style={{ fontSize: 10.5, color: SD.inkLo, marginLeft: 6 }}>
+                        · was your designated contact
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontSize: 10.5, color: SD.inkLo, whiteSpace: 'nowrap' }}>
+                    conversation history kept
+                  </span>
                 </div>
               ))}
             </div>
@@ -2230,7 +2278,7 @@ export default function SchoolDetailClient({
   const { schools, loading: schoolsLoading, updateSchool, deleteSchool } = useSchools()
   const { entries: contactLog, loading: logLoading, error: contactLogError, insertContact, updateEntry, deleteEntry, snoozeEntry, dismissEntry, undoEntry } = useContactLog(initialSchool.id)
   const { items: actionItems, completedItems, loading: actionsLoading, completeItem, insertItem, updateItem } = useActionItems(initialSchool.id)
-  const { coaches, hiddenCoaches, setPrimary, unhideCoach } = useCoaches(initialSchool.id)
+  const { coaches, hiddenCoaches, departedCoaches, setPrimary, unhideCoach } = useCoaches(initialSchool.id)
   const { camps } = useCamps(schools, schoolsLoading)
   const { docs: callPrepDocs, refetch: refetchPrepDocs } = useCallPrepDocs(initialSchool.id)
   const { updates: statusUpdates, insertUpdate, updateUpdate, deleteUpdate } = useStatusUpdates(initialSchool.id)
@@ -2389,6 +2437,7 @@ export default function SchoolDetailClient({
           school={school}
           coaches={coaches}
           hiddenCoaches={hiddenCoaches}
+          departedCoaches={departedCoaches}
           onDraftForCoach={(coachId) => setDraftTarget({ kind: 'fresh', coachId })}
           onSetPrimary={setPrimary}
           onUnhide={unhideCoach}
