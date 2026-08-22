@@ -8,6 +8,7 @@ import ContactLogPanel from './ContactLogPanel'
 import DraftModal from './DraftModal'
 import PrepForCallModal from './PrepForCallModal'
 import { divisionLabel } from '@/lib/division-label'
+import { COACH_ROLES } from '@/lib/coach-roles'
 
 // status is intentionally NOT editable here — the stage/milestone model
 // superseded the legacy Status enum (Pipeline removal Pass 1). New schools get
@@ -17,7 +18,6 @@ const DIVISIONS: Division[] = ['D1', 'D2', 'D3']
 const ADMITS: AdmitLikelihood[] = ['Likely', 'Target', 'Reach', 'Far Reach']
 const CATEGORIES: Category[] = ['A', 'B', 'C', 'Nope']
 const OWNERS: ActionOwner[] = ['Finn', 'Randy']
-const COACH_ROLES: CoachRole[] = ['Head Coach', 'Interim Head Coach', 'Associate Head Coach', 'Assistant Coach', 'Interim Assistant Coach', 'Other']
 
 // ─── Design tokens (Throughball brand — chrome is Pitch Green) ────────────────
 // Chrome (pitch, ink, cream, borders) is brand. Destructive red (#9A0B23) is a

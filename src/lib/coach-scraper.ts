@@ -20,24 +20,16 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { schoolHasPrimary, designatePrimary } from '@/lib/coach-primary'
+import { type CoachRole, normalizeRole, coachRolesForPrompt } from '@/lib/coach-roles'
+
+// Re-exported for the CLI in scripts/ which imports from this module.
+export type { CoachRole }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Supabase = SupabaseClient<any, any, any>
 
-export type CoachRole =
-  | 'Head Coach'
-  | 'Interim Head Coach'
-  | 'Associate Head Coach'
-  | 'Assistant Coach'
-  | 'Interim Assistant Coach'
-  | 'Other'
-
-export const VALID_ROLES: CoachRole[] = [
-  'Head Coach', 'Interim Head Coach', 'Associate Head Coach',
-  'Assistant Coach', 'Interim Assistant Coach', 'Other',
-]
 
 export type ChangeType =
   | 'coach_added'
@@ -131,12 +123,7 @@ function buildExtractionPrompt(pageText: string): string {
 For each coach return:
   name  — full name in "First Last" format. Strip titles ("Dr.", "Coach") from the stored value.
   role  — EXACTLY one of these strings (choose the closest match):
-            "Head Coach"
-            "Interim Head Coach"
-            "Associate Head Coach"
-            "Assistant Coach"
-            "Interim Assistant Coach"
-            "Other"
+${coachRolesForPrompt()}
   email — email address, or null if not shown.
           Resolve anti-spam obfuscation: "name [at] school [dot] edu" → "name@school.edu"
   phone — phone number string, or null if not shown.
@@ -205,17 +192,6 @@ function stripHtmlForExtraction(html: string): string {
 // (e.g. "Co-Head Coach", "Goalkeeper Coach", "First Assistant Coach").
 // We map the most common variants; anything else → 'Other'.
 
-function normalizeRole(raw: string): CoachRole {
-  if ((VALID_ROLES as string[]).includes(raw)) return raw as CoachRole
-
-  const lower = raw.toLowerCase().trim()
-  if (lower.includes('interim') && lower.includes('head'))      return 'Interim Head Coach'
-  if (lower.includes('interim') && lower.includes('assistant')) return 'Interim Assistant Coach'
-  if (lower.includes('associate') || lower.includes('co-head')) return 'Associate Head Coach'
-  if (lower.includes('head'))                                    return 'Head Coach'
-  if (lower.includes('assistant') || lower.includes('first'))   return 'Assistant Coach'
-  return 'Other'
-}
 
 // ── Name normalization for diff matching ──────────────────────────────────────
 //

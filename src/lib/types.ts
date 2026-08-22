@@ -515,13 +515,10 @@ export interface CallPrepDoc {
 
 // ─── Coaches ──────────────────────────────────────────────────────────────────
 
-export type CoachRole =
-  | 'Head Coach'
-  | 'Interim Head Coach'
-  | 'Associate Head Coach'
-  | 'Assistant Coach'
-  | 'Interim Assistant Coach'
-  | 'Other'
+/** The vocabulary lives in ONE place. See coach-roles.ts for why. */
+export type { CoachRole } from './coach-roles'
+export { COACH_ROLES, isCoachRole, normalizeRole } from './coach-roles'
+import type { CoachRole } from './coach-roles'
 
 /**
  * The coaches ROW as it exists in the database. is_primary is the LEGACY

@@ -23,16 +23,8 @@ import { familyAdmin } from '@/lib/tenant-db'
 import { getFamilyContext } from '@/lib/require-family'
 import { reparsePartialsForSchool } from '@/lib/gmail-resolve'
 import { schoolHasPrimary, designatePrimary } from '@/lib/coach-primary'
+import { COACH_ROLES, isCoachRole } from '@/lib/coach-roles'
 
-const VALID_ROLES = [
-  'Head Coach',
-  'Associate Head Coach',
-  'Assistant Coach',
-  'Volunteer Assistant',
-  'Director of Operations',
-  'Goalkeeper Coach',
-  'Other',
-]
 
 export async function POST(
   req: NextRequest,
@@ -114,8 +106,12 @@ export async function POST(
       return NextResponse.json({ error: 'first_name and last_name are required' }, { status: 400 })
     }
 
-    if (!role || !VALID_ROLES.includes(role)) {
-      return NextResponse.json({ error: `role must be one of: ${VALID_ROLES.join(', ')}` }, { status: 400 })
+    // Was its own list, and offered THREE values the CHECK rejects
+    // (Volunteer Assistant, Director of Operations, Goalkeeper Coach) while
+    // omitting two it permits — so a coach created here with any of the three
+    // failed on the constraint. One vocabulary, one guard.
+    if (!isCoachRole(role)) {
+      return NextResponse.json({ error: `role must be one of: ${COACH_ROLES.join(', ')}` }, { status: 400 })
     }
 
     const name = `${first_name.trim()} ${last_name.trim()}`
