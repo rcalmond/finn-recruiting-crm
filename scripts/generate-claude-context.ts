@@ -25,6 +25,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { buildSection15 } from './fk-graph'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -118,6 +119,20 @@ interface Coach {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+/** Live table names, straight from the PostgREST OpenAPI root — the same source
+ *  the app talks to, so it cannot disagree with what the client can see. Used
+ *  only for the Section 15 drift line. */
+async function listLiveTables(): Promise<string[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  const res = await fetch(`${url}/rest/v1/`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` },
+  })
+  if (!res.ok) throw new Error(`PostgREST root returned ${res.status}`)
+  const spec = await res.json() as { definitions?: Record<string, unknown> }
+  return Object.keys(spec.definitions ?? {}).sort()
+}
+
 function todayFormatted(): string {
   return new Date().toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric'
@@ -201,6 +216,10 @@ function formatSchoolBlock(school: School, logs: ContactLogEntry[], actions: Act
 // ─── Existing file parsing ───────────────────────────────────────────────────
 const SECTION_11_MARKER = '## 11. Live Pipeline'
 const SECTION_12_MARKER = '## 12. Recent Changes'
+// Section 15 is GENERATED like Section 11. It must be carved OUT of the footer,
+// or parseExistingFile would preserve the previous run's copy and the graph
+// would go stale in exactly the way it exists to prevent.
+const SECTION_15_MARKER = '## 15. Foreign Key Graph'
 
 /**
  * Parse the existing CLAUDE_CONTEXT.md to extract the header (everything before
@@ -222,9 +241,11 @@ function parseExistingFile(filePath: string): { header: string; footer: string }
   // We trim trailing newlines from the header, then add a consistent separator.
   const header = content.slice(0, s11Idx).replace(/\n+$/, '\n\n')
 
-  // Footer = everything from Section 12 onward. We prepend a section divider
-  // so the generated Section 11 is cleanly separated.
-  const footer = '\n---\n\n' + content.slice(s12Idx)
+  // Footer = Section 12 up to (but not including) the generated Section 15.
+  // Everything after that marker is last run's graph and is DISCARDED.
+  const s15Idx = content.indexOf(SECTION_15_MARKER)
+  const footerEnd = s15Idx === -1 ? content.length : s15Idx
+  const footer = '\n---\n\n' + content.slice(s12Idx, footerEnd).replace(/\n+$/, '\n\n')
 
   return { header, footer }
 }
@@ -2513,6 +2534,7 @@ STILL PENDING, AND WHAT HAS CLEARED:
 
 Forged during T1; they bind every future DB-touching stretch:
 
+- THE CLOSURE IS PASTED BEFORE THE SQL. For every chunk, the Section 15 cascade closure for the tables that chunk touches goes into the sitting BEFORE any DDL is emitted. Section 15 makes it cheap; this step is what makes it happen — E2's blocker analysis was wrong not because the graph was unavailable but because nobody thought to ask it, and a rule that says "consult the catalog" is only as good as the moment it gets consulted. One paste. If Section 15 reports UNAVAILABLE, run the closure by hand against pg_constraint; do NOT substitute a reading of the migration files.
 - ONE SOURCE OF SQL TRUTH. The architect chat emits what Randy runs. Claude Code runs NO SQL against the database, ever. Anything emitted that was not confirmed run is superseded state that must not be assumed.
 - PRECONDITIONS ARE PROVEN BY COMMAND OUTPUT before any sitting begins — a T1 sitting aborted because a deploy commit existed only as a description. THE RULE BINDS RECON EXACTLY AS HARD AS IT BINDS A SITTING, AND IT INCLUDES CLAIMS ABOUT CODE. A number without its query output beside it is an assertion, not a fact. AN INVENTORY OF CALL SITES IS A PRECONDITION: proven by a mechanical sweep pasted in full, never by a grep read selectively. A REPORT THAT MIXES OBSERVED OUTPUT WITH INFERRED STRUCTURE IN ONE VOICE gives the reader no way to tell them apart, so mark every claim with how it was obtained or do not make it. And a schema fact read from a MIGRATION FILE is an inference, not an observation — T1, T2 and E1.5 all ran SQL through the architect chat, so supabase/migrations/ is a PARTIAL RECORD. Ask the live catalog.
 - DROPS AND RENAMES TARGET EXACT NAMES discovered from the live catalog — never if-exists, never design-time inference. A ghost policy survived a table rename under its pre-rename name and drop-if-exists silently skipped it.
@@ -2653,6 +2675,8 @@ Recorded so a future session does not rediscover them. These are DECISIONS alrea
 - THE FORWARDING PATH IS SR-ONLY. A direct coach email — sent straight to the family's mailbox and forwarded, rather than routed through SportsRecruits — is routed, authenticated, and then DISCARDED with no row of any kind: no contact_log row, no orphan, no quarantine. It is a fourth state with no name, and its log label ([orphan-drop]) is misleading because nothing is stored as an orphan. What the family sees is NOTHING. The sender-resolution branch that fixes it rides with E4.
 - CAMP-DISCOVERY RESUMABILITY — RESOLVED 2026-08-20, kept here for the lesson. THE HISTORY: the cron looped flat over (family, school) pairs inside a 300s function and was killed on 13 of its first 16 scheduled runs — every Saturday from 2026-05-09 to 08-01 — while a killed function never reaches its completion write, so each death left a row reading running forever in a table nobody opens. The failure was not that it was slow; it was that it could make no progress across a kill and could not say it had stopped. THE FIX, in three parts. FAIRNESS: interleave round-robin across families so an interrupted run costs every family proportionally rather than starving whoever sorts last (measured on the real 7/13 split, a halfway kill went from A 7 of 7 and B 3 of 13 to A 5 and B 5). RESUMABILITY: order by a least-recently-scanned bookmark and run inside a time budget of 240s, stopping cleanly before the ceiling and stamping each unit only AFTER it completes, so a unit cut off keeps its old bookmark and leads the next run. VISIBILITY: three outcomes are now distinguishable — success means the whole set was covered, partial means we stopped on budget and records pairs_remaining, and a run killed anyway stays running and is reaped to failed by the next run's startRun sweep. That sweep corrected 25 rows that had misreported for months. THE BOOKMARK GRAIN IS DELIBERATELY TEMPORARY. It lives on schools.camp_scan_last_at, so the unit is a (family, school) PAIR and the cost scales with FAMILIES rather than with the world — two families tracking Middlebury run two identical searches. When camps move to the catalog (E1.5/E2) the unit becomes the DISTINCT SCHOOL and the bookmark migrates to discovery_schools.camp_scan_last_at. Everything in src/lib/scan-budget.ts is grain-indifferent for exactly that reason: a unit is an opaque item plus read-bookmark and stamp callbacks, so the migration is a change at the call site and nowhere else. DO NOT add pair-specific machinery to that file. THE DUPLICATION SERIES is now recorded on every run as duplicated_work (pairs minus distinct schools). Today it is 1 of 20 and says nothing; at ten families it is the number that says how much moving camps to the catalog buys, and the series has to exist before the answer is needed. STILL TRUE AND STILL THE CEILING: cost is roughly 16 seconds per pair, so a 240s budget covers about 15. At 50 families the daily budget will not cover the set and the answer is NOT a bigger budget — it is not doing the same work N times.
 - CAMPS UI CLEANUP, PARKED — three known items, deliberately deferred rather than forgotten. (1) CAMPS ARE HARD TO FIND: they live under Calendar, and they belong on Get Seen, which is where a family goes to think about being seen. (2) CAMP DATES DO NOT SHOW THE YEAR — fine when every camp was this season, misleading now that the shared catalog spans multiple years (the current set runs 2026 into 2027). (3) THE BROWSE LIST HAS NO PAST/FUTURE BREAK the way the tracked view does, so a family browsing Other camps we know about sees expired camps mixed with upcoming ones. None is a correctness defect; all three are worth one pass together rather than piecemeal.
+- THE LIVE CATALOG IS THE SOURCE OF TRUTH; THE REPO REGENERATES FROM IT — DECIDED 2026-08-22, do not relitigate. T1, T2, the email boundary, E1.5 and every E2 chunk ran through the architect chat, so 14 of the 47 live tables have NO create-table statement in supabase/migrations/ (coach_family_state, prep_docs, players, school_research, catalog_proposals, camp_family_status, camp_proposal_decisions, families, users, the routing tables, both repoint preimages), and the files still name tables that were renamed (camp_finn_status, call_prep_docs) or dropped (camp_coach_attendees). THE CONSEQUENCE IS NOT UNTIDINESS: a schema question cannot be answered from the repo, and worse, it can be answered WRONGLY with full confidence — which is exactly how E2's blocker analysis missed campaign_schools.contact_log_id. THE REJECTED OPTION was backfilling the missing DDL as squashed migrations: it buys accurate HISTORY at real cost, and history is not what failed. What failed was answering a PRESENT-TENSE question from a stale artefact, and a backfilled repo would look authoritative and drift again at the very next sitting, because the architect chat emitting schema is the house model and is not changing. SO THE REPO IS MADE HONEST ABOUT WHAT IT IS: a code repo whose schema knowledge is REGENERATED, not authored. Section 15 (the FK graph) is the first instance. THE DIRECTION, when it is cheap: extend the same mechanism to full table definitions — columns, types, nullability, defaults, constraints, indexes, policies — regenerated into the doc from the catalog. NOT NOW, NOT IN E2.
+- SUPABASE/MIGRATIONS/ IS NOT A ROLLBACK MECHANISM AND NEVER WAS. Stated plainly because the alternative is someone believing it during an incident: a third of the live schema is absent from it, so replaying or reverse-engineering those files reconstructs a database that has never existed. Rollback comes from what a chunk captures FOR ITSELF — the pre-image tables, the retention window, the assertion in the same transaction — which is why E1.5 and E2 both build their own and keep them a week past acceptance. The files are a partial changelog, useful for reading intent; they are not a restore path.
 - ROLE_SOURCE AND ENDOWED_TITLE — two columns the scraper should write and does not. normalizeRole is LOSSY: the page says something, the normalised value is stored, and the original string is DISCARDED. coach_added.details carries name/role/email/phone where role is ALREADY normalised, so when the vocabulary widened, 7 of the 8 'Other' rows could not be classified from stored data at all — the evidence had been thrown away at extraction. THE FIX IS ECHO OVER DERIVE APPLIED TO OUR OWN PIPELINE: coaches.role_source holds what the page actually said, coaches.role holds the normalised value, and the next vocabulary change is not blind. A COLUMN, NOT A DETAILS FIELD — details is a log of a proposal, the column is a durable fact on the row and survives the catalog re-point. coaches.endowed_title rides with it: the extractor already models it as a first-class field, correctly reading "Bobby Clark Head Coach of Men's Soccer" as role='Head Coach' plus endowed_title='Bobby Clark', and applyChanges then drops it because there is no column to write to. BOTH LAND IN CHUNK F, in the SAME COMMIT as the scraper code that writes them — a column nothing writes is the null-is-indistinguishable-from-nobody-did-it hazard, which this project has already paid for twice.
 - RECLASSIFYING THE SEVEN 'OTHER' COACHES — targeted scrape, AFTER the re-point, never a hand-mapping. They sit at Nope-tier schools so nothing depends on them and none is in the scan set; six carry a live coach_page_url (Notre Dame is the SPA). Running it post-re-point means the answers land on CATALOG rows where every family gets them, and routing it through the review queue treats it as what it is — a scraper finding, not a migration tidy-up. Guessing a role from a coach's name would be inventing a fact.
 - INTERIM AS A MODIFIER, NOT A ROLE — decided against, for now, deliberately. The coach vocabulary multiplies seniority by interim-ness, which is why 'Interim Head Coach' exists with 2 rows while 'Interim Assistant Coach' exists with ZERO and was dropped. The better shape is a role plus an is_interim boolean: it stops the vocabulary growing combinatorially, and it makes "the program is between head coaches" — which is a real fact about a family's odds — queryable rather than buried in a string. NOT DONE NOW because it is a schema change with a data migration riding on a vocabulary change that is already touching eight definition points, and stacking the two is how a chunk stops being revertible. THE FLAT LIST IS WHAT SHIPS. Recorded so this is a decision we made rather than one we missed.
@@ -3040,7 +3064,18 @@ async function main() {
     footer = FALLBACK_FOOTER
   }
 
-  const output = header + pipelineLines.join('\n') + footer
+  // Section 15 — the FK graph, read from the live catalog. Degrades to an
+  // explicit "unavailable" block rather than failing the whole export.
+  let fkLines: string[] = []
+  try {
+    const liveTables = await listLiveTables()
+    fkLines = await buildSection15(supabase, liveTables, todayFormatted())
+  } catch (err) {
+    console.warn(`⚠️  Section 15 (FK graph) failed: ${err instanceof Error ? err.message : String(err)}`)
+    fkLines = [`## 15. Foreign Key Graph — Generated ${todayFormatted()}`, '', '> Generation failed this run; do not substitute a reading of supabase/migrations/.', '']
+  }
+
+  const output = header + pipelineLines.join('\n') + footer + '---\n\n' + fkLines.join('\n')
   fs.writeFileSync(outputPath, output, 'utf8')
 
   console.log('')
