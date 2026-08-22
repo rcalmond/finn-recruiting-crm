@@ -71,10 +71,23 @@ export async function fetchCoachFamilyState(
 ): Promise<CoachFamilyStateMap> {
   const out: CoachFamilyStateMap = new Map()
   if (coachIds.length === 0) return out
-  const { data } = await db
+  const { data, error } = await db
     .from('coach_family_state')
     .select('coach_id, notes, hidden_at')
     .in('coach_id', coachIds)
+
+  // THROWS RATHER THAN RETURNING EMPTY. An empty map means NOBODY IS HIDDEN, so
+  // discarding this error would render a failed read identically to a family
+  // that has hidden no one — and it fails in the LEAKING direction: coaches the
+  // family asked not to see would reappear in every picker, silently. That is
+  // the fail-closed-on-absence rule (Section 9) in its fourth costume, and the
+  // reason this read is the one that must not swallow.
+  if (error) {
+    throw new Error(
+      `coach_family_state read failed — refusing to report an empty family layer, ` +
+      `which would silently un-hide every hidden coach: ${error.message}`
+    )
+  }
   for (const r of (data ?? []) as CoachFamilyStateRow[]) out.set(r.coach_id, r)
   return out
 }

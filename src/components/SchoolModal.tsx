@@ -9,6 +9,7 @@ import DraftModal from './DraftModal'
 import PrepForCallModal from './PrepForCallModal'
 import { divisionLabel } from '@/lib/division-label'
 import { COACH_ROLES } from '@/lib/coach-roles'
+import { selectableCoaches } from '@/lib/coach-family-state'
 
 // status is intentionally NOT editable here — the stage/milestone model
 // superseded the legacy Status enum (Pipeline removal Pass 1). New schools get
@@ -501,9 +502,13 @@ export default function SchoolModal(props: Props) {
         </div>
 
         {draftingEmail && isEdit && (() => {
-          const pc = coaches.find(c => c.isPrimary)
-            ?? coaches.find(c => c.role?.toLowerCase().includes('head'))
-            ?? coaches[0] ?? null
+          // selectableCoaches even though `coaches` already excludes hidden:
+          // the site defends itself rather than relying on an upstream
+          // invariant a later refactor could quietly change.
+          const pickable = selectableCoaches(coaches)
+          const pc = pickable.find(c => c.isPrimary)
+            ?? pickable.find(c => c.role?.toLowerCase().includes('head'))
+            ?? pickable[0] ?? null
           return pc ? (
             <DraftModal
               mode={{

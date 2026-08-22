@@ -619,7 +619,22 @@ export function useCoaches(schoolId?: string) {
     setError(error?.message ?? null)
 
     const allRows = (error ? [] : (data ?? [])) as Coach[]
-    const familyState = await fetchCoachFamilyState(supabase, allRows.map(c => c.id))
+
+    // The family layer THROWS on a failed read rather than reporting an empty
+    // one. Leaving the previous lists in place is the safe response: rendering
+    // the roster without the layer would un-hide every hidden coach, which is
+    // the leaking direction. The failure surfaces on the hook's `error`.
+    let familyState: CoachFamilyStateMap
+    try {
+      familyState = await fetchCoachFamilyState(supabase, allRows.map(c => c.id))
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      reportFetchError('coach_family_state', { message })
+      setError(message)
+      setLoading(false)
+      return
+    }
+
     const composed = composeCoachViews(school, allRows, familyState)
 
     if (!error) setCoaches(composed.filter(c => !c.hidden && c.is_active))

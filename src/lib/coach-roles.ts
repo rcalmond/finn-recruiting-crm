@@ -44,7 +44,9 @@ export const COACH_ROLES = [
   'Interim Head Coach',
   'Associate Head Coach',
   'Assistant Coach',
-  'Interim Assistant Coach',
+  'Goalkeeper Coach',
+  'Director of Operations',
+  'Volunteer Assistant',
   'Other',
 ] as const
 
@@ -58,20 +60,37 @@ export function isCoachRole(value: unknown): value is CoachRole {
 /**
  * Map arbitrary roster-page text onto the vocabulary.
  *
- * Anything unrecognised becomes 'Other' — which is why eight coaches sit in
- * 'Other' today, most of them goalkeeper coaches. That is a vocabulary gap
- * being papered over, not a classification success; widening the list is what
- * fixes it, not loosening this function.
+ * Anything unrecognised becomes 'Other'. Eight coaches sat in 'Other' before the
+ * vocabulary widened, most of them goalkeeper coaches — a vocabulary gap being
+ * papered over, not a classification success. Existing rows are NOT rewritten
+ * by this function; reclassification is a separate, reviewed pass.
  */
 export function normalizeRole(raw: string): CoachRole {
   if (isCoachRole(raw)) return raw
 
-  const lower = raw.toLowerCase().trim()
-  if (lower.includes('interim') && lower.includes('head'))      return 'Interim Head Coach'
-  if (lower.includes('interim') && lower.includes('assistant')) return 'Interim Assistant Coach'
-  if (lower.includes('associate') || lower.includes('co-head')) return 'Associate Head Coach'
-  if (lower.includes('head'))                                    return 'Head Coach'
-  if (lower.includes('assistant') || lower.includes('first'))   return 'Assistant Coach'
+  // Punctuation and whitespace normalised so "Assoc." and "Assoc" are one case.
+  const lower = raw.toLowerCase().replace(/[.]/g, '').replace(/\s+/g, ' ').trim()
+  const has = (...needles: string[]) => needles.some(n => lower.includes(n))
+
+  // ABBREVIATIONS ARE MATCHED BY PREFIX, not by whole word. The previous version
+  // tested includes('associate'), so "Assoc. Head Coach" missed it, fell through
+  // to includes('head'), and normalised to HEAD COACH — promoting an associate
+  // over the actual head coach on the one field that auto-designates the
+  // family's contact. "Asst. Coach" fell all the way to Other for the same
+  // reason. Athletics pages abbreviate constantly; this is the common case, not
+  // the edge one.
+  const ASSOCIATE = ['associate', 'assoc ', 'assoc-']
+  const ASSISTANT = ['assistant', 'asst ', 'asst-', 'asst']
+
+  // Most specific first — a "Goalkeeper Coach" also contains "coach", and a
+  // "Volunteer Assistant" also contains "assistant".
+  if (has('goalkeeper', 'goal keeper', 'keeper coach', 'gk ')) return 'Goalkeeper Coach'
+  if (has('director of operations', 'dir of operations', 'operations director', 'doo ')) return 'Director of Operations'
+  if (has('volunteer')) return 'Volunteer Assistant'
+  if (has('interim') && has('head')) return 'Interim Head Coach'
+  if (lower.startsWith('assoc') || has(...ASSOCIATE) || has('co-head', 'cohead')) return 'Associate Head Coach'
+  if (has('head')) return 'Head Coach'
+  if (lower.startsWith('asst') || has(...ASSISTANT) || has('first assistant')) return 'Assistant Coach'
   return 'Other'
 }
 

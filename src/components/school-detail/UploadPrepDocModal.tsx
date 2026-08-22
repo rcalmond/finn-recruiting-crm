@@ -16,8 +16,12 @@ interface Props {
 }
 
 export default function UploadPrepDocModal({ schoolId, coaches, onClose }: Props) {
-  const activeCoaches = coaches.filter(c => c.is_active)
-  const defaultCoach = selectableCoaches(activeCoaches).find(c => c.isPrimary)
+  // selectableCoaches drops BOTH the departed and the hidden. Every use below
+  // reads from this one list — the picker, the default and the lookup. The
+  // previous version wrapped only the DEFAULT, so the dropdown still offered a
+  // hidden coach: the inventory named this site, and the edit reached half of it.
+  const activeCoaches = selectableCoaches(coaches)
+  const defaultCoach = activeCoaches.find(c => c.isPrimary)
     ?? activeCoaches.find(c => c.role === 'Head Coach')
     ?? activeCoaches[0]
 
