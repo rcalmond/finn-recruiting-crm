@@ -43,6 +43,12 @@ export type ChangeType =
 export interface ScrapedCoach {
   name:          string
   role:          CoachRole
+  /** THE RAW STRING THE PAGE ACTUALLY SHOWED, before normalizeRole collapsed it.
+   *  normalizeRole is LOSSY: when the vocabulary widened, 7 of the 8 'Other'
+   *  rows could not be reclassified from stored data at all, because the only
+   *  evidence had been thrown away at extraction. Echo over derive — keep what
+   *  was observed, derive the rest. */
+  roleSource:    string
   email:         string | null
   phone:         string | null
   endowedTitle:  string | null  // e.g. "Bobby Clark" from "Bobby Clark Head Coach of Men's Soccer"
@@ -50,13 +56,15 @@ export interface ScrapedCoach {
 
 /** A coach row from the coaches DB table. */
 export interface DbCoach {
-  id:         string
-  school_id:  string
-  name:       string
-  role:       string
-  email:      string | null
-  is_primary: boolean
-  sort_order: number
+  id:            string
+  school_id:     string
+  name:          string
+  role:          string
+  role_source:   string | null
+  endowed_title: string | null
+  email:         string | null
+  is_primary:    boolean
+  sort_order:    number
 }
 
 /**
@@ -296,6 +304,7 @@ async function extractCoachesFromHtml(html: string): Promise<ScrapedCoach[] | nu
     coaches.push({
       name:         entry.name.trim(),
       role:         normalizeRole(entry.role as string),
+      roleSource:   (entry.role as string).trim(),
       email:        typeof entry.email === 'string' ? entry.email.trim().toLowerCase() || null : null,
       phone:        typeof entry.phone === 'string' ? entry.phone.trim() || null : null,
       endowedTitle: typeof entry.endowed_title === 'string' ? entry.endowed_title.trim() || null : null,
@@ -357,7 +366,12 @@ function diffRosters(
 
     if (!match) {
       // Coach not in DB — new addition
-      const details: Record<string, unknown> = { name: s.name, role: s.role, email: s.email, phone: s.phone }
+      const details: Record<string, unknown> = {
+        name: s.name, role: s.role, email: s.email, phone: s.phone,
+        // Provenance travels with the proposal so whoever applies it persists
+        // the same raw string the page showed, not a re-derivation.
+        role_source: s.roleSource,
+      }
       if (s.endowedTitle) details.endowed_title = s.endowedTitle
       changes.push({
         changeType:  'coach_added',
@@ -444,7 +458,7 @@ async function applyChanges(
 
     if (change.wouldApply) {
       if (change.changeType === 'coach_added') {
-        const d = change.details as { name: string; role: string; email: string | null }
+        const d = change.details as { name: string; role: string; email: string | null; role_source?: string | null; endowed_title?: string | null }
 
         // Determine sort_order: max existing + 1
         const { data: existing } = await admin
@@ -467,6 +481,8 @@ async function applyChanges(
             school_id:    schoolId,
             name:         d.name,
             role:         d.role,
+            role_source:  d.role_source ?? null,
+            endowed_title: d.endowed_title ?? null,
             email:        d.email,
             is_primary:   isPrimary,
             needs_review: false,
@@ -648,7 +664,7 @@ export async function scrapeSchool(
   // Fetch existing active coaches from DB (inactive = already departed, excluded from diff)
   const { data: dbRows } = await admin
     .from('coaches')
-    .select('id, school_id, name, role, email, is_primary, sort_order')
+    .select('id, school_id, name, role, role_source, endowed_title, email, is_primary, sort_order')
     .eq('school_id', schoolId)
     .eq('is_active', true)
   const dbCoaches = (dbRows ?? []) as DbCoach[]
@@ -685,6 +701,29 @@ export async function scrapeSchool(
       await admin.from('schools').update({ coach_page_last_error: errMsg }).eq('id', schoolId)
     }
     return { schoolId, schoolName: school.name, url, scrapedCoaches: [], scrapedCount: 0, dbCoaches, dbCount: dbCoaches.length, changes: [], appliedCount: 0, error: errMsg }
+  }
+
+  // PROVENANCE REFRESH — matched coaches, no proposal.
+  //
+  // role_source and endowed_title are NOT claims about the world; they are a
+  // record of what the page said. They need no review, so they are written
+  // directly rather than raised as a change: a proposal queue for "the page
+  // still reads the same" would be noise, and leaving them null forever would
+  // reproduce exactly the blindness that made the 8 'Other' rows
+  // unclassifiable when the vocabulary widened.
+  //
+  // ONLY WRITES ON DRIFT, so a scrape that changes nothing issues no writes.
+  if (!options.dryRun) {
+    for (const sc of scraped) {
+      const match = matchScrapedToDb(sc, dbCoaches)
+      if (!match) continue
+      const patch: Record<string, string | null> = {}
+      if ((match.role_source ?? null) !== sc.roleSource) patch.role_source = sc.roleSource
+      if ((match.endowed_title ?? null) !== (sc.endowedTitle ?? null)) patch.endowed_title = sc.endowedTitle ?? null
+      if (Object.keys(patch).length === 0) continue
+      const { error: provErr } = await admin.from('coaches').update(patch).eq('id', match.id)
+      if (provErr) console.error(`  [provenance] ${match.name}: ${provErr.message}`)
+    }
   }
 
   // Diff

@@ -92,6 +92,10 @@ export async function PUT(
           school_id:    change.school_id,
           name:         details.name,
           role:         details.role,
+          // Provenance travelled with the proposal — persist the raw string the
+          // page showed rather than re-deriving it from the normalised role.
+          role_source:   (details.role_source as string | null) ?? null,
+          endowed_title: (details.endowed_title as string | null) ?? null,
           email:        details.email ?? null,
           is_primary:   isPrimary,
           needs_review: false,

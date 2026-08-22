@@ -169,9 +169,28 @@ async function setHiddenAt(
 ): Promise<{ message: string } | null> {
   const now = new Date().toISOString()
   const { data: existing } = await db
-    .from('coach_family_state').select('coach_id').eq('coach_id', coachId).maybeSingle()
+    .from('coach_family_state').select('coach_id, notes').eq('coach_id', coachId).maybeSingle()
 
-  if (existing) {
+  const row = existing as { coach_id: string; notes: string | null } | null
+
+  // UN-HIDING AN OTHERWISE EMPTY ROW DELETES IT rather than writing hidden_at
+  // null into it. The table is SPARSE BY DESIGN — absence is the default, and a
+  // row asserting nothing is a future reader's problem, not a record. Toggling
+  // hide a dozen times used to leave a dozen of them.
+  if (hiddenAt === null) {
+    if (!row) return null                      // nothing to un-hide; not an error
+    if (row.notes === null) {
+      const { error } = await db.from('coach_family_state').delete().eq('coach_id', coachId)
+      return error ?? null
+    }
+    const { error } = await db
+      .from('coach_family_state')
+      .update({ hidden_at: null, updated_at: now })
+      .eq('coach_id', coachId)
+    return error ?? null
+  }
+
+  if (row) {
     const { error } = await db
       .from('coach_family_state')
       .update({ hidden_at: hiddenAt, updated_at: now })
