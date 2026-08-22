@@ -309,10 +309,25 @@ export async function updateFamilyStatus(
 
   if (opts?.notes !== undefined) updates.notes = opts.notes
 
-  const { error } = await supabase
+  // INSERT-OR-UPDATE, not a bare UPDATE. A plain update matching zero rows
+  // returns NO ERROR and changes nothing, so the pill click did nothing and
+  // said nothing. Every existing row was seeded by createCamp for the family
+  // that created the camp — Almond had 76 of 76 — so the INSERT path had never
+  // been exercised by anybody, and a second family clicking a status pill on a
+  // SHARED camp is exactly the case that has no row yet. camp_family_status is
+  // the per-family layer of a shared table: absence is its normal starting
+  // state, not an anomaly.
+  const { data: existing } = await supabase
     .from('camp_family_status')
-    .update(updates)
+    .select('id')
     .eq('camp_id', campId)
+    .maybeSingle()
+
+  const { error } = existing
+    ? await supabase.from('camp_family_status').update(updates).eq('camp_id', campId)
+    // family_id is NEVER supplied — it comes from the column DEFAULT (the
+    // app.current_family_id() helper), which is the designed tripwire.
+    : await supabase.from('camp_family_status').insert({ camp_id: campId, ...updates })
 
   if (error) return error.message
 
@@ -360,14 +375,22 @@ export async function deleteCamp(id: string): Promise<string | null> {
  * Add a school to a camp's attendee list.
  */
 export async function addSchoolAttendee(
+  supabase: SupabaseClient,
   campId: string,
   schoolId: string,
   source: string = 'advertised',
 ): Promise<string | null> {
+  // The CLIENT resolves the id form. The endpoint is admin-scoped and cannot
+  // read schools (a family table) without a family scope — its first version
+  // tried and threw on every call.
+  const { data: school } = await supabase
+    .from('schools').select('id, discovery_school_id').eq('id', schoolId).maybeSingle()
+  const resolved = school ? campHostIdFor(school as { id: string; discovery_school_id: string | null }) : schoolId
+
   const res = await fetch(`/api/camps/${campId}/attendees`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ schoolId, source }),
+    body: JSON.stringify({ schoolId: resolved, source }),
   })
   if (!res.ok) {
     const json = await res.json().catch(() => ({}))
@@ -380,12 +403,20 @@ export async function addSchoolAttendee(
  * Remove a school from a camp's attendee list. ADMIN ONLY, server-side.
  */
 export async function removeSchoolAttendee(
+  supabase: SupabaseClient,
   campId: string,
   schoolId: string,
 ): Promise<string | null> {
-  const res = await fetch(`/api/camps/${campId}/attendees?schoolId=${encodeURIComponent(schoolId)}`, {
-    method: 'DELETE',
-  })
+  // Both id forms — a stored row may carry either, depending on when it was
+  // written, and removing only one silently removes nothing for the other.
+  const { data: school } = await supabase
+    .from('schools').select('id, discovery_school_id').eq('id', schoolId).maybeSingle()
+  const alt = school ? campHostIdFor(school as { id: string; discovery_school_id: string | null }) : schoolId
+
+  const res = await fetch(
+    `/api/camps/${campId}/attendees?schoolId=${encodeURIComponent(schoolId)}&altSchoolId=${encodeURIComponent(alt)}`,
+    { method: 'DELETE' },
+  )
   if (!res.ok) {
     const json = await res.json().catch(() => ({}))
     return json.error ?? `Remove failed (${res.status})`

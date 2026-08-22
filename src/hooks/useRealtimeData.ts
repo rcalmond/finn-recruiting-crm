@@ -760,6 +760,9 @@ export function useCoaches(schoolId?: string) {
 // ─── Camps ───────────────────────────────────────────────────────────────────
 
 export function useCamps(schools: School[], schoolsLoading?: boolean) {
+  /** Last failed camp mutation, in plain words. Rendered by CampDetailClient
+   *  so a refused write cannot look like a successful one. */
+  const [mutationError, setMutationError] = useState<string | null>(null)
   const [camps, setCamps] = useState<CampWithRelations[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = useMemo(() => createClient(), [])
@@ -830,43 +833,71 @@ export function useCamps(schools: School[], schoolsLoading?: boolean) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolsSettled])
 
+  // EVERY CAMP MUTATION REPORTS ITS OWN FAILURE. All six returned an error
+  // string that every call site discarded, so a refused write looked exactly
+  // like a successful one — add-attendee and delete-camp both 500'd in
+  // production for an hour and the UI said nothing. That is the same shape as
+  // the discarded PostgREST error, the empty family-state map, the killed cron
+  // and "12 embeds verified": the tool reported progress and had done nothing.
+  //
+  // mutationError is exposed on the hook so a surface can render it without
+  // every handler remembering to check a return value.
+  const report = useCallback((op: string, error: string | null) => {
+    if (!error) return null
+    console.error(`[mutation-failed] ${op}: ${error}`)
+    setMutationError(`${op} failed — ${error}`)
+    return error
+  }, [])
+
   const createCamp = useCallback(async (data: Omit<Camp, 'id' | 'created_at' | 'updated_at'>): Promise<{ id: string | null; error: string | null }> => {
+    setMutationError(null)
     const result = await createCampMutation(supabase, data)
+    report('Create camp', result.error)
     if (!result.error) await fetchCamps()
     return { id: result.camp?.id ?? null, error: result.error }
-  }, [supabase, fetchCamps])
+  }, [supabase, fetchCamps, report])
 
   const updateCamp = useCallback(async (id: string, data: Partial<Omit<Camp, 'id' | 'created_at' | 'updated_at'>>) => {
+    setMutationError(null)
     const error = await updateCampMutation(supabase, id, data)
+    report('Update camp', error)
     if (!error) await fetchCamps()
     return error
-  }, [supabase, fetchCamps])
+  }, [supabase, fetchCamps, report])
 
   const updateFamilyStatus = useCallback(async (campId: string, status: CampFamilyStatusValue, opts?: { declined_reason?: string; notes?: string }) => {
+    setMutationError(null)
     const error = await updateFamilyStatusMutation(supabase, campId, status, opts)
+    report('Update camp status', error)
     if (!error) await fetchCamps()
     return error
-  }, [supabase, fetchCamps])
+  }, [supabase, fetchCamps, report])
 
   const deleteCamp = useCallback(async (id: string) => {
+    setMutationError(null)
     const error = await deleteCampMutation(id)
+    report('Delete camp', error)
     if (!error) await fetchCamps()
     return error
-  }, [supabase, fetchCamps])
+  }, [supabase, fetchCamps, report])
 
   const addSchoolAttendee = useCallback(async (campId: string, schoolId: string, source?: string) => {
-    const error = await addSchoolAttendeeMutation(campId, schoolId, source)
+    setMutationError(null)
+    const error = await addSchoolAttendeeMutation(supabase, campId, schoolId, source)
+    report('Add school to camp', error)
     if (!error) await fetchCamps()
     return error
-  }, [supabase, fetchCamps])
+  }, [supabase, fetchCamps, report])
 
   const removeSchoolAttendee = useCallback(async (campId: string, schoolId: string) => {
-    const error = await removeSchoolAttendeeMutation(campId, schoolId)
+    setMutationError(null)
+    const error = await removeSchoolAttendeeMutation(supabase, campId, schoolId)
+    report('Remove school from camp', error)
     if (!error) await fetchCamps()
     return error
-  }, [supabase, fetchCamps])
+  }, [supabase, fetchCamps, report])
 
-  return { camps, loading, createCamp, updateCamp, updateFamilyStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee }
+  return { camps, loading, mutationError, clearMutationError: () => setMutationError(null), createCamp, updateCamp, updateFamilyStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee }
 }
 
 // ─── Messages ───────────────────────────────────────────────────────────────

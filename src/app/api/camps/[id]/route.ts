@@ -6,7 +6,8 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-gate'
-import { catalogAdmin, rawService } from '@/lib/tenant-db'
+import { catalogAdmin, familyAdmin } from '@/lib/tenant-db'
+import { listFamilies } from '@/lib/cron-scan-set'
 
 export async function PATCH(
   req: NextRequest,
@@ -37,30 +38,34 @@ export async function DELETE(
 
   // ACROSS EVERY FAMILY, not just the caller's. camp_family_status cascades when
   // the camp goes, but the action_item it points at does NOT — the FK runs the
-  // other way (action_items ← camp_family_status.action_item_id, SET NULL), so
-  // deleting the camp strands the reminder. The browser version cleaned up only
-  // the caller's row, because RLS scoped it; a shared camp deleted by an admin
-  // would have left every OTHER family's reminder behind pointing at nothing.
+  // other way (action_items <- camp_family_status.action_item_id, SET NULL), so
+  // deleting the camp strands the reminder.
   //
-  // Latent rather than live today: 0 of 75 camp_family_status rows carry an
-  // action_item_id, and no camp is tracked by more than one family. Handled here
-  // because the count is zero now and will not be later.
-  const db = rawService()
-  const { data: statuses } = await db
-    .from('camp_family_status')
-    .select('action_item_id')
-    .eq('camp_id', id)
-    .not('action_item_id', 'is', null)
+  // ITERATED PER FAMILY THROUGH familyAdmin, not rawService. The first version
+  // used rawService and threw "'camp_family_status' is a family table" on every
+  // call — the tripwire was right: an admin route has no family scope, so it
+  // reaches family tables only by taking each family's scope in turn, which is
+  // the same pattern cron-scan-set uses.
+  let removed = 0
+  for (const family of await listFamilies()) {
+    const fam = familyAdmin(family.id)
+    const { data: statuses } = await fam
+      .from('camp_family_status')
+      .select('action_item_id')
+      .eq('camp_id', id)
+      .not('action_item_id', 'is', null)
 
-  const itemIds = (statuses ?? [])
-    .map(s => (s as { action_item_id: string | null }).action_item_id)
-    .filter((x): x is string => Boolean(x))
+    const itemIds = (statuses ?? [])
+      .map(s => (s as { action_item_id: string | null }).action_item_id)
+      .filter((x): x is string => Boolean(x))
 
-  if (itemIds.length > 0) {
-    await db.from('action_items').delete().in('id', itemIds)
+    if (itemIds.length > 0) {
+      await fam.from('action_items').delete().in('id', itemIds)
+      removed += itemIds.length
+    }
   }
 
   const { error } = await catalogAdmin().from('camps').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true, actionItemsRemoved: itemIds.length })
+  return NextResponse.json({ ok: true, actionItemsRemoved: removed })
 }

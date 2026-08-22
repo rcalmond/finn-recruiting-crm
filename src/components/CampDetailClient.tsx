@@ -46,7 +46,7 @@ const STATUS_COLORS: Record<CampFamilyStatusValue, { bg: string; color: string }
 export default function CampDetailClient({ campId, isAdmin = false }: { campId: string; isAdmin?: boolean }) {
   const router = useRouter()
   const { schools, loading: schoolsLoading } = useSchools()
-  const { camps, loading, updateCamp, updateFamilyStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee } = useCamps(schools, schoolsLoading)
+  const { camps, loading, mutationError, clearMutationError, updateCamp, updateFamilyStatus, deleteCamp, addSchoolAttendee, removeSchoolAttendee } = useCamps(schools, schoolsLoading)
 
   const campData = useMemo(() => camps.find(c => c.camp.id === campId), [camps, campId])
 
@@ -85,6 +85,28 @@ export default function CampDetailClient({ campId, isAdmin = false }: { campId: 
         fontSize: 12, color: LV.inkMute, textDecoration: 'none', fontWeight: 600,
         display: 'inline-block', marginBottom: 16,
       }}>← Back to Calendar</Link>
+
+      {/* A REFUSED WRITE MUST NOT LOOK LIKE A SUCCESSFUL ONE. Every camp mutation
+          reports here; without it, add-attendee and delete-camp both 500'd in
+          production and the page said nothing at all. */}
+      {mutationError && (
+        <div
+          role="alert"
+          style={{
+            marginBottom: 16, padding: '10px 14px', borderRadius: 8,
+            background: '#FCE4E8', border: '1px solid #9A0B2340',
+            color: '#9A0B23', fontSize: 12.5, lineHeight: 1.5,
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+          }}
+        >
+          <span style={{ flex: 1 }}>{mutationError}</span>
+          <button
+            type="button"
+            onClick={clearMutationError}
+            style={{ background: 'none', border: 'none', color: '#9A0B23', cursor: 'pointer', fontSize: 14, padding: 0 }}
+          >&times;</button>
+        </div>
+      )}
 
       {/* Header */}
       <HeaderSection camp={campData} onUpdate={updateCamp} isAdmin={isAdmin} />
