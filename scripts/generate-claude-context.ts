@@ -2504,6 +2504,18 @@ UI STATES (one control row in CampDocGenerator; one primary per state; destructi
 
 DEV HARNESS — scripts/camp-doc-harness.ts: records a school's full generation context from the DB into a fixture (--record), then regenerates DB-free and diffs the document section by section. It mirrors endpoint validation exactly (retry once, then hard-fail without writing output). Fixtures are gitignored (they carry real coach email bodies); re-seed locally with --record.
 
+### The camp-doc harness is a MANUAL DIAGNOSTIC, not a gate (August 2026 — read before quoting its numbers)
+
+Stated as description because its numbers have been quoted all week as if they were standing guarantees, and a future session reading "harness gate" and inferring CI is the narrower-question-than-the-reader-believed failure one more time.
+
+WHAT IT IS: scripts/camp-doc-harness.ts, run by hand — npx tsx scripts/camp-doc-harness.ts --record <school> to capture a fixture, then without --record to replay it. It is in NO prebuild step and NO CI. It costs an Anthropic call per run (Opus, 16k max_tokens), so it never will be in prebuild. And it CANNOT RUN AT ALL on a fresh machine: the fixtures are gitignored because they contain real coach email bodies, so a new checkout has to --record first, which needs live DB access and an API key.
+
+WHAT IT CHECKS: validateCampDoc over the generated document — structural SHAPE, the plan's date SPAN against the camp dates and the reference date, and QUOTE EVIDENCE (that verbatim quotes trace to raw_source). One automatic retry, then a hard exit 1 without writing the output file, so a malformed doc never becomes the new baseline. assertFixtureShape checks that the recorded fixture still matches the current context shape — all thirteen top-level keys, player.home_timezone, the contactLog and offers row shapes, and the coaches view fields including the COMPOSED isPrimary and hidden, which do not exist on the database row and are exactly how a stale fixture replays green while the document silently drops its markers.
+
+WHAT IT CANNOT CHECK: whether the document is RIGHT. Shape validation says the sections are present and well-formed; it has no opinion on whether the read of the relationship is correct, whether the calibration is fair, or whether a quote supports the claim built on it. Those have only ever been judged by a person reading the output.
+
+AND THE PART TO REMEMBER: diffDocs is INFORMATIONAL. It prints changed keys against a .prev.json and the harness still EXITS 0. A semantic regression — the document reaching a different conclusion from the same fixture — prints a line and passes. Nothing fails on it.
+
 ### Camp Prep Design Rules (August 2026 — binding)
 
 These rules are the stretch's real output; they bind future work on any generated document:
