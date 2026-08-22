@@ -241,7 +241,12 @@ export default function DashboardClient({ user }: { user: User }) {
           school={selectedSchool}
           userId={user.id}
           onUpdate={async (updates) => { await updateSchool(selectedSchool.id, updates) }}
-          onDelete={async () => { await deleteSchool(selectedSchool.id); setSelectedSchool(null) }}
+          onDelete={async () => {
+            const res = await deleteSchool(selectedSchool.id)
+            // Keep the modal open on a refusal so the reason can be read.
+            if (res.ok) setSelectedSchool(null)
+            return res
+          }}
           onClose={() => setSelectedSchool(null)}
         />
       )}

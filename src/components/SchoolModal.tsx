@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { School, Division, AdmitLikelihood, Category, ActionOwner, ActionItem, Coach, CoachView, CoachRole } from '@/lib/types'
-import { useContactLog, useActionItems, useCoaches } from '@/hooks/useRealtimeData'
+import { useContactLog, useActionItems, useCoaches, type DeleteSchoolResult } from '@/hooks/useRealtimeData'
 import { ADMIT_COLORS, CATEGORY_COLORS, categoryLabel, formatDate } from '@/lib/utils'
 import ContactLogPanel from './ContactLogPanel'
 import DraftModal from './DraftModal'
@@ -51,7 +51,7 @@ interface EditProps {
   school: School
   userId: string
   onUpdate: (updates: Partial<School>) => Promise<void>
-  onDelete: () => Promise<void>
+  onDelete: () => Promise<DeleteSchoolResult>
   onClose: () => void
 }
 
@@ -85,6 +85,7 @@ export default function SchoolModal(props: Props) {
   const [rqStatus, setRqStatus] = useState(s?.rq_status ?? '')
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteRefusal, setDeleteRefusal] = useState<string | null>(null)
   const [draftingEmail, setDraftingEmail] = useState(false)
   const [preppingCall, setPreppingCall] = useState(false)
 
@@ -529,15 +530,30 @@ export default function SchoolModal(props: Props) {
         {tab === 'info' && (
           <div style={{ padding: '16px 28px', borderTop: `1px solid ${M.line}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
+              {deleteRefusal && (
+                <div style={{
+                  background: M.goldSoft, border: `1px solid ${M.goldDeep}55`,
+                  borderRadius: 8, padding: '10px 14px', marginBottom: 10,
+                  fontSize: 12.5, lineHeight: 1.5, color: M.goldInk, maxWidth: 460,
+                }}>
+                  {deleteRefusal}
+                </div>
+              )}
               {isEdit && !confirmDelete && (
-                <button type="button" onClick={() => setConfirmDelete(true)} style={{ background: M.redSoft, color: M.red, border: 'none', borderRadius: 999, padding: '7px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button type="button" onClick={() => { setDeleteRefusal(null); setConfirmDelete(true) }} style={{ background: M.redSoft, color: M.red, border: 'none', borderRadius: 999, padding: '7px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Delete School
                 </button>
               )}
               {isEdit && confirmDelete && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 13, color: M.red }}>Are you sure?</span>
-                  <button onClick={(props as EditProps).onDelete} style={{ background: M.red, color: M.white, border: 'none', borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Yes, delete</button>
+                  <button onClick={async () => {
+                    const res = await (props as EditProps).onDelete()
+                    // A refusal must STAY ON SCREEN. Both call sites used to
+                    // navigate away regardless, so a refused delete was
+                    // indistinguishable from a successful one.
+                    if (!res.ok) { setDeleteRefusal(res.message); setConfirmDelete(false) }
+                  }} style={{ background: M.red, color: M.white, border: 'none', borderRadius: 999, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Yes, delete</button>
                   <button onClick={() => setConfirmDelete(false)} style={{ background: 'none', border: 'none', color: M.inkMute, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
                 </div>
               )}

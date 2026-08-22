@@ -2569,7 +2569,14 @@ export default function SchoolDetailClient({
           school={school}
           userId={user.id}
           onUpdate={async (updates) => { await updateSchool(school.id, updates) }}
-          onDelete={async () => { await deleteSchool(school.id); router.push('/schools') }}
+          onDelete={async () => {
+            const res = await deleteSchool(school.id)
+            // Only leave the page if the school actually went. The previous
+            // version navigated unconditionally, so a refused delete looked
+            // exactly like a successful one.
+            if (res.ok) router.push('/schools')
+            return res
+          }}
           onClose={() => setEditOpen(false)}
         />
       )}

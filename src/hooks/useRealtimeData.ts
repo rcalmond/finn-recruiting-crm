@@ -33,6 +33,11 @@ function reportFetchError(source: string, error: { message?: string; code?: stri
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
 
+/** Delete either succeeds or explains itself. Callers must render `message` —
+ *  both of them previously discarded the error and navigated away, so a refused
+ *  delete looked exactly like a successful one. */
+export type DeleteSchoolResult = { ok: true } | { ok: false; message: string }
+
 export function useSchools() {
   const [schools, setSchools] = useState<School[]>([])
   const [loading, setLoading] = useState(true)
@@ -107,10 +112,59 @@ export function useSchools() {
     return error
   }, [supabase])
 
-  const deleteSchool = useCallback(async (id: string) => {
+  /**
+   * DELETE IS UNAVAILABLE FOR MOST OF A REAL FAMILY'S LIST, PERMANENTLY AND BY
+   * DESIGN — 43 of Almond's 65 schools sit in a campaign, and campaign history
+   * must not lose track of who was contacted. Three foreign keys enforce that:
+   * campaign_schools.school_id directly, and campaign_schools.coach_id and
+   * .contact_log_id one level down the cascade. The direct one is a SUPERSET of
+   * the other two, so whichever Postgres happens to trip first, the true reason
+   * is always the same: this school appears in a campaign.
+   *
+   * SO THE REASON IS QUERIED, NOT PARSED OUT OF THE 23503. The error tells us a
+   * delete failed; the campaign_schools count tells us why, and it is right on
+   * every path. Parsing a constraint name would tie the copy to whichever FK
+   * fired first, which is an implementation detail of the planner.
+   *
+   * The refusal has to do three things, and the third is the one that matters:
+   * say what blocks it, say why the block is right, and point at the affordance
+   * that actually solves the problem. Without the last one a correct refusal
+   * reads as a broken button.
+   */
+  const deleteSchool = useCallback(async (id: string): Promise<DeleteSchoolResult> => {
+    const { count, error: countErr } = await supabase
+      .from('campaign_schools')
+      .select('id', { count: 'exact', head: true })
+      .eq('school_id', id)
+
+    if (countErr) {
+      reportFetchError('campaign_schools (delete precheck)', countErr)
+      return { ok: false, message: 'Could not check whether this school is in a campaign, so it was not removed. Try again.' }
+    }
+
+    if ((count ?? 0) > 0) {
+      const n = count as number
+      return {
+        ok: false,
+        message: `This school is in ${n} campaign${n === 1 ? '' : 's'}, so it can't be removed — campaign history would lose track of who was contacted. Set its tier to Nope to take it off your board.`,
+      }
+    }
+
     const { error } = await supabase.from('schools').delete().eq('id', id)
-    if (!error) setSchools(prev => prev.filter(s => s.id !== id))
-    return error
+    if (!error) {
+      setSchools(prev => prev.filter(s => s.id !== id))
+      return { ok: true }
+    }
+
+    // Not a campaign, but something still references it. We do NOT guess what:
+    // 14 of the 47 live tables have no create-table statement in
+    // supabase/migrations/, so the blocker set derivable from the repo is
+    // incomplete by construction. Say so honestly rather than name a table.
+    reportFetchError('schools.delete', error)
+    return {
+      ok: false,
+      message: 'Something else in the app still refers to this school, so it was not removed. Set its tier to Nope to take it off your board.',
+    }
   }, [supabase])
 
   const reorderSchools = useCallback(async (orderedIds: string[]) => {
