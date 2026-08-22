@@ -208,15 +208,23 @@ export async function createCamp(
   supabase: SupabaseClient,
   data: Omit<Camp, 'id' | 'created_at' | 'updated_at'>
 ): Promise<{ camp: Camp | null; error: string | null }> {
-  const { data: camp, error } = await supabase
-    .from('camps')
-    .insert(data)
-    .select()
-    .single()
+  // TWO HALVES, TWO CLIENTS. The camp row is CATALOG and goes through the admin
+  // endpoint. The camp_family_status seed and the action_item sync are FAMILY
+  // writes and stay on the browser client, where RLS scopes them to the caller
+  // — the creating family gets the 'interested' row and the reminder, and no
+  // other family does. Dropping these when the write moved server-side would
+  // have made every new camp arrive untracked with no deadline reminder.
+  const res = await fetch('/api/camps', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) return { camp: null, error: json.error ?? `Create failed (${res.status})` }
 
-  if (error || !camp) return { camp: null, error: error?.message ?? 'Insert failed' }
+  const camp = (json.camp ?? null) as Camp | null
+  if (!camp) return { camp: null, error: 'Create returned no camp' }
 
-  // Create default family_status
   const { error: statusError } = await supabase
     .from('camp_family_status')
     .insert({ camp_id: camp.id, status: 'interested' })
@@ -225,38 +233,45 @@ export async function createCamp(
     console.error('Camp created but family_status insert failed:', statusError, 'campId:', camp.id)
   }
 
-  // Sync action_item if deadline exists
-  const typedCamp = camp as Camp
-  if (typedCamp.registration_deadline) {
+  if (camp.registration_deadline) {
     await syncActionItemForCamp(supabase, {
-      campId: typedCamp.id,
-      campName: typedCamp.name,
-      hostSchoolId: typedCamp.host_school_id,
+      campId: camp.id,
+      campName: camp.name,
+      hostSchoolId: camp.host_school_id,
       status: 'interested',
-      registrationDeadline: typedCamp.registration_deadline,
+      registrationDeadline: camp.registration_deadline,
       actionItemId: null,
     })
   }
 
-  return { camp: typedCamp, error: null }
+  return { camp, error: null }
 }
 
-/**
- * Update camp fields. Syncs action_item if registration_deadline changed.
- */
 export async function updateCamp(
   supabase: SupabaseClient,
   id: string,
   data: Partial<Omit<Camp, 'id' | 'created_at' | 'updated_at'>>
 ): Promise<string | null> {
-  const { error } = await supabase.from('camps').update(data).eq('id', id)
-  if (error) return error.message
+  // TWO HALVES, TWO CLIENTS, deliberately. The camp itself is CATALOG — a claim
+  // about the world — so it goes through the admin endpoint. The action_item
+  // sync writes camp_family_status and action_items, which are FAMILY tables:
+  // it stays on the browser client so RLS scopes it to the caller's own family,
+  // which is exactly what we want. An admin editing a shared camp syncs THEIR
+  // reminder, not everyone's.
+  const res = await fetch(`/api/camps/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}))
+    return json.error ?? `Update failed (${res.status})`
+  }
 
   // If deadline or name changed, sync action_item
   if ('registration_deadline' in data || 'name' in data || 'host_school_id' in data) {
-    // Fetch current camp + family_status to get full context
     const { data: camp } = await supabase.from('camps').select('*').eq('id', id).single()
-    const { data: fs } = await supabase.from('camp_family_status').select('*').eq('camp_id', id).single()
+    const { data: fs } = await supabase.from('camp_family_status').select('*').eq('camp_id', id).maybeSingle()
 
     if (camp && fs) {
       const typedCamp = camp as Camp
@@ -275,10 +290,6 @@ export async function updateCamp(
   return null
 }
 
-/**
- * Update Finn's status for a camp. Sets the appropriate timestamp
- * without clearing historical ones. Syncs action_item per status transition.
- */
 export async function updateFamilyStatus(
   supabase: SupabaseClient,
   campId: string,
@@ -329,23 +340,18 @@ export async function updateFamilyStatus(
  * Delete a camp. Deletes associated action_item if it exists,
  * then cascade FKs handle attendees + family_status.
  */
-export async function deleteCamp(
-  supabase: SupabaseClient,
-  id: string
-): Promise<string | null> {
-  // Delete associated action_item if it exists (not cascaded by FK)
-  const { data: fs } = await supabase
-    .from('camp_family_status')
-    .select('action_item_id')
-    .eq('camp_id', id)
-    .single()
-
-  if (fs && (fs as CampFamilyStatus).action_item_id) {
-    await supabase.from('action_items').delete().eq('id', (fs as CampFamilyStatus).action_item_id!)
+export async function deleteCamp(id: string): Promise<string | null> {
+  // The action_item cleanup moved SERVER-SIDE with the delete. It has to sweep
+  // EVERY family's reminder, not just the caller's: camp_family_status cascades
+  // when the camp goes, but the action_item it points at does not, and this
+  // version — scoped by RLS to one family — would have stranded every other
+  // family's row. See /api/camps/[id]/route.ts.
+  const res = await fetch(`/api/camps/${id}`, { method: 'DELETE' })
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}))
+    return json.error ?? `Delete failed (${res.status})`
   }
-
-  const { error } = await supabase.from('camps').delete().eq('id', id)
-  return error?.message ?? null
+  return null
 }
 
 // ─── School attendee mutations ───────────────────────────────────────────────
@@ -354,45 +360,37 @@ export async function deleteCamp(
  * Add a school to a camp's attendee list.
  */
 export async function addSchoolAttendee(
-  supabase: SupabaseClient,
   campId: string,
   schoolId: string,
   source: string = 'advertised',
 ): Promise<string | null> {
-  // WRITE side: camp_school_attendees.school_id becomes a CATALOG id at E1.5.
-  // The family school is resolved to whichever id form the column expects (see
-  // camp-host.ts); reads accept both, writes must pick one.
-  const { data: school } = await supabase
-    .from('schools').select('id, discovery_school_id').eq('id', schoolId).maybeSingle()
-  const value = school ? campHostIdFor(school as { id: string; discovery_school_id: string | null }) : schoolId
-  // ON CONFLICT DO NOTHING. camp_school_attendees carries a UNIQUE index on
-  // (camp_id, school_id). While camp_id was per-family a collision was
-  // impossible; now that camps are shared, two families marking the same school
-  // at the same camp is EXPECTED — and one row is the correct outcome, because
-  // attendance is a fact about the world, not a per-family assertion. So the
-  // write absorbs the collision instead of erroring at whoever happens to be
-  // second.
-  const { error } = await supabase
-    .from('camp_school_attendees')
-    .upsert({ camp_id: campId, school_id: value, source },
-            { onConflict: 'camp_id,school_id', ignoreDuplicates: true })
-  return error?.message ?? null
+  const res = await fetch(`/api/camps/${campId}/attendees`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ schoolId, source }),
+  })
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}))
+    return json.error ?? `Add failed (${res.status})`
+  }
+  return null
 }
 
 /**
- * Remove a school from a camp's attendee list.
+ * Remove a school from a camp's attendee list. ADMIN ONLY, server-side.
  */
 export async function removeSchoolAttendee(
-  supabase: SupabaseClient,
   campId: string,
   schoolId: string,
 ): Promise<string | null> {
-  const { error } = await supabase
-    .from('camp_school_attendees')
-    .delete()
-    .eq('camp_id', campId)
-    .eq('school_id', schoolId)
-  return error?.message ?? null
+  const res = await fetch(`/api/camps/${campId}/attendees?schoolId=${encodeURIComponent(schoolId)}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}))
+    return json.error ?? `Remove failed (${res.status})`
+  }
+  return null
 }
 
 // ─── Pure helpers ────────────────────────────────────────────────────────────

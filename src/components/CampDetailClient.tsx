@@ -87,7 +87,7 @@ export default function CampDetailClient({ campId, isAdmin = false }: { campId: 
       }}>← Back to Calendar</Link>
 
       {/* Header */}
-      <HeaderSection camp={campData} onUpdate={updateCamp} />
+      <HeaderSection camp={campData} onUpdate={updateCamp} isAdmin={isAdmin} />
 
       {/* Finn's status */}
       <StatusSection camp={campData} onUpdateStatus={updateFamilyStatus} />
@@ -101,22 +101,24 @@ export default function CampDetailClient({ campId, isAdmin = false }: { campId: 
         schools={schools}
         onAdd={addSchoolAttendee}
         onRemove={removeSchoolAttendee}
+        isAdmin={isAdmin}
       />
 
       {/* Prep doc */}
       <CampPrepSection camp={campData} />
 
       {/* Delete */}
-      <DeleteSection campId={campId} onDelete={deleteCamp} onDeleted={() => router.push('/calendar')} />
+      <DeleteSection campId={campId} onDelete={deleteCamp} onDeleted={() => router.push('/calendar')} isAdmin={isAdmin} />
     </div>
   )
 }
 
 // ─── Header ──────────────────────────────────────────────────────────────────
 
-function HeaderSection({ camp, onUpdate }: {
+function HeaderSection({ camp, onUpdate, isAdmin }: {
   camp: CampWithRelations
   onUpdate: (id: string, data: Record<string, unknown>) => Promise<string | null>
+  isAdmin: boolean
 }) {
   const [editingName, setEditingName] = useState(false)
   const [nameText, setNameText] = useState(camp.camp.name)
@@ -136,7 +138,7 @@ function HeaderSection({ camp, onUpdate }: {
   return (
     <div style={{ marginBottom: 28 }}>
       {/* Camp name */}
-      {editingName ? (
+      {isAdmin && editingName ? (
         <input
           type="text"
           value={nameText}
@@ -154,10 +156,11 @@ function HeaderSection({ camp, onUpdate }: {
         />
       ) : (
         <h1
-          onClick={() => setEditingName(true)}
+          onClick={isAdmin ? () => setEditingName(true) : undefined}
           style={{
             margin: 0, fontSize: 24, fontWeight: 700, fontStyle: 'italic',
-            color: LV.ink, letterSpacing: '-0.03em', cursor: 'pointer',
+            color: LV.ink, letterSpacing: '-0.03em',
+            cursor: isAdmin ? 'pointer' : 'default',
           }}
         >{camp.camp.name}</h1>
       )}
@@ -300,13 +303,13 @@ function DetailsSection({ camp, schools, onUpdate, isAdmin }: {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <HostSchoolRow camp={camp} schools={schools} onUpdate={onUpdate} isAdmin={isAdmin} />
-        <EditableRow label="Start date" value={camp.camp.start_date} field="start_date" type="date" campId={camp.camp.id} onUpdate={onUpdate} />
-        <EditableRow label="End date" value={camp.camp.end_date} field="end_date" type="date" campId={camp.camp.id} onUpdate={onUpdate} />
-        <EditableRow label="Location" value={camp.camp.location} field="location" type="text" campId={camp.camp.id} onUpdate={onUpdate} />
-        <EditableRow label="Registration" value={camp.camp.registration_url} field="registration_url" type="url" campId={camp.camp.id} onUpdate={onUpdate} />
-        <EditableRow label="Deadline" value={camp.camp.registration_deadline} field="registration_deadline" type="date" campId={camp.camp.id} onUpdate={onUpdate} />
-        <EditableRow label="Cost" value={camp.camp.cost} field="cost" type="text" campId={camp.camp.id} onUpdate={onUpdate} />
-        <EditableRow label="Notes" value={camp.camp.notes} field="notes" type="textarea" campId={camp.camp.id} onUpdate={onUpdate} />
+        <EditableRow label="Start date" value={camp.camp.start_date} field="start_date" type="date" campId={camp.camp.id} onUpdate={onUpdate} isAdmin={isAdmin} />
+        <EditableRow label="End date" value={camp.camp.end_date} field="end_date" type="date" campId={camp.camp.id} onUpdate={onUpdate} isAdmin={isAdmin} />
+        <EditableRow label="Location" value={camp.camp.location} field="location" type="text" campId={camp.camp.id} onUpdate={onUpdate} isAdmin={isAdmin} />
+        <EditableRow label="Registration" value={camp.camp.registration_url} field="registration_url" type="url" campId={camp.camp.id} onUpdate={onUpdate} isAdmin={isAdmin} />
+        <EditableRow label="Deadline" value={camp.camp.registration_deadline} field="registration_deadline" type="date" campId={camp.camp.id} onUpdate={onUpdate} isAdmin={isAdmin} />
+        <EditableRow label="Cost" value={camp.camp.cost} field="cost" type="text" campId={camp.camp.id} onUpdate={onUpdate} isAdmin={isAdmin} />
+        <EditableRow label="Notes" value={camp.camp.notes} field="notes" type="textarea" campId={camp.camp.id} onUpdate={onUpdate} isAdmin={isAdmin} />
       </div>
     </div>
   )
@@ -425,12 +428,12 @@ function HostSchoolRow({ camp, schools, onUpdate, isAdmin }: {
         </div>
       ) : (
         <div
-          onClick={() => setEditing(true)}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
+          onClick={isAdmin ? () => setEditing(true) : undefined}
+          onMouseEnter={isAdmin ? () => setHovered(true) : undefined}
+          onMouseLeave={isAdmin ? () => setHovered(false) : undefined}
           style={{
             flex: 1, display: 'flex', alignItems: 'center', gap: 6,
-            cursor: 'pointer', minHeight: 20,
+            cursor: isAdmin ? 'pointer' : 'default', minHeight: 20,
           }}
         >
           {tier && <span style={{
@@ -458,17 +461,25 @@ function PencilIcon() {
   )
 }
 
-function EditableRow({ label, value, field, type, campId, onUpdate }: {
+function EditableRow({ label, value, field, type, campId, onUpdate, isAdmin }: {
   label: string
   value: string | null
   field: string
   type: 'text' | 'date' | 'url' | 'textarea'
   campId: string
   onUpdate: (id: string, data: Record<string, unknown>) => Promise<string | null>
+  /** Camp facts are SHARED TRUTH, so a non-admin family SEES them and cannot
+   *  change them. The row renders read-only rather than offering an edit that
+   *  the endpoint would refuse — a button that always fails is the shape this
+   *  project has spent a week removing (the unreachable accept form, the nested
+   *  add-a-school button, the fabricated Interested chip). No error copy is
+   *  needed because no failing affordance is offered. */
+  isAdmin: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
+  const canEdit = isAdmin && editing
 
   async function save() {
     const newVal = draft.trim() || null
@@ -532,13 +543,13 @@ function EditableRow({ label, value, field, type, campId, onUpdate }: {
         </div>
       ) : (
         <div
-          onClick={() => { setDraft(value ?? ''); setEditing(true) }}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
+          onClick={isAdmin ? () => { setDraft(value ?? ''); setEditing(true) } : undefined}
+          onMouseEnter={isAdmin ? () => setHovered(true) : undefined}
+          onMouseLeave={isAdmin ? () => setHovered(false) : undefined}
           style={{
             flex: 1, display: 'flex', alignItems: 'flex-start', gap: 6,
             fontSize: 13, color: value ? LV.ink : LV.inkMute,
-            cursor: 'pointer', minHeight: 20,
+            cursor: isAdmin ? 'pointer' : 'default', minHeight: 20,
           }}
         >
           <div style={{ flex: 1 }}>
@@ -567,11 +578,14 @@ function EditableRow({ label, value, field, type, campId, onUpdate }: {
 
 // ─── School attendees ────────────────────────────────────────────────────────
 
-function AttendeesSection({ camp, schools, onAdd, onRemove }: {
+function AttendeesSection({ camp, schools, onAdd, onRemove, isAdmin }: {
   camp: CampWithRelations
   schools: School[]
   onAdd: (campId: string, schoolId: string) => Promise<string | null>
   onRemove: (campId: string, schoolId: string) => Promise<string | null>
+  /** Attendance is a fact about the world (E1.5), so non-admins see the list
+   *  and cannot change it. */
+  isAdmin: boolean
 }) {
   const [showSearch, setShowSearch] = useState(false)
   const [search, setSearch] = useState('')
@@ -601,7 +615,7 @@ function AttendeesSection({ camp, schools, onAdd, onRemove }: {
           fontSize: 10, fontWeight: 800, letterSpacing: '0.14em',
           textTransform: 'uppercase', color: LV.inkMute,
         }}>Target schools ({camp.schoolAttendees.length})</div>
-        <button
+        {isAdmin && <button
           onClick={() => setShowSearch(prev => !prev)}
           style={{
             padding: '4px 12px', borderRadius: 999,
@@ -609,7 +623,7 @@ function AttendeesSection({ camp, schools, onAdd, onRemove }: {
             fontSize: 11, fontWeight: 700, color: LV.tealDeep,
             cursor: 'pointer', fontFamily: 'inherit',
           }}
-        >{showSearch ? 'Done' : '+ Add school'}</button>
+        >{showSearch ? 'Done' : '+ Add school'}</button>}
       </div>
 
       {/* Search */}
@@ -689,13 +703,13 @@ function AttendeesSection({ camp, schools, onAdd, onRemove }: {
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: LV.ink }}>
                   {a.school.short_name || a.school.name}
                 </span>
-                <button
+                {isAdmin && <button
                   onClick={() => onRemove(camp.camp.id, a.school_id)}
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
                     fontSize: 14, color: LV.inkMute, padding: '2px 6px',
                   }}
-                >&times;</button>
+                >&times;</button>}
               </div>
             )
           })}
@@ -785,10 +799,11 @@ function CampPrepSection({ camp }: { camp: CampWithRelations }) {
 
 // ─── Delete ──────────────────────────────────────────────────────────────────
 
-function DeleteSection({ campId, onDelete, onDeleted }: {
+function DeleteSection({ campId, onDelete, onDeleted, isAdmin }: {
   campId: string
   onDelete: (id: string) => Promise<string | null>
   onDeleted: () => void
+  isAdmin: boolean
 }) {
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -803,6 +818,10 @@ function DeleteSection({ campId, onDelete, onDeleted }: {
       setConfirming(false)
     }
   }
+
+  // Deleting a camp removes it for EVERY family — it is catalog data. Non-admins
+  // are shown nothing here rather than a control that would be refused.
+  if (!isAdmin) return null
 
   return (
     <div style={{ paddingTop: 20, borderTop: `1px solid ${LV.line}` }}>

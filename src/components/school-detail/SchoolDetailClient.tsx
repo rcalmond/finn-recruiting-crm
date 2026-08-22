@@ -1901,12 +1901,13 @@ function NotesZone({
 // ─── Logistics — reference: RQ, camps, the details ───────────────────────────
 
 function LogisticsStrip({
-  school, camps, schools, onUpdateSchool,
+  school, camps, schools, onUpdateSchool, isAdmin,
 }: {
   school: School
   camps: CampWithRelations[]
   schools: School[]
   onUpdateSchool: (updates: Partial<School>) => Promise<void>
+  isAdmin: boolean
 }) {
   const [editingRQ, setEditingRQ] = useState(false)
   const [editingRqLink, setEditingRqLink] = useState(false)
@@ -2004,7 +2005,7 @@ function LogisticsStrip({
         </SidebarCard>
 
         {/* Camps */}
-        <SidebarCamps school={school} camps={camps} schools={schools} />
+        <SidebarCamps school={school} camps={camps} schools={schools} isAdmin={isAdmin} />
 
         {/* The details */}
         <SidebarCard label="The details">
@@ -2112,10 +2113,11 @@ const CAMP_TIER_STYLE: Record<Category, { bg: string; color: string }> = {
   Nope: { bg: '#E5E7EB', color: '#6B7280' },
 }
 
-function SidebarCamps({ school, camps, schools }: {
+function SidebarCamps({ school, camps, schools, isAdmin }: {
   school: School
   camps: CampWithRelations[]
   schools: School[]
+  isAdmin: boolean
 }) {
   const router = useRouter()
   const [showAddModal, setShowAddModal] = useState(false)
@@ -2125,8 +2127,8 @@ function SidebarCamps({ school, camps, schools }: {
   return (
     <>
       <SidebarCard label={`Camps${totalCount > 0 ? ` · ${totalCount}` : ''}`}>
-        {/* Add button */}
-        <div style={{ float: 'right', marginTop: -30 }}>
+        {/* Add button — CATALOG write, so admin-only rather than a 403 */}
+        {isAdmin && <div style={{ float: 'right', marginTop: -30 }}>
           <button
             onClick={() => setShowAddModal(true)}
             style={{
@@ -2136,7 +2138,7 @@ function SidebarCamps({ school, camps, schools }: {
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >+ Add</button>
-        </div>
+        </div>}
 
         {totalCount === 0 ? (
           <div style={{ fontSize: 12, color: SD.inkLo, fontStyle: 'italic' }}>
@@ -2262,9 +2264,13 @@ interface DraftTarget {
 export default function SchoolDetailClient({
   initialSchool,
   user,
+  isAdmin = false,
 }: {
   initialSchool: School
   user: User
+  /** Camps are CATALOG since E1.5 — adding one from a school page creates a row
+   *  every family sees, so the entry point is admin-only. */
+  isAdmin?: boolean
 }) {
   const today = todayStr()
   const router = useRouter()
@@ -2483,6 +2489,7 @@ export default function SchoolDetailClient({
           camps={camps}
           schools={schools}
           onUpdateSchool={async (updates) => { await updateSchool(school.id, updates) }}
+          isAdmin={isAdmin}
         />
       </div>
 

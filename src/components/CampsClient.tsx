@@ -57,7 +57,7 @@ type ListItem =
 
 const WINDOW_DAYS = 70
 
-export default function CampsClient({ user }: { user: User }) {
+export default function CampsClient({ user, isAdmin = false }: { user: User; isAdmin?: boolean }) {
   const router = useRouter()
   const { schools, loading: schoolsLoading } = useSchools()
   const { camps, loading } = useCamps(schools, schoolsLoading)
@@ -164,7 +164,9 @@ export default function CampsClient({ user }: { user: User }) {
               Up next<span style={{ color: LV.petrol }}>.</span><span style={{ fontSize: 13, fontWeight: 600, color: LV.inkLo, fontStyle: 'normal', marginLeft: 8 }}>{upNext.length}</span>
             </h2>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button style={addPill} onClick={() => setShowAddCamp(true)}>+ Camp</button>
+              {/* Camps are CATALOG — creating one adds it for every family, so the
+                  affordance is admin-only rather than a button that 403s. */}
+              {isAdmin && <button style={addPill} onClick={() => setShowAddCamp(true)}>+ Camp</button>}
               <button style={addPill} onClick={() => setEventModal('add')}>+ Event</button>
             </div>
           </div>

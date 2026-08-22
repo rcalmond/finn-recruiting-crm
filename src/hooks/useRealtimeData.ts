@@ -849,19 +849,19 @@ export function useCamps(schools: School[], schoolsLoading?: boolean) {
   }, [supabase, fetchCamps])
 
   const deleteCamp = useCallback(async (id: string) => {
-    const error = await deleteCampMutation(supabase, id)
+    const error = await deleteCampMutation(id)
     if (!error) await fetchCamps()
     return error
   }, [supabase, fetchCamps])
 
   const addSchoolAttendee = useCallback(async (campId: string, schoolId: string, source?: string) => {
-    const error = await addSchoolAttendeeMutation(supabase, campId, schoolId, source)
+    const error = await addSchoolAttendeeMutation(campId, schoolId, source)
     if (!error) await fetchCamps()
     return error
   }, [supabase, fetchCamps])
 
   const removeSchoolAttendee = useCallback(async (campId: string, schoolId: string) => {
-    const error = await removeSchoolAttendeeMutation(supabase, campId, schoolId)
+    const error = await removeSchoolAttendeeMutation(campId, schoolId)
     if (!error) await fetchCamps()
     return error
   }, [supabase, fetchCamps])
