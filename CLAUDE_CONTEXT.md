@@ -2281,6 +2281,7 @@ STILL PENDING, AND WHAT HAS CLEARED:
 
 Forged during T1; they bind every future DB-touching stretch:
 
+- A FUNCTION EMITTED IN public IS EXECUTABLE BY anon AND authenticated BY DEFAULT. Revoke from them EXPLICITLY and prove it with has_function_privilege; revoking from PUBLIC is NOT sufficient. Supabase ships ALTER DEFAULT PRIVILEGES granting EXECUTE on new public-schema functions DIRECTLY to anon and authenticated, and a revoke aimed at the PUBLIC role does not remove a direct grant to a named one — so the revoke RUNS, REPORTS SUCCESS, and leaves the function open. Caught on public.fk_graph() (2026-08-22), where any signed-in browser session could have read the entire schema graph. app-schema functions are UNAFFECTED, which is why app.current_family_id()'s service_role restriction held: the default-privileges grant targets public only. THE VERIFICATION IS THE OUTPUT, NOT THE REVOKE — the same shape as every other rule on this list, and the reason this one is here rather than assumed.
 - THE CLOSURE IS PASTED BEFORE THE SQL. For every chunk, the Section 15 cascade closure for the tables that chunk touches goes into the sitting BEFORE any DDL is emitted. Section 15 makes it cheap; this step is what makes it happen — E2's blocker analysis was wrong not because the graph was unavailable but because nobody thought to ask it, and a rule that says "consult the catalog" is only as good as the moment it gets consulted. One paste. If Section 15 reports UNAVAILABLE, run the closure by hand against pg_constraint; do NOT substitute a reading of the migration files.
 - ONE SOURCE OF SQL TRUTH. The architect chat emits what Randy runs. Claude Code runs NO SQL against the database, ever. Anything emitted that was not confirmed run is superseded state that must not be assumed.
 - PRECONDITIONS ARE PROVEN BY COMMAND OUTPUT before any sitting begins — a T1 sitting aborted because a deploy commit existed only as a description. THE RULE BINDS RECON EXACTLY AS HARD AS IT BINDS A SITTING, AND IT INCLUDES CLAIMS ABOUT CODE. A number without its query output beside it is an assertion, not a fact. AN INVENTORY OF CALL SITES IS A PRECONDITION: proven by a mechanical sweep pasted in full, never by a grep read selectively — the E2 recon named 16 of ~40 is_primary sites and missed the entire generator surface, seven prompt-building sites that stamp PRIMARY into a document and would have raised neither a compile error nor a runtime error when they silently stopped. A REPORT THAT MIXES OBSERVED OUTPUT WITH INFERRED STRUCTURE IN ONE VOICE gives the reader no way to tell them apart, so mark every claim with how it was obtained or do not make it. And a schema fact read from a MIGRATION FILE is an inference, not an observation: T1, T2 and E1.5 all ran SQL through the architect chat, so supabase/migrations/ is a PARTIAL RECORD of the database. Ask the live catalog.
@@ -2725,6 +2726,7 @@ SCHOOL: University of Rochester
 
 | Date | What changed | Type |
 |---|---|---|
+| 2026-08-22 | SECTION 15 IS LIVE — the FK graph is regenerated from the catalog, and it immediately paid for itself twice. public.fk_graph() returns 95 foreign keys: 41 NO ACTION, 29 CASCADE, 22 SET NULL, 3 RESTRICT. The derived closure CONFIRMS by computation what E2's hand analysis got right and wrong — schools has exactly 3 blockers, one direct (campaign_schools.school_id) and two TRANSITIVE (campaign_schools.coach_id via the coaches cascade, campaign_schools.contact_log_id via the contact_log cascade), the last of which the migrations-derived sweep could not see. It also independently confirms E1.5's three ON DELETE RESTRICT FKs against discovery_schools, which had been documented but never verified from the catalog. THE MORE VALUABLE HALF IS THE SET NULL LIST, which no blocker analysis would have surfaced: a delete of schools SILENTLY NULLS ELEVEN references — including schools.primary_coach_id (created days earlier), schools.origin_contact_log_id (auto-add provenance, so deleting one school erases another's origin), catalog_proposals.origin_school_id, school_conversation_summary.last_contact_log_id and prep_docs.coach_id/research_id. A blocked delete announces itself; a nulled reference does not. families reports 34 blockers, which is the family-table set doing exactly its job. TWO DEFECTS FOUND IN THE GENERATOR ITSELF, both by running it rather than reading it: it reported SET NULL as a BLOCKER (it is not — the delete SUCCEEDS and the row is quietly rewritten), claiming four blockers where the catalog has three, caught by scripts/test-fk-closure.ts on its first run; and the RPC's column names (child_table/child_column/parent_table) did not match the generator's, which without an assertion would have produced an EMPTY graph rendering as "no blockers anywhere" — the most dangerous wrong answer this section can give. It now refuses on a shape mismatch instead. A SECURITY EXPOSURE WAS FOUND AND CLOSED IN THE RPC ITSELF: Supabase's ALTER DEFAULT PRIVILEGES grants EXECUTE on new public-schema functions DIRECTLY to anon and authenticated, and revoking from PUBLIC does not remove a direct grant to a named role — so the revoke ran, reported success, and left the full schema graph readable by any signed-in browser session. Fixed and re-verified (service_role yes; anon and authenticated 42501). Section 9 gains the rule. MECHANICS: Section 15 is carved OUT of the preserved footer so it regenerates rather than going stale like the sections around it, verified idempotent across consecutive exports, and degrades to an explicit UNAVAILABLE block that says NOT to substitute a reading of the migration files. THE DRIFT LINE now prints every regeneration: 14 of 47 live tables have no create-table statement in the repo, and 3 tables named in the repo are not live. | Feature |
 | 2026-08-21 | DELETE REFUSES OUT LOUD — a silent no-op on two thirds of a real family's list. deleteSchool was a bare .delete().eq('id') whose error BOTH call sites discarded: DashboardClient closed the modal and SchoolDetailClient navigated to /schools, so a delete that the database had refused looked exactly like one that succeeded, and the school was still on the list when you got there. THREE FOREIGN KEYS ENFORCE THE REFUSAL and they are all campaign_schools: school_id directly, coach_id and contact_log_id one level down the CASCADE (coaches and contact_log both cascade from schools). Measured: 43 blocked directly, 42 via the coach chain, 26 via the contact_log chain — AND THE DIRECT SET IS A SUPERSET of both, proved by Case Western at direct 1 / coach 0 / contact_log 1. So the true reason is always the same, whichever FK Postgres trips first: this school appears in a campaign. TWO CONSEQUENCES. (1) THE REASON IS QUERIED, NOT PARSED out of the 23503 — the error says a delete failed, the campaign_schools count says why, and it is correct on every path, whereas parsing a constraint name would tie user-facing copy to whichever FK the planner happened to hit. (2) E2's re-point changes which schools can be deleted by ZERO: it removes the coach chain, which is redundant against the direct constraint, so delete behaviour needs NO verification step at the re-point sitting. THE COPY DOES THREE THINGS, and the third is the one that matters: names what blocks it, says why the block is right, and points at the affordance that actually solves the problem — "This school is in 2 campaigns, so it can't be removed — campaign history would lose track of who was contacted. Set its tier to Nope to take it off your board." 43 of Almond's 65 schools are in campaigns, so delete is unavailable for two thirds of a real list permanently and BY DESIGN; without the last clause a correct refusal reads as a broken button. The unknown-blocker path says so honestly rather than naming a table, because 14 of the 47 live tables have no create-table statement in supabase/migrations/ and the derivable blocker set is incomplete by construction. onDelete's type changed from Promise<void> to Promise<DeleteSchoolResult> so the COMPILER found both call sites — tsc stayed green while they were free to ignore a return value, which is precisely how the defect survived. | Bug fix |
 | 2026-08-21 | E2 CHUNK 5a — ONE DEFINITION OF A COACH ROLE, and the gmail-partials bug closes for free. The vocabulary lived in EIGHT places: the CHECK constraint, a CoachRole union in types.ts, a SECOND independent union in coach-scraper.ts, VALID_ROLES, the extraction prompt as prose literals, normalizeRole's mapping, SchoolModal's picker list, and api/gmail-partials/[id]'s own VALID_ROLES — plus a NINTH in scripts/backfill-coaches.ts with its own normalizeRole. Two independent unions meant the compiler could not catch a divergence between the scraper and the app; prose literals in the prompt meant it could not catch one between the app and the model. THAT IS WHY gmail-partials OFFERED THREE VALUES THE CHECK REJECTS — Volunteer Assistant, Director of Operations, Goalkeeper Coach — while omitting two it permits, for months, failing on the constraint at every insert. New src/lib/coach-roles.ts owns COACH_ROLES, the derived CoachRole type, isCoachRole and normalizeRole; the extraction prompt's role list is now GENERATED from it and verified byte-identical to the literal it replaced. gmail-partials guards with isCoachRole, which fixes the illegal-values bug WITH NO SQL — the fix is removing options that never worked. NO NEW VALUES SHIP HERE, deliberately: widening the picker before the CHECK widens is the same bug in a new costume, so the order is CHECK FIRST, then one edit to COACH_ROLES. scripts/backfill-coaches.ts is NOT converted and is named in the file: it is a one-shot backfill that already ran, its normalizeRole has a different signature, and scripts/ is excluded from tsconfig so any edit there is unverifiable — it belongs to the scripts-into-tsconfig chunk. FOUND BY EXERCISING THE FUNCTION rather than reading it: normalizeRole maps "Assoc. Head Coach" and "Assoc Head Coach" to HEAD COACH, because the test is includes('associate') and the abbreviation does not contain it — and role === 'Head Coach' is what promotes a coach to the family's designated contact, so an abbreviated roster listing can hand the primary designation to the wrong person. "Asst. Coach" and "Asst Coach" fall through to Other for the same reason. Reported, not fixed — abbreviation handling rides with the vocabulary widening. | Refactor |
 | 2026-08-21 | E2 CHUNK 4 — THE 18 INVISIBLE COACHES ARE VISIBLE. Rows with is_active=false and archived_at null rendered in NEITHER list: useCoaches fetched active as is_active AND archived_at IS NULL, and archived as archived_at IS NOT NULL, so 18 coaches were unreachable through the UI entirely. TWO OF THEM ARE SOMEBODY'S DESIGNATED CONTACT (Penn's Brian Breen, Wentworth's Matt O'Toole), which means a family whose replies had stopped got no explanation anywhere on the page. THREE STATES, THREE GROUPS: the active roster, "Hidden by you (n)", and "No longer at this program (n)", the last two collapsed. Departed reads from is_active ALONE — deliberately not from archived_at, whose conflation of departure-with-preference is exactly what the private layer retires. PRECEDENCE IS DELIBERATE: a coach the family explicitly hid reads as hidden even when they have also left the program, because that was the family's own decision about them. The hook now issues ONE query and partitions three ways in JS rather than two SQL-filtered queries — hidden can never be a SQL filter here (it lives in another table) and a roster is a handful of rows. Departed rows are labelled with "conversation history kept" and, where applicable, "was your designated contact"; there is no un-depart action, because departure is roster truth and un-departing it is the scraper's job, not the family's. | Bug fix |
@@ -2950,6 +2952,10 @@ SCHOOL: [name]
 
 ---
 
+---
+
+---
+
 ## 15. Foreign Key Graph — Generated August 22, 2026
 
 <!-- GENERATED — do not hand-edit; regenerate with `npm run export-context` -->
@@ -2958,9 +2964,190 @@ Read from the LIVE CATALOG via `public.fk_graph()`, never from `supabase/migrati
 **Before any chunk's SQL, paste the closure below for the tables that chunk touches into the sitting.**
 That step is what turns this from available into consulted; it costs one paste.
 
-> **UNAVAILABLE this regeneration.** `public.fk_graph()` did not answer:
-> `Could not find the function public.fk_graph without parameters in the schema cache`
->
-> Do NOT substitute a reading of `supabase/migrations/` — it is a partial record
-> and answers this question wrongly with full confidence. Run the closure by hand
-> against the catalog for the tables a chunk touches until the RPC is restored.
+### Cascade closures and their blockers
+
+A delete tests every FK pointing at the target **and at every table the delete
+cascades into, recursively**. Transitive blockers are where the surprises live —
+nothing in the delete statement mentions them.
+
+**`schools`** — cascades into 19 table(s); 3 blocker(s); 11 reference(s) silently nulled.
+
+- BLOCKS `campaign_schools.school_id` → `schools` [NO ACTION] — direct
+- BLOCKS `campaign_schools.coach_id` → `coaches` [NO ACTION] — transitive, L1 via `coaches`
+- BLOCKS `campaign_schools.contact_log_id` → `contact_log` [NO ACTION] — transitive, L1 via `contact_log`
+
+  <sub>nulled on delete: `catalog_proposals.origin_school_id`, `camp_family_status.action_item_id`, `campaign_email_drafts.coach_id`, `coach_changes.coach_id`, `contact_log.coach_id`, `prep_docs.coach_id`, `schools.primary_coach_id`, `school_conversation_summary.last_contact_log_id`, `school_message_log.contact_log_id`, `schools.origin_contact_log_id`, `prep_docs.research_id`</sub>
+
+**`coaches`** — cascades into 1 table(s); 1 blocker(s); 5 reference(s) silently nulled.
+
+- BLOCKS `campaign_schools.coach_id` → `coaches` [NO ACTION] — direct
+
+  <sub>nulled on delete: `campaign_email_drafts.coach_id`, `coach_changes.coach_id`, `contact_log.coach_id`, `prep_docs.coach_id`, `schools.primary_coach_id`</sub>
+
+**`discovery_schools`** — cascades into 0 table(s); 3 blocker(s); 2 reference(s) silently nulled.
+
+- BLOCKS `camp_proposals.host_school_id` → `discovery_schools` [RESTRICT] — direct
+- BLOCKS `camp_school_attendees.school_id` → `discovery_schools` [RESTRICT] — direct
+- BLOCKS `camps.host_school_id` → `discovery_schools` [RESTRICT] — direct
+
+  <sub>nulled on delete: `catalog_proposals.resolved_discovery_id`, `schools.discovery_school_id`</sub>
+
+**`camps`** — cascades into 2 table(s); 0 blocker(s); 2 reference(s) silently nulled.
+
+- no blockers: a delete here is unconstrained
+
+  <sub>nulled on delete: `camp_proposals.matched_camp_id`, `prep_docs.camp_id`</sub>
+
+**`families`** — cascades into 0 table(s); 34 blocker(s); 0 reference(s) silently nulled.
+
+- BLOCKS `action_items.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `assets.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `batch_reel_sends.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `calendar_event_schools.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `calendar_events.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `camp_family_status.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `camp_proposal_decisions.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `campaign_email_drafts.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `campaign_schools.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `campaign_templates.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `campaigns.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `catalog_proposals.proposed_by_family_id` → `families` [NO ACTION] — direct
+- BLOCKS `coach_family_state.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `coaches.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `contact_log.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `family_inbound_addresses.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `family_sending_addresses.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `gmail_tokens.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `inbound_quarantine.resolved_family_id` → `families` [NO ACTION] — direct
+- BLOCKS `messages.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `players.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `prep_docs.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `questions.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `school_conversation_summary.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `school_message_log.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `school_message_plan.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `school_milestones.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `school_offers.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `school_plan_questions.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `school_question_overrides.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `school_specific_questions.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `school_status_updates.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `schools.family_id` → `families` [NO ACTION] — direct
+- BLOCKS `users.family_id` → `families` [NO ACTION] — direct
+
+**`contact_log`** — cascades into 0 table(s); 1 blocker(s); 3 reference(s) silently nulled.
+
+- BLOCKS `campaign_schools.contact_log_id` → `contact_log` [NO ACTION] — direct
+
+  <sub>nulled on delete: `school_conversation_summary.last_contact_log_id`, `school_message_log.contact_log_id`, `schools.origin_contact_log_id`</sub>
+
+### Every foreign key
+
+| child.column | → parent | on delete |
+|---|---|---|
+| `camp_family_status.action_item_id` | `action_items` | SET NULL |
+| `assets.replaced_by` | `assets` | NO ACTION |
+| `player_profile.source_asset_id` | `assets` | NO ACTION |
+| `players.source_asset_id` | `assets` | SET NULL |
+| `calendar_event_schools.event_id` | `calendar_events` | CASCADE |
+| `camp_proposal_decisions.proposal_id` | `camp_proposals` | CASCADE |
+| `campaigns.template_id` | `campaign_templates` | NO ACTION |
+| `campaign_email_drafts.campaign_id` | `campaigns` | CASCADE |
+| `campaign_schools.campaign_id` | `campaigns` | CASCADE |
+| `camp_family_status.camp_id` | `camps` | CASCADE |
+| `camp_proposals.matched_camp_id` | `camps` | SET NULL |
+| `camp_school_attendees.camp_id` | `camps` | CASCADE |
+| `prep_docs.camp_id` | `camps` | SET NULL |
+| `campaign_email_drafts.coach_id` | `coaches` | SET NULL |
+| `campaign_schools.coach_id` | `coaches` | NO ACTION |
+| `coach_changes.coach_id` | `coaches` | SET NULL |
+| `coach_family_state.coach_id` | `coaches` | CASCADE |
+| `contact_log.coach_id` | `coaches` | SET NULL |
+| `prep_docs.coach_id` | `coaches` | SET NULL |
+| `schools.primary_coach_id` | `coaches` | SET NULL |
+| `campaign_schools.contact_log_id` | `contact_log` | NO ACTION |
+| `school_conversation_summary.last_contact_log_id` | `contact_log` | SET NULL |
+| `school_message_log.contact_log_id` | `contact_log` | SET NULL |
+| `schools.origin_contact_log_id` | `contact_log` | SET NULL |
+| `camp_proposals.host_school_id` | `discovery_schools` | RESTRICT |
+| `camp_school_attendees.school_id` | `discovery_schools` | RESTRICT |
+| `camps.host_school_id` | `discovery_schools` | RESTRICT |
+| `catalog_proposals.resolved_discovery_id` | `discovery_schools` | SET NULL |
+| `schools.discovery_school_id` | `discovery_schools` | SET NULL |
+| `action_items.family_id` | `families` | NO ACTION |
+| `assets.family_id` | `families` | NO ACTION |
+| `batch_reel_sends.family_id` | `families` | NO ACTION |
+| `calendar_event_schools.family_id` | `families` | NO ACTION |
+| `calendar_events.family_id` | `families` | NO ACTION |
+| `camp_family_status.family_id` | `families` | NO ACTION |
+| `camp_proposal_decisions.family_id` | `families` | NO ACTION |
+| `campaign_email_drafts.family_id` | `families` | NO ACTION |
+| `campaign_schools.family_id` | `families` | NO ACTION |
+| `campaign_templates.family_id` | `families` | NO ACTION |
+| `campaigns.family_id` | `families` | NO ACTION |
+| `catalog_proposals.proposed_by_family_id` | `families` | NO ACTION |
+| `coach_family_state.family_id` | `families` | NO ACTION |
+| `coaches.family_id` | `families` | NO ACTION |
+| `contact_log.family_id` | `families` | NO ACTION |
+| `family_inbound_addresses.family_id` | `families` | NO ACTION |
+| `family_sending_addresses.family_id` | `families` | NO ACTION |
+| `gmail_tokens.family_id` | `families` | NO ACTION |
+| `inbound_quarantine.resolved_family_id` | `families` | NO ACTION |
+| `messages.family_id` | `families` | NO ACTION |
+| `players.family_id` | `families` | NO ACTION |
+| `prep_docs.family_id` | `families` | NO ACTION |
+| `questions.family_id` | `families` | NO ACTION |
+| `school_conversation_summary.family_id` | `families` | NO ACTION |
+| `school_message_log.family_id` | `families` | NO ACTION |
+| `school_message_plan.family_id` | `families` | NO ACTION |
+| `school_milestones.family_id` | `families` | NO ACTION |
+| `school_offers.family_id` | `families` | NO ACTION |
+| `school_plan_questions.family_id` | `families` | NO ACTION |
+| `school_question_overrides.family_id` | `families` | NO ACTION |
+| `school_specific_questions.family_id` | `families` | NO ACTION |
+| `school_status_updates.family_id` | `families` | NO ACTION |
+| `schools.family_id` | `families` | NO ACTION |
+| `users.family_id` | `families` | NO ACTION |
+| `school_message_log.message_id` | `messages` | CASCADE |
+| `school_question_overrides.question_id` | `questions` | CASCADE |
+| `prep_docs.research_id` | `school_research` | SET NULL |
+| `action_items.school_id` | `schools` | CASCADE |
+| `batch_reel_sends.school_id` | `schools` | CASCADE |
+| `calendar_event_schools.school_id` | `schools` | CASCADE |
+| `campaign_email_drafts.school_id` | `schools` | CASCADE |
+| `campaign_schools.school_id` | `schools` | NO ACTION |
+| `catalog_proposals.origin_school_id` | `schools` | SET NULL |
+| `coach_changes.school_id` | `schools` | CASCADE |
+| `coaches.school_id` | `schools` | CASCADE |
+| `contact_log.school_id` | `schools` | CASCADE |
+| `prep_docs.school_id` | `schools` | CASCADE |
+| `school_conversation_summary.school_id` | `schools` | CASCADE |
+| `school_message_log.school_id` | `schools` | CASCADE |
+| `school_message_plan.school_id` | `schools` | CASCADE |
+| `school_milestones.school_id` | `schools` | CASCADE |
+| `school_offers.school_id` | `schools` | CASCADE |
+| `school_plan_questions.school_id` | `schools` | CASCADE |
+| `school_question_overrides.school_id` | `schools` | CASCADE |
+| `school_research.school_id` | `schools` | CASCADE |
+| `school_specific_questions.school_id` | `schools` | CASCADE |
+| `school_status_updates.school_id` | `schools` | CASCADE |
+| `assets.uploaded_by` | `users` | NO ACTION |
+| `camp_proposal_decisions.decided_by` | `users` | SET NULL |
+| `catalog_proposals.reviewed_by` | `users` | SET NULL |
+| `catalog_proposals.proposed_by` | `users` | SET NULL |
+| `contact_log.created_by` | `users` | CASCADE |
+| `family_inbound_addresses.minted_by` | `users` | SET NULL |
+| `inbound_quarantine.resolved_by` | `users` | SET NULL |
+| `not_found_log.user_id` | `users` | SET NULL |
+| `users.id` | `users` | CASCADE |
+
+### Migration drift
+
+**14 of 47 live tables have no `create table` in `supabase/migrations/`.**
+
+`supabase/migrations/` IS NOT A ROLLBACK MECHANISM AND NEVER WAS. Anyone reading it
+as one is reading a fraction of the schema as absent. The live catalog is the source
+of truth; the repo regenerates from it.
+
+- absent from the repo: `camp_attendee_repoint_preimage`, `camp_family_status`, `camp_proposal_decisions`, `camps_repoint_preimage`, `catalog_proposals`, `coach_family_state`, `families`, `family_inbound_addresses`, `family_sending_addresses`, `inbound_quarantine`, `players`, `prep_docs`, `school_research`, `users`
+- named in the repo but NOT live (renamed or dropped): `call_prep_docs`, `camp_coach_attendees`, `camp_finn_status`

@@ -157,9 +157,28 @@ export async function buildSection15(
     return L
   }
 
-  const edges: FkEdge[] = (data as FkEdge[])
-    .map(e => ({ ...e, on_delete: expand(e.on_delete) }))
-    .sort((a, b) => a.parent.localeCompare(b.parent) || a.child.localeCompare(b.child))
+  // NORMALISE THE ROW SHAPE, AND ASSERT IT. The RPC is emitted by the architect
+  // chat, so its column names are not ours to assume — it currently returns
+  // child_table / child_column / parent_table / on_delete (already expanded).
+  // Accepting either naming is cheap; SILENTLY producing zero edges when
+  // neither matches is not, because an empty graph renders as "no blockers
+  // anywhere", which is the most dangerous wrong answer this section can give.
+  const raw = data as Array<Record<string, string>>
+  const edges: FkEdge[] = raw.map(r => ({
+    child:     r.child_table   ?? r.child,
+    col:       r.child_column  ?? r.col,
+    parent:    r.parent_table  ?? r.parent,
+    on_delete: expand(r.on_delete ?? r.confdeltype ?? ''),
+  }))
+  const malformed = edges.filter(e => !e.child || !e.col || !e.parent || !e.on_delete)
+  if (raw.length > 0 && malformed.length > 0) {
+    L.push('> **SHAPE MISMATCH.** `public.fk_graph()` returned rows this generator could not read —')
+    L.push(`> expected child_table/child_column/parent_table/on_delete, got \`${Object.keys(raw[0]).join(', ')}\`.`)
+    L.push('> Refusing to render a partial graph: an empty one reads as "no blockers anywhere".')
+    L.push('')
+    return L
+  }
+  edges.sort((a, b) => a.parent.localeCompare(b.parent) || a.child.localeCompare(b.child))
   const g = build(edges)
 
   // ── 2. Cascade closures (most useful first, so it reads before the raw list)
